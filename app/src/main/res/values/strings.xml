@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Churn</string>
+    <string name="placeholder">Churn is under development.</string>
 </resources>
