@@ -34,7 +34,8 @@ jobs:
         run: |
           set -o pipefail
           if [ -n "$KEYSTORE_B64" ]; then
-            if ! printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"; then
+            # Pasted secrets often pick up line breaks or spaces; base64 has neither.
+            if ! printf '%s' "$KEYSTORE_B64" | tr -d ' \t\r\n' | base64 -d > "$RUNNER_TEMP/upload.jks"; then
               echo "::error::CHURN_UPLOAD_KEYSTORE_B64 is not valid base64."
               exit 1
             fi
