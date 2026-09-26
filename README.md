@@ -28,3 +28,7 @@ repository secrets:
 | `CHURN_KEY_PASSWORD` | Key password |
 
 Without them the bundle is built unsigned.
+
+Recent `keytool` versions create PKCS12 keystores, which use a single
+password for the keystore and the key. In that case set
+`CHURN_KEY_PASSWORD` to the same value as `CHURN_KEYSTORE_PASSWORD`.
