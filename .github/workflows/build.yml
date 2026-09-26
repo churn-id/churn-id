@@ -32,13 +32,39 @@ jobs:
           CHURN_KEY_ALIAS: ${{ secrets.CHURN_KEY_ALIAS }}
           CHURN_KEY_PASSWORD: ${{ secrets.CHURN_KEY_PASSWORD }}
         run: |
+          set -o pipefail
           if [ -n "$KEYSTORE_B64" ]; then
-            printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            if ! printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"; then
+              echo "::error::CHURN_UPLOAD_KEYSTORE_B64 is not valid base64."
+              exit 1
+            fi
+            if ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" \
+                -storepass "$CHURN_KEYSTORE_PASSWORD" >/dev/null 2>&1; then
+              echo "::error::Cannot open the upload keystore: the file is damaged or CHURN_KEYSTORE_PASSWORD is wrong."
+              exit 1
+            fi
+            if ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" \
+                -storepass "$CHURN_KEYSTORE_PASSWORD" -alias "$CHURN_KEY_ALIAS" >/dev/null 2>&1; then
+              echo "::error::The upload keystore has no key with the alias given in CHURN_KEY_ALIAS."
+              exit 1
+            fi
             export CHURN_KEYSTORE_PATH="$RUNNER_TEMP/upload.jks"
           else
             echo "::warning::No upload keystore configured; the bundle is unsigned and Play will reject it."
           fi
-          ./gradlew --no-daemon bundleRelease
+          ./gradlew --no-daemon bundleRelease 2>&1 | tee "$RUNNER_TEMP/gradle.log"
+
+      - name: Report Gradle failure
+        if: failure()
+        run: |
+          [ -f "$RUNNER_TEMP/gradle.log" ] || exit 0
+          reason=$(sed -n '/^\* What went wrong:/,/^\* Try:/p' "$RUNNER_TEMP/gradle.log" \
+            | sed '1d;$d' | head -c 3000)
+          [ -n "$reason" ] || exit 0
+          reason=${reason//'%'/'%25'}
+          reason=${reason//$'\r'/'%0D'}
+          reason=${reason//$'\n'/'%0A'}
+          echo "::error title=Gradle build failed::$reason"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
