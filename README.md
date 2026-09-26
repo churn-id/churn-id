@@ -1,0 +1,30 @@
+# Churn
+
+Placeholder for the Churn Android app (application ID `id.churn`).
+There is no functionality yet.
+
+## Building
+
+CI builds a release bundle on every push to `main`; download it from the
+workflow run's artifacts (`churn-release-aab`).
+
+Locally, with JDK 17 and the Android SDK installed:
+
+```sh
+./gradlew bundleRelease
+```
+
+## Signing
+
+Release bundles are signed with a Google Play upload key supplied through
+environment variables. Key material is never committed. For CI, set these
+repository secrets:
+
+| Secret | Contents |
+| --- | --- |
+| `CHURN_UPLOAD_KEYSTORE_B64` | The upload keystore, base64-encoded |
+| `CHURN_KEYSTORE_PASSWORD` | Keystore password |
+| `CHURN_KEY_ALIAS` | Key alias |
+| `CHURN_KEY_PASSWORD` | Key password |
+
+Without them the bundle is built unsigned.
