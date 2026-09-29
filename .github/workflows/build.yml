@@ -30,7 +30,7 @@ jobs:
         env:
           KEYSTORE_B64: ${{ secrets.CHURN_UPLOAD_KEYSTORE_B64 }}
           CHURN_KEYSTORE_PASSWORD: ${{ secrets.CHURN_KEYSTORE_PASSWORD }}
-          CHURN_KEY_ALIAS: ${{ secrets.CHURN_KEY_ALIAS }}
+          CHURN_KEY_ALIAS: upload
           CHURN_KEY_PASSWORD: ${{ secrets.CHURN_KEY_PASSWORD }}
         run: |
           set -o pipefail
