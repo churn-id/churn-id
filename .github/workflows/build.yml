@@ -47,7 +47,7 @@ jobs:
             fi
             if ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" \
                 -storepass "$CHURN_KEYSTORE_PASSWORD" -alias "$CHURN_KEY_ALIAS" >/dev/null 2>&1; then
-              echo "::error::The upload keystore has no key with the alias given in CHURN_KEY_ALIAS."
+              echo "::error::The upload keystore has no key with the alias '$CHURN_KEY_ALIAS'."
               exit 1
             fi
             export CHURN_KEYSTORE_PATH="$RUNNER_TEMP/upload.jks"
