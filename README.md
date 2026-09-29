@@ -22,9 +22,9 @@ Actions environment named `release` with deployment branches restricted to
 `main` must exist. In it these secrets must be set (not as repository
 secrets, which every branch can read):
 
-| Secret | Contents |
-| --- | --- |
+| Secret                      | Contents                                   |
+|-----------------------------|--------------------------------------------|
 | `CHURN_UPLOAD_KEYSTORE_B64` | The PKCS12 upload keystore, base64-encoded |
-| `CHURN_UPLOAD_PASSWORD` | Keystore & key password |
+| `CHURN_UPLOAD_PASSWORD`     | Keystore & key password                    |
 
 Builds of pull requests and other branches are always unsigned.
