@@ -8,7 +8,7 @@ updates:
       prefix: ci
 
   - package-ecosystem: gradle
-    directory: /
+    directory: /android
     schedule:
       interval: weekly
     commit-message:
