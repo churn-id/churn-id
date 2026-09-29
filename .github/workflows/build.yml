@@ -29,9 +29,9 @@ jobs:
       - name: Build release bundle
         env:
           KEYSTORE_B64: ${{ secrets.CHURN_UPLOAD_KEYSTORE_B64 }}
-          CHURN_KEYSTORE_PASSWORD: ${{ secrets.CHURN_KEYSTORE_PASSWORD }}
+          CHURN_KEYSTORE_PASSWORD: ${{ secrets.CHURN_UPLOAD_PASSWORD }}
           CHURN_KEY_ALIAS: upload
-          CHURN_KEY_PASSWORD: ${{ secrets.CHURN_KEY_PASSWORD }}
+          CHURN_KEY_PASSWORD: ${{ secrets.CHURN_UPLOAD_PASSWORD }}
         run: |
           set -o pipefail
           if [ -n "$KEYSTORE_B64" ]; then
@@ -42,7 +42,7 @@ jobs:
             fi
             if ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" \
                 -storepass "$CHURN_KEYSTORE_PASSWORD" >/dev/null 2>&1; then
-              echo "::error::Cannot open the upload keystore: the file is damaged or CHURN_KEYSTORE_PASSWORD is wrong."
+              echo "::error::Cannot open the upload keystore: the file is damaged or CHURN_UPLOAD_PASSWORD is wrong."
               exit 1
             fi
             if ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" \
