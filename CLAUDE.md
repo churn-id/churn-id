@@ -3,7 +3,13 @@
 ## Contributions
 
 - Every change reaches `main` through a pull request. Never push to `main`.
-- Branch names for Claude's work start with `claude/`.
+- Claude pushes its work to branches starting with `claude/`, using its own
+  GitHub account, a collaborator without admin rights.
+- The maintainer (`churn-id`) opens every pull request. Claude may write its
+  title and description, which then end with
+  `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+- Only the maintainer merges, always with a merge commit. Claude never
+  merges pull requests, approves deployments or changes repository settings.
 
 ## Commits
 
@@ -26,8 +32,6 @@
   added with a `Co-Authored-By` trailer. Keep the maintainer as committer.
 - Rewriting maintainer commits without changing their content (rebase,
   reorder, reword) keeps the maintainer as committer.
-- Pull requests are opened by `churn-id`. A description written by Claude
-  ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 
 ## Code and configuration
 
