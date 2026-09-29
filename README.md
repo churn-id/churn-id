@@ -17,16 +17,14 @@ Locally, with JDK 17 and the Android SDK installed:
 ## Signing
 
 Release bundles are signed with a Google Play upload key supplied through
-environment variables. Key material is never committed. For CI, create a
-GitHub Actions environment named `release`, limit its deployment branches to
-`main`, and set these secrets in it (not as repository secrets, which every
-branch can read):
+environment variables. Key material is never committed. For CI, a GitHub
+Actions environment named `release` with deployment branches restricted to
+`main` must exist. In it these secrets must be set (not as repository
+secrets, which every branch can read):
 
 | Secret | Contents |
 | --- | --- |
 | `CHURN_UPLOAD_KEYSTORE_B64` | The PKCS12 upload keystore, base64-encoded |
 | `CHURN_UPLOAD_PASSWORD` | Keystore & key password |
 
-The key's alias must be `upload`; the workflow sets it directly. Builds of
-pull requests and other branches are always unsigned.
-
+Builds of pull requests and other branches are always unsigned.
