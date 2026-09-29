@@ -26,10 +26,10 @@ branch can read):
 | --- | --- |
 | `CHURN_UPLOAD_KEYSTORE_B64` | The upload keystore, base64-encoded |
 | `CHURN_KEYSTORE_PASSWORD` | Keystore password |
-| `CHURN_KEY_ALIAS` | Key alias |
 | `CHURN_KEY_PASSWORD` | Key password |
 
-Builds of pull requests and other branches are always unsigned.
+The key's alias must be `upload`; the workflow sets it directly. Builds of
+pull requests and other branches are always unsigned.
 
 Recent `keytool` versions create PKCS12 keystores, which use a single
 password for the keystore and the key. In that case set
