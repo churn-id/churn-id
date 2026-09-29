@@ -8,9 +8,11 @@ There is no functionality yet.
 CI builds a release bundle on every push to `main`; download it from the
 workflow run's artifacts (`churn-release-aab`).
 
+The Android project lives in `android/`; open that folder in Android Studio.
 Locally, with JDK 17 and the Android SDK installed:
 
 ```sh
+cd android
 ./gradlew bundleRelease
 ```
 
