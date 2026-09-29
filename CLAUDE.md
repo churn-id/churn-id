@@ -1,0 +1,38 @@
+# Conventions
+
+## Contributions
+
+- Every change reaches `main` through a pull request. Never push to `main`.
+- Branch names for Claude's work start with `claude/`.
+
+## Commits
+
+- Keep each commit as small as possible. Keep non-functional changes
+  (formatting, comments, docs, refactors without behavior change) in
+  separate commits from functional ones.
+- Use conventional commit messages: `feat:`, `fix:`, `refactor:`, `docs:`,
+  `build:`, `ci:`, `test:`, `chore:`.
+- A follow-up fix to a commit in the same unmerged PR is folded into that
+  commit, not added as a separate one.
+- Never rewrite history that is already on `main`.
+
+## Identities
+
+- The maintainer commits as `churn-id <churn-id@users.noreply.github.com>`.
+- Claude's own commits use `Claude <noreply@anthropic.com>` as both author
+  and committer, without a `Co-Authored-By` trailer.
+- When Claude changes a maintainer commit, or the maintainer requests
+  changes to a Claude commit, the original author stays and the other is
+  added with a `Co-Authored-By` trailer. Keep the maintainer as committer.
+- Rewriting maintainer commits without changing their content (rebase,
+  reorder, reword) keeps the maintainer as committer.
+- Pull requests are opened by `churn-id`. A description written by Claude
+  ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+
+## Code and configuration
+
+- Keep code and configuration as short as possible; don't spell out
+  settings that only restate a default.
+- Pin GitHub Actions to full commit SHAs with the version as a comment.
+- Signing secrets belong in the `release` environment, never in repository
+  secrets.
