@@ -10,6 +10,8 @@
   `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 - Only the maintainer merges, always with a merge commit. Claude never
   merges pull requests, approves deployments or changes repository settings.
+- `main` requires a branch to be up to date with it before merging, so a PR
+  behind `main` must first be rebased or updated.
 
 ## Commits
 
