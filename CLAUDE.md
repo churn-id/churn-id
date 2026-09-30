@@ -10,6 +10,9 @@
   `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 - Only the maintainer merges, always with a merge commit. Claude never
   merges pull requests, approves deployments or changes repository settings.
+- Every pull request needs one approval, given by Claude after it has checked
+  the diff. For Dependabot updates it also compares the new commit hash with
+  the upstream tag.
 - `main` requires a branch to be up to date with it before merging, so a PR
   behind `main` must first be rebased or updated.
 
