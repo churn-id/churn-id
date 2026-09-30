@@ -20,9 +20,9 @@
 
 ## Commits
 
-- Use conventional commit messages (`type: description`) with `feat:`,
-  `fix:`, `perf:`, `refactor:`, `style:`, `test:`, `docs:`, `build:`, `ci:`,
-  `chore:` or `revert:` as type, based on
+- Use conventional commit messages (`type: description`) with `feat`, `fix`,
+  `perf`, `refactor`, `style`, `test`, `docs`, `build`, `ci`, `chore` or
+  `revert` as type, based on
   https://www.conventionalcommits.org/en/v1.0.0/.
 - Keep each commit as small as possible. Keep non-functional changes
   (`refactor`, `style`, `ci`, `chore`) in separate commits from functional
