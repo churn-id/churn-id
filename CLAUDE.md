@@ -20,13 +20,20 @@
 
 ## Commits
 
+- Use conventional commit messages (`type: description`) with `feat:`,
+  `fix:`, `perf:`, `refactor:`, `style:`, `test:`, `docs:`, `build:`, `ci:`,
+  `chore:` or `revert:` as type, based on
+  https://www.conventionalcommits.org/en/v1.0.0/.
 - Keep each commit as small as possible. Keep non-functional changes
-  (formatting, comments, docs, refactors without behavior change) in
-  separate commits from functional ones.
-- Use conventional commit messages: `feat:`, `fix:`, `refactor:`, `docs:`,
-  `build:`, `ci:`, `test:`, `chore:`.
+  (`refactor`, `style`, `ci`, `chore`) in separate commits from functional
+  ones. A `revert` counts as what it reverts.
+- `docs` and `test` are only for a feature already on `main` that needs more
+  documentation or tests, or for corrections to existing docs. New features
+  and fixes carry their own docs and tests in the `feat` or `fix` commit.
+  Other changes to repository files such as CLAUDE.md use `chore`; docs that
+  accompany a `ci` or `build` change go into that commit.
 - A follow-up fix to a commit in the same unmerged PR is folded into that
-  commit, not added as a separate one.
+  commit, unless it is a purely stylistic change.
 - Never rewrite history that is already on `main`.
 
 ## Identities
