@@ -45,3 +45,5 @@
 - Pin GitHub Actions to full commit SHAs with the version as a comment.
 - Signing secrets belong in the `release` environment, never in repository
   secrets.
+- Dependabot waits 7 days before proposing a new release (`cooldown`), because
+  poisoned releases are usually withdrawn within days.
