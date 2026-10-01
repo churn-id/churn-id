@@ -30,3 +30,12 @@ secrets, which every branch can read):
 | `CHURN_UPLOAD_PASSWORD`     | Keystore & key password                    |
 
 Builds of pull requests and other branches are always unsigned.
+
+## History
+
+On 2026-10-01 the repository was recreated and its history rewritten. Early
+merge commits made on GitHub exposed the maintainer's real email address, and
+many commits were unsigned, so GitHub's vigilant mode would have flagged them
+as unverified. The rewrite removed the address, re-signed every commit and
+dropped the merge commits and pull request references. Pull requests and
+issues from before that date are gone.
