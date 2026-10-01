@@ -21,6 +21,9 @@
 - Every pull request needs one approval, given by Claude after it has checked
   the diff. For Dependabot updates it also compares the new commit hash with
   the upstream tag.
+- The ruleset on `main` must keep `require_last_push_approval` off: otherwise
+  Claude's approval doesn't count on PRs it pushed, and the maintainer can't
+  approve his own.
 - `main` requires a branch to be up to date with it before merging, so a PR
   behind `main` must first be rebased or updated.
 
