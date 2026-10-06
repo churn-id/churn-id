@@ -289,6 +289,9 @@ The app shows these rules in this wording:
 9. Do not run the router without the battery installed.
 10. Send all traffic through the router's VPN, and don't use the router
     without it.
+11. Use a phone without Google services, or turn off location services on
+    every device you use with the router.
+12. Pay for the VPN in a way that isn't tied to your name.
 
 Why:
 1. A router with a SIM registers at every power-on, before airplane mode
@@ -324,6 +327,12 @@ Why:
     (inferred). A VPN on the router covers every device behind it. It must
     block traffic while it is down, or a boot or a dropped tunnel leaks
     (section 10).
+11. A phone with location services on gives Google or Apple a continuous
+    timeline of its account, built from GPS and the Wi-Fi networks and
+    cells it sees. Matched against the carrier's records, it links every
+    SIM the router used along the way (inferred).
+12. The VPN provider sees each SIM's IP address in turn, all under one VPN
+    account. If that account is tied to a name, so are all the SIMs.
 
 The app also tells the user, before first use, that rewriting an IMEI is a
 criminal offence in some countries, for example under the UK's Mobile

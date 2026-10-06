@@ -56,6 +56,9 @@ Following the rules below matters as much as the app itself. The
 9. Do not run the router without the battery installed.
 10. Send all traffic through the router's VPN, and don't use the router
     without it.
+11. Use a phone without Google services, or turn off location services on
+    every device you use with the router.
+12. Pay for the VPN in a way that isn't tied to your name.
 
 The reasons for each rule are in the
 [design document](docs/design.md#8-usage-rules).
