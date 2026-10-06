@@ -44,10 +44,10 @@ Following the rules below matters as much as the app itself. The
    eSIM.
 5. Where you can, use SIM cards that aren't registered to your name. The
    same goes for eSIM profiles.
-6. Ideally, get each new SIM card or eSIM profile from a different
-   provider than the last one.
-7. If possible, don't reuse a card once you've swapped it out. If you must
-   reuse one, it's best to use it at the same location you used it before.
+6. Get each new SIM card or eSIM profile from a different provider than
+   the last one.
+7. Don't reuse a card once you've swapped it out. If you must reuse one,
+   it's best to use it at the same location you used it before.
 8. Vary when you swap SIMs, and where you switch the radio on and off.
 9. Do not run the router without the battery installed.
 10. Only ever load one profile onto an eSIM adapter.
