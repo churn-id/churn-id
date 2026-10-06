@@ -95,8 +95,8 @@ IMSI.
 - Some roaming profiles switch between several IMSIs, depending on the
   country, while their ICCID stays the same. With the IMSI as input, the
   same profile could get a new IMEI when inserted again, which would show
-  its issuer that the IMEI was rewritten. With the ICCID, a profile always shows
-  the same IMEI, like a SIM in an ordinary device.
+  its issuer that the IMEI was rewritten. With the ICCID, a profile always
+  shows the same IMEI, like a SIM in an ordinary device.
 - One of the two swap orders (section 7) can't read the IMSI before the
   profile registers, but the user can enter the ICCID beforehand. Using the
   ICCID in both orders keeps one rule.
@@ -234,9 +234,8 @@ Used if two tests with real SIMs pass (section 10).
    user switches the router off.
 2. With the router off, the user replaces the old SIM in slot 2's tray with
    the new one, goes to a place that doesn't matter, and switches the router
-   on. Only the
-   eSIM's short bursts go out, with the throwaway IMEI and the near-generic
-   test identity.
+   on. Only the eSIM's short bursts go out, with the throwaway IMEI and the
+   near-generic test identity.
 3. The app switches slot 2 to SIM 2 in airplane mode, reads the ICCID,
    writes the derived pair and verifies it.
 4. The user turns airplane mode off later, at another place and time.
@@ -357,5 +356,5 @@ IMEI on GL.iNet routers and were the starting point for Churn. Churn differs
 in ways that follow from the sections above: nothing is installed on the
 router, the derivation is keyed, derived IMEIs keep the router's own TAC
 instead of a pool of other devices' TACs, and every swap is a guided
-procedure that teaches the usage rules. blue-merle v2 was also the source for the command that
-writes IMEI 2.
+procedure that teaches the usage rules. blue-merle v2 was also the source
+for the command that writes IMEI 2.

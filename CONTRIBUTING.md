@@ -39,9 +39,8 @@ is in [docs/development.md](docs/development.md).
   documentation or tests, or for corrections to existing docs. `docs` also
   covers documents not tied to a single feature, such as the design. New
   features and fixes carry their own docs and tests in the `feat` or `fix`
-  commit.
-  Other changes to repository files such as CLAUDE.md use `chore`; docs that
-  accompany a `ci` or `build` change go into that commit.
+  commit. Other changes to repository files such as CLAUDE.md use `chore`;
+  docs that accompany a `ci` or `build` change go into that commit.
 - A follow-up fix to a commit in the same unmerged pull request is folded
   into that commit, unless it is a purely stylistic change.
 - Never rewrite history that is already on `main`.
