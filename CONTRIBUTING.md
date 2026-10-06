@@ -32,8 +32,10 @@
   (`refactor`, `style`, `ci`, `chore`) in separate commits from functional
   ones. A `revert` counts as what it reverts.
 - `docs` and `test` are only for a feature already on `main` that needs more
-  documentation or tests, or for corrections to existing docs. New features
-  and fixes carry their own docs and tests in the `feat` or `fix` commit.
+  documentation or tests, or for corrections to existing docs. `docs` also
+  covers documents not tied to a single feature, such as the design. New
+  features and fixes carry their own docs and tests in the `feat` or `fix`
+  commit.
   Other changes to repository files such as CLAUDE.md use `chore`; docs that
   accompany a `ci` or `build` change go into that commit.
 - A follow-up fix to a commit in the same unmerged pull request is folded
