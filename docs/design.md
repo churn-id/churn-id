@@ -290,7 +290,8 @@ For maximum privacy, also follow these rules where you can:
 7. Use SIM cards that aren't registered to your name. The same goes for
    eSIM profiles.
 8. Get each new SIM card or eSIM profile from a different provider than
-   the last one.
+   the last one. If you can't, start using the new one somewhere else and
+   some days after you stopped using the last one.
 9. Don't reuse a card once you've swapped it out. If you must reuse one,
    it's best to use it at the same location you used it before.
 10. Vary when you swap SIMs, and where you switch the radio on and off.
@@ -331,7 +332,9 @@ Why:
 8. A provider that issues two consecutive profiles sees one MUDI 7 IMEI stop
    and another start, both with a rare TAC and possibly in the same area.
    Timing and place could link them (inferred). A different provider sees
-   only one of them.
+   only one of them. Where the same provider can't be avoided, a different
+   place and a gap of some days make the stop and the start harder to
+   match.
 9. A reused SIM brings back its old IMSI and ICCID. A reused eSIM adapter
    card brings back its EID, which links its profiles as in rule 4.
 10. Regular habits, such as always swapping on the same day or at the same
