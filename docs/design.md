@@ -292,8 +292,8 @@ For maximum privacy, also follow these rules where you can:
 8. Get each new SIM card or eSIM profile from a different provider than
    the last one. If you can't, start using the new one somewhere else and
    some days after you stopped using the last one.
-9. Don't reuse a card once you've swapped it out. If you must reuse one,
-   it's best to use it at the same location you used it before.
+9. Don't reuse a card once you've swapped it out. If you run out of new
+   cards, keep using the current one until you get a new one.
 10. Vary when you swap SIMs, and where you switch the radio on and off.
 11. Use a phone without Google services, or turn off location services on
     every device you use with the router.
@@ -337,6 +337,10 @@ Why:
    match.
 9. A reused SIM brings back its old IMSI and ICCID. A reused eSIM adapter
    card brings back its EID, which links its profiles as in rule 4.
+   Keeping the current card links nothing new, while swapping back to an
+   old one links that card's earlier use to today. Done just as the current
+   card goes quiet, the swap could also link the two cards by timing
+   (inferred).
 10. Regular habits, such as always swapping on the same day or at the same
     station, can link identities without any identifier.
 11. A phone with location services on gives Google or Apple a continuous

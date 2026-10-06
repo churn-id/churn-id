@@ -59,8 +59,8 @@ For maximum privacy, also follow these rules where you can:
 8. Get each new SIM card or eSIM profile from a different provider than
    the last one. If you can't, start using the new one somewhere else and
    some days after you stopped using the last one.
-9. Don't reuse a card once you've swapped it out. If you must reuse one,
-   it's best to use it at the same location you used it before.
+9. Don't reuse a card once you've swapped it out. If you run out of new
+   cards, keep using the current one until you get a new one.
 10. Vary when you swap SIMs, and where you switch the radio on and off.
 11. Use a phone without Google services, or turn off location services on
     every device you use with the router.
