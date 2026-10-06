@@ -25,7 +25,8 @@ Following the rules below matters as much as the app itself. The
 ## What you need
 
 - A GL.iNet MUDI 7 (GL-E5800). We test with GL firmware 4.10.0.
-- An Android phone and a USB-C cable to connect it to the router.
+- An Android phone and a USB-C cable (ideally the one that came with the
+  device) to connect it to the router.
 - The router's admin password.
 - A new SIM for each swap: a physical SIM, or a profile on a removable eSIM
   card.
