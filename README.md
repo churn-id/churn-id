@@ -30,8 +30,8 @@ Following the rules below matters as much as the app itself. The
 - The router's admin password.
 - A new SIM for each swap, either
   - a normal SIM card, or
-  - an [eSIM adapter](https://jmp.chat/esim-adapter) card containing one
-    eSIM profile.
+  - an eSIM adapter card, such as [JMP's](https://jmp.chat/esim-adapter),
+    containing one eSIM profile.
 
 ## Rules
 
