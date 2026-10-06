@@ -13,6 +13,7 @@ use after it.
 Churn stops the router's IMEI from linking your old SIM to your new one.
 
 It doesn't hide:
+
 - where the router is while it's online;
 - what you do online, or the accounts you use;
 - who bought a SIM, if it's registered to a name;
