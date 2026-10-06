@@ -273,13 +273,16 @@ The app shows these rules in this wording:
 2. Before you get to such a place, unplug everything and switch the router
    off.
 3. Connect to the router by cable only, and keep its Wi-Fi off.
-4. Use physical SIMs or removable eSIM cards, not the router's built-in
-   eSIM.
-5. Where you can, use SIMs that aren't registered to your name.
-6. Get each new SIM or profile from a different provider than the last one.
-7. Don't reuse a SIM or eSIM card once you've swapped it out.
+4. Use normal SIM cards, or eSIM adapter cards with one profile each, not
+   the router's built-in eSIM.
+5. Where you can, use SIM cards that aren't registered to your name. The
+   same goes for eSIM profiles.
+6. Get each new SIM card or eSIM profile from a different provider than
+   the last one.
+7. Don't reuse a card once you've swapped it out. If you must reuse one,
+   it's best to use it at the same location you used it before.
 8. Vary when you swap SIMs, and where you switch the radio on and off.
-9. Keep the battery in the router.
+9. Do not run the router without the battery installed.
 
 Why:
 1. A router with a SIM registers at every power-on, before airplane mode
@@ -295,14 +298,15 @@ Why:
    across SIM swaps.
 4. The built-in eSIM's EID never changes and is reported to the provider's
    server on every profile download, which links all its profiles. It also
-   emits at boot whenever slot 2 is set to it.
-5. A SIM registered to a name ties every IMEI it is used with to that name.
-   Churn can't undo that.
+   emits at boot whenever slot 2 is set to it. An eSIM adapter card has an
+   EID too, so a second profile on it would be linked to the first.
+5. A SIM or profile registered to a name ties every IMEI it is used with to
+   that name. Churn can't undo that.
 6. A provider that issues two consecutive profiles sees one MUDI 7 IMEI stop
    and another start, both with a rare TAC and possibly in the same area.
    Timing and place could link them (inferred). A different provider sees
    only one of them.
-7. A reused SIM brings back its old IMSI and ICCID. A reused removable eSIM
+7. A reused SIM brings back its old IMSI and ICCID. A reused eSIM adapter
    card brings back its EID, which links its profiles as in rule 4.
 8. Regular habits, such as always swapping on the same day or at the same
    station, can link identities without any identifier.
