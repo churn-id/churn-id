@@ -40,13 +40,17 @@ Following the rules below matters as much as the app itself. The
 2. Before you get to such a place, unplug everything and switch the router
    off.
 3. Connect to the router by cable only, and keep its Wi-Fi off.
-4. Use physical SIMs or removable eSIM cards, not the router's built-in
+4. Use normal SIM cards or eSIM adapter cards, not the router's built-in
    eSIM.
-5. Where you can, use SIMs that aren't registered to your name.
-6. Get each new SIM or profile from a different provider than the last one.
-7. Don't reuse a SIM or eSIM card once you've swapped it out.
+5. Where you can, use SIM cards that aren't registered to your name. The
+   same goes for eSIM profiles.
+6. Ideally, get each new SIM card or eSIM profile from a different
+   provider than the last one.
+7. If possible, don't reuse a card once you've swapped it out. If you must
+   reuse one, it's best to use it at the same location you used it before.
 8. Vary when you swap SIMs, and where you switch the radio on and off.
-9. Keep the battery in the router.
+9. Do not run the router without the battery installed.
+10. Only ever load one profile onto an eSIM adapter.
 
 The reasons for each rule are in the
 [design document](docs/design.md#8-usage-rules).
