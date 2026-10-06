@@ -19,15 +19,19 @@ in it is linked to every SIM used in it before. Churn's goal is that the
 identity used before a SIM swap can't be linked to the one used after it.
 
 - **Adversary:** the carrier, and anyone who later reads its records
-  (retained data, lawful access).
+  (retained data, lawful access), possibly joined with other records such
+  as a service's IP address logs or a phone's location data.
 - **Churn handles:** the IMEI as a link between SIMs. Each SIM profile gets
   its own IMEIs, which nobody without the router's secret can predict.
 - **The user handles:** time and place. A swap done where the old SIM was
   last used, or a router that registers at home, links identities without
   any IMEI. Section 8 lists the rules the app teaches for this.
-- **Out of scope:** the location of a router while it is online; traffic
-  and accounts used through it; who bought a SIM; radio fingerprinting of
-  the transmitter by specialised equipment nearby; and the modem model,
+- **The VPN handles:** the SIM's IP address. Without one, every service
+  used through the router logs the current SIM's address with the account,
+  so a single account links all SIMs (rule 10).
+- **Out of scope:** the location of a router while it is online; what is
+  done online and the accounts used; who bought a SIM; radio fingerprinting
+  of the transmitter by specialised equipment nearby; and the modem model,
   which the network learns from the radio capabilities the modem announces,
   whatever its IMEI.
 - **Accepted trade-off:** the phone holds a root SSH credential for the
@@ -283,6 +287,8 @@ The app shows these rules in this wording:
    it's best to use it at the same location you used it before.
 8. Vary when you swap SIMs, and where you switch the radio on and off.
 9. Do not run the router without the battery installed.
+10. Send all traffic through the router's VPN, and don't use the router
+    without it.
 
 Why:
 1. A router with a SIM registers at every power-on, before airplane mode
@@ -311,6 +317,13 @@ Why:
 8. Regular habits, such as always swapping on the same day or at the same
    station, can link identities without any identifier.
 9. Running without the battery risks file-system corruption on power loss.
+10. Without a VPN, every service a device behind the router uses sees the
+    current SIM's IP address and logs it with the account, so one account
+    links all SIMs, as the IMEI would. The carrier also sees the traffic,
+    whose pattern can probably recognise the same devices across SIMs
+    (inferred). A VPN on the router covers every device behind it. It must
+    block traffic while it is down, or a boot or a dropped tunnel leaks
+    (section 10).
 
 The app also tells the user, before first use, that rewriting an IMEI is a
 criminal offence in some countries, for example under the UK's Mobile
@@ -340,6 +353,8 @@ Hardware, other:
   commands for it.
 - Do Android phones other than the one we tested accept the router's USB
   Ethernet?
+- Does GL's VPN client on the MUDI 7 block all traffic while the VPN is
+  down, including right after boot? Rule 10 depends on it.
 
 Design:
 - Do real MUDI 7 serials fall in a narrow range? A derived serial far

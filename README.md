@@ -19,6 +19,9 @@ It doesn't hide:
 - who bought a SIM, if it's registered to a name;
 - that the device is a MUDI 7, which the network can tell from its radio.
 
+Churn only helps together with a VPN. Without one, the websites and apps you
+use can link your SIMs through your accounts.
+
 Following the rules below matters as much as the app itself. The
 [design document](docs/design.md) explains how Churn works and why.
 
@@ -28,6 +31,7 @@ Following the rules below matters as much as the app itself. The
 - An Android phone and a USB-C cable to connect it to the router, ideally
   the router's own cable.
 - The router's admin password.
+- A VPN service, set up on the router.
 - A new SIM for each swap, either
   - a normal SIM card, or
   - an eSIM adapter card, such as [JMP's](https://jmp.chat/esim-adapter),
@@ -50,6 +54,8 @@ Following the rules below matters as much as the app itself. The
    it's best to use it at the same location you used it before.
 8. Vary when you swap SIMs, and where you switch the radio on and off.
 9. Do not run the router without the battery installed.
+10. Send all traffic through the router's VPN, and don't use the router
+    without it.
 
 The reasons for each rule are in the
 [design document](docs/design.md#8-usage-rules).
