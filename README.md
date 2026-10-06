@@ -39,6 +39,8 @@ Following the rules below matters as much as the app itself. The
 
 ## Rules
 
+Always follow these rules:
+
 1. At home, at work and anywhere else you return to, keep the router
    switched off or without a SIM.
 2. Before you get to such a place, unplug everything and switch the router
@@ -46,16 +48,19 @@ Following the rules below matters as much as the app itself. The
 3. Connect to the router by cable only, and keep its Wi-Fi off.
 4. Use normal SIM cards, or eSIM adapter cards with one profile each, not
    the router's built-in eSIM.
-5. Where you can, use SIM cards that aren't registered to your name. The
-   same goes for eSIM profiles.
-6. Get each new SIM card or eSIM profile from a different provider than
+5. Send all traffic through the router's VPN, and don't use the router
+   without it.
+6. Do not run the router without the battery installed.
+
+For maximum privacy, also follow these rules where you can:
+
+7. Use SIM cards that aren't registered to your name. The same goes for
+   eSIM profiles.
+8. Get each new SIM card or eSIM profile from a different provider than
    the last one.
-7. Don't reuse a card once you've swapped it out. If you must reuse one,
+9. Don't reuse a card once you've swapped it out. If you must reuse one,
    it's best to use it at the same location you used it before.
-8. Vary when you swap SIMs, and where you switch the radio on and off.
-9. Do not run the router without the battery installed.
-10. Send all traffic through the router's VPN, and don't use the router
-    without it.
+10. Vary when you swap SIMs, and where you switch the radio on and off.
 11. Use a phone without Google services, or turn off location services on
     every device you use with the router.
 12. Pay for the VPN in a way that isn't tied to your name.

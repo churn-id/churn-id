@@ -28,7 +28,7 @@ identity used before a SIM swap can't be linked to the one used after it.
   any IMEI. Section 8 lists the rules the app teaches for this.
 - **The VPN handles:** the SIM's IP address. Without one, every service
   used through the router logs the current SIM's address with the account,
-  so a single account links all SIMs (rule 10).
+  so a single account links all SIMs (rule 5).
 - **Out of scope:** the location of a router while it is online; what is
   done online and the accounts used; who bought a SIM; radio fingerprinting
   of the transmitter by specialised equipment nearby; and the modem model,
@@ -272,6 +272,8 @@ the old SIM and writing the new IMEIs, so no throwaway pair is needed.
 
 The app shows these rules in this wording:
 
+Always follow these rules:
+
 1. At home, at work and anywhere else you return to, keep the router
    switched off or without a SIM.
 2. Before you get to such a place, unplug everything and switch the router
@@ -279,19 +281,26 @@ The app shows these rules in this wording:
 3. Connect to the router by cable only, and keep its Wi-Fi off.
 4. Use normal SIM cards, or eSIM adapter cards with one profile each, not
    the router's built-in eSIM.
-5. Where you can, use SIM cards that aren't registered to your name. The
-   same goes for eSIM profiles.
-6. Get each new SIM card or eSIM profile from a different provider than
+5. Send all traffic through the router's VPN, and don't use the router
+   without it.
+6. Do not run the router without the battery installed.
+
+For maximum privacy, also follow these rules where you can:
+
+7. Use SIM cards that aren't registered to your name. The same goes for
+   eSIM profiles.
+8. Get each new SIM card or eSIM profile from a different provider than
    the last one.
-7. Don't reuse a card once you've swapped it out. If you must reuse one,
+9. Don't reuse a card once you've swapped it out. If you must reuse one,
    it's best to use it at the same location you used it before.
-8. Vary when you swap SIMs, and where you switch the radio on and off.
-9. Do not run the router without the battery installed.
-10. Send all traffic through the router's VPN, and don't use the router
-    without it.
+10. Vary when you swap SIMs, and where you switch the radio on and off.
 11. Use a phone without Google services, or turn off location services on
     every device you use with the router.
 12. Pay for the VPN in a way that isn't tied to your name.
+
+Rules 1 to 6 allow no compromise: breaking one undoes what Churn does or
+risks the router. Rules 7 to 12 make linking harder still, and some say
+what to do when one can't be followed.
 
 Why:
 1. A router with a SIM registers at every power-on, before airplane mode
@@ -309,24 +318,24 @@ Why:
    server on every profile download, which links all its profiles. It also
    emits at boot whenever slot 2 is set to it. An eSIM adapter card has an
    EID too, so a second profile on it would be linked to the first.
-5. A SIM or profile registered to a name ties every IMEI it is used with to
+5. Without a VPN, every service a device behind the router uses sees the
+   current SIM's IP address and logs it with the account, so one account
+   links all SIMs, as the IMEI would. The carrier also sees the traffic,
+   whose pattern can probably recognise the same devices across SIMs
+   (inferred). A VPN on the router covers every device behind it. It must
+   block traffic while it is down, or a boot or a dropped tunnel leaks
+   (section 10).
+6. Running without the battery risks file-system corruption on power loss.
+7. A SIM or profile registered to a name ties every IMEI it is used with to
    that name. Churn can't undo that.
-6. A provider that issues two consecutive profiles sees one MUDI 7 IMEI stop
+8. A provider that issues two consecutive profiles sees one MUDI 7 IMEI stop
    and another start, both with a rare TAC and possibly in the same area.
    Timing and place could link them (inferred). A different provider sees
    only one of them.
-7. A reused SIM brings back its old IMSI and ICCID. A reused eSIM adapter
+9. A reused SIM brings back its old IMSI and ICCID. A reused eSIM adapter
    card brings back its EID, which links its profiles as in rule 4.
-8. Regular habits, such as always swapping on the same day or at the same
-   station, can link identities without any identifier.
-9. Running without the battery risks file-system corruption on power loss.
-10. Without a VPN, every service a device behind the router uses sees the
-    current SIM's IP address and logs it with the account, so one account
-    links all SIMs, as the IMEI would. The carrier also sees the traffic,
-    whose pattern can probably recognise the same devices across SIMs
-    (inferred). A VPN on the router covers every device behind it. It must
-    block traffic while it is down, or a boot or a dropped tunnel leaks
-    (section 10).
+10. Regular habits, such as always swapping on the same day or at the same
+    station, can link identities without any identifier.
 11. A phone with location services on gives Google or Apple a continuous
     timeline of its account, built from GPS and the Wi-Fi networks and
     cells it sees. Matched against the carrier's records, it links every
@@ -363,7 +372,7 @@ Hardware, other:
 - Do Android phones other than the one we tested accept the router's USB
   Ethernet?
 - Does GL's VPN client on the MUDI 7 block all traffic while the VPN is
-  down, including right after boot? Rule 10 depends on it.
+  down, including right after boot? Rule 5 depends on it.
 
 Design:
 - Do real MUDI 7 serials fall in a narrow range? A derived serial far
