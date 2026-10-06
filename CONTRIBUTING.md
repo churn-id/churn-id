@@ -1,5 +1,9 @@
 # Contributing
 
+Churn's design and the reasons behind it are in
+[docs/design.md](docs/design.md); the technical detail for writing its code
+is in [docs/development.md](docs/development.md).
+
 ## Pull requests
 
 - Every change reaches `main` through a pull request. Nobody pushes to

@@ -1,0 +1,361 @@
+# Churn design
+
+Churn is an Android app for the GL.iNet MUDI 7 (GL-E5800) travel router.
+Every SIM swap done through the app also gives the router new IMEIs, derived
+from the new SIM profile and a random secret stored on the router. This
+document explains why Churn works the way it does. How to build on it is in
+[development.md](development.md); why the derived IMEIs keep the router's
+own TAC is in [tac.md](tac.md).
+
+Status: draft; nothing described here is implemented yet. *Verified* means
+we observed it on a MUDI 7 with GL firmware 4.10.0 and a Quectel RG650V-EU
+modem; *inferred* means reasoned but not yet tested.
+
+## 1. Goal and threat model
+
+A mobile network records which SIM (IMSI) was used in which device (IMEI),
+where (cell) and when. Without Churn the router keeps its IMEI, so a new SIM
+in it is linked to every SIM used in it before. Churn's goal is that the
+identity used before a SIM swap can't be linked to the one used after it.
+
+- **Adversary:** the carrier, and anyone who later reads its records
+  (retained data, lawful access).
+- **Churn handles:** the IMEI as a link between SIMs. Each SIM profile gets
+  its own IMEIs, which nobody without the router's secret can predict.
+- **The user handles:** time and place. A swap done where the old SIM was
+  last used, or a router that registers at home, links identities without
+  any IMEI. Section 8 lists the rules the app teaches for this.
+- **Out of scope:** the location of a router while it is online; traffic
+  and accounts used through it; who bought a SIM; radio fingerprinting of
+  the transmitter by specialised equipment nearby; and the modem model,
+  which the network learns from the radio capabilities the modem announces,
+  whatever its IMEI.
+- **Accepted trade-off:** the phone holds a root SSH credential for the
+  router.
+
+## 2. Architecture
+
+Everything runs in a native Kotlin app on the phone. No package is installed
+on the router; the app only keeps a few files there (section 5). blue-merle,
+an existing IMEI tool for GL.iNet routers, is neither installed nor forked;
+Churn reimplements what it needs.
+
+Rejected alternatives:
+- **GL.iNet's JSON-RPC API:** undocumented in English, without stability
+  guarantees, and its modem module is read-only.
+- **LuCI or ubus over HTTP:** needs a package on the router, and LuCI is set
+  up over plain HTTP.
+- **A GUI on the router's screen:** a raw framebuffer, no plugin API, and
+  the source of GL's screen software isn't available.
+- **Installing blue-merle:** see section 11.
+
+Given up on purpose: blue-merle's rotation at boot and its trigger on the
+router's touch screen. Every rotation is a guided procedure in the app
+instead.
+
+## 3. Router access
+
+- **Cable, not Wi-Fi.** The phone is connected to the router's USB-C port
+  for the whole procedure, so the router's Wi-Fi can stay off (rule 3). The
+  router appears as a USB Ethernet adapter (verified). The router has no
+  internet during a rotation, so Android doesn't use this network by
+  default; the app binds its connections to it explicitly.
+- **SSH as root.** SSH is on by default on GL.iNet firmware and documented
+  by GL.iNet. The app logs in with the router's admin password.
+- **Host key:** trusted on first use after showing its fingerprint. A new or
+  changed key is never accepted silently.
+- **Password:** stored with the Android Keystore.
+- **Dependencies:** an SSH library and AndroidX, nothing else.
+- **Modem access:** every AT channel of the modem is held open by a GL or
+  Quectel daemon (verified), so the app sends AT commands through GL's own
+  command-line tool, which arbitrates between them. Every modem operation
+  runs under an exclusive lock, and a failed or unclear answer means the
+  step is repeated, never assumed done.
+
+## 4. IMEI derivation
+
+An IMEI is 15 digits: an 8-digit type allocation code (TAC) identifying the
+device model, a 6-digit serial, and a Luhn check digit. The MUDI 7 has two
+IMEIs, expected to belong to SIM slot 1 and slot 2 (section 10). Churn
+derives both.
+
+### TAC: the router's own
+Derived IMEIs keep the router's factory TAC; only the serial changes. On the
+MUDI 7 we tested, both IMEIs use `35609021`, which public TAC lists show as
+the MUDI 7. A pool of other devices' TACs would not hide the modem, would
+make Churn users recognisable, and would risk collisions with real phones.
+The full reasoning is in [tac.md](tac.md).
+
+### Input: the profile's ICCID
+The IMEIs are derived from the ICCID of the SIM profile in use, not from its
+IMSI.
+- The ICCID identifies a profile: a physical SIM has one, and each profile
+  on an eSIM has its own. The chip itself is identified by its EID, which
+  Churn never uses.
+- Some roaming profiles switch between several IMSIs, depending on the
+  country, while their ICCID stays the same. With the IMSI as input, the
+  same profile could get a new IMEI when inserted again, which would show
+  its issuer that the IMEI was rewritten. With the ICCID, a profile always shows
+  the same IMEI, like a SIM in an ordinary device.
+- One of the two swap orders (section 7) can't read the IMSI before the
+  profile registers, but the user can enter the ICCID beforehand. Using the
+  ICCID in both orders keeps one rule.
+
+### Keyed and deterministic
+- **Keyed:** the IMEI is an HMAC of the ICCID under a random secret stored
+  on the router. blue-merle's deterministic mode maps the IMSI to an IMEI
+  without a key; anyone can compute that mapping and recognise its users.
+  Without the secret, Churn's mapping can't be tested.
+- **Deterministic:** the same profile always gets the same IMEIs, so
+  repeating a step after an error or inserting a profile again gives the
+  values it had before.
+
+### Specification
+- `secret`: 32 bytes from a cryptographically secure random generator,
+  created at setup and stored on the router (section 5).
+- `mac = HMAC-SHA256(secret, "churn-imei-v1:" || ICCID)`, with the ICCID as
+  ASCII digits. The label versions the derivation, so a future change can't
+  silently produce the old values.
+- `d` = serial of factory IMEI 2 minus serial of factory IMEI 1, read at
+  setup.
+- `n = 1,000,000 − |d|`. Read `mac` as eight 32-bit big-endian words and
+  take the first one below the largest multiple of `n` that fits in 32 bits;
+  `s` is that word modulo `n`. Rejecting the other words avoids modulo bias.
+  If all eight are rejected (probability below 10⁻²⁹), continue with the
+  words of `HMAC-SHA256(secret, mac)`.
+- Serial 1 = `s + max(0, −d)`, serial 2 = serial 1 + `d`. Both stay within
+  000000 to 999999.
+- IMEI 1 and IMEI 2 = the TAC of the respective factory IMEI + 6-digit
+  serial + Luhn check digit.
+
+Test vectors are in [development.md](development.md).
+
+### Two IMEIs, factory spacing
+A factory MUDI 7 has two different IMEIs whose serials are a small distance
+apart: 7 on the unit we tested. Derived pairs keep the router's own distance,
+so to anyone who sees both IMEIs they look like a factory pair. Equal IMEIs
+would never occur on a factory unit. Whether all MUDI 7 units use the same
+distance is open (section 10). If it varies between units, a router's
+distance would recur in every rotation for someone who sees both of its
+IMEIs, and a common fixed distance would be the better choice.
+
+### Throwaway pair
+Built the same way, with `s` drawn uniformly from the random generator
+instead of the HMAC. It is written before a swap in which a short emission
+happens before the final IMEIs are known (section 7), so that emission
+can't carry the previous profile's IMEIs.
+
+## 5. Storage on the router
+
+Everything Churn keeps on the router is in `/etc/churn/`, readable by root
+only: a README explaining the folder, the secret, the factory IMEIs and a
+restore script. The script writes the factory IMEIs back; the app runs it
+on request, and it also works over a plain SSH session if the app is gone.
+The script ships inside the app and is copied to the router at setup, so the
+repository has no separate router component.
+
+- **Kept across firmware upgrades.** OpenWrt's upgrade with "keep settings"
+  keeps only listed paths, so the app adds `/etc/churn/` to
+  `/etc/sysupgrade.conf`. Otherwise an upgrade would lose the secret and the
+  factory IMEIs, and setup would run again and could record already rewritten
+  IMEIs as the factory ones. A factory reset still deletes the folder; the
+  README says to restore the factory IMEIs first.
+- **Checked on every connection.** The app checks that the folder exists and
+  that the IMEIs are the ones it last wrote. GL's firmware contains the
+  command that writes IMEI 1, so an upgrade or reset might restore the
+  factory IMEI (inferred), and the next boot with a SIM would pair it with
+  that SIM.
+- **What the secret reveals.** Anyone with root on the router can recompute
+  the IMEIs for a known ICCID. Nothing else on the router links a past SIM
+  to a past IMEI.
+- **Factory capture.** The IMEIs read at first setup may already be
+  rewritten, for example by blue-merle. The app warns if their TAC isn't a
+  known MUDI 7 TAC.
+
+## 6. Measured hardware behaviour
+
+We measured one MUDI 7 with GL firmware 4.10.0 (OpenWrt 23.05.4) and a
+Quectel RG650V-EU modem. Linux runs on the modem chip itself (Qualcomm
+SDX75). Methods: a script on the router polling the modem's radio state once
+a second from boot; a broadband RF meter next to the router during boots;
+and AT commands sent over SSH.
+
+- **Radio on at boot, despite airplane mode.** With airplane mode on, the
+  modem reported its radio fully on for about 12 s before GL switched it to
+  airplane mode: 46 to 58 s after power-on with no SIM, 38 to 51 s with an
+  eSIM profile enabled. The modem didn't answer earlier, so the radio may
+  have been on before that.
+- **No SIM, no emission.** With slot 2 set to the physical SIM 2 and both
+  trays empty, the meter showed no RF at boot, with airplane mode on or off.
+- **A SIM registers at every boot.** With an eSIM profile enabled, the meter
+  showed RF for several seconds on every boot, whatever GL's airplane mode
+  and cellular switches said. Several seconds fit a network registration
+  (inferred). Airplane mode therefore can't keep a router with a SIM silent
+  at power-on.
+- **The built-in eSIM emits even without a profile.** With slot 2 set to
+  the eSIM and its profiles disabled, the meter showed two short bursts at
+  boot. Without a profile the chip presents a test-network identity:
+  IMSI `001010123456` plus three digits, and a placeholder ICCID. That
+  identity is likely the same or nearly the same on every unit (inferred).
+- **Slot selection doesn't keep a card off at boot.** With slot 1 selected
+  in GL's interface and slot 2 on an enabled eSIM profile, the router still
+  emitted at boot. The modem rejects Quectel's usual slot command, and GL
+  switches slots only while running.
+- **Switching slots while running is silent.** Switching slot 2 from SIM 2
+  to an enabled eSIM profile in airplane mode emitted no RF. Inserting a
+  physical card while running is untested.
+- **No setting starts the radio off.** None of the modem's configuration
+  commands offers a power-up radio state, so nothing saved can make a boot
+  with a SIM silent.
+- **Both IMEIs are writable.** IMEI 1 and IMEI 2 can be written, the new
+  values read back at once and survive a reboot. A third, read-only view of
+  IMEI 2 (its IMEISV) rejects writes.
+- **No automatic power-on.** With GL's "Power On with Charger" setting off,
+  connecting a charger doesn't switch the router on.
+- **Auto power-off is limited.** GL's automatic power-off fires only on
+  battery and only while no cable or Wi-Fi client is connected.
+- **The SIM tray is under the battery.** A physical SIM can't be swapped
+  while the router runs on battery.
+
+## 7. Guided SIM swap
+
+The measurements set two constraints. A power-on with a SIM inside registers
+where it happens, so the new SIM must not be powered until its own IMEIs are
+written, and every power-on with a SIM inside must happen at a place that
+doesn't matter. Swapping a SIM while the router runs would mean running
+without the battery, which risks file-system corruption, so it isn't
+offered.
+
+### Planned order: eSIM parking
+Used if two tests with real SIMs pass (section 10).
+1. With the cable connected, the app turns the radio off and verifies it,
+   writes a throwaway pair (section 4) and verifies it, sets slot 2 to the
+   built-in eSIM with no profile enabled, and turns airplane mode on. The
+   user switches the router off.
+2. With the router off, the user replaces the old SIM in slot 2's tray with
+   the new one, goes to a place that doesn't matter, and switches the router
+   on. Only the
+   eSIM's short bursts go out, with the throwaway IMEI and the near-generic
+   test identity.
+3. The app switches slot 2 to SIM 2 in airplane mode, reads the ICCID,
+   writes the derived pair and verifies it.
+4. The user turns airplane mode off later, at another place and time.
+
+### Fallback: order B
+Used if eSIM parking fails its tests. No card is powered between removing
+the old SIM and writing the new IMEIs, so no throwaway pair is needed.
+1. The app turns the radio off. The user switches the router off and removes
+   the old SIM.
+2. The user switches the router on with no SIM (silent) and enters the new
+   profile's ICCID, printed on physical SIMs or shown by the phone's eSIM
+   app for removable eSIM cards. The app checks its Luhn digit, writes the
+   derived pair, verifies it, and the user switches the router off.
+3. The user inserts the new SIM and switches the router on at a place that
+   doesn't matter, away in place and time from where the old SIM was last
+   used. This boot registers at once, already with the new IMEIs. The app
+   then checks that the profile's ICCID matches what was entered; if not,
+   the profile registered with another profile's IMEIs, and the app writes
+   the right ones.
+
+### App behaviour
+- The step reached is saved, and a foreground service keeps the app alive,
+  so the procedure resumes after the screen locks or Android stops the app.
+- Each step says what to do, where, and why, so the rules don't depend on
+  the user's memory.
+- Before each rotation the app checks the slot 2 setting, airplane mode, and
+  that "Power On with Charger" is off.
+
+## 8. Usage rules
+
+The app shows these rules in this wording:
+
+1. At home, at work and anywhere else you return to, keep the router
+   switched off or without a SIM.
+2. Before you get to such a place, unplug everything and switch the router
+   off.
+3. Connect to the router by cable only, and keep its Wi-Fi off.
+4. Use physical SIMs or removable eSIM cards, not the router's built-in
+   eSIM.
+5. Where you can, use SIMs that aren't registered to your name.
+6. Get each new SIM or profile from a different provider than the last one.
+7. Don't reuse a SIM or eSIM card once you've swapped it out.
+8. Vary when you swap SIMs, and where you switch the radio on and off.
+9. Keep the battery in the router.
+
+Why:
+1. A router with a SIM registers at every power-on, before airplane mode
+   takes effect; a router without one is silent (section 6). Registrations
+   at a recurring place link every identity used there to that place.
+2. Switching off before arriving means the router never registers there.
+   Unplugging also lets GL's auto power-off step in if someone forgets to
+   switch off, because it fires only with nothing connected. The app can
+   offer to set it to a few minutes at setup; it is a safety net, not a
+   replacement for the rule.
+3. Wi-Fi broadcasts the router's network name and hardware address wherever
+   it goes, which anyone nearby, and Wi-Fi location databases, can record
+   across SIM swaps.
+4. The built-in eSIM's EID never changes and is reported to the provider's
+   server on every profile download, which links all its profiles. It also
+   emits at boot whenever slot 2 is set to it.
+5. A SIM registered to a name ties every IMEI it is used with to that name.
+   Churn can't undo that.
+6. A provider that issues two consecutive profiles sees one MUDI 7 IMEI stop
+   and another start, both with a rare TAC and possibly in the same area.
+   Timing and place could link them (inferred). A different provider sees
+   only one of them.
+7. A reused SIM brings back its old IMSI and ICCID. A reused removable eSIM
+   card brings back its EID, which links its profiles as in rule 4.
+8. Regular habits, such as always swapping on the same day or at the same
+   station, can link identities without any identifier.
+9. Running without the battery risks file-system corruption on power loss.
+
+The app also tells the user, before first use, that rewriting an IMEI is a
+criminal offence in some countries, for example under the UK's Mobile
+Telephones (Re-programming) Act 2002.
+
+## 9. Distribution
+
+Planned: Google Play (application ID `id.churn`) and F-Droid. Churn
+reimplements rather than copies blue-merle, so it doesn't inherit
+blue-merle's license.
+
+## 10. Open questions
+
+Hardware, needing real SIMs:
+- eSIM parking: does a boot with slot 2 on the eSIM and a SIM in the tray
+  emit only the short bursts, and is switching from the eSIM to SIM 2 with
+  a real card silent? This decides between eSIM parking and order B.
+- Which IMEI does the network see for each slot (expected: IMEI 1 for slot
+  1, IMEI 2 for slot 2)?
+
+Hardware, other:
+- Does GL's firmware ever write the IMEIs itself, for example after an
+  upgrade or a factory reset?
+- Does GL's upgrade page keep the paths listed in `/etc/sysupgrade.conf`?
+- Where is "Power On with Charger" stored, so the app can check it?
+- Should a rotation clear the modem's cached network state? The modem offers
+  commands for it.
+- Do Android phones other than the one we tested accept the router's USB
+  Ethernet?
+
+Design:
+- Do real MUDI 7 serials fall in a narrow range? A derived serial far
+  outside it could stand out. Serials are uniform over all 6 digits until
+  this is known.
+- Do all MUDI 7 units have the same distance between their two serials?
+
+Legal and distribution:
+- Is rewriting an IMEI legal in Switzerland and other markets?
+- Does Google Play's Device and Network Abuse policy allow an app that
+  changes IMEIs?
+
+## 11. Relation to blue-merle
+
+[blue-merle](https://github.com/srlabs/blue-merle) and its fork
+[blue-merle v2](https://github.com/WSchlesner/blue-merle-v2) rewrite the
+IMEI on GL.iNet routers and were the starting point for Churn. Churn differs
+in ways that follow from the sections above: nothing is installed on the
+router, the derivation is keyed, derived IMEIs keep the router's own TAC
+instead of a pool of other devices' TACs, and every swap is a guided
+procedure that teaches the usage rules. blue-merle v2 was also the source for the command that
+writes IMEI 2.
