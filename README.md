@@ -51,20 +51,23 @@ Always follow these rules:
 5. Send all traffic through the router's VPN, and don't use the router
    without it.
 6. Do not run the router without the battery installed.
+7. Before you leave a place you return to with the router, turn off the
+   SIM card or eSIM profile in every phone you carry, and keep it off
+   until you're back.
 
 For maximum privacy, also follow these rules where you can:
 
-7. Use SIM cards that aren't registered to your name. The same goes for
+8. Use SIM cards that aren't registered to your name. The same goes for
    eSIM profiles.
-8. Get each new SIM card or eSIM profile from a different provider than
+9. Get each new SIM card or eSIM profile from a different provider than
    the last one. If you can't, start using the new one somewhere else and
    some days after you stopped using the last one.
-9. Don't reuse a card once you've swapped it out. If you run out of new
-   cards, keep using the current one until you get a new one.
-10. Vary when you swap SIMs, and where you switch the radio on and off.
-11. Use a phone without Google services, or turn off location services on
+10. Don't reuse a card once you've swapped it out. If you run out of new
+    cards, keep using the current one until you get a new one.
+11. Vary when you swap SIMs, and where you switch the radio on and off.
+12. Use a phone without Google services, or turn off location services on
     every device you use with the router.
-12. Pay for the VPN in a way that isn't tied to your name.
+13. Pay for the VPN in a way that isn't tied to your name.
 
 The reasons for each rule are in the
 [design document](docs/design.md#8-usage-rules).
