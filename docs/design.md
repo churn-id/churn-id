@@ -314,7 +314,10 @@ Why:
    replacement for the rule.
 3. Wi-Fi broadcasts the router's network name and hardware address wherever
    it goes, which anyone nearby, and Wi-Fi location databases, can record
-   across SIM swaps.
+   across SIM swaps. Phones and laptops connected to it report it to those
+   databases too. If the app could change both at every swap (section 10),
+   Wi-Fi after a swap would link nothing across swaps, and this rule could
+   allow it away from places the user returns to.
 4. The built-in eSIM's EID never changes and is reported to the provider's
    server on every profile download, which links all its profiles. It also
    emits at boot whenever slot 2 is set to it. An eSIM adapter card has an
@@ -380,6 +383,9 @@ Hardware, other:
   Ethernet?
 - Does GL's VPN client on the MUDI 7 block all traffic while the VPN is
   down, including right after boot? Rule 5 depends on it.
+- Can the app give the router's Wi-Fi a new network name and hardware
+  address at every swap? OpenWrt has a setting for each; GL's firmware
+  may override them.
 
 Design:
 - Do real MUDI 7 serials fall in a narrow range? A derived serial far
