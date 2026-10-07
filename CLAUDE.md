@@ -27,7 +27,7 @@ addition.
   "Merge without waiting for requirements to be met (bypass rules)", so
   Claude reports such a pull request as ready to merge, not as blocked.
 - The box appears only once a pull request is approved, up to date with
-  `main` and its required check is green, so it bypasses only the update
+  `main` and its required checks are green, so it bypasses only the update
   restriction. A bypass merge leaves no trace on the pull request.
 - Claude gives the approval every pull request needs, after checking the
   diff. For Dependabot updates it also compares the new commit hash with the
