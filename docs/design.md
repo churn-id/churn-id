@@ -212,8 +212,7 @@ and AT commands sent over SSH.
   emitted at boot. The modem rejects Quectel's usual slot command, and GL
   switches slots only while running.
 - **Switching slots while running is silent.** Switching slot 2 from SIM 2
-  to an enabled eSIM profile in airplane mode emitted no RF. Inserting a
-  physical card while running is untested.
+  to an enabled eSIM profile in airplane mode emitted no RF.
 - **A card in slot 2 stays off while slot 2 is on the eSIM.** With slot 2
   set to the built-in eSIM with its profiles disabled and airplane mode on,
   we switched the router off, put an eSIM adapter card into slot 2's tray
