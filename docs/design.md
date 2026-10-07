@@ -31,7 +31,7 @@ identity used before a SIM swap can't be linked to the one used after it.
   so a single account links all SIMs (rule 5).
 - **Out of scope:** the location of a router while it is online; what is
   done online and the accounts used; who bought a SIM; radio fingerprinting
-  of the transmitter by specialised equipment nearby; and the modem model,
+  of the transmitter by specialized equipment nearby; and the modem model,
   which the network learns from the radio capabilities the modem announces,
   whatever its IMEI.
 - **Accepted trade-off:** the phone holds a root SSH credential for the
@@ -87,7 +87,7 @@ derives both.
 Derived IMEIs keep the router's factory TAC; only the serial changes. On the
 MUDI 7 we tested, both IMEIs use `35609021`, which public TAC lists show as
 the MUDI 7. A pool of other devices' TACs would not hide the modem, would
-make Churn users recognisable, and would risk collisions with real phones.
+make Churn users recognizable, and would risk collisions with real phones.
 The full reasoning is in [tac.md](tac.md).
 
 ### Input: the profile's ICCID
@@ -108,7 +108,7 @@ IMSI.
 ### Keyed and deterministic
 - **Keyed:** the IMEI is an HMAC of the ICCID under a random secret stored
   on the router. blue-merle's deterministic mode maps the IMSI to an IMEI
-  without a key; anyone can compute that mapping and recognise its users.
+  without a key; anyone can compute that mapping and recognize its users.
   Without the secret, Churn's mapping can't be tested.
 - **Deterministic:** the same profile always gets the same IMEIs, so
   repeating a step after an error or inserting a profile again gives the
@@ -176,7 +176,7 @@ repository has no separate router component.
   rewritten, for example by blue-merle. The app warns if their TAC isn't a
   known MUDI 7 TAC.
 
-## 6. Measured hardware behaviour
+## 6. Measured hardware behavior
 
 We measured one MUDI 7 with GL firmware 4.10.0 (OpenWrt 23.05.4) and a
 Quectel RG650V-EU modem. Linux runs on the modem chip itself (Qualcomm
@@ -260,7 +260,7 @@ the old SIM and writing the new IMEIs, so no throwaway pair is needed.
    the profile registered with another profile's IMEIs, and the app writes
    the right ones.
 
-### App behaviour
+### App behavior
 - The step reached is saved, and a foreground service keeps the app alive,
   so the procedure resumes after the screen locks or Android stops the app.
 - Each step says what to do, where, and why, so the rules don't depend on
@@ -328,7 +328,7 @@ Why:
 5. Without a VPN, every service a device behind the router uses sees the
    current SIM's IP address and logs it with the account, so one account
    links all SIMs, as the IMEI would. The carrier also sees the traffic,
-   whose pattern can probably recognise the same devices across SIMs
+   whose pattern can probably recognize the same devices across SIMs
    (inferred). A VPN on the router covers every device behind it. It must
    block traffic while it is down, or a boot or a dropped tunnel leaks
    (section 10).
@@ -366,7 +366,7 @@ Why:
     account. If that account is tied to a name, so are all the SIMs.
 
 The app also tells the user, before first use, that rewriting an IMEI is a
-criminal offence in some countries, for example under the UK's Mobile
+criminal offense in some countries, for example under the UK's Mobile
 Telephones (Re-programming) Act 2002.
 
 ## 9. Distribution

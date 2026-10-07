@@ -41,7 +41,7 @@ want to link the identity used before a SIM swap to the one used after it.
    IMEI (inferred). On the same network that looks like a clone, and if that
    phone is blocklisted, the carrier refuses the router. A niche router TAC
    has far fewer units, so collisions are rare.
-4. **Carrier behaviour stays as before.** Carriers apply policy per TAC; for
+4. **Carrier behavior stays as before.** Carriers apply policy per TAC; for
    example, Cisco's mobility management selects operator policy by TAC
    (verified). With the own TAC, plans, tethering rules and data-SIM checks
    see the same device class as without Churn. A phone TAC changes that
@@ -57,7 +57,7 @@ the signature of point 2.
 ## Rejected options
 
 - **blue-merle v2's pool** (`files/usr/share/blue-merle/tac_pool.json`): 7
-  TACs (US iPhones, a US Galaxy S23 Ultra, GL-X3000, Netgear M6 Pro, MiFi X
+  TACs (US iPhones, a US Galaxy S23 Ultra, GL-X3000, NETGEAR M6 Pro, MiFi X
   Pro), all marked unverified and chosen for US bands. Its comment cites
   forum thread 68449 for throttling of LTE-only TACs; the thread is about
   Release 17 registration failures in Europe and doesn't mention TACs
@@ -88,7 +88,7 @@ None is known yet, so derived IMEIs use the router's own TAC only.
   units shipped. A derived serial far outside that block could stand out to
   someone who sees many MUDI 7 IMEIs (inferred). Serials stay uniform over
   all 6 digits until IMEIs from more units are known.
-- **Legality:** rewriting an IMEI is a criminal offence in some countries,
+- **Legality:** rewriting an IMEI is a criminal offense in some countries,
   for example under the UK's Mobile Telephones (Re-programming) Act 2002.
   Switzerland and other markets are not checked yet.
 

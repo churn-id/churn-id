@@ -74,7 +74,7 @@ The reasons for each rule are in the
 
 ## Legal
 
-Changing an IMEI is a criminal offence in some countries, for example in the
+Changing an IMEI is a criminal offense in some countries, for example in the
 United Kingdom. Check the law where you use the router.
 
 ## Contributing
