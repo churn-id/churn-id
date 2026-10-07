@@ -51,9 +51,9 @@ Always follow these rules:
 5. Send all traffic through the router's VPN, and don't use the router
    without it.
 6. Do not run the router without the battery installed.
-7. Before you leave a place you return to with the router, turn off the
-   SIM card or eSIM profile in every phone you carry, and keep it off
-   until you're back.
+7. Before you leave a place you return to with the router, remove the SIM
+   card or disable the eSIM profile in every phone you carry, and keep it
+   that way until you're back.
 
 For maximum privacy, also follow these rules where you can:
 
