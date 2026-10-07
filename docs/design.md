@@ -45,6 +45,7 @@ an existing IMEI tool for GL.iNet routers, is neither installed nor forked;
 Churn reimplements what it needs.
 
 Rejected alternatives:
+
 - **GL.iNet's JSON-RPC API:** undocumented in English, without stability
   guarantees, and its modem module is read-only.
 - **LuCI or ubus over HTTP:** needs a package on the router, and LuCI is set
@@ -84,6 +85,7 @@ IMEIs, expected to belong to SIM slot 1 and slot 2 (section 10). Churn
 derives both.
 
 ### TAC: the router's own
+
 Derived IMEIs keep the router's factory TAC; only the serial changes. On the
 MUDI 7 we tested, both IMEIs use `35609021`, which public TAC lists show as
 the MUDI 7. A pool of other devices' TACs would not hide the modem, would
@@ -91,8 +93,10 @@ make Churn users recognizable, and would risk collisions with real phones.
 The full reasoning is in [tac.md](tac.md).
 
 ### Input: the profile's ICCID
+
 The IMEIs are derived from the ICCID of the SIM profile in use, not from its
 IMSI.
+
 - The ICCID identifies a profile: a physical SIM has one, and each profile
   on an eSIM has its own. The chip itself is identified by its EID, which
   Churn never uses.
@@ -106,6 +110,7 @@ IMSI.
   ICCID in both orders keeps one rule.
 
 ### Keyed and deterministic
+
 - **Keyed:** the IMEI is an HMAC of the ICCID under a random secret stored
   on the router. blue-merle's deterministic mode maps the IMSI to an IMEI
   without a key; anyone can compute that mapping and recognize its users.
@@ -115,6 +120,7 @@ IMSI.
   values it had before.
 
 ### Specification
+
 - `secret`: 32 bytes from a cryptographically secure random generator,
   created at setup and stored on the router (section 5).
 - `mac = HMAC-SHA256(secret, "churn-imei-v1:" || ICCID)`, with the ICCID as
@@ -135,6 +141,7 @@ IMSI.
 Test vectors are in [development.md](development.md).
 
 ### Two IMEIs, factory spacing
+
 A factory MUDI 7 has two different IMEIs whose serials are a small distance
 apart: 7 on the unit we tested. Derived pairs keep the router's own distance,
 so to anyone who sees both IMEIs they look like a factory pair. Equal IMEIs
@@ -144,6 +151,7 @@ distance would recur in every rotation for someone who sees both of its
 IMEIs, and a common fixed distance would be the better choice.
 
 ### Throwaway pair
+
 Built the same way, with `s` drawn uniformly from the random generator
 instead of the HMAC. It is written before a swap in which a short emission
 happens before the final IMEIs are known (section 7), so that emission
@@ -231,7 +239,9 @@ without the battery, which risks file-system corruption, so it isn't
 offered.
 
 ### Planned order: eSIM parking
+
 Used if two tests with real SIMs pass (section 10).
+
 1. With the cable connected, the app turns the radio off and verifies it,
    writes a throwaway pair (section 4) and verifies it, sets slot 2 to the
    built-in eSIM with no profile enabled, and turns airplane mode on. The
@@ -245,8 +255,10 @@ Used if two tests with real SIMs pass (section 10).
 4. The user turns airplane mode off later, at another place and time.
 
 ### Fallback: order B
+
 Used if eSIM parking fails its tests. No card is powered between removing
 the old SIM and writing the new IMEIs, so no throwaway pair is needed.
+
 1. The app turns the radio off. The user switches the router off and removes
    the old SIM.
 2. The user switches the router on with no SIM (silent) and enters the new
@@ -261,6 +273,7 @@ the old SIM and writing the new IMEIs, so no throwaway pair is needed.
    the right ones.
 
 ### App behavior
+
 - The step reached is saved, and a foreground service keeps the app alive,
   so the procedure resumes after the screen locks or Android stops the app.
 - Each step says what to do, where, and why, so the rules don't depend on
@@ -290,6 +303,7 @@ Always follow these rules:
 
 For maximum privacy, also follow these rules where you can:
 
+<!-- markdownlint-disable MD029 -->
 8. Use SIM cards that aren't registered to your name. The same goes for
    eSIM profiles.
 9. Get each new SIM card or eSIM profile from a different provider than
@@ -301,12 +315,14 @@ For maximum privacy, also follow these rules where you can:
 12. Use a phone without Google services, or turn off location services on
     every device you use with the router.
 13. Pay for the VPN in a way that isn't tied to your name.
+<!-- markdownlint-enable MD029 -->
 
 Rules 1 to 7 allow no compromise: breaking one undoes what Churn does or
 risks the router. Rules 8 to 13 make linking harder still, and some say
 what to do when one can't be followed.
 
 Why:
+
 1. A router with a SIM registers at every power-on, before airplane mode
    takes effect; a router without one is silent (section 6). Registrations
    at a recurring place link every identity used there to that place.
@@ -378,6 +394,7 @@ blue-merle's license.
 ## 10. Open questions
 
 Hardware, needing real SIMs:
+
 - eSIM parking: does a boot with slot 2 on the eSIM and a SIM in the tray
   emit only the short bursts, and is switching from the eSIM to SIM 2 with
   a real card silent? This decides between eSIM parking and order B.
@@ -385,6 +402,7 @@ Hardware, needing real SIMs:
   1, IMEI 2 for slot 2)?
 
 Hardware, other:
+
 - Does GL's firmware ever write the IMEIs itself, for example after an
   upgrade or a factory reset?
 - Does GL's upgrade page keep the paths listed in `/etc/sysupgrade.conf`?
@@ -400,12 +418,14 @@ Hardware, other:
   may override them.
 
 Design:
+
 - Do real MUDI 7 serials fall in a narrow range? A derived serial far
   outside it could stand out. Serials are uniform over all 6 digits until
   this is known.
 - Do all MUDI 7 units have the same distance between their two serials?
 
 Legal and distribution:
+
 - Is rewriting an IMEI legal in Switzerland and other markets?
 - Does Google Play's Device and Network Abuse policy allow an app that
   changes IMEIs?

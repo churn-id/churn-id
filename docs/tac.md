@@ -76,6 +76,7 @@ The router's TAC belongs to the MUDI 7, not to every product with the
 RG650V-EU. Two kinds of TAC could widen the group without changing the radio
 fingerprint, each only once seen on a real device and not only in a
 database:
+
 - other TACs GL.iNet uses for the MUDI 7 with the same EU modem, for example
   in later batches. Not the North American variant, whose bands differ.
 - a TAC Quectel uses for the RG650V-EU module in other products.
@@ -94,10 +95,10 @@ None is known yet, so derived IMEIs use the router's own TAC only.
 
 ## Sources
 
-- blue-merle: https://github.com/srlabs/blue-merle
-- blue-merle v2: https://github.com/WSchlesner/blue-merle-v2
-- GL.iNet forum thread 68449: https://forum.gl-inet.com/t/68449
+- blue-merle: <https://github.com/srlabs/blue-merle>
+- blue-merle v2: <https://github.com/WSchlesner/blue-merle-v2>
+- GL.iNet forum thread 68449: <https://forum.gl-inet.com/t/68449>
 - Cisco MME operator policy by IMEI-TAC:
-  https://www.cisco.com/c/en/us/td/docs/wireless/asr_5000/21-28/mme-admin/21-28-mme-admin/m_oppol_imei-tac.html
-- Osmocom TAC database: https://tacdb.osmocom.org/
-- GSMA TAC allocation: https://www.gsmaservices.com/device-services/tac-allocation/
+  <https://www.cisco.com/c/en/us/td/docs/wireless/asr_5000/21-28/mme-admin/21-28-mme-admin/m_oppol_imei-tac.html>
+- Osmocom TAC database: <https://tacdb.osmocom.org/>
+- GSMA TAC allocation: <https://www.gsmaservices.com/device-services/tac-allocation/>

@@ -40,7 +40,7 @@ it on a MUDI 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
 ## AT commands (RG650V-EU)
 
 | Purpose | Command | Status |
-|---|---|---|
+| --- | --- | --- |
 | Radio state | `AT+CFUN?`: `1` on, `4` airplane | verified |
 | Radio off | `AT+CFUN=4` | in GL's firmware, not yet sent by us |
 | SIM present | `AT+CPIN?`: `+CME ERROR: 10` = no SIM | verified |
@@ -71,7 +71,7 @@ so don't use them.
 ## Files on the router
 
 | Path | Mode | Contents |
-|---|---|---|
+| --- | --- | --- |
 | `/etc/churn/` | 700 | Churn's folder |
 | `/etc/churn/README.txt` | 600 | What the folder is; how to restore the factory IMEIs by hand; to do so before a factory reset |
 | `/etc/churn/secret` | 600 | 32 random bytes, the HMAC key |
@@ -101,7 +101,7 @@ All vectors use `secret` = bytes `00 01 02 … 1f` (32 bytes) and TAC
 `churn-imei-v1:` followed by the ICCID.
 
 | ICCID | `d` | First words of `mac` | `s` | IMEI 1 | IMEI 2 |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `8941000000000000015` | 7 | `27e4ba0f` = 669301263, accepted | 305946 | `356090213059463` | `356090213059539` |
 | `8941000000000000015` | −7 | `27e4ba0f` = 669301263, accepted | 305946 | `356090213059539` | `356090213059463` |
 | `8941000000000000015` | 0 | `27e4ba0f` = 669301263, accepted | 301263 | `356090213012637` | `356090213012637` |

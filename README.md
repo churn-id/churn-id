@@ -57,6 +57,7 @@ Always follow these rules:
 
 For maximum privacy, also follow these rules where you can:
 
+<!-- markdownlint-disable MD029 -->
 8. Use SIM cards that aren't registered to your name. The same goes for
    eSIM profiles.
 9. Get each new SIM card or eSIM profile from a different provider than
@@ -68,6 +69,7 @@ For maximum privacy, also follow these rules where you can:
 12. Use a phone without Google services, or turn off location services on
     every device you use with the router.
 13. Pay for the VPN in a way that isn't tied to your name.
+<!-- markdownlint-enable MD029 -->
 
 The reasons for each rule are in the
 [design document](docs/design.md#8-usage-rules).
