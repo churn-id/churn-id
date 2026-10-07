@@ -4,7 +4,7 @@ Appendix to [design.md](design.md). The first 8 digits of an IMEI are the
 type allocation code (TAC), which identifies the device model. This document
 explains why Churn's derived IMEIs keep the router's own factory TAC instead
 of using a pool of other devices' TACs. *Verified* means checked in a source
-linked here or on a MUDI 7 we tested; *inferred* means reasoned but not
+linked here or on a Mudi 7 we tested; *inferred* means reasoned but not
 tested.
 
 ## Choice
@@ -14,8 +14,8 @@ Each derived IMEI keeps the TAC of the factory IMEI it replaces. Only the
 digit. The IMEISV software version stays untouched, which only makes sense
 if the TAC stays the router's own.
 
-On the MUDI 7 we tested, IMEI 1 and IMEI 2 both use TAC `35609021`. fccid.io
-and imei.info list it as the GL.iNet MUDI 7 (verified); Osmocom's TAC
+On the Mudi 7 we tested, IMEI 1 and IMEI 2 both use TAC `35609021`. fccid.io
+and imei.info list it as the GL.iNet Mudi 7 (verified); Osmocom's TAC
 database has no manufacturer for it. The `35` prefix means BABT issued it.
 
 ## Why
@@ -35,7 +35,7 @@ want to link the identity used before a SIM swap to the one used after it.
 2. **A published pool is a signature.** The repository is public, so any
    fixed list of foreign TACs becomes "Churn user if the TAC is in this list
    and the modem is an RG650V". The router's own TAC is shared with every
-   unmodified MUDI 7.
+   unmodified Mudi 7.
 3. **Collisions with real phones.** Popular phone TACs have most of their
    1,000,000 serials in use, so a random serial is likely some real phone's
    IMEI (inferred). On the same network that looks like a clone, and if that
@@ -48,7 +48,7 @@ want to link the identity used before a SIM swap to the one used after it.
    unpredictably, and using one to get around hotspot rules can breach the
    SIM's terms.
 
-The cost: in the carrier's records both identities carry the MUDI 7 TAC, a
+The cost: in the carrier's records both identities carry the Mudi 7 TAC, a
 rare device. Keeping them apart then rests on time and place, which the swap
 procedure and the usage rules separate (design.md, sections 7 and 8). With a
 foreign TAC, point 1 gives the same linkage through the capability set, plus
@@ -72,12 +72,12 @@ the signature of point 2.
 
 ## Possible extension
 
-The router's TAC belongs to the MUDI 7, not to every product with the
+The router's TAC belongs to the Mudi 7, not to every product with the
 RG650V-EU. Two kinds of TAC could widen the group without changing the radio
 fingerprint, each only once seen on a real device and not only in a
 database:
 
-- other TACs GL.iNet uses for the MUDI 7 with the same EU modem, for example
+- other TACs GL.iNet uses for the Mudi 7 with the same EU modem, for example
   in later batches. Not the North American variant, whose bands differ.
 - a TAC Quectel uses for the RG650V-EU module in other products.
 
@@ -85,9 +85,9 @@ None is known yet, so derived IMEIs use the router's own TAC only.
 
 ## Open questions
 
-- **Serial range:** real MUDI 7 serials may sit in a narrow block if few
+- **Serial range:** real Mudi 7 serials may sit in a narrow block if few
   units shipped. A derived serial far outside that block could stand out to
-  someone who sees many MUDI 7 IMEIs (inferred). Serials stay uniform over
+  someone who sees many Mudi 7 IMEIs (inferred). Serials stay uniform over
   all 6 digits until IMEIs from more units are known.
 - **Legality:** rewriting an IMEI is a criminal offense in some countries,
   for example under the UK's Mobile Telephones (Re-programming) Act 2002.

@@ -3,7 +3,7 @@
 Technical detail for writing Churn's code. Why things are done this way is
 in [design.md](design.md); building, testing and the contribution process
 are in [CONTRIBUTING.md](../CONTRIBUTING.md). *Verified* means we observed
-it on a MUDI 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
+it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
 *inferred* means not yet tested.
 
 ## Connecting to the router
@@ -24,7 +24,7 @@ it on a MUDI 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
 
 - Send every command through GL's tool, as GL's own scripts do:
   `gl_modem -B cpu AT '<command>'` (verified; `cpu` is what GL's
-  `get_modem_bus` returns on the MUDI 7).
+  `get_modem_bus` returns on the Mudi 7).
 - Don't open the modem's device nodes directly. Every AT channel in use
   (`/dev/smd7`, `smd8`, `smd9`, `smd11`, `/dev/at_mdm0`) is held by a GL or
   Quectel daemon (verified).

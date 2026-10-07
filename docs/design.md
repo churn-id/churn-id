@@ -1,14 +1,14 @@
 # Churn design
 
-Churn is an Android app for the GL.iNet MUDI 7 (GL-E5800) travel router.
-Every SIM swap done through the app also gives the router new IMEIs, derived
-from the new SIM profile and a random secret stored on the router. This
-document explains why Churn works the way it does. How to build on it is in
-[development.md](development.md); why the derived IMEIs keep the router's
-own TAC is in [tac.md](tac.md).
+Churn is an Android phone app for the GL.iNet Mudi 7 (GL-E5800) travel
+router. Every SIM swap done through the app also gives the router new IMEIs,
+derived from the new SIM profile and a random secret stored on the router.
+This document explains why Churn works the way it does. How to build on it
+is in [development.md](development.md); why the derived IMEIs keep the
+router's own TAC is in [tac.md](tac.md).
 
 Status: draft; nothing described here is implemented yet. *Verified* means
-we observed it on a MUDI 7 with GL firmware 4.10.0 and a Quectel RG650V-EU
+we observed it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU
 modem; *inferred* means reasoned but not yet tested.
 
 ## 1. Goal and threat model
@@ -80,7 +80,7 @@ instead.
 ## 4. IMEI derivation
 
 An IMEI is 15 digits: an 8-digit type allocation code (TAC) identifying the
-device model, a 6-digit serial, and a Luhn check digit. The MUDI 7 has two
+device model, a 6-digit serial, and a Luhn check digit. The Mudi 7 has two
 IMEIs, expected to belong to SIM slot 1 and slot 2 (section 10). Churn
 uses only slot 2 (section 7) but derives both IMEIs, so they keep looking
 like a factory pair.
@@ -88,8 +88,8 @@ like a factory pair.
 ### TAC: the router's own
 
 Derived IMEIs keep the router's factory TAC; only the serial changes. On the
-MUDI 7 we tested, both IMEIs use `35609021`, which public TAC lists show as
-the MUDI 7. A pool of other devices' TACs would not hide the modem, would
+Mudi 7 we tested, both IMEIs use `35609021`, which public TAC lists show as
+the Mudi 7. A pool of other devices' TACs would not hide the modem, would
 make Churn users recognizable, and would risk collisions with real phones.
 The full reasoning is in [tac.md](tac.md).
 
@@ -140,7 +140,7 @@ Test vectors are in [development.md](development.md).
 
 ### Two IMEIs, factory spacing
 
-A factory MUDI 7 has two different IMEIs whose serials are a small distance
+A factory Mudi 7 has two different IMEIs whose serials are a small distance
 apart: 7 on the unit we tested. Derived pairs keep the router's own distance,
 so to anyone who sees both IMEIs they look like a factory pair. Equal IMEIs
 would never occur on a factory unit. Since Churn uses only slot 2, the
@@ -180,11 +180,11 @@ repository has no separate router component.
   to a past IMEI.
 - **Factory capture.** The IMEIs read at first setup may already be
   rewritten, for example by blue-merle. The app warns if their TAC isn't a
-  known MUDI 7 TAC.
+  known Mudi 7 TAC.
 
 ## 6. Measured hardware behavior
 
-We measured one MUDI 7 with GL firmware 4.10.0 (OpenWrt 23.05.4) and a
+We measured one Mudi 7 with GL firmware 4.10.0 (OpenWrt 23.05.4) and a
 Quectel RG650V-EU modem. Linux runs on the modem chip itself (Qualcomm
 SDX75). Methods: a script on the router polling the modem's radio state once
 a second from boot; a broadband RF meter next to the router during boots;
@@ -288,9 +288,9 @@ Always follow these rules:
 5. Send all traffic through the router's VPN, and don't use the router
    without it.
 6. Do not run the router without the battery installed.
-7. Before you leave a place you return to with the router, turn off the
-   SIM card or eSIM profile in every phone you carry, and keep it off
-   until you're back.
+7. Before you leave a place you return to with the router, remove the SIM
+   card or disable the eSIM profile in every phone you carry, and keep it
+   that way until you're back.
 
 For maximum privacy, also follow these rules where you can:
 
@@ -349,13 +349,13 @@ Why:
    router SIM to the phone, and usually to its owner. Airplane mode only
    while the router is on isn't enough: the phone's last cell before it
    goes quiet and its first after it comes back frame each router
-   session. Switching the SIM off in the phone's settings is also safer
-   than airplane mode, which one tap undoes. We measured that a
-   GrapheneOS phone transmits nothing with its eSIM profile switched off,
-   even with airplane mode off.
+   session. Removing the SIM card or disabling the eSIM profile is also
+   safer than airplane mode, which one tap undoes. We measured that a
+   GrapheneOS phone transmits nothing with its eSIM profile disabled, even
+   with airplane mode off.
 8. A SIM or profile registered to a name ties every IMEI it is used with to
    that name. Churn can't undo that.
-9. A provider that issues two consecutive profiles sees one MUDI 7 IMEI stop
+9. A provider that issues two consecutive profiles sees one Mudi 7 IMEI stop
    and another start, both with a rare TAC and possibly in the same area.
    Timing and place could link them (inferred). A different provider sees
    only one of them. Where the same provider can't be avoided, a different
@@ -406,7 +406,7 @@ Hardware, other:
   commands for it.
 - Do Android phones other than the one we tested accept the router's USB
   Ethernet?
-- Does GL's VPN client on the MUDI 7 block all traffic while the VPN is
+- Does GL's VPN client on the Mudi 7 block all traffic while the VPN is
   down, including right after boot? Rule 5 depends on it.
 - Can the app give the router's Wi-Fi a new network name and hardware
   address at every swap? OpenWrt has a setting for each; GL's firmware
@@ -414,7 +414,7 @@ Hardware, other:
 
 Design:
 
-- Do real MUDI 7 serials fall in a narrow range? A derived serial far
+- Do real Mudi 7 serials fall in a narrow range? A derived serial far
   outside it could stand out. Serials are uniform over all 6 digits until
   this is known.
 

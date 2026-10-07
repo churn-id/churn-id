@@ -1,10 +1,10 @@
 # Churn
 
-Churn is an Android app for the GL.iNet MUDI 7 (GL-E5800) travel router.
-When you swap the router's SIM through the app, Churn also gives the router
-new IMEIs, the device numbers the mobile network sees. That way the network
-can't use the router to link the SIM you used before the swap to the one you
-use after it.
+Churn is an Android phone app for the GL.iNet Mudi 7 (GL-E5800) travel
+router. The app guides you through the process of swapping the router SIM
+card in a privacy-preserving way, by changing the router's IMEIs (the device
+numbers the mobile network sees). That way the network can't use the router
+to link the SIM you used before the swap to the one you use after it.
 
 **Status:** in development. The app doesn't do anything yet.
 
@@ -17,7 +17,7 @@ It doesn't hide:
 - where the router is while it's online;
 - what you do online, or the accounts you use;
 - who bought a SIM, if it's registered to a name;
-- that the device is a MUDI 7, which the network can tell from its radio.
+- that the device is a Mudi 7, which the network can tell from its radio.
 
 Churn only helps together with a VPN. Without one, the websites and apps you
 use can link your SIMs through your accounts.
@@ -27,7 +27,7 @@ Following the rules below matters as much as the app itself. The
 
 ## What you need
 
-- A GL.iNet MUDI 7 (GL-E5800). We test with GL firmware 4.10.0.
+- A GL.iNet Mudi 7 (GL-E5800). We test with GL firmware 4.10.0.
 - An Android phone and a USB-C cable to connect it to the router, ideally
   the router's own cable.
 - The router's admin password.
@@ -51,9 +51,9 @@ Always follow these rules:
 5. Send all traffic through the router's VPN, and don't use the router
    without it.
 6. Do not run the router without the battery installed.
-7. Before you leave a place you return to with the router, turn off the
-   SIM card or eSIM profile in every phone you carry, and keep it off
-   until you're back.
+7. Before you leave a place you return to with the router, remove the SIM
+   card or disable the eSIM profile in every phone you carry, and keep it
+   that way until you're back.
 
 For maximum privacy, also follow these rules where you can:
 
