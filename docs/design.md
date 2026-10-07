@@ -216,6 +216,16 @@ and AT commands sent over SSH.
 - **Switching slots while running is silent.** Switching slot 2 from SIM 2
   to an enabled eSIM profile in airplane mode emitted no RF. Inserting a
   physical card while running is untested.
+- **A card in slot 2 stays off while slot 2 is on the eSIM.** With slot 2
+  set to the built-in eSIM with its profiles disabled and airplane mode on,
+  we switched the router off, put an eSIM adapter card into slot 2's tray
+  and switched it on. The meter showed only the eSIM's two short bursts.
+  Switching slot 2 to SIM 2 afterwards, still in airplane mode, emitted
+  nothing, and the modem then reported the card's ICCID. A normal SIM card
+  should behave the same (inferred).
+- **A card in slot 1 always emits.** With a card in slot 1, every boot
+  showed RF for about 10 s or longer, whatever the settings, airplane mode
+  and GL's cellular switch included.
 - **No setting starts the radio off.** None of the modem's configuration
   commands offers a power-up radio state, so nothing saved can make a boot
   with a SIM silent.
@@ -395,11 +405,9 @@ blue-merle's license.
 
 Hardware, needing real SIMs:
 
-- eSIM parking: does a boot with slot 2 on the eSIM and a SIM in the tray
-  emit only the short bursts, and is switching from the eSIM to SIM 2 with
-  a real card silent? This decides between eSIM parking and order B.
-- Which IMEI does the network see for each slot (expected: IMEI 1 for slot
-  1, IMEI 2 for slot 2)?
+- Does the network see IMEI 2 for a card in slot 2, as expected?
+- Does a normal SIM card in slot 2 stay off while slot 2 is on the eSIM,
+  like the eSIM adapter card did?
 
 Hardware, other:
 
