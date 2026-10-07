@@ -2,10 +2,9 @@
 
 Churn is an Android phone app for the GL.iNet Mudi 7 (GL-E5800) travel
 router. The app guides you through the process of swapping the router SIM
-card in a privacy-preserving way. When you swap the router's SIM through the
-app, Churn also gives the router new IMEIs, the device numbers the mobile
-network sees. That way the network can't use the router to link the SIM you
-used before the swap to the one you use after it.
+card in a privacy-preserving way, by changing the routers IMEIs (the device
+numbers the mobile network sees). That way the network can't use the router
+to link the SIM you used before the swap to the one you use after it.
 
 **Status:** in development. The app doesn't do anything yet.
 
