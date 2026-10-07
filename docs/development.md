@@ -87,8 +87,6 @@ it:
 
 - **ICCID read from the modem:** keep the digits only. The modem pads a
   19-digit ICCID with a trailing `F` (verified), which is dropped.
-- **ICCID entered by the user:** 19 or 20 digits; reject it if the last
-  digit isn't the Luhn check digit of the others.
 - **Throwaway pair:** draw `s` with `SecureRandom.nextInt(n)`, which is
   unbiased, then build the serials as for a derived pair.
 - **Luhn:** the standard algorithm. Example: `49015420323751` gets check

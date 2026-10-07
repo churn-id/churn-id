@@ -105,9 +105,6 @@ IMSI.
   same profile could get a new IMEI when inserted again, which would show
   its issuer that the IMEI was rewritten. With the ICCID, a profile always
   shows the same IMEI, like a SIM in an ordinary device.
-- One of the two swap orders (section 7) can't read the IMSI before the
-  profile registers, but the user can enter the ICCID beforehand. Using the
-  ICCID in both orders keeps one rule.
 
 ### Keyed and deterministic
 
@@ -153,9 +150,10 @@ IMEIs, and a common fixed distance would be the better choice.
 ### Throwaway pair
 
 Built the same way, with `s` drawn uniformly from the random generator
-instead of the HMAC. It is written before a swap in which a short emission
-happens before the final IMEIs are known (section 7), so that emission
-can't carry the previous profile's IMEIs.
+instead of the HMAC. It is written before every swap, because the first
+boot after it emits the built-in eSIM's short bursts before the final IMEIs
+are known (section 7), and those bursts must not carry the previous
+profile's IMEIs.
 
 ## 5. Storage on the router
 
@@ -248,9 +246,9 @@ doesn't matter. Swapping a SIM while the router runs would mean running
 without the battery, which risks file-system corruption, so it isn't
 offered.
 
-### Planned order: eSIM parking
-
-Used if two tests with real SIMs pass (section 10).
+The app therefore parks slot 2 on the built-in eSIM while the user swaps
+the card, because a card in slot 2 stays off as long as slot 2 is set to
+the eSIM (section 6):
 
 1. With the cable connected, the app turns the radio off and verifies it,
    writes a throwaway pair (section 4) and verifies it, sets slot 2 to the
@@ -263,24 +261,6 @@ Used if two tests with real SIMs pass (section 10).
 3. The app switches slot 2 to SIM 2 in airplane mode, reads the ICCID,
    writes the derived pair and verifies it.
 4. The user turns airplane mode off later, at another place and time.
-
-### Fallback: order B
-
-Used if eSIM parking fails its tests. No card is powered between removing
-the old SIM and writing the new IMEIs, so no throwaway pair is needed.
-
-1. The app turns the radio off. The user switches the router off and removes
-   the old SIM.
-2. The user switches the router on with no SIM (silent) and enters the new
-   profile's ICCID, printed on physical SIMs or shown by the phone's eSIM
-   app for removable eSIM cards. The app checks its Luhn digit, writes the
-   derived pair, verifies it, and the user switches the router off.
-3. The user inserts the new SIM and switches the router on at a place that
-   doesn't matter, away in place and time from where the old SIM was last
-   used. This boot registers at once, already with the new IMEIs. The app
-   then checks that the profile's ICCID matches what was entered; if not,
-   the profile registered with another profile's IMEIs, and the app writes
-   the right ones.
 
 ### App behavior
 
