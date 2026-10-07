@@ -288,9 +288,9 @@ Always follow these rules:
 5. Send all traffic through the router's VPN, and don't use the router
    without it.
 6. Do not run the router without the battery installed.
-7. Before you leave a place you return to with the router, turn off the
-   SIM card or eSIM profile in every phone you carry, and keep it off
-   until you're back.
+7. Before you leave a place you return to with the router, remove the SIM
+   card or disable the eSIM profile in every phone you carry, and keep it
+   that way until you're back.
 
 For maximum privacy, also follow these rules where you can:
 
@@ -349,10 +349,10 @@ Why:
    router SIM to the phone, and usually to its owner. Airplane mode only
    while the router is on isn't enough: the phone's last cell before it
    goes quiet and its first after it comes back frame each router
-   session. Switching the SIM off in the phone's settings is also safer
-   than airplane mode, which one tap undoes. We measured that a
-   GrapheneOS phone transmits nothing with its eSIM profile switched off,
-   even with airplane mode off.
+   session. Removing the SIM card or disabling the eSIM profile is also
+   safer than airplane mode, which one tap undoes. We measured that a
+   GrapheneOS phone transmits nothing with its eSIM profile disabled, even
+   with airplane mode off.
 8. A SIM or profile registered to a name ties every IMEI it is used with to
    that name. Churn can't undo that.
 9. A provider that issues two consecutive profiles sees one Mudi 7 IMEI stop
