@@ -46,8 +46,8 @@ Always follow these rules:
 2. Before you get to such a place, unplug everything and switch the router
    off.
 3. Connect to the router by cable only, and keep its Wi-Fi off.
-4. Use normal SIM cards, or eSIM adapter cards with one profile each, not
-   the router's built-in eSIM.
+4. Use normal SIM cards, or eSIM adapter cards with one profile each, and
+   put them only into SIM slot 2. Don't use the router's built-in eSIM.
 5. Send all traffic through the router's VPN, and don't use the router
    without it.
 6. Do not run the router without the battery installed.
@@ -69,6 +69,7 @@ For maximum privacy, also follow these rules where you can:
 12. Use a phone without Google services, or turn off location services on
     every device you use with the router.
 13. Pay for the VPN in a way that isn't tied to your name.
+14. Block SIM slot 1, for example with a drop of hot glue.
 <!-- markdownlint-enable MD029 -->
 
 The reasons for each rule are in the

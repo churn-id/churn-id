@@ -51,7 +51,7 @@ it on a MUDI 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
 | Write IMEI 2 | `AT+EGMR=1,11,"<15 digits>"` | verified, survives reboot |
 | IMEISV of IMEI 2 | `AT+EGMR=0,10`: 14 IMEI digits + 2-digit SVN | verified, rejects writes |
 | Software version | item 9 (`AT+EGMR=0,9`); leave untouched | verified |
-| ICCID | `AT+QCCID` | inferred |
+| ICCID | `AT+QCCID`: a 19-digit ICCID comes with a trailing `F` | verified |
 | SIM hot-plug detection | `AT+QSIMDET?`: `1,0` = on | verified |
 | Slot select | `AT+QUIMSLOT` | rejected by this modem |
 | Persist modem settings | `AT+QPRTPARA=1` | sent by blue-merle v2 after writes; our writes persisted without it |
@@ -67,6 +67,8 @@ so don't use them.
   strings in it point to `/etc/config/cellular/slot_map.json` (verified
   strings, unknown mechanism).
 - Where GL stores "Power On with Charger"; it is not in `uci`.
+- Whether the modem can tell that slot 1 holds a card, so the app can warn
+  the user.
 
 ## Files on the router
 
@@ -85,10 +87,8 @@ At setup the app also adds the line `/etc/churn/` to `/etc/sysupgrade.conf`.
 The algorithm is specified in design.md, section 4. Notes for implementing
 it:
 
-- **ICCID read from the modem:** keep the digits only. Some modems pad a
-  19-digit ICCID with a trailing `F` (inferred), which is dropped.
-- **ICCID entered by the user:** 19 or 20 digits; reject it if the last
-  digit isn't the Luhn check digit of the others.
+- **ICCID read from the modem:** keep the digits only. The modem pads a
+  19-digit ICCID with a trailing `F` (verified), which is dropped.
 - **Throwaway pair:** draw `s` with `SecureRandom.nextInt(n)`, which is
   unbiased, then build the serials as for a derived pair.
 - **Luhn:** the standard algorithm. Example: `49015420323751` gets check

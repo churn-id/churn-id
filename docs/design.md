@@ -82,7 +82,8 @@ instead.
 An IMEI is 15 digits: an 8-digit type allocation code (TAC) identifying the
 device model, a 6-digit serial, and a Luhn check digit. The MUDI 7 has two
 IMEIs, expected to belong to SIM slot 1 and slot 2 (section 10). Churn
-derives both.
+uses only slot 2 (section 7) but derives both IMEIs, so they keep looking
+like a factory pair.
 
 ### TAC: the router's own
 
@@ -105,9 +106,6 @@ IMSI.
   same profile could get a new IMEI when inserted again, which would show
   its issuer that the IMEI was rewritten. With the ICCID, a profile always
   shows the same IMEI, like a SIM in an ordinary device.
-- One of the two swap orders (section 7) can't read the IMSI before the
-  profile registers, but the user can enter the ICCID beforehand. Using the
-  ICCID in both orders keeps one rule.
 
 ### Keyed and deterministic
 
@@ -153,9 +151,10 @@ IMEIs, and a common fixed distance would be the better choice.
 ### Throwaway pair
 
 Built the same way, with `s` drawn uniformly from the random generator
-instead of the HMAC. It is written before a swap in which a short emission
-happens before the final IMEIs are known (section 7), so that emission
-can't carry the previous profile's IMEIs.
+instead of the HMAC. It is written before every swap, because the first
+boot after it emits the built-in eSIM's short bursts before the final IMEIs
+are known (section 7), and those bursts must not carry the previous
+profile's IMEIs.
 
 ## 5. Storage on the router
 
@@ -216,6 +215,16 @@ and AT commands sent over SSH.
 - **Switching slots while running is silent.** Switching slot 2 from SIM 2
   to an enabled eSIM profile in airplane mode emitted no RF. Inserting a
   physical card while running is untested.
+- **A card in slot 2 stays off while slot 2 is on the eSIM.** With slot 2
+  set to the built-in eSIM with its profiles disabled and airplane mode on,
+  we switched the router off, put an eSIM adapter card into slot 2's tray
+  and switched it on. The meter showed only the eSIM's two short bursts.
+  Switching slot 2 to SIM 2 afterwards, still in airplane mode, emitted
+  nothing, and the modem then reported the card's ICCID. A normal SIM card
+  should behave the same (inferred).
+- **A card in slot 1 always emits.** With a card in slot 1, every boot
+  showed RF for about 10 s or longer, whatever the settings, airplane mode
+  and GL's cellular switch included.
 - **No setting starts the radio off.** None of the modem's configuration
   commands offers a power-up radio state, so nothing saved can make a boot
   with a SIM silent.
@@ -238,9 +247,10 @@ doesn't matter. Swapping a SIM while the router runs would mean running
 without the battery, which risks file-system corruption, so it isn't
 offered.
 
-### Planned order: eSIM parking
-
-Used if two tests with real SIMs pass (section 10).
+The app therefore parks slot 2 on the built-in eSIM while the user swaps
+the card, because a card in slot 2 stays off as long as slot 2 is set to
+the eSIM (section 6). Slot 1 is never used, because a card there emits at
+every boot:
 
 1. With the cable connected, the app turns the radio off and verifies it,
    writes a throwaway pair (section 4) and verifies it, sets slot 2 to the
@@ -253,24 +263,6 @@ Used if two tests with real SIMs pass (section 10).
 3. The app switches slot 2 to SIM 2 in airplane mode, reads the ICCID,
    writes the derived pair and verifies it.
 4. The user turns airplane mode off later, at another place and time.
-
-### Fallback: order B
-
-Used if eSIM parking fails its tests. No card is powered between removing
-the old SIM and writing the new IMEIs, so no throwaway pair is needed.
-
-1. The app turns the radio off. The user switches the router off and removes
-   the old SIM.
-2. The user switches the router on with no SIM (silent) and enters the new
-   profile's ICCID, printed on physical SIMs or shown by the phone's eSIM
-   app for removable eSIM cards. The app checks its Luhn digit, writes the
-   derived pair, verifies it, and the user switches the router off.
-3. The user inserts the new SIM and switches the router on at a place that
-   doesn't matter, away in place and time from where the old SIM was last
-   used. This boot registers at once, already with the new IMEIs. The app
-   then checks that the profile's ICCID matches what was entered; if not,
-   the profile registered with another profile's IMEIs, and the app writes
-   the right ones.
 
 ### App behavior
 
@@ -292,8 +284,8 @@ Always follow these rules:
 2. Before you get to such a place, unplug everything and switch the router
    off.
 3. Connect to the router by cable only, and keep its Wi-Fi off.
-4. Use normal SIM cards, or eSIM adapter cards with one profile each, not
-   the router's built-in eSIM.
+4. Use normal SIM cards, or eSIM adapter cards with one profile each, and
+   put them only into SIM slot 2. Don't use the router's built-in eSIM.
 5. Send all traffic through the router's VPN, and don't use the router
    without it.
 6. Do not run the router without the battery installed.
@@ -315,10 +307,11 @@ For maximum privacy, also follow these rules where you can:
 12. Use a phone without Google services, or turn off location services on
     every device you use with the router.
 13. Pay for the VPN in a way that isn't tied to your name.
+14. Block SIM slot 1, for example with a drop of hot glue.
 <!-- markdownlint-enable MD029 -->
 
 Rules 1 to 7 allow no compromise: breaking one undoes what Churn does or
-risks the router. Rules 8 to 13 make linking harder still, and some say
+risks the router. Rules 8 to 14 make linking harder still, and some say
 what to do when one can't be followed.
 
 Why:
@@ -340,7 +333,10 @@ Why:
 4. The built-in eSIM's EID never changes and is reported to the provider's
    server on every profile download, which links all its profiles. It also
    emits at boot whenever slot 2 is set to it. An eSIM adapter card has an
-   EID too, so a second profile on it would be linked to the first.
+   EID too, so a second profile on it would be linked to the first. A card
+   in slot 1 emits for about 10 s at every boot, whatever the settings,
+   while a card in slot 2 stays off until the app has written its IMEIs
+   (sections 6 and 7).
 5. Without a VPN, every service a device behind the router uses sees the
    current SIM's IP address and logs it with the account, so one account
    links all SIMs, as the IMEI would. The carrier also sees the traffic,
@@ -380,6 +376,8 @@ Why:
     SIM the router used along the way (inferred).
 13. The VPN provider sees each SIM's IP address in turn, all under one VPN
     account. If that account is tied to a name, so are all the SIMs.
+14. A card put into slot 1 by mistake emits at the next boot, wherever
+    that happens (rule 4). A blocked slot rules that mistake out.
 
 The app also tells the user, before first use, that rewriting an IMEI is a
 criminal offense in some countries, for example under the UK's Mobile
@@ -395,11 +393,9 @@ blue-merle's license.
 
 Hardware, needing real SIMs:
 
-- eSIM parking: does a boot with slot 2 on the eSIM and a SIM in the tray
-  emit only the short bursts, and is switching from the eSIM to SIM 2 with
-  a real card silent? This decides between eSIM parking and order B.
-- Which IMEI does the network see for each slot (expected: IMEI 1 for slot
-  1, IMEI 2 for slot 2)?
+- Does the network see IMEI 2 for a card in slot 2, as expected?
+- Does a normal SIM card in slot 2 stay off while slot 2 is on the eSIM,
+  like the eSIM adapter card did?
 
 Hardware, other:
 
