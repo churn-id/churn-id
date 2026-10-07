@@ -225,7 +225,7 @@ and AT commands sent over SSH.
   and GL's cellular switch included.
 - **No setting starts the radio off.** None of the modem's configuration
   commands offers a power-up radio state, so nothing saved can make a boot
-  with a SIM silent.
+  with an enabled SIM profile silent.
 - **Both IMEIs are writable.** IMEI 1 and IMEI 2 can be written, the new
   values read back at once and survive a reboot. A third, read-only view of
   IMEI 2 (its IMEISV) rejects writes.
