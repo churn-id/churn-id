@@ -143,10 +143,9 @@ Test vectors are in [development.md](development.md).
 A factory MUDI 7 has two different IMEIs whose serials are a small distance
 apart: 7 on the unit we tested. Derived pairs keep the router's own distance,
 so to anyone who sees both IMEIs they look like a factory pair. Equal IMEIs
-would never occur on a factory unit. Whether all MUDI 7 units use the same
-distance is open (section 10). If it varies between units, a router's
-distance would recur in every rotation for someone who sees both of its
-IMEIs, and a common fixed distance would be the better choice.
+would never occur on a factory unit. Since Churn uses only slot 2, the
+network should see only IMEI 2 (section 10), so whether the distance varies
+between units doesn't matter.
 
 ### Throwaway pair
 
@@ -418,7 +417,6 @@ Design:
 - Do real MUDI 7 serials fall in a narrow range? A derived serial far
   outside it could stand out. Serials are uniform over all 6 digits until
   this is known.
-- Do all MUDI 7 units have the same distance between their two serials?
 
 Legal and distribution:
 
