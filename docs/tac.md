@@ -41,7 +41,7 @@ want to link the identity used before a SIM swap to the one used after it.
    IMEI (inferred). On the same network that looks like a clone, and if that
    phone is blocklisted, the carrier refuses the router. A niche router TAC
    has far fewer units, so collisions are rare.
-4. **Carrier behaviour stays as before.** Carriers apply policy per TAC; for
+4. **Carrier behavior stays as before.** Carriers apply policy per TAC; for
    example, Cisco's mobility management selects operator policy by TAC
    (verified). With the own TAC, plans, tethering rules and data-SIM checks
    see the same device class as without Churn. A phone TAC changes that
@@ -57,7 +57,7 @@ the signature of point 2.
 ## Rejected options
 
 - **blue-merle v2's pool** (`files/usr/share/blue-merle/tac_pool.json`): 7
-  TACs (US iPhones, a US Galaxy S23 Ultra, GL-X3000, Netgear M6 Pro, MiFi X
+  TACs (US iPhones, a US Galaxy S23 Ultra, GL-X3000, NETGEAR M6 Pro, MiFi X
   Pro), all marked unverified and chosen for US bands. Its comment cites
   forum thread 68449 for throttling of LTE-only TACs; the thread is about
   Release 17 registration failures in Europe and doesn't mention TACs
@@ -76,6 +76,7 @@ The router's TAC belongs to the MUDI 7, not to every product with the
 RG650V-EU. Two kinds of TAC could widen the group without changing the radio
 fingerprint, each only once seen on a real device and not only in a
 database:
+
 - other TACs GL.iNet uses for the MUDI 7 with the same EU modem, for example
   in later batches. Not the North American variant, whose bands differ.
 - a TAC Quectel uses for the RG650V-EU module in other products.
@@ -88,16 +89,16 @@ None is known yet, so derived IMEIs use the router's own TAC only.
   units shipped. A derived serial far outside that block could stand out to
   someone who sees many MUDI 7 IMEIs (inferred). Serials stay uniform over
   all 6 digits until IMEIs from more units are known.
-- **Legality:** rewriting an IMEI is a criminal offence in some countries,
+- **Legality:** rewriting an IMEI is a criminal offense in some countries,
   for example under the UK's Mobile Telephones (Re-programming) Act 2002.
   Switzerland and other markets are not checked yet.
 
 ## Sources
 
-- blue-merle: https://github.com/srlabs/blue-merle
-- blue-merle v2: https://github.com/WSchlesner/blue-merle-v2
-- GL.iNet forum thread 68449: https://forum.gl-inet.com/t/68449
+- blue-merle: <https://github.com/srlabs/blue-merle>
+- blue-merle v2: <https://github.com/WSchlesner/blue-merle-v2>
+- GL.iNet forum thread 68449: <https://forum.gl-inet.com/t/68449>
 - Cisco MME operator policy by IMEI-TAC:
-  https://www.cisco.com/c/en/us/td/docs/wireless/asr_5000/21-28/mme-admin/21-28-mme-admin/m_oppol_imei-tac.html
-- Osmocom TAC database: https://tacdb.osmocom.org/
-- GSMA TAC allocation: https://www.gsmaservices.com/device-services/tac-allocation/
+  <https://www.cisco.com/c/en/us/td/docs/wireless/asr_5000/21-28/mme-admin/21-28-mme-admin/m_oppol_imei-tac.html>
+- Osmocom TAC database: <https://tacdb.osmocom.org/>
+- GSMA TAC allocation: <https://www.gsmaservices.com/device-services/tac-allocation/>

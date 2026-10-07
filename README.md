@@ -13,10 +13,14 @@ use after it.
 Churn stops the router's IMEI from linking your old SIM to your new one.
 
 It doesn't hide:
+
 - where the router is while it's online;
 - what you do online, or the accounts you use;
 - who bought a SIM, if it's registered to a name;
 - that the device is a MUDI 7, which the network can tell from its radio.
+
+Churn only helps together with a VPN. Without one, the websites and apps you
+use can link your SIMs through your accounts.
 
 Following the rules below matters as much as the app itself. The
 [design document](docs/design.md) explains how Churn works and why.
@@ -24,32 +28,55 @@ Following the rules below matters as much as the app itself. The
 ## What you need
 
 - A GL.iNet MUDI 7 (GL-E5800). We test with GL firmware 4.10.0.
-- An Android phone and a USB-C cable to connect it to the router.
+- An Android phone and a USB-C cable to connect it to the router, ideally
+  the router's own cable.
 - The router's admin password.
-- A new SIM for each swap: a physical SIM, or a profile on a removable eSIM
-  card.
+- A VPN service, set up on the router.
+- A new SIM for each swap, either
+  - a normal SIM card, or
+  - an eSIM adapter card, such as [JMP's](https://jmp.chat/esim-adapter),
+    containing one eSIM profile.
 
 ## Rules
+
+Always follow these rules:
 
 1. At home, at work and anywhere else you return to, keep the router
    switched off or without a SIM.
 2. Before you get to such a place, unplug everything and switch the router
    off.
 3. Connect to the router by cable only, and keep its Wi-Fi off.
-4. Use physical SIMs or removable eSIM cards, not the router's built-in
-   eSIM.
-5. Where you can, use SIMs that aren't registered to your name.
-6. Get each new SIM or profile from a different provider than the last one.
-7. Don't reuse a SIM or eSIM card once you've swapped it out.
-8. Vary when you swap SIMs, and where you switch the radio on and off.
-9. Keep the battery in the router.
+4. Use normal SIM cards, or eSIM adapter cards with one profile each, not
+   the router's built-in eSIM.
+5. Send all traffic through the router's VPN, and don't use the router
+   without it.
+6. Do not run the router without the battery installed.
+7. Before you leave a place you return to with the router, turn off the
+   SIM card or eSIM profile in every phone you carry, and keep it off
+   until you're back.
+
+For maximum privacy, also follow these rules where you can:
+
+<!-- markdownlint-disable MD029 -->
+8. Use SIM cards that aren't registered to your name. The same goes for
+   eSIM profiles.
+9. Get each new SIM card or eSIM profile from a different provider than
+   the last one. If you can't, start using the new one somewhere else and
+   some days after you stopped using the last one.
+10. Don't reuse a card once you've swapped it out. If you run out of new
+    cards, keep using the current one until you get a new one.
+11. Vary when you swap SIMs, and where you switch the radio on and off.
+12. Use a phone without Google services, or turn off location services on
+    every device you use with the router.
+13. Pay for the VPN in a way that isn't tied to your name.
+<!-- markdownlint-enable MD029 -->
 
 The reasons for each rule are in the
 [design document](docs/design.md#8-usage-rules).
 
 ## Legal
 
-Changing an IMEI is a criminal offence in some countries, for example in the
+Changing an IMEI is a criminal offense in some countries, for example in the
 United Kingdom. Check the law where you use the router.
 
 ## Contributing
