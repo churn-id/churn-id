@@ -17,6 +17,19 @@ addition.
   footer, so Claude doesn't write one.
 - Claude never merges pull requests, approves deployments or changes
   repository settings.
+- Besides the ruleset that CONTRIBUTING.md describes, a second ruleset,
+  "main merges", restricts updates to `main` and lets only the repository
+  admin role bypass it, for pull requests only. Without it, Claude's
+  account could merge any approved pull request, and "never merges" would
+  rest on this file alone.
+- That ruleset makes GitHub show every pull request as blocked, even when
+  it is approved, green and up to date. The maintainer merges by ticking
+  "Merge without waiting for requirements to be met (bypass rules)", so
+  Claude reports such a pull request as ready to merge, not as blocked.
+- The box appeared only once a pull request was approved and up to date
+  with `main`. Whether it also waits for the required check is untested,
+  and a bypass merge leaves no trace on the pull request, so the
+  maintainer ticks it only when the check is green.
 - Claude gives the approval every pull request needs, after checking the
   diff. For Dependabot updates it also compares the new commit hash with the
   upstream tag.
