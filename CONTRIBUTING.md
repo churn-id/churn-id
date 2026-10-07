@@ -66,7 +66,10 @@ cd android
 ```
 
 CI builds a release bundle for every pull request and every push to `main`;
-download it from the workflow run's artifacts (`churn-release-aab`).
+download it from the workflow run's artifacts (`churn-release-aab`). It
+also checks the spelling of the Markdown files and the app's source with
+cspell (word list in `cspell.json`) and lints the Markdown files with
+markdownlint-cli2 (`.markdownlint.json`).
 
 ## Signing
 
