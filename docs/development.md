@@ -67,6 +67,8 @@ so don't use them.
   strings in it point to `/etc/config/cellular/slot_map.json` (verified
   strings, unknown mechanism).
 - Where GL stores "Power On with Charger"; it is not in `uci`.
+- Whether the modem can tell that slot 1 holds a card, so the app can warn
+  the user.
 
 ## Files on the router
 

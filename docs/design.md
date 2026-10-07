@@ -82,7 +82,8 @@ instead.
 An IMEI is 15 digits: an 8-digit type allocation code (TAC) identifying the
 device model, a 6-digit serial, and a Luhn check digit. The MUDI 7 has two
 IMEIs, expected to belong to SIM slot 1 and slot 2 (section 10). Churn
-derives both.
+uses only slot 2 (section 7) but derives both IMEIs, so they keep looking
+like a factory pair.
 
 ### TAC: the router's own
 
@@ -248,7 +249,8 @@ offered.
 
 The app therefore parks slot 2 on the built-in eSIM while the user swaps
 the card, because a card in slot 2 stays off as long as slot 2 is set to
-the eSIM (section 6):
+the eSIM (section 6). Slot 1 is never used, because a card there emits at
+every boot:
 
 1. With the cable connected, the app turns the radio off and verifies it,
    writes a throwaway pair (section 4) and verifies it, sets slot 2 to the
@@ -282,8 +284,8 @@ Always follow these rules:
 2. Before you get to such a place, unplug everything and switch the router
    off.
 3. Connect to the router by cable only, and keep its Wi-Fi off.
-4. Use normal SIM cards, or eSIM adapter cards with one profile each, not
-   the router's built-in eSIM.
+4. Use normal SIM cards, or eSIM adapter cards with one profile each, and
+   put them only into SIM slot 2. Don't use the router's built-in eSIM.
 5. Send all traffic through the router's VPN, and don't use the router
    without it.
 6. Do not run the router without the battery installed.
@@ -305,10 +307,11 @@ For maximum privacy, also follow these rules where you can:
 12. Use a phone without Google services, or turn off location services on
     every device you use with the router.
 13. Pay for the VPN in a way that isn't tied to your name.
+14. Block SIM slot 1, for example with a drop of hot glue.
 <!-- markdownlint-enable MD029 -->
 
 Rules 1 to 7 allow no compromise: breaking one undoes what Churn does or
-risks the router. Rules 8 to 13 make linking harder still, and some say
+risks the router. Rules 8 to 14 make linking harder still, and some say
 what to do when one can't be followed.
 
 Why:
@@ -330,7 +333,10 @@ Why:
 4. The built-in eSIM's EID never changes and is reported to the provider's
    server on every profile download, which links all its profiles. It also
    emits at boot whenever slot 2 is set to it. An eSIM adapter card has an
-   EID too, so a second profile on it would be linked to the first.
+   EID too, so a second profile on it would be linked to the first. A card
+   in slot 1 emits for about 10 s at every boot, whatever the settings,
+   while a card in slot 2 stays off until the app has written its IMEIs
+   (sections 6 and 7).
 5. Without a VPN, every service a device behind the router uses sees the
    current SIM's IP address and logs it with the account, so one account
    links all SIMs, as the IMEI would. The carrier also sees the traffic,
@@ -370,6 +376,8 @@ Why:
     SIM the router used along the way (inferred).
 13. The VPN provider sees each SIM's IP address in turn, all under one VPN
     account. If that account is tied to a name, so are all the SIMs.
+14. A card put into slot 1 by mistake emits at the next boot, wherever
+    that happens (rule 4). A blocked slot rules that mistake out.
 
 The app also tells the user, before first use, that rewriting an IMEI is a
 criminal offense in some countries, for example under the UK's Mobile
