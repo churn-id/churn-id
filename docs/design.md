@@ -1,11 +1,11 @@
 # Churn design
 
-Churn is an Android app for the GL.iNet Mudi 7 (GL-E5800) travel router.
-Every SIM swap done through the app also gives the router new IMEIs, derived
-from the new SIM profile and a random secret stored on the router. This
-document explains why Churn works the way it does. How to build on it is in
-[development.md](development.md); why the derived IMEIs keep the router's
-own TAC is in [tac.md](tac.md).
+Churn is an Android phone app for the GL.iNet Mudi 7 (GL-E5800) travel
+router. Every SIM swap done through the app also gives the router new IMEIs,
+derived from the new SIM profile and a random secret stored on the router.
+This document explains why Churn works the way it does. How to build on it
+is in [development.md](development.md); why the derived IMEIs keep the
+router's own TAC is in [tac.md](tac.md).
 
 Status: draft; nothing described here is implemented yet. *Verified* means
 we observed it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU
