@@ -59,14 +59,48 @@ so don't use them.
 
 To shut the router down, the app runs `poweroff` over SSH (verified).
 
+## uci settings
+
+Read a value with `uci -q get <setting>`. A change needs `uci set` followed
+by `uci commit <config>`, where `<config>` is the part before the first dot.
+Before the commit, `uci get` already returns the new value, but
+`/etc/config/<config>` still holds the old one (verified). GL's
+`cellular_manager` switches airplane mode right after `uci set`, without a
+commit (verified); for the other settings this is untested. The app still
+commits every change, so it survives a reboot (inferred from OpenWrt's
+`uci`, which keeps uncommitted changes in RAM).
+
+| Setting | Value seen | Meaning | Status |
+| --- | --- | --- | --- |
+| `glconfig.general.airplane_mode` | `'0'` off, `'1'` on | GL's airplane mode. Writing it turns airplane mode on and off. Only `cellular_manager` and `gl_screen` read it | verified; after a boot with `'1'` the modem answers `+CFUN: 4` |
+| `lpm.global.auto_shutdown_time` | `'30'`, set by us | Delay in seconds before GL's auto power-off. It fires only on battery with no cable or Wi-Fi client connected, and shutdown starts more than 20 s after the set delay, counted from when the display goes dark | verified |
+| `gl_timer.reboot.enable` | `'0'` | GL's scheduled reboot, off | verified |
+| `route_policy.@rule[0].killswitch` | `'1'` | Kill switch of the first VPN rule. Writing it turns it on and off | verified |
+| `route_policy.@default[0].enabled` | `'0'` with Enhanced Kill Switch on, `'1'` off | GL's fallback policy, which sends traffic that matches no VPN rule past the VPN (`via='novpn'`, mark `0x8000`) | values verified, meaning inferred |
+| `network.vpn_to_main` | absent with Enhanced Kill Switch on, present off | Routing rule that sends marked traffic (`mark='0x0/0xf000'`, `invert='1'`) to the main table, outside the VPN. `ip rule` lists it at priority 9000 only while the switch is off | values and `ip rule` verified, meaning inferred |
+
+The app needs the Enhanced Kill Switch on. To turn it on, it sets
+`route_policy.@default[0].enabled='0'`, deletes `network.vpn_to_main`,
+commits both configs and runs `/etc/init.d/network reload`; turning it off
+reverses this. The priority 9000 rule changes only after the reload, and
+GL's web interface shows the new state at once. With the switch turned on
+this way and the tunnel down, a website no longer loaded (all verified).
+
+Two settings the app needs are not in `uci` (verified by searching
+`uci show`):
+
+- GL's "Power On with Charger".
+- Slot 2's choice between SIM 2 and the eSIM. `cellular_manager` keeps it,
+  and GL's scripts fall back to `/tmp/run/dual_sim/<interface>/current_sim`
+  when the modem doesn't answer `AT+QUIMSLOT?` (verified).
+
 ## Still to find out
 
-- How to turn GL's airplane mode on and off and switch slot 2 between SIM 2
-  and the eSIM from a shell. Both belong to GL's `cellular_manager`;
-  airplane mode is stored as `glconfig.general.airplane_mode`, and slot
-  strings in it point to `/etc/config/cellular/slot_map.json` (verified
-  strings, unknown mechanism).
-- Where GL stores "Power On with Charger"; it is not in `uci`.
+- How to switch slot 2 between SIM 2 and the eSIM from a shell. GL's
+  `cellular_manager` does it, and slot strings in it point to
+  `/etc/config/cellular/slot_map.json` (verified strings, unknown
+  mechanism).
+- Where GL stores "Power On with Charger".
 - Whether the modem can tell that slot 1 holds a card, so the app can warn
   the user.
 

@@ -268,7 +268,8 @@ every boot:
 - Each step says what to do, where, and why, so the rules don't depend on
   the user's memory.
 - Before each rotation the app checks the slot 2 setting, airplane mode, and
-  that "Power On with Charger" is off.
+  that "Power On with Charger" and GL's scheduled reboot are off. A reboot
+  is a power-on, so wherever it happens, the SIM registers there.
 
 ## 8. Usage rules
 
@@ -414,7 +415,8 @@ Hardware, other:
 - Does GL's VPN client on the Mudi 7 block all traffic while the VPN is
   down? GL's documentation says it does if and only if the "Kill Switch"
   setting is on for every tunnel and the global "Enhanced Kill Switch"
-  setting is on. Rule 5 depends on it.
+  setting is on. Rule 5 depends on it. In one test with both on and the
+  tunnel down, a website no longer loaded.
 - Can the app give the router's Wi-Fi a new network name and hardware
   address at every swap? OpenWrt has a setting for each; GL's firmware
   may override them.
