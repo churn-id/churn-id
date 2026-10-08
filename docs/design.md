@@ -411,8 +411,10 @@ Hardware, other:
   commands for it.
 - Do Android phones other than the one we tested accept the router's USB
   Ethernet?
-- Does GL's VPN client on the Mudi 7 block all traffic while the VPN is
-  down, including right after boot? Rule 5 depends on it.
+- According to the documentation, GL's VPN client on the Mudi 7 blocks all
+  traffic while the VPN is down if and only if the "Kill Switch" setting
+  for all the tunnels and the "Enhanced Kill Switch" global setting are
+  enabled. If this works as advertised is untested. Rule 5 depends on it.
 - Can the app give the router's Wi-Fi a new network name and hardware
   address at every swap? OpenWrt has a setting for each; GL's firmware
   may override them.
