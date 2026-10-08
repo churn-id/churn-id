@@ -57,6 +57,8 @@ it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
 `AT+GSN` and `AT+CGSN` return one of the two IMEIs, switching irregularly,
 so don't use them.
 
+To shut the router down, the app runs `poweroff` over SSH (verified).
+
 ## Still to find out
 
 - How to turn GL's airplane mode on and off and switch slot 2 between SIM 2
