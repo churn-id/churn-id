@@ -212,8 +212,7 @@ and AT commands sent over SSH.
   emitted at boot. The modem rejects Quectel's usual slot command, and GL
   switches slots only while running.
 - **Switching slots while running is silent.** Switching slot 2 from SIM 2
-  to an enabled eSIM profile in airplane mode emitted no RF. Inserting a
-  physical card while running is untested.
+  to an enabled eSIM profile in airplane mode emitted no RF.
 - **A card in slot 2 stays off while slot 2 is on the eSIM.** With slot 2
   set to the built-in eSIM with its profiles disabled and airplane mode on,
   we switched the router off, put an eSIM adapter card into slot 2's tray
@@ -226,10 +225,9 @@ and AT commands sent over SSH.
   and GL's cellular switch included.
 - **No setting starts the radio off.** None of the modem's configuration
   commands offers a power-up radio state, so nothing saved can make a boot
-  with a SIM silent.
+  with an enabled SIM profile silent.
 - **Both IMEIs are writable.** IMEI 1 and IMEI 2 can be written, the new
-  values read back at once and survive a reboot. A third, read-only view of
-  IMEI 2 (its IMEISV) rejects writes.
+  values read back at once and survive a reboot.
 - **No automatic power-on.** With GL's "Power On with Charger" setting off,
   connecting a charger doesn't switch the router on.
 - **Auto power-off is limited.** GL's automatic power-off fires only on
@@ -253,8 +251,8 @@ every boot:
 
 1. With the cable connected, the app turns the radio off and verifies it,
    writes a throwaway pair (section 4) and verifies it, sets slot 2 to the
-   built-in eSIM with no profile enabled, and turns airplane mode on. The
-   user switches the router off.
+   built-in eSIM with no profile enabled, turns airplane mode on and
+   shuts the router down.
 2. With the router off, the user replaces the old SIM in slot 2's tray with
    the new one, goes to a place that doesn't matter, and switches the router
    on. Only the eSIM's short bursts go out, with the throwaway IMEI and the
@@ -384,8 +382,15 @@ Telephones (Re-programming) Act 2002.
 
 ## 9. Distribution
 
-Planned: Google Play (application ID `id.churn`) and F-Droid. Churn
-reimplements rather than copies blue-merle, so it doesn't inherit
+[F-Droid](https://f-droid.org/) builds every app version on its own
+servers before publishing it in its repository, which makes it the best
+place to distribute Churn. Because of its reach, Google Play is an obvious
+second choice. However, since Churn helps the user do something that is
+illegal in some jurisdictions, Google might refuse the app outright or
+shadow-ban it. Getting the app into Google Play is therefore a bonus rather
+than a goal.
+
+Churn reimplements rather than copies blue-merle, so it doesn't inherit
 blue-merle's license.
 
 ## 10. Open questions
@@ -407,7 +412,9 @@ Hardware, other:
 - Do Android phones other than the one we tested accept the router's USB
   Ethernet?
 - Does GL's VPN client on the Mudi 7 block all traffic while the VPN is
-  down, including right after boot? Rule 5 depends on it.
+  down? GL's documentation says it does if and only if the "Kill Switch"
+  setting is on for every tunnel and the global "Enhanced Kill Switch"
+  setting is on. Rule 5 depends on it.
 - Can the app give the router's Wi-Fi a new network name and hardware
   address at every swap? OpenWrt has a setting for each; GL's firmware
   may override them.

@@ -41,23 +41,23 @@ it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
 
 | Purpose | Command | Status |
 | --- | --- | --- |
-| Radio state | `AT+CFUN?`: `1` on, `4` airplane | verified |
-| Radio off | `AT+CFUN=4` | in GL's firmware, not yet sent by us |
+| Radio state | `AT+CFUN?`: `1` on, `4` off | verified |
+| Radio on | `AT+CFUN=1` | verified |
+| Radio off | `AT+CFUN=4` | verified |
 | SIM present | `AT+CPIN?`: `+CME ERROR: 10` = no SIM | verified |
 | Active subscription | `AT+QUIMSUB?`: slot 2 runs on `2,"SUB2"` | verified |
 | Read IMEI 1 | `AT+EGMR=0,7` | verified |
-| Read IMEI 2 | `AT+EGMR=0,11` | to test |
+| Read IMEI 2 | `AT+EGMR=0,11` | verified |
 | Write IMEI 1 | `AT+EGMR=1,7,"<15 digits>"` | verified, survives reboot |
 | Write IMEI 2 | `AT+EGMR=1,11,"<15 digits>"` | verified, survives reboot |
-| IMEISV of IMEI 2 | `AT+EGMR=0,10`: 14 IMEI digits + 2-digit SVN | verified, rejects writes |
-| Software version | item 9 (`AT+EGMR=0,9`); leave untouched | verified |
 | ICCID | `AT+QCCID`: a 19-digit ICCID comes with a trailing `F` | verified |
-| SIM hot-plug detection | `AT+QSIMDET?`: `1,0` = on | verified |
 | Slot select | `AT+QUIMSLOT` | rejected by this modem |
 | Persist modem settings | `AT+QPRTPARA=1` | sent by blue-merle v2 after writes; our writes persisted without it |
 
 `AT+GSN` and `AT+CGSN` return one of the two IMEIs, switching irregularly,
 so don't use them.
+
+To shut the router down, the app runs `poweroff` over SSH (verified).
 
 ## Still to find out
 
