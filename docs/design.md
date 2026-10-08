@@ -382,8 +382,15 @@ Telephones (Re-programming) Act 2002.
 
 ## 9. Distribution
 
-Planned: Google Play (application ID `id.churn`) and F-Droid. Churn
-reimplements rather than copies blue-merle, so it doesn't inherit
+Given the policy of building every app version on their own servers before
+publishing it in their repository, [F-Droid](https://f-droid.org/) is the
+perfect place to distribute Churn. Due to its popularity, Google Play is an
+obvious choice. However, since Churn helps the user do something that is
+illegal in some jurisdictions, Google might either downright refuse
+distribution or shadow-ban the app. Getting the app into Googles store
+should therefore be seen as an added bonus rather than a goal.
+
+Churn reimplements rather than copies blue-merle, so it doesn't inherit
 blue-merle's license.
 
 ## 10. Open questions
