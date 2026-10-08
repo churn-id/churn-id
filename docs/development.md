@@ -41,12 +41,13 @@ it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
 
 | Purpose | Command | Status |
 | --- | --- | --- |
-| Radio state | `AT+CFUN?`: `1` on, `4` airplane | verified |
-| Radio off | `AT+CFUN=4` | in GL's firmware, not yet sent by us |
+| Radio state | `AT+CFUN?`: `1` on, `4` off | verified |
+| Radio on | `AT+CFUN=1` | verified |
+| Radio off | `AT+CFUN=4` | verified |
 | SIM present | `AT+CPIN?`: `+CME ERROR: 10` = no SIM | verified |
 | Active subscription | `AT+QUIMSUB?`: slot 2 runs on `2,"SUB2"` | verified |
 | Read IMEI 1 | `AT+EGMR=0,7` | verified |
-| Read IMEI 2 | `AT+EGMR=0,11` | to test |
+| Read IMEI 2 | `AT+EGMR=0,11` | verified |
 | Write IMEI 1 | `AT+EGMR=1,7,"<15 digits>"` | verified, survives reboot |
 | Write IMEI 2 | `AT+EGMR=1,11,"<15 digits>"` | verified, survives reboot |
 | Software version | item 9 (`AT+EGMR=0,9`); leave untouched | verified |
