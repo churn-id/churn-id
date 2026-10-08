@@ -50,9 +50,7 @@ it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
 | Read IMEI 2 | `AT+EGMR=0,11` | verified |
 | Write IMEI 1 | `AT+EGMR=1,7,"<15 digits>"` | verified, survives reboot |
 | Write IMEI 2 | `AT+EGMR=1,11,"<15 digits>"` | verified, survives reboot |
-| Software version | item 9 (`AT+EGMR=0,9`); leave untouched | verified |
 | ICCID | `AT+QCCID`: a 19-digit ICCID comes with a trailing `F` | verified |
-| SIM hot-plug detection | `AT+QSIMDET?`: `1,0` = on | verified |
 | Slot select | `AT+QUIMSLOT` | rejected by this modem |
 | Persist modem settings | `AT+QPRTPARA=1` | sent by blue-merle v2 after writes; our writes persisted without it |
 
