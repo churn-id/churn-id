@@ -251,8 +251,8 @@ every boot:
 
 1. With the cable connected, the app turns the radio off and verifies it,
    writes a throwaway pair (section 4) and verifies it, sets slot 2 to the
-   built-in eSIM with no profile enabled, and turns airplane mode on. The
-   user switches the router off.
+   built-in eSIM with no profile enabled, turns airplane mode on and
+   shuts the router down.
 2. With the router off, the user replaces the old SIM in slot 2's tray with
    the new one, goes to a place that doesn't matter, and switches the router
    on. Only the eSIM's short bursts go out, with the throwaway IMEI and the
