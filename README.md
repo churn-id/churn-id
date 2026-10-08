@@ -25,6 +25,33 @@ use can link your SIMs through your accounts.
 Following the rules below matters as much as the app itself. The
 [design document](docs/design.md) explains how Churn works and why.
 
+## Is Churn for you?
+
+Privacy is a puzzle with many pieces, and Churn is one of the last ones. It
+removes a single link between your SIMs, the router's IMEIs. Any other link
+you leave in place is enough on its own to tie your SIMs together, so Churn
+only adds something once the larger pieces are done.
+
+Roughly from larger to smaller, the pieces are:
+
+1. **Your phone.** It knows the most about you. Turn off location services
+   and location history, or use a phone without Google services.
+2. **Your accounts.** Every account you log into connects what you do to
+   you. Use few, and keep the ones you want private apart from the ones in
+   your name.
+3. **Your connection.** A VPN hides your SIM's address from the websites
+   and apps you use. Pay for it in a way that isn't tied to your name.
+4. **Your SIM.** A SIM registered to your name tells the network who you
+   are, whatever the router does. Use SIMs that aren't, where the law
+   allows it.
+5. **Your router's device numbers.** This is the piece Churn handles.
+
+Churn makes sense for you if you've done the first four and want to stop
+the mobile network from seeing which SIMs belong together. If you haven't,
+start there: it protects you more than Churn can, and Churn can't make up
+for it. Either way, Churn needs you to follow the rules below; it doesn't
+work on its own.
+
 ## What you need
 
 - A GL.iNet Mudi 7 (GL-E5800). We test with GL firmware 4.10.0.
