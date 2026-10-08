@@ -382,13 +382,13 @@ Telephones (Re-programming) Act 2002.
 
 ## 9. Distribution
 
-Given the policy of building every app version on their own servers before
-publishing it in their repository, [F-Droid](https://f-droid.org/) is the
-perfect place to distribute Churn. Due to its popularity, Google Play is an
-obvious choice. However, since Churn helps the user do something that is
-illegal in some jurisdictions, Google might either downright refuse
-distribution or shadow-ban the app. Getting the app into Googles store
-should therefore be seen as an added bonus rather than a goal.
+[F-Droid](https://f-droid.org/) builds every app version on its own
+servers before publishing it in its repository, which makes it the best
+place to distribute Churn. Because of its reach, Google Play is an obvious
+second choice. However, since Churn helps the user do something that is
+illegal in some jurisdictions, Google might refuse the app outright or
+shadow-ban it. Getting the app into Google Play is therefore a bonus rather
+than a goal.
 
 Churn reimplements rather than copies blue-merle, so it doesn't inherit
 blue-merle's license.
