@@ -14,9 +14,20 @@ modem; *inferred* means reasoned but not yet tested.
 ## 1. Goal and threat model
 
 A mobile network records which SIM (IMSI) was used in which device (IMEI),
-where (cell) and when. Without Churn the router keeps its IMEI, so a new SIM
-in it is linked to every SIM used in it before. Churn's goal is that the
-identity used before a SIM swap can't be linked to the one used after it.
+where (cell) and when. Kept for months or years, these records form a
+location history of each subscriber, coarser than but much like the one
+Google and Apple collect from phones. Even without a name, such a history
+points to its owner: in one carrier's records of 1.5 million people, four
+places and hours told 95% of them apart
+([study](https://www.nature.com/articles/srep01376)), and a person's
+home and workplace are two such points that are easy to learn.
+
+Changing SIMs splits the history only if the IMEI changes too, which
+ordinary phones don't allow, so Churn moves the mobile connection to a
+travel router whose modem does. Without Churn the router keeps its IMEI, so
+a new SIM in it is linked to every SIM used in it before. Churn's goal is
+that the identity used before a SIM swap can't be linked to the one used
+after it.
 
 - **Adversary:** the carrier, and anyone who later reads its records
   (retained data, lawful access), possibly joined with other records such
@@ -290,26 +301,27 @@ Always follow these rules:
 7. Before you leave a place you return to with the router, remove the SIM
    card or disable the eSIM profile in every phone you carry, and keep it
    that way until you're back.
+8. Use the router only with phones that have no Google services built in,
+   such as phones running GrapheneOS, and not with an iPhone. Turn off
+   location services on every other device you use with it.
 
 For maximum privacy, also follow these rules where you can:
 
 <!-- markdownlint-disable MD029 -->
-8. Use SIM cards that aren't registered to your name. The same goes for
+9. Use SIM cards that aren't registered to your name. The same goes for
    eSIM profiles.
-9. Get each new SIM card or eSIM profile from a different provider than
-   the last one. If you can't, start using the new one somewhere else and
-   some days after you stopped using the last one.
-10. Don't reuse a card once you've swapped it out. If you run out of new
+10. Get each new SIM card or eSIM profile from a different provider than
+    the last one. If you can't, start using the new one somewhere else and
+    some days after you stopped using the last one.
+11. Don't reuse a card once you've swapped it out. If you run out of new
     cards, keep using the current one until you get a new one.
-11. Vary when you swap SIMs, and where you switch the radio on and off.
-12. Use a phone without Google services, or turn off location services on
-    every device you use with the router.
+12. Vary when you swap SIMs, and where you switch the radio on and off.
 13. Pay for the VPN in a way that isn't tied to your name.
 14. Block SIM slot 1, for example with a drop of hot glue.
 <!-- markdownlint-enable MD029 -->
 
-Rules 1 to 7 allow no compromise: breaking one undoes what Churn does or
-risks the router. Rules 8 to 14 make linking harder still, and some say
+Rules 1 to 8 allow no compromise: breaking one undoes what Churn does or
+risks the router. Rules 9 to 14 make linking harder still, and some say
 what to do when one can't be followed.
 
 Why:
@@ -352,26 +364,40 @@ Why:
    safer than airplane mode, which one tap undoes. We measured that a
    GrapheneOS phone transmits nothing with its eSIM profile disabled, even
    with airplane mode off.
-8. A SIM or profile registered to a name ties every IMEI it is used with to
+8. A phone used with the router travels with it, and its account or the
+   SIM it usually holds ties it to its owner. With location services on,
+   it gives Google or Apple a continuous timeline of that account, built
+   from GPS and the Wi-Fi networks and cells it sees. Matched against the
+   carrier's records, the timeline links every SIM the router used along
+   the way (inferred). Turning location services off doesn't settle this,
+   because the parts of the system that talk to Google or Apple are closed
+   source, so nobody outside can check what they send. In 2017, Android
+   phones sent the cells around them to Google with location services off,
+   even without a SIM and after a factory reset; Google said it had
+   discarded the data and would stop
+   ([Quartz](https://qz.com/1131515/google-collects-android-users-locations-even-when-location-services-are-disabled)).
+   In 2021, an idle Pixel and an idle iPhone contacted Google and Apple
+   every 4.5 minutes on average and sent the IMEI, the hardware serial
+   number and the SIM's IMSI, even after the user opted out of telemetry
+   ([study](https://www.scss.tcd.ie/Doug.Leith/pubs/apple_google2.pdf)). A
+   system without Google services built in, such as GrapheneOS, is open
+   source, so what it sends can be checked.
+9. A SIM or profile registered to a name ties every IMEI it is used with to
    that name. Churn can't undo that.
-9. A provider that issues two consecutive profiles sees one Mudi 7 IMEI stop
-   and another start, both with a rare TAC and possibly in the same area.
-   Timing and place could link them (inferred). A different provider sees
-   only one of them. Where the same provider can't be avoided, a different
-   place and a gap of some days make the stop and the start harder to
-   match.
-10. A reused SIM brings back its old IMSI and ICCID. A reused eSIM adapter
+10. A provider that issues two consecutive profiles sees one Mudi 7 IMEI
+    stop and another start, both with a rare TAC and possibly in the same
+    area. Timing and place could link them (inferred). A different
+    provider sees only one of them. Where the same provider can't be
+    avoided, a different place and a gap of some days make the stop and
+    the start harder to match.
+11. A reused SIM brings back its old IMSI and ICCID. A reused eSIM adapter
     card brings back its EID, which links its profiles as in rule 4.
     Keeping the current card links nothing new, while swapping back to an
     old one links that card's earlier use to today. Done just as the current
     card goes quiet, the swap could also link the two cards by timing
     (inferred).
-11. Regular habits, such as always swapping on the same day or at the same
+12. Regular habits, such as always swapping on the same day or at the same
     station, can link identities without any identifier.
-12. A phone with location services on gives Google or Apple a continuous
-    timeline of its account, built from GPS and the Wi-Fi networks and
-    cells it sees. Matched against the carrier's records, it links every
-    SIM the router used along the way (inferred).
 13. The VPN provider sees each SIM's IP address in turn, all under one VPN
     account. If that account is tied to a name, so are all the SIMs.
 14. A card put into slot 1 by mistake emits at the next boot, wherever
