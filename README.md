@@ -109,8 +109,8 @@ Always follow these rules:
    without it.
 6. Do not run the router without the battery installed.
 7. Before you leave a place you return to with the router, remove the SIM
-   card or disable the eSIM profile in every phone you carry, and keep it
-   that way until you're back.
+   card or disable the eSIM profile in every phone, tablet, watch or laptop
+   you carry, and keep it that way until you're back.
 8. Use the router only with devices that run Linux, or an Android system
    built for privacy, such as GrapheneOS. That rules out Windows, macOS,
    iPhones, iPads, Chromebooks and the Android that most phones and

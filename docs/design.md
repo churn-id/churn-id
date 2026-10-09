@@ -299,8 +299,8 @@ Always follow these rules:
    without it.
 6. Do not run the router without the battery installed.
 7. Before you leave a place you return to with the router, remove the SIM
-   card or disable the eSIM profile in every phone you carry, and keep it
-   that way until you're back.
+   card or disable the eSIM profile in every phone, tablet, watch or laptop
+   you carry, and keep it that way until you're back.
 8. Use the router only with devices that run Linux, or an Android system
    built for privacy, such as GrapheneOS. That rules out Windows, macOS,
    iPhones, iPads, Chromebooks and the Android that most phones and
@@ -356,15 +356,15 @@ Why:
    block traffic while it is down, or a boot or a dropped tunnel leaks
    (section 10).
 6. Running without the battery risks file-system corruption on power loss.
-7. A phone with an active SIM that travels with the router is seen at the
-   same cells as each router SIM. Matching the two timelines links every
-   router SIM to the phone, and usually to its owner. Airplane mode only
-   while the router is on isn't enough: the phone's last cell before it
-   goes quiet and its first after it comes back frame each router
-   session. Removing the SIM card or disabling the eSIM profile is also
-   safer than airplane mode, which one tap undoes. We measured that a
-   GrapheneOS phone transmits nothing with its eSIM profile disabled, even
-   with airplane mode off.
+7. A phone, or any other device with an active SIM, that travels with the
+   router is seen at the same cells as each router SIM. Matching the two
+   timelines links every router SIM to the device, and usually to its
+   owner. Airplane mode only while the router is on isn't enough: the
+   device's last cell before it goes quiet and its first after it comes
+   back frame each router session. Removing the SIM card or disabling the
+   eSIM profile is also safer than airplane mode, which one tap undoes. We
+   measured that a GrapheneOS phone transmits nothing with its eSIM profile
+   disabled, even with airplane mode off.
 8. A phone, tablet or laptop used with the router travels with it, and an
    account or the SIM it usually holds ties it to its owner. With location
    services on, it gives Google, Apple or Microsoft a continuous timeline
