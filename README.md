@@ -3,10 +3,35 @@
 Churn is an Android phone app for the GL.iNet Mudi 7 (GL-E5800) travel
 router. The app guides you through the process of swapping the router SIM
 card in a privacy-preserving way, by changing the router's IMEIs (the device
-numbers the mobile network sees). That way the network can't use the router
-to link the SIM you used before the swap to the one you use after it.
+numbers the mobile network sees). Together with the rules below, this keeps
+your mobile carrier from building a location history that leads back to
+you.
 
 **Status:** in development. The app doesn't do anything yet.
+
+## Why change SIM and IMEI?
+
+Whenever your phone is on, the mobile network knows roughly where it is,
+and your carrier records that together with your SIM and the phone's IMEI.
+Over time this adds up to a location history much like the one Google and
+Apple collect from phones, if less precise, and no setting turns it off.
+Carriers keep these records for months or years, and authorities can ask
+for them.
+
+Such a history gives away whose it is even without a name on the SIM,
+because it shows where you sleep and where you work. Changing the SIM
+regularly cuts it into short pieces, but they only stay apart if two more
+things hold:
+
+- The IMEI changes too. If it stays the same, it ties each new SIM to the
+  last one.
+- No piece includes your home, your work or other places you return to,
+  because those places tie it back to you.
+
+Ordinary phones can't change their IMEI, but the Mudi 7 can. So when you're
+out with the router, you switch off your phone's own SIM and get online
+through the router. Each time you swap the router's SIM, Churn gives the
+router new IMEIs.
 
 ## What Churn protects, and what it doesn't
 
@@ -48,8 +73,9 @@ Roughly from larger to smaller, the pieces are:
    allows it.
 5. **Your router's device numbers.** This is the piece Churn handles.
 
-Churn makes sense for you if you've done the first four and want to stop
-the mobile network from seeing which SIMs belong together. If you haven't,
+Churn makes sense for you if you've done the first four and don't want
+your carrier's records to add up to a location history that leads back to
+you. If you haven't,
 start there: it protects you more than Churn can, and Churn can't make up
 for it. Either way, Churn needs you to follow the rules below; it doesn't
 work on its own.

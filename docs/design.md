@@ -14,9 +14,20 @@ modem; *inferred* means reasoned but not yet tested.
 ## 1. Goal and threat model
 
 A mobile network records which SIM (IMSI) was used in which device (IMEI),
-where (cell) and when. Without Churn the router keeps its IMEI, so a new SIM
-in it is linked to every SIM used in it before. Churn's goal is that the
-identity used before a SIM swap can't be linked to the one used after it.
+where (cell) and when. Kept for months or years, these records form a
+location history of each subscriber, coarser than but much like the one
+Google and Apple collect from phones. Even without a name, such a history
+points to its owner: in one carrier's records of 1.5 million people, four
+places and hours told 95% of them apart
+([study](https://www.nature.com/articles/srep01376)), and a person's
+home and workplace are two such points that are easy to learn.
+
+Changing SIMs splits the history only if the IMEI changes too, which
+ordinary phones don't allow, so Churn moves the mobile connection to a
+travel router whose modem does. Without Churn the router keeps its IMEI, so
+a new SIM in it is linked to every SIM used in it before. Churn's goal is
+that the identity used before a SIM swap can't be linked to the one used
+after it.
 
 - **Adversary:** the carrier, and anyone who later reads its records
   (retained data, lawful access), possibly joined with other records such
