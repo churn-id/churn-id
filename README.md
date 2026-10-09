@@ -34,8 +34,10 @@ only adds something once the larger pieces are done.
 
 Roughly from larger to smaller, the pieces are:
 
-1. **Your phone.** It knows the most about you. Turn off location services
-   and location history, or use a phone without Google services.
+1. **Your phone.** It knows the most about you. An ordinary Android phone
+   or an iPhone keeps reporting to Google or Apple, even with location
+   services off, and you can't check what it sends. Use a phone without
+   Google services built in, such as one running GrapheneOS.
 2. **Your accounts.** Every account you log into connects what you do to
    you. Use few, and keep the ones you want private apart from the ones in
    your name.
@@ -55,8 +57,10 @@ work on its own.
 ## What you need
 
 - A GL.iNet Mudi 7 (GL-E5800). We test with GL firmware 4.10.0.
-- An Android phone and a USB-C cable to connect it to the router, ideally
-  the router's own cable.
+- An Android phone without Google services built in, such as one running
+  GrapheneOS.
+- A USB-C cable to connect the phone to the router, ideally the router's
+  own cable.
 - The router's admin password.
 - A VPN service, set up on the router.
 - A new SIM for each swap, either
@@ -81,20 +85,21 @@ Always follow these rules:
 7. Before you leave a place you return to with the router, remove the SIM
    card or disable the eSIM profile in every phone you carry, and keep it
    that way until you're back.
+8. Use the router only with phones that have no Google services built in,
+   such as phones running GrapheneOS, and not with an iPhone. Turn off
+   location services on every other device you use with it.
 
 For maximum privacy, also follow these rules where you can:
 
 <!-- markdownlint-disable MD029 -->
-8. Use SIM cards that aren't registered to your name. The same goes for
+9. Use SIM cards that aren't registered to your name. The same goes for
    eSIM profiles.
-9. Get each new SIM card or eSIM profile from a different provider than
-   the last one. If you can't, start using the new one somewhere else and
-   some days after you stopped using the last one.
-10. Don't reuse a card once you've swapped it out. If you run out of new
+10. Get each new SIM card or eSIM profile from a different provider than
+    the last one. If you can't, start using the new one somewhere else and
+    some days after you stopped using the last one.
+11. Don't reuse a card once you've swapped it out. If you run out of new
     cards, keep using the current one until you get a new one.
-11. Vary when you swap SIMs, and where you switch the radio on and off.
-12. Use a phone without Google services, or turn off location services on
-    every device you use with the router.
+12. Vary when you swap SIMs, and where you switch the radio on and off.
 13. Pay for the VPN in a way that isn't tied to your name.
 14. Block SIM slot 1, for example with a drop of hot glue.
 <!-- markdownlint-enable MD029 -->
