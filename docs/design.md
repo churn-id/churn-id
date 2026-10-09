@@ -301,9 +301,10 @@ Always follow these rules:
 7. Before you leave a place you return to with the router, remove the SIM
    card or disable the eSIM profile in every phone you carry, and keep it
    that way until you're back.
-8. Use the router only with phones that have no Google services built in,
-   such as phones running GrapheneOS, and not with an iPhone. Turn off
-   location services on every other device you use with it.
+8. Use the router only with devices that run Linux, or an Android system
+   built for privacy, such as GrapheneOS. That rules out Windows, macOS,
+   iPhones, iPads, Chromebooks and the Android that most phones and
+   tablets come with.
 
 For maximum privacy, also follow these rules where you can:
 
@@ -364,24 +365,29 @@ Why:
    safer than airplane mode, which one tap undoes. We measured that a
    GrapheneOS phone transmits nothing with its eSIM profile disabled, even
    with airplane mode off.
-8. A phone used with the router travels with it, and its account or the
-   SIM it usually holds ties it to its owner. With location services on,
-   it gives Google or Apple a continuous timeline of that account, built
-   from GPS and the Wi-Fi networks and cells it sees. Matched against the
-   carrier's records, the timeline links every SIM the router used along
-   the way (inferred). Turning location services off doesn't settle this,
-   because the parts of the system that talk to Google or Apple are closed
-   source, so nobody outside can check what they send. In 2017, Android
-   phones sent the cells around them to Google with location services off,
-   even without a SIM and after a factory reset; Google said it had
-   discarded the data and would stop
+8. A phone, tablet or laptop used with the router travels with it, and an
+   account or the SIM it usually holds ties it to its owner. With location
+   services on, it gives Google, Apple or Microsoft a continuous timeline
+   of that account, built from GPS and the Wi-Fi networks and cells it
+   sees. Matched against the carrier's records, the timeline links every
+   SIM the router used along the way (inferred). Turning location services
+   off doesn't settle this, because the systems that talk to these
+   companies are closed source, so nobody outside can check what they
+   send. In 2017, Android phones sent the cells around them to Google with
+   location services off, even without a SIM and after a factory reset;
+   Google said it had discarded the data and would stop
    ([Quartz](https://qz.com/1131515/google-collects-android-users-locations-even-when-location-services-are-disabled)).
    In 2021, an idle Pixel and an idle iPhone contacted Google and Apple
    every 4.5 minutes on average and sent the IMEI, the hardware serial
    number and the SIM's IMSI, even after the user opted out of telemetry
-   ([study](https://www.scss.tcd.ie/Doug.Leith/pubs/apple_google2.pdf)). A
-   system without Google services built in, such as GrapheneOS, is open
-   source, so what it sends can be checked.
+   ([study](https://www.scss.tcd.ie/Doug.Leith/pubs/apple_google2.pdf)).
+   With location services on, Windows sends the Wi-Fi networks and cells
+   around it to Microsoft, which says it removes what identifies the device
+   ([Microsoft](https://support.microsoft.com/help/4468240)), and Windows
+   Home and Pro can't turn off the diagnostic data they send
+   ([Microsoft](https://learn.microsoft.com/en-us/windows/privacy/configure-windows-diagnostic-data-in-your-organization)).
+   Linux, and Android systems built for privacy such as GrapheneOS, are
+   open source, so what they send can be checked.
 9. A SIM or profile registered to a name ties every IMEI it is used with to
    that name. Churn can't undo that.
 10. A provider that issues two consecutive profiles sees one Mudi 7 IMEI

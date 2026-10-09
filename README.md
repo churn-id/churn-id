@@ -59,10 +59,11 @@ only adds something once the larger pieces are done.
 
 Roughly from larger to smaller, the pieces are:
 
-1. **Your phone.** It knows the most about you. An ordinary Android phone
-   or an iPhone keeps reporting to Google or Apple, even with location
-   services off, and you can't check what it sends. Use a phone without
-   Google services built in, such as one running GrapheneOS.
+1. **Your devices.** Your phone knows the most about you. Ordinary Android
+   phones, iPhones, and computers with Windows or macOS keep talking to
+   Google, Apple or Microsoft, even with location services off, and you
+   can't check what they send. Use a phone with an Android system built
+   for privacy, such as GrapheneOS, and a computer with Linux.
 2. **Your accounts.** Every account you log into connects what you do to
    you. Use few, and keep the ones you want private apart from the ones in
    your name.
@@ -83,8 +84,7 @@ work on its own.
 ## What you need
 
 - A GL.iNet Mudi 7 (GL-E5800). We test with GL firmware 4.10.0.
-- An Android phone without Google services built in, such as one running
-  GrapheneOS.
+- An Android phone running a system built for privacy, such as GrapheneOS.
 - A USB-C cable to connect the phone to the router, ideally the router's
   own cable.
 - The router's admin password.
@@ -111,9 +111,10 @@ Always follow these rules:
 7. Before you leave a place you return to with the router, remove the SIM
    card or disable the eSIM profile in every phone you carry, and keep it
    that way until you're back.
-8. Use the router only with phones that have no Google services built in,
-   such as phones running GrapheneOS, and not with an iPhone. Turn off
-   location services on every other device you use with it.
+8. Use the router only with devices that run Linux, or an Android system
+   built for privacy, such as GrapheneOS. That rules out Windows, macOS,
+   iPhones, iPads, Chromebooks and the Android that most phones and
+   tablets come with.
 
 For maximum privacy, also follow these rules where you can:
 
