@@ -108,8 +108,16 @@ ubus call cellular.modem set_feature_config '<data>'
 
 | Switch | `<data>` |
 | --- | --- |
-| Make slot `<n>` the active slot | `{"location_id":"bcpu_p0133_v2c7c","bus":"cpu","data":{"failover":{"current_sim":<n>,"esim2_enable":<e>}}}`, where `<e>` is slot 2's current choice: `true` for the eSIM, `false` for the SIM 2 tray |
-| Set slot 2 to the eSIM (`<t>` = `1`) or to the SIM 2 tray (`<t>` = `0`) | `{"location_id":"bcpu_p0133_v2c7c","bus":"cpu","slot":2,"data":{"failover":{"slot_type":[{"type":0,"slot":1},{"type":<t>,"slot":2}]}}}` |
+| Make slot `<n>` the active slot | `{"location_id":"<id>","bus":"cpu","data":{"failover":{"current_sim":<n>,"esim2_enable":<e>}}}`, where `<e>` is slot 2's current choice: `true` for the eSIM, `false` for the SIM 2 tray |
+| Set slot 2 to the eSIM (`<t>` = `1`) or to the SIM 2 tray (`<t>` = `0`) | `{"location_id":"<id>","bus":"cpu","slot":2,"data":{"failover":{"slot_type":[{"type":0,"slot":1},{"type":<t>,"slot":2}]}}}` |
+
+`<id>` is the modem's `location_id`, `bcpu_p0133_v2c7c` on our Mudi 7. It
+seems to combine the bus with the modem's USB ID `2c7c:0133`, so another
+modem or firmware may use a different value (inferred). The app reads it
+from `ubus call cellular.modem get_feature_config '{}'`, which returns
+GL's settings for the modem and for each slot. The key whose entry holds
+`failover` is `<id>`, and the slots' keys are `<id>` with `s1_` or `s2_`
+in front (verified).
 
 GL answers `{"ok": true, "changed": true}`, and the new state shows at
 once in `current_sim_slot` of `ubus call cellular.modem status`, in
@@ -119,9 +127,6 @@ once in `current_sim_slot` of `ubus call cellular.modem status`, in
 answered `+CFUN: 4` before and after each one, although GL's web interface
 refuses to change the active slot in airplane mode. An RF meter showed no
 emission during any of these switches (all verified).
-
-`location_id` is the value GL's web interface sends on the Mudi 7. It
-seems to combine the bus with the modem's USB ID `2c7c:0133` (inferred).
 
 Changing the active slot most likely moves only the data connection, and a
 card in the other slot stays registered while the radio is on (inferred).
