@@ -260,16 +260,18 @@ the card, because a card in slot 2 stays off as long as slot 2 is set to
 the eSIM (section 6). Slot 1 is never used, because a card there emits at
 every boot:
 
-1. With the cable connected, the app turns the radio off and verifies it,
-   writes a throwaway pair (section 4) and verifies it, sets slot 2 to the
-   built-in eSIM with no profile enabled, turns airplane mode on and
-   shuts the router down.
+1. With the cable connected, the app turns airplane mode on and verifies
+   that the radio is off, writes a throwaway pair (section 4) and verifies
+   it, sets slot 2 to the built-in eSIM with no profile enabled and shuts
+   the router down.
 2. With the router off, the user replaces the old SIM in slot 2's tray with
    the new one, goes to a place that doesn't matter, and switches the router
    on. Only the eSIM's short bursts go out, with the throwaway IMEI and the
    near-generic test identity.
-3. The app switches slot 2 to SIM 2 in airplane mode, reads the ICCID,
-   writes the derived pair and verifies it.
+3. Once the radio is off after the boot (section 6), the app switches
+   slot 2 to SIM 2 in airplane mode, reads the ICCID, writes the derived
+   pair and verifies it. If it finds no usable card, it switches slot 2
+   back to the built-in eSIM, so the card stays off at the next power-on.
 4. The user turns airplane mode off later, at another place and time.
 
 ### App behavior
