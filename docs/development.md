@@ -45,7 +45,8 @@ it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
 | Radio on | `AT+CFUN=1` | verified |
 | Radio off | `AT+CFUN=4` | verified |
 | SIM present | `AT+CPIN?`: `+CME ERROR: 10` = no SIM | verified |
-| Active subscription | `AT+QUIMSUB?`: slot 2 runs on `2,"SUB2"` | verified |
+| Subscription of slot 2's card | `AT+QUIMSUB?`: `2,"SUB2"`, also while slot 1 is the active slot | verified |
+| Slot 2's card | `AT+QSIMTYPE="slot2"`: `0` SIM 2 tray, `1` eSIM | verified |
 | Read IMEI 1 | `AT+EGMR=0,7` | verified |
 | Read IMEI 2 | `AT+EGMR=0,11` | verified |
 | Write IMEI 1 | `AT+EGMR=1,7,"<15 digits>"` | verified, survives reboot |
@@ -91,16 +92,45 @@ Two settings the app needs are not in `uci` (verified by searching
 `uci show`):
 
 - GL's "Power On with Charger".
-- Slot 2's choice between SIM 2 and the eSIM. `cellular_manager` keeps it,
-  and GL's scripts fall back to `/tmp/run/dual_sim/<interface>/current_sim`
-  when the modem doesn't answer `AT+QUIMSLOT?` (verified).
+- Slot 2's choice between SIM 2 and the eSIM. GL keeps it in
+  `/etc/config/cellular/slot_map.json`, and the modem reports it with
+  `AT+QSIMTYPE="slot2"` (verified). The next section shows how to change
+  it.
+
+## Switching SIM slots
+
+Both switches go through GL's cellular manager, with the call GL's web
+interface makes (verified by recording what the web interface does):
+
+```sh
+ubus call cellular.modem set_feature_config '<data>'
+```
+
+| Switch | `<data>` |
+| --- | --- |
+| Make slot `<n>` the active slot | `{"location_id":"bcpu_p0133_v2c7c","bus":"cpu","data":{"failover":{"current_sim":<n>,"esim2_enable":<e>}}}`, where `<e>` is slot 2's current choice: `true` for the eSIM, `false` for the SIM 2 tray |
+| Set slot 2 to the eSIM (`<t>` = `1`) or to the SIM 2 tray (`<t>` = `0`) | `{"location_id":"bcpu_p0133_v2c7c","bus":"cpu","slot":2,"data":{"failover":{"slot_type":[{"type":0,"slot":1},{"type":<t>,"slot":2}]}}}` |
+
+GL answers `{"ok": true, "changed": true}`, and the new state shows at
+once in `current_sim_slot` of `ubus call cellular.modem status`, in
+`network.modem_cpu.dds_id` and in `AT+QSIMTYPE="slot2"`. `esim2_enable` in
+`slot_map.json` follows later, so `<e>` is taken from
+`AT+QSIMTYPE="slot2"`. Both calls work in airplane mode, and the modem
+answered `+CFUN: 4` before and after each one, although GL's web interface
+refuses to change the active slot in airplane mode. An RF meter showed no
+emission during any of these switches (all verified).
+
+`location_id` is the value GL's web interface sends on the Mudi 7. It
+seems to combine the bus with the modem's USB ID `2c7c:0133` (inferred).
+
+Changing the active slot most likely moves only the data connection, and a
+card in the other slot stays registered while the radio is on (inferred).
+In a recording, GL logged a switch of the data subscription, and slot 2's
+card reported full registration in the same second slot 2 became the
+active slot.
 
 ## Still to find out
 
-- How to switch slot 2 between SIM 2 and the eSIM from a shell. GL's
-  `cellular_manager` does it, and slot strings in it point to
-  `/etc/config/cellular/slot_map.json` (verified strings, unknown
-  mechanism).
 - Where GL stores "Power On with Charger".
 - Whether the modem can tell that slot 1 holds a card, so the app can warn
   the user.
