@@ -156,8 +156,8 @@ ubus call modem.CPU.AT get_result_AT \
   '{"cmd":"AT+ICCID","sub_id":2,"source_flag":0,"timeout":30}'
 ```
 
-The `data` field of the answer holds the modem's reply, `+ICCID: <digits>`
-and `OK`, without the `F` that `AT+QCCID` adds to a 19-digit ICCID
+The `data` field of the answer holds the modem's reply, `+ICCID: <ICCID>`
+and `OK`. Like `AT+QCCID`, it pads a 19-digit ICCID with a trailing `F`
 (verified). Whether `gl_modem` reaches slot 2's eSIM as well is untested.
 
 | Slot 2 | ICCID | IMSI |
@@ -175,25 +175,34 @@ the API through nginx at `/sdk/v1`, which requires a web login
 `block_lpa_port` drops port 3456 from the LAN (all verified).
 
 To disable a profile, the web interface posts this request, where `txId`
-is a request number (inferred) and `<ICCID>` the profile's ICCID padded
-with `F` to 20 characters (copied from the browser):
+is a request number (inferred) and `<ICCID>` the profile's ICCID as
+`AT+ICCID` gives it, including a trailing `F` (copied from the browser):
 
 ```json
 {"txId":"4","method":"disable","iccid":"<ICCID>"}
 ```
 
 The answer is `{"tx_id":"","code":200,"message":"ok"}`; `code` 200 means
-success (verified). The app is logged in as root over SSH, so it sends the
-same request from the router's shell to `http://127.0.0.1:3456/sdk/v1`
-directly, not through nginx (inferred, untested).
+success. Over SSH no web login is needed: the app sends the same request
+from the router's shell with `curl`, straight to the eSIM manager rather
+than through nginx, and gets the same answer (all verified):
 
-The app doesn't rely on the answer. In one recording the eSIM manager
-logged an error (`disable.ret: -2`), yet the profile was disabled. After a
-disable or enable the eSIM manager waits about 5 s for the modem to reload
-the card (log `wait md reboot: 5s`), so the app waits too, then reads
-ICCID and IMSI again until they show the placeholder and 001/01. In
-recordings of a disable and an enable, airplane mode stayed on and the
-modem answered `+CFUN: 4` throughout (all verified).
+```sh
+curl -sS -m 60 -H 'Content-Type: application/json' \
+  -d '{"txId":"1","method":"disable","iccid":"<ICCID>"}' \
+  http://127.0.0.1:3456/sdk/v1
+```
+
+The app doesn't rely on the answer. In both disables we recorded, one from
+the web interface and one from the shell, the eSIM manager logged an error
+(`disable.ret: -2`), yet the profile was disabled, and the shell request
+still got `code` 200. After a disable or enable the eSIM manager waits about
+5 s for the modem to reload the card (log `wait md reboot: 5s`), so the app
+waits too, then reads ICCID and IMSI again until they show the placeholder
+and 001/01. From the shell, the placeholder showed at the first read, 5 s
+after the answer. Airplane mode stayed on and the modem answered `+CFUN: 4`
+throughout the recorded disable and enable, and after the disable from the
+shell (all verified).
 
 Not used:
 
@@ -211,9 +220,6 @@ Not used:
 
 ## Still to find out
 
-- Whether GL's eSIM manager accepts the disable request sent from the
-  router's shell to port 3456, and which HTTP client on the router sends
-  it.
 - Where GL stores "Power On with Charger".
 - Whether the modem can tell that slot 1 holds a card, so the app can warn
   the user.
