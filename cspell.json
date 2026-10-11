@@ -2,6 +2,7 @@
   "caseSensitive": true,
   "words": [
     "BABT",
+    "bcpu",
     "blocklisted",
     "CFUN",
     "CGSN",
@@ -31,6 +32,7 @@
     "QCCID",
     "QPRTPARA",
     "QSIMDET",
+    "QSIMTYPE",
     "Quectel",
     "QUIMSLOT",
     "QUIMSUB",
