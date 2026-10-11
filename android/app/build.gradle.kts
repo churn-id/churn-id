@@ -42,9 +42,18 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    packaging {
+        // Each Bouncy Castle jar carries this file.
+        resources.excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+    }
 }
 
 dependencies {
+    implementation("com.hierynomus:sshj:0.41.1")
+    // Comes with sshj; ChurnApp registers its provider.
+    implementation("org.bouncycastle:bcprov-jdk18on:1.84")
+
     testImplementation("junit:junit:4.13.2")
     // Android's org.json is only a stub in unit tests.
     testImplementation("org.json:json:20250517")

@@ -15,10 +15,12 @@ it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
   the USB Ethernet network through `ConnectivityManager` and binds its
   sockets to it. A Pixel 9 Pro XL with GrapheneOS reached the router this way
   with airplane mode on and Wi-Fi off (verified); other phones are untested.
-- SSH as `root` with the router's admin password, using sshj or a maintained
-  JSch fork. Show the host key fingerprint on first use and refuse a changed
-  key unless the user accepts it again. Keep the password in the Android
-  Keystore.
+- SSH as `root` with the router's admin password, using sshj. Show the host
+  key fingerprint on first use and refuse a changed key unless the user
+  accepts it again. Keep the password in the Android Keystore.
+- sshj takes its algorithms from the security provider named `BC`.
+  Android's own provider of that name is a reduced one, so the app replaces
+  it with Bouncy Castle's full provider, last in line.
 
 ## Sending AT commands
 
@@ -236,7 +238,8 @@ before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
 
 ## Still to find out
 
-- Where GL stores "Power On with Charger".
+- Where GL stores "Power On with Charger". Until then the app asks the user
+  to confirm that it is off.
 - Whether GL's firmware has `flock`, which Churn's lock needs.
 - Whether the modem can tell that slot 1 holds a card, so the app can warn
   the user.
@@ -249,7 +252,7 @@ before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
 | `/etc/churn/README.txt` | 600 | What the folder is; how to restore the factory IMEIs by hand; to do so before a factory reset |
 | `/etc/churn/secret` | 600 | 32 random bytes, the HMAC key |
 | `/etc/churn/factory` | 600 | Factory IMEI 1 and IMEI 2, one per line |
-| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns the radio off, writes the IMEIs from `factory`, reads them back |
+| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory` and reads them back |
 
 At setup the app also adds the line `/etc/churn/` to `/etc/sysupgrade.conf`.
 

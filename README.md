@@ -7,7 +7,8 @@ numbers the mobile network sees). Together with the rules below, this keeps
 your mobile carrier from building a location history that leads back to
 you.
 
-**Status:** in development. The app doesn't do anything yet.
+**Status:** in development. A first prototype of the app guides you through
+a SIM swap. It hasn't been tested on a router yet, so don't rely on it.
 
 ## Why change SIM and IMEI?
 
