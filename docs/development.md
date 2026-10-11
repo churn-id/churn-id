@@ -24,7 +24,8 @@ it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
 
 - Send every command through GL's tool, as GL's own scripts do:
   `gl_modem -B cpu AT '<command>'` (verified; `cpu` is what GL's
-  `get_modem_bus` returns on the Mudi 7).
+  `get_modem_bus` returns on the Mudi 7). Commands for the built-in eSIM
+  are the exception; see [eSIM profiles](#esim-profiles).
 - Don't open the modem's device nodes directly. Every AT channel in use
   (`/dev/smd7`, `smd8`, `smd9`, `smd11`, `/dev/at_mdm0`) is held by a GL or
   Quectel daemon (verified).
@@ -134,8 +135,85 @@ In a recording, GL logged a switch of the data subscription, and slot 2's
 card reported full registration in the same second slot 2 became the
 active slot.
 
+## eSIM profiles
+
+Step 1 of the swap needs slot 2 on the built-in eSIM with no profile
+enabled (design.md, section 7). The chip enables at most one profile at a
+time, so disabling the enabled one leaves none. The app checks this after
+switching slot 2 to the eSIM in airplane mode, and disables the enabled
+profile if there is one. It never deletes a profile: blue-merle v2 warns
+that deleting GL's pre-installed one can't be undone without a factory
+reset.
+
+### Reading slot 2's card
+
+The chip answers only while slot 2 is set to the eSIM. The app reads its
+ICCID with `AT+ICCID` and its IMSI with `AT+CIMI`, sent to slot 2 the way
+GL's eSIM manager sends them (verified):
+
+```sh
+ubus call modem.CPU.AT get_result_AT \
+  '{"cmd":"AT+ICCID","sub_id":2,"source_flag":0,"timeout":30}'
+```
+
+The `data` field of the answer holds the modem's reply, `+ICCID: <digits>`
+and `OK`, without the `F` that `AT+QCCID` adds to a 19-digit ICCID
+(verified). Whether `gl_modem` reaches slot 2's eSIM as well is untested.
+
+| Slot 2 | ICCID | IMSI |
+| --- | --- | --- |
+| No profile enabled | placeholder `89000123456789012341` | `001010123456` plus three digits (test network 001/01) |
+| A profile enabled | the profile's ICCID | the profile's network |
+
+### Disabling the enabled profile
+
+GL's eSIM manager is Quectel's LPA, `/usr/bin/lpa_rg650_v1.55`, started by
+`/etc/init.d/esim_lpa`. It talks to the chip through the ubus call above
+and serves a JSON API over HTTP on port 3456. GL's web interface reaches
+the API through nginx at `/sdk/v1`, which requires a web login
+(`/etc/nginx/gl-conf.d/esim.conf`), and GL's firewall rule
+`block_lpa_port` drops port 3456 from the LAN (all verified).
+
+To disable a profile, the web interface posts this request, where `txId`
+is a request number (inferred) and `<ICCID>` the profile's ICCID padded
+with `F` to 20 characters (copied from the browser):
+
+```json
+{"txId":"4","method":"disable","iccid":"<ICCID>"}
+```
+
+The answer is `{"tx_id":"","code":200,"message":"ok"}`; `code` 200 means
+success (verified). The app is logged in as root over SSH, so it sends the
+same request from the router's shell to `http://127.0.0.1:3456/sdk/v1`
+directly, not through nginx (inferred, untested).
+
+The app doesn't rely on the answer. In one recording the eSIM manager
+logged an error (`disable.ret: -2`), yet the profile was disabled. After a
+disable or enable the eSIM manager waits about 5 s for the modem to reload
+the card (log `wait md reboot: 5s`), so the app waits too, then reads
+ICCID and IMSI again until they show the placeholder and 001/01. In
+recordings of a disable and an enable, airplane mode stayed on and the
+modem answered `+CFUN: 4` throughout (all verified).
+
+Not used:
+
+- Quectel's `AT+QESIM` commands. The modem lists them, but
+  `AT+QESIM="profile_brief"` answers `ERROR` while GL's eSIM manager runs
+  (verified), probably because the modem's own LPA is off (inferred).
+- The standard eSIM commands (GSMA SGP.22, ES10c), which the eSIM manager
+  sends in `AT+CSIM` over the ubus call above: open a logical channel,
+  select the ISD-R (AID `A0000005591010FFFFFFFF8900000100`), `BF2D` to
+  list profiles and `BF32` to disable one by its ICCID (verified in the
+  recordings). The eSIM manager polls the chip every few seconds on the
+  same path and reopens the channel, so commands of our own could
+  interleave with its own (inferred). They stay a fallback if the API
+  changes.
+
 ## Still to find out
 
+- Whether GL's eSIM manager accepts the disable request sent from the
+  router's shell to port 3456, and which HTTP client on the router sends
+  it.
 - Where GL stores "Power On with Charger".
 - Whether the modem can tell that slot 1 holds a card, so the app can warn
   the user.
