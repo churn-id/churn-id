@@ -158,9 +158,11 @@ Test vectors are in [development.md](development.md).
 ### Two IMEIs, factory spacing
 
 A factory Mudi 7 has two different IMEIs whose serials are a small distance
-apart: 7 on the unit we tested. Derived pairs keep the router's own distance,
-so to anyone who sees both IMEIs they look like a factory pair. Equal IMEIs
-would never occur on a factory unit. Since Churn uses only slot 2, the
+apart: 1 on the unit we tested. Derived pairs keep the router's own distance
+between the serials, so to anyone who sees both IMEIs they look like a
+factory pair. The full numbers can differ by more or less, since the last
+digit is a check digit computed from all the others. Equal IMEIs would
+never occur on a factory unit. Since Churn uses only slot 2, the
 network should see only IMEI 2 (section 10), so whether the distance varies
 between units doesn't matter.
 
