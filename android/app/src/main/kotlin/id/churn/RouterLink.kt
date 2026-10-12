@@ -5,6 +5,9 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.system.ErrnoException
+import android.system.Os
+import android.system.OsConstants
 import java.io.Closeable
 import java.security.MessageDigest
 import java.security.PublicKey
@@ -50,6 +53,18 @@ class RouterNetwork(context: Context) {
         // A request that timed out is already gone, and unregistering it again throws.
         callback?.let { runCatching { connectivity.unregisterNetworkCallback(it) } }
         callback = null
+    }
+
+    /**
+     * Whether Android lets the app open sockets at all. Without the network permission, which GrapheneOS lets
+     * the user turn off per app, it refuses every socket, even one for the cable.
+     */
+    fun socketsAllowed() = try {
+        Os.close(Os.socket(OsConstants.AF_INET, OsConstants.SOCK_STREAM, 0))
+        true
+    } catch (e: ErrnoException) {
+        // Any other error shows up again when the app connects.
+        e.errno != OsConstants.EPERM && e.errno != OsConstants.EACCES
     }
 }
 

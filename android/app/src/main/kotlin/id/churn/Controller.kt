@@ -39,6 +39,8 @@ class RouterStatus(
 
 private class NoRouterNetwork : Exception()
 
+private class NoNetworkPermission : Exception()
+
 private class MissingPassword : Exception()
 
 /**
@@ -227,6 +229,7 @@ class Controller(private val context: Context) {
     /** The router, connecting first if needed, and waiting up to [waitSeconds] for it to come up. */
     private fun router(waitSeconds: Int = CONNECT_WAIT_SECONDS, onWait: () -> Unit = {}): Router {
         connection?.let { return Router(it) }
+        if (!network.socketsAllowed()) throw NoNetworkPermission()
         val password = typedPassword ?: saved.sealedPassword?.let { PasswordVault.open(it) } ?: throw MissingPassword()
         val deadline = System.nanoTime() + waitSeconds * 1_000_000_000L
         onWait()
@@ -314,6 +317,7 @@ class Controller(private val context: Context) {
     private fun describe(e: Exception): String = when (e) {
         is RouterException -> text(e.problem) + (e.detail?.let { "\n\n$it" } ?: "")
         is NoRouterNetwork -> context.getString(R.string.error_no_network)
+        is NoNetworkPermission -> context.getString(R.string.error_network_permission)
         is MissingPassword -> context.getString(R.string.error_no_password)
         is WrongPassword -> context.getString(R.string.error_password)
         is ConnectException, is NoRouteToHostException, is SocketTimeoutException ->

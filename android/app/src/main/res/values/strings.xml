@@ -43,6 +43,7 @@
     <string name="error_address">Enter the router\'s address as four numbers, such as 192.168.8.1.</string>
     <string name="error_no_password">Enter the router\'s admin password.</string>
     <string name="error_no_network">Your phone doesn\'t see the router on the cable. Check that the router is on and the cable is plugged in.</string>
+    <string name="error_network_permission">Churn needs the Network permission to reach the router over the cable. Allow it in Android\'s Settings, under Apps, Churn, Permissions.</string>
     <string name="error_unreachable">The router doesn\'t answer at %1$s.</string>
     <string name="error_password">The router refused the password.</string>
     <string name="error_connection">The connection to the router broke off: %1$s</string>

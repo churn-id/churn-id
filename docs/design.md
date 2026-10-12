@@ -77,6 +77,10 @@ instead.
   router appears as a USB Ethernet adapter (verified). The router has no
   internet during a rotation, so Android doesn't use this network by
   default; the app binds its connections to it explicitly.
+- **Network permission:** Android has no permission for the cable alone, so
+  the app needs the permission to use the network, which GrapheneOS calls
+  Network and lets the user turn off. The app connects to nothing but the
+  router.
 - **SSH as root.** SSH is on by default on GL.iNet firmware and documented
   by GL.iNet. The app logs in with the router's admin password.
 - **Host key:** trusted on first use after showing its fingerprint. A new or

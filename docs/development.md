@@ -15,6 +15,10 @@ it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
   the USB Ethernet network through `ConnectivityManager` and binds its
   sockets to it. A Pixel 9 Pro XL with GrapheneOS reached the router this way
   with airplane mode on and Wi-Fi off (verified); other phones are untested.
+- Every socket needs Android's network permission, the cable's included.
+  GrapheneOS lets the user turn it off per app (the Network permission), and
+  then opening a socket fails with `EPERM` (verified on a Pixel 8). The app
+  checks for this before it connects and asks the user to allow it.
 - SSH as `root` with the router's admin password, using sshj. Show the host
   key fingerprint on first use and refuse a changed key unless the user
   accepts it again. Keep the password in the Android Keystore.
