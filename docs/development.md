@@ -15,10 +15,16 @@ it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
   the USB Ethernet network through `ConnectivityManager` and binds its
   sockets to it. A Pixel 9 Pro XL with GrapheneOS reached the router this way
   with airplane mode on and Wi-Fi off (verified); other phones are untested.
-- SSH as `root` with the router's admin password, using sshj or a maintained
-  JSch fork. Show the host key fingerprint on first use and refuse a changed
-  key unless the user accepts it again. Keep the password in the Android
-  Keystore.
+- Every socket needs Android's network permission, the cable's included.
+  GrapheneOS lets the user turn it off per app (the Network permission), and
+  then opening a socket fails with `EPERM` (verified on a Pixel 8). The app
+  checks for this before it connects and asks the user to allow it.
+- SSH as `root` with the router's admin password, using sshj. Show the host
+  key fingerprint on first use and refuse a changed key unless the user
+  accepts it again. Keep the password in the Android Keystore.
+- sshj takes its algorithms from the security provider named `BC`.
+  Android's own provider of that name is a reduced one, so the app replaces
+  it with Bouncy Castle's full provider, last in line.
 
 ## Sending AT commands
 
@@ -29,9 +35,10 @@ it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
 - Don't open the modem's device nodes directly. Every AT channel in use
   (`/dev/smd7`, `smd8`, `smd9`, `smd11`, `/dev/at_mdm0`) is held by a GL or
   Quectel daemon (verified).
-- Run each modem operation under `flock` on `/var/lock/churn.lock`. The lock
-  keeps Churn's own operations apart; `gl_modem` arbitrates against GL's
-  daemons (inferred).
+- Run each modem operation under `flock` on `/var/lock/churn.lock`:
+  `exec 9>/var/lock/churn.lock && flock 9 && <command>`. The lock keeps
+  Churn's own operations apart; `gl_modem` arbitrates against GL's daemons
+  (inferred).
 - Accept a step only when the expected answer and `OK` arrive. Anything else
   means the step is repeated, never assumed done. After every write, read
   the value back.
@@ -165,6 +172,13 @@ and `OK`. Like `AT+QCCID`, it pads a 19-digit ICCID with a trailing `F`
 | No profile enabled | placeholder `89000123456789012341` | `001010123456` plus three digits (test network 001/01) |
 | A profile enabled | the profile's ICCID | the profile's network |
 
+Step 3 of the swap reads the card in the SIM 2 tray the same way, once
+slot 2 is set to it (inferred; verified only for the eSIM). It derives
+IMEIs only for a card with a real network's IMSI, not one on test network
+001/01: an eSIM adapter card without an enabled profile may show a
+placeholder ICCID like the built-in eSIM's, the same on every card
+(inferred).
+
 ### Disabling the enabled profile
 
 GL's eSIM manager is Quectel's LPA, `/usr/bin/lpa_rg650_v1.55`, started by
@@ -218,9 +232,19 @@ Not used:
   interleave with its own (inferred). They stay a fallback if the API
   changes.
 
+## After power-on
+
+At every power-on the radio is on for about 12 s, whatever airplane mode
+says, ending 58 s after power-on at the latest in our measurements
+(design.md, section 6). The modem doesn't answer AT commands for a while
+after power-on, so the app keeps asking. Step 3 of the swap changes nothing
+before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
+
 ## Still to find out
 
-- Where GL stores "Power On with Charger".
+- Where GL stores "Power On with Charger". Until then the app asks the user
+  to confirm that it is off.
+- Whether GL's firmware has `flock`, which Churn's lock needs.
 - Whether the modem can tell that slot 1 holds a card, so the app can warn
   the user.
 
@@ -232,7 +256,7 @@ Not used:
 | `/etc/churn/README.txt` | 600 | What the folder is; how to restore the factory IMEIs by hand; to do so before a factory reset |
 | `/etc/churn/secret` | 600 | 32 random bytes, the HMAC key |
 | `/etc/churn/factory` | 600 | Factory IMEI 1 and IMEI 2, one per line |
-| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns the radio off, writes the IMEIs from `factory`, reads them back |
+| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory` and reads them back |
 
 At setup the app also adds the line `/etc/churn/` to `/etc/sysupgrade.conf`.
 

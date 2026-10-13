@@ -1,5 +1,141 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Churn</string>
-    <string name="placeholder">Churn is under development.</string>
+
+    <!-- First start -->
+    <string name="intro_title">Before you start</string>
+    <string name="legal_notice">Churn rewrites your router\'s IMEIs. Rewriting an IMEI is a criminal offense in some countries, for example under the UK\'s Mobile Telephones (Re-programming) Act 2002. Check the law where you use the router.</string>
+    <string name="intro_rules">Churn only protects you if you follow its rules every time. You can read them again from the router screen.</string>
+    <string name="intro_accept">I understand</string>
+
+    <!-- The rules, in the wording of design.md, section 8 -->
+    <string name="rules_title">Rules</string>
+    <string name="rules_always_heading">Always follow these rules:</string>
+    <string-array name="rules_always">
+        <item>At home, at work and anywhere else you return to, keep the router switched off or without a SIM.</item>
+        <item>Before you get to such a place, unplug everything and switch the router off.</item>
+        <item>Connect to the router by cable only, and keep its Wi-Fi off.</item>
+        <item>Use normal SIM cards, or eSIM adapter cards with one profile each, and put them only into SIM slot 2. Don\'t use the router\'s built-in eSIM.</item>
+        <item>Send all traffic through the router\'s VPN, and don\'t use the router without it.</item>
+        <item>Do not run the router without the battery installed.</item>
+        <item>Before you leave a place you return to with the router, remove the SIM card or disable the eSIM profile in every phone, tablet, watch or laptop you carry, and keep it that way until you\'re back.</item>
+        <item>Use the router only with devices that run Linux, or an Android system built for privacy, such as GrapheneOS. That rules out Windows, macOS, iPhones, iPads, Chromebooks and the Android that most phones and tablets come with.</item>
+    </string-array>
+    <string name="rules_where_you_can_heading">For maximum privacy, also follow these rules where you can:</string>
+    <string-array name="rules_where_you_can">
+        <item>Use SIM cards that aren\'t registered to your name. The same goes for eSIM profiles.</item>
+        <item>Get each new SIM card or eSIM profile from a different provider than the last one. If you can\'t, start using the new one somewhere else and some days after you stopped using the last one.</item>
+        <item>Don\'t reuse a card once you\'ve swapped it out. If you run out of new cards, keep using the current one until you get a new one.</item>
+        <item>Vary when you swap SIMs, and where you switch the radio on and off.</item>
+        <item>Pay for the VPN in a way that isn\'t tied to your name.</item>
+        <item>Block SIM slot 1, for example with a drop of hot glue.</item>
+    </string-array>
+
+    <!-- Connecting -->
+    <string name="connect_title">Connect to the router</string>
+    <string name="connect_text">Switch the router on and connect your phone to its USB-C port with a cable.</string>
+    <string name="address">Router address</string>
+    <string name="password">Router admin password</string>
+    <string name="password_saved">Admin password (saved, leave empty to use it)</string>
+    <string name="connect">Connect</string>
+    <string name="connecting">Connecting to the router</string>
+    <string name="waiting_for_router">Waiting for the router on the cable</string>
+    <string name="error_address">Enter the router\'s address as four numbers, such as 192.168.8.1.</string>
+    <string name="error_no_password">Enter the router\'s admin password.</string>
+    <string name="error_no_network">Your phone doesn\'t see the router on the cable. Check that the router is on and the cable is plugged in.</string>
+    <string name="error_network_permission">Churn needs the Network permission to reach the router over the cable. Allow it in Android\'s Settings, under Apps, Churn, Permissions.</string>
+    <string name="error_unreachable">The router doesn\'t answer at %1$s.</string>
+    <string name="error_password">The router refused the password.</string>
+    <string name="error_connection">The connection to the router broke off: %1$s</string>
+    <string name="error_other">Something went wrong: %1$s</string>
+
+    <!-- The router's key -->
+    <string name="key_new_title">A router Churn doesn\'t know yet</string>
+    <string name="key_new_text">The router identifies itself with this key fingerprint:\n\n%1$s\n\nTrust it only if this is your router and no other device is connected to the cable.</string>
+    <string name="key_changed_title">The router\'s key has changed</string>
+    <string name="key_changed_text">The router identifies itself with a key Churn hasn\'t seen before:\n\n%1$s\n\nThis happens after a factory reset or firmware upgrade without kept settings. It can also mean that another device answers in the router\'s place. Trust the new key only if you know why it changed.</string>
+    <string name="trust">Trust</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Setup -->
+    <string name="setup_title">Set up the router</string>
+    <string name="setup_text">Churn keeps a folder on the router, /etc/churn/, with a random secret, the router\'s IMEIs as its factory IMEIs, and a script that writes them back. A firmware upgrade that keeps settings keeps the folder; a factory reset deletes it.\n\nThe router\'s IMEIs are:\nIMEI 1: %1$s\nIMEI 2: %2$s</string>
+    <string name="setup_warning_tac">These IMEIs don\'t have the Mudi 7\'s type allocation code, so they may already have been rewritten, for example by blue-merle. Churn would restore exactly these.</string>
+    <string name="setup_warning_check_digit">An IMEI has a wrong check digit, so it may already have been rewritten.</string>
+    <string name="setup_warning_written">These are IMEIs Churn wrote, but Churn\'s folder on the router is gone, for example after a firmware upgrade. Setting up again would record them as the factory IMEIs.</string>
+    <string name="setup_warning_secret">Churn\'s secret on the router is gone. Setting up creates a new one, so each card gets new IMEIs.</string>
+    <string name="setup_start">Set up</string>
+
+    <!-- The router -->
+    <string name="router_title">Router</string>
+    <string name="status_imeis">IMEI 1: %1$s\nIMEI 2: %2$s</string>
+    <string name="status_factory">These are the factory IMEIs.</string>
+    <string name="status_airplane_on">Airplane mode is on.</string>
+    <string name="status_airplane_off">Airplane mode is off.</string>
+    <string name="status_radio_on">The radio is on.</string>
+    <string name="status_radio_off">The radio is off.</string>
+    <string name="status_slot">SIM slot %1$s is active.</string>
+    <string name="status_slot2_sim2">Slot 2 is on the SIM 2 tray.</string>
+    <string name="status_slot2_esim">Slot 2 is on the built-in eSIM.</string>
+    <string name="note_imeis_changed">The IMEIs aren\'t the ones Churn wrote last. A firmware upgrade or reset may have restored the factory IMEIs; the next swap writes new ones.</string>
+    <string name="note_scheduled_reboot">GL\'s scheduled reboot is on. Turn it off in GL\'s web interface: a reboot is a power-on, so with a SIM inside it registers wherever it happens.</string>
+    <string name="note_kill_switch">The Enhanced Kill Switch is off, so traffic can bypass the VPN. Turn it on in GL\'s VPN settings (rule 5).</string>
+    <string name="note_restored">The factory IMEIs are back, and airplane mode is on.</string>
+    <string name="swap">Swap the SIM card</string>
+    <string name="show_rules">Rules</string>
+    <string name="refresh">Refresh</string>
+    <string name="restore">Restore factory IMEIs</string>
+    <string name="restore_text">Churn turns airplane mode on and writes the factory IMEIs back:\n\nIMEI 1: %1$s\nIMEI 2: %2$s</string>
+    <string name="forget">Forget this router</string>
+    <string name="forget_text">Churn forgets the router\'s key and password. Its folder on the router stays.</string>
+    <string name="restoring">Restoring the factory IMEIs</string>
+    <string name="setting_up">Setting up the router</string>
+    <string name="reading">Reading the router\'s state</string>
+
+    <!-- The swap -->
+    <string name="step_number">Step %1$d of 4</string>
+    <string name="step1_title">Prepare the router</string>
+    <string name="step1_text">Churn turns airplane mode on, gives the router random throwaway IMEIs, sets slot 2 to the built-in eSIM with no profile enabled, and shuts the router down. Keep the cable connected until the router is off.\n\nWhy: a card in slot 2 registers at every power-on, whatever airplane mode says, so the new card must stay off until it has its own IMEIs. While slot 2 is on the built-in eSIM, the card in the SIM 2 tray stays off. The eSIM\'s short bursts at the next power-on then carry the throwaway IMEIs, not the old card\'s.</string>
+    <string name="step1_charger">\"Power On with Charger\" is off in GL\'s settings. Otherwise plugging in a charger switches the router on, wherever you are.</string>
+    <string name="step1_start">Start</string>
+    <string name="step2_title">Swap the card</string>
+    <string name="step2_text">1. Wait until the router is off, then unplug the cable.\n2. Take out the battery and replace the card in the SIM 2 tray with the new one. Leave the SIM 1 tray empty.\n3. Put the battery back.\n4. Go to a place you don\'t return to, away from where you used the old card.\n5. Switch the router on, connect the cable and tap Continue.\n\nWhy: at power-on only the built-in eSIM\'s short bursts go out, with the throwaway IMEIs and a test identity that is likely the same on every Mudi 7.\n\nIf you keep the old card after all, Continue gives it back its own IMEIs.</string>
+    <string name="step2_continue">Continue</string>
+    <string name="step3_title">Give the new card its IMEIs</string>
+    <string name="step3_text">Churn waits until the router\'s radio is off, sets slot 2 to the SIM 2 tray, reads the new card\'s ICCID and writes the IMEIs that belong to it. The radio stays off throughout.</string>
+    <string name="step4_title">Go online later</string>
+    <string name="step4_text">The router has the new card\'s IMEIs, and its radio stays off until you turn airplane mode off, on the router\'s screen or in GL\'s web interface.\n\nTurn it off later, at another place and time, and never at home, at work or another place you return to.\n\nWhy: the old card went quiet where you started the swap. If the new one starts where and when the old one stopped, the two are easy to match.</string>
+    <string name="step4_done">Done</string>
+    <string name="try_again">Try again</string>
+    <string name="cancel_swap">Cancel the swap</string>
+
+    <!-- What a step reports -->
+    <string name="progress_airplane_mode_on">Airplane mode is on.</string>
+    <string name="progress_radio_off">The radio is off.</string>
+    <string name="progress_throwaway_imeis">Throwaway IMEIs written and read back.</string>
+    <string name="progress_slot2_on_esim">Slot 2 is on the built-in eSIM.</string>
+    <string name="progress_no_profile">No eSIM profile is enabled.</string>
+    <string name="progress_profile_disabled">The eSIM profile is disabled.</string>
+    <string name="progress_shutting_down">The router is shutting down.</string>
+    <string name="progress_waiting_for_start">Waiting until the router has finished starting. This takes about two minutes after power-on.</string>
+    <string name="progress_slot2_on_sim2">Slot 2 is on the SIM 2 tray.</string>
+    <string name="progress_slot2_active">Slot 2 is the active slot.</string>
+    <string name="progress_card_found">Found the new card.</string>
+    <string name="progress_new_imeis">The card\'s IMEIs are written and read back.</string>
+
+    <!-- Why a step stopped -->
+    <string name="problem_unexpected_answer">The router gave an answer Churn didn\'t expect, so Churn stopped. Nothing after the last line above is assumed done.</string>
+    <string name="problem_radio_on">The router\'s radio isn\'t off, so Churn stopped.</string>
+    <string name="problem_scheduled_reboot">GL\'s scheduled reboot is on. Turn it off in GL\'s web interface first: a reboot is a power-on, so with a SIM inside it registers wherever it happens.</string>
+    <string name="problem_imeis_not_kept">The router didn\'t keep the IMEIs Churn wrote.</string>
+    <string name="problem_slot_not_switched">Slot 2 didn\'t switch.</string>
+    <string name="problem_profile_still_enabled">The built-in eSIM\'s profile is still enabled.</string>
+    <string name="problem_no_card">Churn found no usable card in the SIM 2 tray: no card at all, or an eSIM adapter card without an enabled profile. Slot 2 is back on the built-in eSIM, so you can switch the router off, check the card, switch the router on again and tap Try again.</string>
+    <string name="problem_not_set_up">Churn\'s folder on the router is missing or damaged. Connect from the start to set the router up again.</string>
+    <string name="problem_not_started">The router didn\'t finish starting, so Churn stopped. Slot 2 is still on the built-in eSIM, so you can switch the router off and on again and tap Try again.</string>
+
+    <!-- The notification while a step runs -->
+    <string name="notification_channel">SIM swap</string>
+    <string name="notification_title">Churn is changing the router\'s settings</string>
+    <string name="notification_text">Keep the cable connected.</string>
 </resources>

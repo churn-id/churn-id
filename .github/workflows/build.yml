@@ -47,7 +47,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
-      - name: Build release bundle
+      - name: Test and build release bundle
         env:
           KEYSTORE_B64: ${{ secrets.CHURN_UPLOAD_KEYSTORE_B64 }}
           CHURN_KEYSTORE_PASSWORD: ${{ secrets.CHURN_UPLOAD_PASSWORD }}
@@ -75,7 +75,7 @@ jobs:
           else
             echo "::warning::No upload keystore configured; the bundle is unsigned and Play will reject it."
           fi
-          ./gradlew --no-daemon bundleRelease 2>&1 | tee "$RUNNER_TEMP/gradle.log"
+          ./gradlew --no-daemon test bundleRelease 2>&1 | tee "$RUNNER_TEMP/gradle.log"
 
       - name: Report Gradle failure
         if: failure()

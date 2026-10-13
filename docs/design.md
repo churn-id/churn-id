@@ -7,9 +7,10 @@ This document explains why Churn works the way it does. How to build on it
 is in [development.md](development.md); why the derived IMEIs keep the
 router's own TAC is in [tac.md](tac.md).
 
-Status: draft; nothing described here is implemented yet. *Verified* means
-we observed it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU
-modem; *inferred* means reasoned but not yet tested.
+Status: draft. A first prototype of the app implements sections 3 to 5, 7
+and 8; it hasn't been tested on a router yet. *Verified* means we observed
+it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
+*inferred* means reasoned but not yet tested.
 
 ## 1. Goal and threat model
 
@@ -76,12 +77,17 @@ instead.
   router appears as a USB Ethernet adapter (verified). The router has no
   internet during a rotation, so Android doesn't use this network by
   default; the app binds its connections to it explicitly.
+- **Network permission:** Android has no permission for the cable alone, so
+  the app needs the permission to use the network, which GrapheneOS calls
+  Network and lets the user turn off. The app connects to nothing but the
+  router.
 - **SSH as root.** SSH is on by default on GL.iNet firmware and documented
   by GL.iNet. The app logs in with the router's admin password.
 - **Host key:** trusted on first use after showing its fingerprint. A new or
   changed key is never accepted silently.
 - **Password:** stored with the Android Keystore.
-- **Dependencies:** an SSH library and AndroidX, nothing else.
+- **Dependencies:** an SSH library (sshj, which brings Bouncy Castle) and
+  AndroidX, nothing else.
 - **Modem access:** every AT channel of the modem is held open by a GL or
   Quectel daemon (verified), so the app sends AT commands through GL's own
   command-line tool, which arbitrates between them. Every modem operation
@@ -152,9 +158,11 @@ Test vectors are in [development.md](development.md).
 ### Two IMEIs, factory spacing
 
 A factory Mudi 7 has two different IMEIs whose serials are a small distance
-apart: 7 on the unit we tested. Derived pairs keep the router's own distance,
-so to anyone who sees both IMEIs they look like a factory pair. Equal IMEIs
-would never occur on a factory unit. Since Churn uses only slot 2, the
+apart: 1 on the unit we tested. Derived pairs keep the router's own distance
+between the serials, so to anyone who sees both IMEIs they look like a
+factory pair. The full numbers can differ by more or less, since the last
+digit is a check digit computed from all the others. Equal IMEIs would
+never occur on a factory unit. Since Churn uses only slot 2, the
 network should see only IMEI 2 (section 10), so whether the distance varies
 between units doesn't matter.
 
@@ -260,16 +268,18 @@ the card, because a card in slot 2 stays off as long as slot 2 is set to
 the eSIM (section 6). Slot 1 is never used, because a card there emits at
 every boot:
 
-1. With the cable connected, the app turns the radio off and verifies it,
-   writes a throwaway pair (section 4) and verifies it, sets slot 2 to the
-   built-in eSIM with no profile enabled, turns airplane mode on and
-   shuts the router down.
+1. With the cable connected, the app turns airplane mode on and verifies
+   that the radio is off, writes a throwaway pair (section 4) and verifies
+   it, sets slot 2 to the built-in eSIM with no profile enabled and shuts
+   the router down.
 2. With the router off, the user replaces the old SIM in slot 2's tray with
    the new one, goes to a place that doesn't matter, and switches the router
    on. Only the eSIM's short bursts go out, with the throwaway IMEI and the
    near-generic test identity.
-3. The app switches slot 2 to SIM 2 in airplane mode, reads the ICCID,
-   writes the derived pair and verifies it.
+3. Once the radio is off after the boot (section 6), the app switches
+   slot 2 to SIM 2 in airplane mode, reads the ICCID, writes the derived
+   pair and verifies it. If it finds no usable card, it switches slot 2
+   back to the built-in eSIM, so the card stays off at the next power-on.
 4. The user turns airplane mode off later, at another place and time.
 
 ### App behavior

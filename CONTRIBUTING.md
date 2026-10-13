@@ -58,15 +58,16 @@ is in [docs/development.md](docs/development.md).
 ## Building
 
 The Android project lives in `android/`; open that folder in Android Studio.
-Locally, with JDK 17 and the Android SDK installed:
+Locally, with JDK 17 and the Android SDK installed, run the unit tests and
+build a release bundle:
 
 ```sh
 cd android
-./gradlew bundleRelease
+./gradlew test bundleRelease
 ```
 
-CI builds a release bundle for every pull request and every push to `main`;
-download it from the workflow run's artifacts (`churn-release-aab`). It
+CI does the same for every pull request and every push to `main`; download
+the bundle from the workflow run's artifacts (`churn-release-aab`). It
 also checks the spelling of the Markdown files and the app's source with
 cspell (word list in `cspell.json`) and lints the Markdown files with
 markdownlint-cli2 (`.markdownlint.json`).
