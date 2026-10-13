@@ -45,6 +45,7 @@ class Swap(
         waitForRadioOff()
         val throwaway = Imei.throwaway(random, factory)
         router.writeImeis(throwaway)
+        checkRadioOff()
         report(Progress.THROWAWAY_IMEIS)
         setSlot2(Slot2.ESIM)
         report(Progress.SLOT2_ON_ESIM)

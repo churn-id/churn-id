@@ -84,6 +84,15 @@ class SwapTest {
     }
 
     @Test
+    fun step1StopsIfTheRadioComesOnAfterTheThrowawayImeis() {
+        // Reading IMEI 2 back is the last command of the write.
+        fake.radioOnAfter = "AT+EGMR=0,11"
+        assertStops(Problem.RADIO_ON) { swap.prepare(factory, SecureRandom()) }
+        assertEquals(Slot2.SIM2, fake.slot2)
+        assertSafe()
+    }
+
+    @Test
     fun step3WritesTheNewCardsImeisOnceTheRadioIsOff() {
         prepareAndRestart()
         progress.clear()
