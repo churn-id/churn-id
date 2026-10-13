@@ -79,8 +79,10 @@
     <string name="status_slot2_esim">Slot 2 is on the built-in eSIM.</string>
     <string name="note_imeis_changed">The IMEIs aren\'t the ones Churn wrote last. A firmware upgrade or reset may have restored the factory IMEIs; the next swap writes new ones.</string>
     <string name="note_scheduled_reboot">GL\'s scheduled reboot is on. Turn it off in GL\'s web interface: a reboot is a power-on, so with a SIM inside it registers wherever it happens.</string>
-    <string name="note_kill_switch">The Enhanced Kill Switch is off, so traffic can bypass the VPN. Turn it on in GL\'s VPN settings (rule 5).</string>
+    <string name="note_kill_switch">The Enhanced Kill Switch is off, so traffic can bypass the VPN (rule 5).</string>
     <string name="note_restored">The factory IMEIs are back, and airplane mode is on.</string>
+    <string name="kill_switch_on">Turn the Enhanced Kill Switch on</string>
+    <string name="kill_switch_on_text">Churn turns GL\'s Enhanced Kill Switch on. Devices behind the router then reach the internet only through the VPN, and not at all while it is down.</string>
     <string name="swap">Swap the SIM card</string>
     <string name="show_rules">Rules</string>
     <string name="refresh">Refresh</string>
@@ -89,6 +91,7 @@
     <string name="forget">Forget this router</string>
     <string name="forget_text">Churn forgets the router\'s key and password. Its folder on the router stays.</string>
     <string name="restoring">Restoring the factory IMEIs</string>
+    <string name="turning_kill_switch_on">Turning the Enhanced Kill Switch on</string>
     <string name="setting_up">Setting up the router</string>
     <string name="reading">Reading the router\'s state</string>
 

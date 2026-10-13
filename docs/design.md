@@ -300,7 +300,8 @@ every boot:
   app does it while slot 2 is still on the built-in eSIM and then checks
   that the radio is still off. It leaves each tunnel's own Kill Switch as
   it is, since the Enhanced Kill Switch should block that traffic too
-  (section 10).
+  (section 10). The router screen also warns while the switch is off and
+  offers to turn it on.
 
 ## 8. Usage rules
 

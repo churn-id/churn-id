@@ -35,6 +35,7 @@ class RouterStatus(
     val radio: Int?,
     val activeSlot: String?,
     val slot2: Slot2?,
+    val enhancedKillSwitch: Boolean,
 )
 
 private class NoRouterNetwork : Exception()
@@ -121,6 +122,11 @@ class Controller(private val context: Context) {
         router.restoreFactoryImeis()
         saved.written = router.readChurnFolder().factory
         showRouter(context.getString(R.string.note_restored))
+    }
+
+    fun turnKillSwitchOn() = job(R.string.turning_kill_switch_on) {
+        router().turnEnhancedKillSwitchOn()
+        showRouter()
     }
 
     fun forget() {
@@ -296,7 +302,6 @@ class Controller(private val context: Context) {
         val written = saved.written
         if (written != null && written != imeis) notes += context.getString(R.string.note_imeis_changed)
         if (router.scheduledReboot()) notes += context.getString(R.string.note_scheduled_reboot)
-        if (!router.enhancedKillSwitch()) notes += context.getString(R.string.note_kill_switch)
         val status = RouterStatus(
             imeis = imeis,
             factory = factory,
@@ -304,6 +309,7 @@ class Controller(private val context: Context) {
             radio = runCatching { router.radio() }.getOrNull(),
             activeSlot = router.activeSlot(),
             slot2 = runCatching { router.slot2() }.getOrNull(),
+            enhancedKillSwitch = router.enhancedKillSwitch(),
         )
         return Screen.Home(status, notes)
     }
