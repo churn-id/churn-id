@@ -201,10 +201,11 @@ class Controller(private val context: Context) {
         context.startForegroundService(Intent(context, SwapService::class.java))
         worker.execute {
             val next = try {
-                val router = router(waitSeconds) {
+                if (connection == null) {
                     log += context.getString(R.string.waiting_for_router)
                     update()
                 }
+                val router = router(waitSeconds)
                 val folder = router.readChurnFolder()
                 if (!folder.complete) throw RouterException(Problem.NOT_SET_UP)
                 val swap = Swap(router, report = {
@@ -227,12 +228,11 @@ class Controller(private val context: Context) {
     }
 
     /** The router, connecting first if needed, and waiting up to [waitSeconds] for it to come up. */
-    private fun router(waitSeconds: Int = CONNECT_WAIT_SECONDS, onWait: () -> Unit = {}): Router {
+    private fun router(waitSeconds: Int = CONNECT_WAIT_SECONDS): Router {
         connection?.let { return Router(it) }
         if (!network.socketsAllowed()) throw NoNetworkPermission()
         val password = typedPassword ?: saved.sealedPassword?.let { PasswordVault.open(it) } ?: throw MissingPassword()
         val deadline = System.nanoTime() + waitSeconds * 1_000_000_000L
-        onWait()
         while (true) {
             val left = ((deadline - System.nanoTime()) / 1_000_000).toInt()
             val usb = network.await(maxOf(left, 1_000)) ?: throw NoRouterNetwork()
