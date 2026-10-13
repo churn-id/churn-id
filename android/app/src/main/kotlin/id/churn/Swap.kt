@@ -113,9 +113,9 @@ class Swap(
     private fun turnRadioOff() {
         if (!router.airplaneMode()) router.setAirplaneMode(true)
         report(Progress.AIRPLANE_MODE_ON)
-        // GL's cellular manager turns the radio off right after airplane mode is set.
-        if (!poll(RADIO_TIMEOUT_SECONDS) { router.radio() == RADIO_OFF }) router.radioOff()
-        checkRadioOff()
+        // GL's cellular manager turns the radio off right after airplane mode is set. If it doesn't, the router is
+        // in a state we don't understand, so the step stops.
+        if (!poll(RADIO_TIMEOUT_SECONDS) { router.radio() == RADIO_OFF }) throw RouterException(Problem.RADIO_ON)
         report(Progress.RADIO_OFF)
     }
 

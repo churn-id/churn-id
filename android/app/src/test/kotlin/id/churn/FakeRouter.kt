@@ -16,7 +16,6 @@ class FakeRouter : Shell {
     val uptime get() = (clock - bootedAt) / 1000.0
 
     var airplaneMode = false
-    private var radioForcedOff = false
 
     /** For the radio that never turns off. */
     var radioStuckOn = false
@@ -43,7 +42,7 @@ class FakeRouter : Shell {
     val radio
         get() = when {
             radioStuckOn || uptime < 58 -> 1
-            airplaneMode || radioForcedOff -> 4
+            airplaneMode -> 4
             else -> 1
         }
 
@@ -52,7 +51,6 @@ class FakeRouter : Shell {
     /** Power-on with the settings kept. */
     fun boot() {
         bootedAt = clock
-        radioForcedOff = false
         poweredOff = false
     }
 
@@ -80,7 +78,6 @@ class FakeRouter : Shell {
         val airplaneModeSet = Regex("""uci set 'glconfig.general.airplane_mode=([01])' && uci commit 'glconfig'""")
         airplaneModeSet.matchEntire(command)?.let {
             airplaneMode = it.groupValues[1] == "1"
-            if (!airplaneMode) radioForcedOff = false
             return ok("")
         }
         if (command == "cat /proc/uptime") return ok("%.2f 100.00\n".format(uptime))
@@ -112,10 +109,6 @@ class FakeRouter : Shell {
         val imeiWrite = Regex("""AT\+EGMR=1,(7|11),"(\d{15})"""").matchEntire(command)
         return when {
             command == "AT+CFUN?" -> atOk("+CFUN: $radio")
-            command == "AT+CFUN=4" -> {
-                radioForcedOff = true
-                atOk()
-            }
             command == "AT+EGMR=0,7" -> atOk("+EGMR: \"$imei1\"")
             command == "AT+EGMR=0,11" -> atOk("+EGMR: \"$imei2\"")
             imeiWrite != null -> {

@@ -54,14 +54,11 @@ class Router(private val shell: Shell) {
 
     fun airplaneMode() = uci("glconfig.general.airplane_mode") == "1"
 
+    /** Turns airplane mode [on] or off, also for later power-ons, and reads the setting back. */
     fun setAirplaneMode(on: Boolean) = uciSet("glconfig.general.airplane_mode", if (on) "1" else "0")
 
     /** The modem's radio state, `+CFUN:`: 1 on, 4 off. */
     fun radio() = at("AT+CFUN?").after("+CFUN:")?.toIntOrNull() ?: throw unexpected("AT+CFUN?")
-
-    fun radioOff() {
-        at("AT+CFUN=4")
-    }
 
     fun imeis() = ImeiPair(readImei(7), readImei(11))
 

@@ -32,13 +32,11 @@ done
 
 # The radio stays off while the IMEIs change.
 uci set glconfig.general.airplane_mode=1 && uci commit glconfig || fail "Can't turn airplane mode on."
+# GL's cellular manager turns the radio off right after airplane mode is set.
 tries=0
 until at 'AT+CFUN?' | grep -q 'CFUN: 4'; do
 	tries=$((tries + 1))
-	if [ "$tries" -gt 15 ]; then
-		at 'AT+CFUN=4' | grep -q '^OK' && at 'AT+CFUN?' | grep -q 'CFUN: 4' || fail "Can't turn the radio off."
-		break
-	fi
+	[ "$tries" -le 15 ] || fail "The radio didn't turn off, so the IMEIs are unchanged."
 	sleep 2
 done
 
