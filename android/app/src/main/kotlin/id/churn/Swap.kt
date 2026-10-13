@@ -20,7 +20,7 @@ enum class Step {
 /** What a step reports as it goes. */
 enum class Progress {
     AIRPLANE_MODE_ON, RADIO_OFF, THROWAWAY_IMEIS, SLOT2_ON_ESIM, NO_PROFILE, PROFILE_DISABLED, WAITING_FOR_START,
-    SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, NEW_IMEIS,
+    KILL_SWITCH_ON, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, NEW_IMEIS,
 }
 
 /**
@@ -68,6 +68,9 @@ class Swap(
             throw RouterException(Problem.NOT_STARTED)
         }
         waitForRadioOff()
+        // Step 4 lets the router go online, so the switch must be on by then (rule 5). This comes while slot 2 is
+        // still on the eSIM, in case the network reload it may take turns the radio on.
+        turnKillSwitchOn()
         val pair = try {
             writeCardsImeis(factory, secret)
         } catch (e: RouterException) {
@@ -121,6 +124,15 @@ class Swap(
         // in a state we don't understand, so the step stops.
         if (!poll(RADIO_TIMEOUT_SECONDS) { router.radio() == RADIO_OFF }) throw RouterException(Problem.RADIO_ON)
         report(Progress.RADIO_OFF)
+    }
+
+    /** Turns GL's Enhanced Kill Switch on if it is off, and checks that the radio is still off afterwards. */
+    private fun turnKillSwitchOn() {
+        if (!router.enhancedKillSwitch()) {
+            router.turnEnhancedKillSwitchOn()
+            checkRadioOff()
+        }
+        report(Progress.KILL_SWITCH_ON)
     }
 
     private fun checkRadioOff() {

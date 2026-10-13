@@ -36,6 +36,34 @@ class RouterTest {
     }
 
     @Test
+    fun turnsTheEnhancedKillSwitchOn() {
+        fake.killSwitchSet = false
+        fake.killSwitchInUse = false
+        assertFalse(router.enhancedKillSwitch())
+        router.turnEnhancedKillSwitchOn()
+        assertTrue(router.enhancedKillSwitch())
+    }
+
+    @Test
+    fun seesAKillSwitchThatIsNotInUseYet() {
+        // Turned on in the settings, but without the network reload.
+        fake.killSwitchInUse = false
+        assertFalse(router.enhancedKillSwitch())
+    }
+
+    @Test
+    fun stopsIfTheKillSwitchDoesNotComeOn() {
+        fake.killSwitchInUse = false
+        fake.reloadIgnored = true
+        try {
+            router.turnEnhancedKillSwitchOn()
+            throw AssertionError("The switch was taken for on")
+        } catch (e: RouterException) {
+            assertEquals(Problem.KILL_SWITCH_OFF, e.problem)
+        }
+    }
+
+    @Test
     fun readsTheLocationIdFromGlsSettings() {
         router.setSlot2(Slot2.ESIM)
         assertTrue(fake.commands.any { "\"location_id\":\"${FakeRouter.LOCATION_ID}\"" in it })

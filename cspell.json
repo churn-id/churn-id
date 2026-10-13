@@ -17,6 +17,7 @@
     "esim",
     "fccid",
     "framebuffer",
+    "fwmark",
     "glconfig",
     "gradlew",
     "GrapheneOS",

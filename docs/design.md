@@ -278,11 +278,11 @@ every boot:
    the new one, goes to a place that doesn't matter, and switches the router
    on. Only the eSIM's short bursts go out, with the throwaway IMEI and the
    near-generic test identity.
-3. Once the radio is off after the boot (section 6), the app switches
-   slot 2 to SIM 2 in airplane mode, reads the ICCID, writes the derived
-   pair, saves and verifies it. If it finds no usable card, it switches
-   slot 2 back to the built-in eSIM, so the card stays off at the next
-   power-on.
+3. Once the radio is off after the boot (section 6), the app turns GL's
+   Enhanced Kill Switch on if it is off, then switches slot 2 to SIM 2 in
+   airplane mode, reads the ICCID, writes the derived pair, saves and
+   verifies it. If it finds no usable card, it switches slot 2 back to the
+   built-in eSIM, so the card stays off at the next power-on.
 4. The user turns airplane mode off later, at another place and time.
 
 ### App behavior
@@ -294,6 +294,13 @@ every boot:
 - Before each rotation the app checks the slot 2 setting, airplane mode, and
   that "Power On with Charger" and GL's scheduled reboot are off. A reboot
   is a power-on, so wherever it happens, the SIM registers there.
+- Step 3 is the last step before the router goes online, so that is where
+  the app makes sure the Enhanced Kill Switch is on (rule 5). Turning it on
+  takes a network reload, whose effect on the modem is untested, so the
+  app does it while slot 2 is still on the built-in eSIM and then checks
+  that the radio is still off. It leaves each tunnel's own Kill Switch as
+  it is, since the Enhanced Kill Switch should block that traffic too
+  (section 10).
 
 ## 8. Usage rules
 

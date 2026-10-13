@@ -333,6 +333,7 @@ class Controller(private val context: Context) {
             Progress.NO_PROFILE -> R.string.progress_no_profile
             Progress.PROFILE_DISABLED -> R.string.progress_profile_disabled
             Progress.WAITING_FOR_START -> R.string.progress_waiting_for_start
+            Progress.KILL_SWITCH_ON -> R.string.progress_kill_switch_on
             Progress.SLOT2_ON_SIM2 -> R.string.progress_slot2_on_sim2
             Progress.SLOT2_ACTIVE -> R.string.progress_slot2_active
             Progress.CARD_FOUND -> R.string.progress_card_found
@@ -351,6 +352,7 @@ class Controller(private val context: Context) {
             Problem.NO_CARD -> R.string.problem_no_card
             Problem.NOT_SET_UP -> R.string.problem_not_set_up
             Problem.NOT_STARTED -> R.string.problem_not_started
+            Problem.KILL_SWITCH_OFF -> R.string.problem_kill_switch_off
         },
     )
 
