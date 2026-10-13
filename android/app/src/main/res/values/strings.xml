@@ -117,7 +117,7 @@
     <string name="progress_no_profile">No eSIM profile is enabled.</string>
     <string name="progress_profile_disabled">The eSIM profile is disabled.</string>
     <string name="progress_shutting_down">The router is shutting down.</string>
-    <string name="progress_waiting_for_radio">Waiting until the router has started and its radio is off. This takes about two minutes after power-on.</string>
+    <string name="progress_waiting_for_start">Waiting until the router has finished starting. This takes about two minutes after power-on.</string>
     <string name="progress_slot2_on_sim2">Slot 2 is on the SIM 2 tray.</string>
     <string name="progress_slot2_active">Slot 2 is the active slot.</string>
     <string name="progress_card_found">Found the new card.</string>
@@ -132,6 +132,7 @@
     <string name="problem_profile_still_enabled">The built-in eSIM\'s profile is still enabled.</string>
     <string name="problem_no_card">Churn found no usable card in the SIM 2 tray: no card at all, or an eSIM adapter card without an enabled profile. Slot 2 is back on the built-in eSIM, so you can switch the router off, check the card, switch the router on again and tap Try again.</string>
     <string name="problem_not_set_up">Churn\'s folder on the router is missing or damaged. Connect from the start to set the router up again.</string>
+    <string name="problem_not_started">The router didn\'t finish starting, so Churn stopped. Slot 2 is still on the built-in eSIM, so you can switch the router off and on again and tap Try again.</string>
 
     <!-- The notification while a step runs -->
     <string name="notification_channel">SIM swap</string>

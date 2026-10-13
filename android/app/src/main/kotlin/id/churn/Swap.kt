@@ -19,7 +19,7 @@ enum class Step {
 
 /** What a step reports as it goes. */
 enum class Progress {
-    AIRPLANE_MODE_ON, RADIO_OFF, THROWAWAY_IMEIS, SLOT2_ON_ESIM, NO_PROFILE, PROFILE_DISABLED, WAITING_FOR_RADIO,
+    AIRPLANE_MODE_ON, RADIO_OFF, THROWAWAY_IMEIS, SLOT2_ON_ESIM, NO_PROFILE, PROFILE_DISABLED, WAITING_FOR_START,
     SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, NEW_IMEIS,
 }
 
@@ -41,7 +41,8 @@ class Swap(
     fun prepare(factory: ImeiPair, random: SecureRandom): ImeiPair {
         // A reboot is a power-on, so with a SIM inside it registers wherever it happens.
         if (router.scheduledReboot()) throw RouterException(Problem.SCHEDULED_REBOOT)
-        turnRadioOff()
+        turnAirplaneModeOn()
+        waitForRadioOff()
         val throwaway = Imei.throwaway(random, factory)
         router.writeImeis(throwaway)
         report(Progress.THROWAWAY_IMEIS)
@@ -57,16 +58,15 @@ class Swap(
 
     /** Step 3: slot 2 on the new card, which gets its own pair. Returns that pair. */
     fun giveNewImeis(factory: ImeiPair, secret: ByteArray): ImeiPair {
-        report(Progress.WAITING_FOR_RADIO)
-        if (!router.airplaneMode()) router.setAirplaneMode(true)
+        // Before the wait, in case the user turned it off, so that the radio goes off after its burst at power-on.
+        turnAirplaneModeOn()
+        report(Progress.WAITING_FOR_START)
         // At every power-on the radio is on for some 12 s, ending 51 to 58 s after power-on in our measurements,
         // whatever airplane mode says (design.md, section 6). Slot 2 stays on the eSIM until well after that.
-        val settled = poll(BOOT_TIMEOUT_SECONDS) {
-            router.uptimeSeconds() >= SETTLED_UPTIME_SECONDS && router.radio() == RADIO_OFF
+        if (!poll(BOOT_TIMEOUT_SECONDS) { router.uptimeSeconds() >= SETTLED_UPTIME_SECONDS }) {
+            throw RouterException(Problem.NOT_STARTED)
         }
-        if (!settled) throw RouterException(Problem.RADIO_ON)
-        checkRadioOff()
-        report(Progress.RADIO_OFF)
+        waitForRadioOff()
         val pair = try {
             writeCardsImeis(factory, secret)
         } catch (e: RouterException) {
@@ -110,9 +110,12 @@ class Swap(
         return pair
     }
 
-    private fun turnRadioOff() {
+    private fun turnAirplaneModeOn() {
         if (!router.airplaneMode()) router.setAirplaneMode(true)
         report(Progress.AIRPLANE_MODE_ON)
+    }
+
+    private fun waitForRadioOff() {
         // GL's cellular manager turns the radio off right after airplane mode is set. If it doesn't, the router is
         // in a state we don't understand, so the step stops.
         if (!poll(RADIO_TIMEOUT_SECONDS) { router.radio() == RADIO_OFF }) throw RouterException(Problem.RADIO_ON)

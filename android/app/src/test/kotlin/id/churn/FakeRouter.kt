@@ -19,6 +19,9 @@ class FakeRouter : Shell {
 
     /** For the radio that never turns off. */
     var radioStuckOn = false
+
+    /** For a `/proc/uptime` that doesn't parse. */
+    var uptimeBroken = false
     var imei1 = "356090215000002"
     var imei2 = "356090215000077"
     var slot2 = Slot2.SIM2
@@ -80,7 +83,7 @@ class FakeRouter : Shell {
             airplaneMode = it.groupValues[1] == "1"
             return ok("")
         }
-        if (command == "cat /proc/uptime") return ok("%.2f 100.00\n".format(uptime))
+        if (command == "cat /proc/uptime") return ok(if (uptimeBroken) "" else "%.2f 100.00\n".format(uptime))
         if (command == "poweroff") {
             poweredOff = true
             return ok("")

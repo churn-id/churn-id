@@ -16,7 +16,7 @@ class Output(val status: Int?, val stdout: ByteArray, val stderr: String) {
 /** Why a step stopped. Nothing it did after the last confirmed answer is assumed done. */
 enum class Problem {
     UNEXPECTED_ANSWER, RADIO_ON, SCHEDULED_REBOOT, IMEIS_NOT_KEPT, SLOT_NOT_SWITCHED, PROFILE_STILL_ENABLED,
-    NO_CARD, NOT_SET_UP,
+    NO_CARD, NOT_SET_UP, NOT_STARTED,
 }
 
 /** [detail] is what the router said, for the log; it never holds the secret or a password. */

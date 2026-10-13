@@ -100,8 +100,8 @@ class SwapTest {
         assertTrue(firstChange, firstChange.substringAfter(" at ").substringBefore(" s").toInt() >= 120)
         assertEquals(
             listOf(
-                Progress.WAITING_FOR_RADIO, Progress.RADIO_OFF, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE,
-                Progress.CARD_FOUND, Progress.NEW_IMEIS,
+                Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SLOT2_ON_SIM2,
+                Progress.SLOT2_ACTIVE, Progress.CARD_FOUND, Progress.NEW_IMEIS,
             ),
             progress,
         )
@@ -166,6 +166,16 @@ class SwapTest {
         fake.radioStuckOn = true
         val changes = fake.changes.size
         assertStops(Problem.RADIO_ON) { swap.giveNewImeis(factory, secret) }
+        assertEquals(changes, fake.changes.size)
+        assertEquals(Slot2.ESIM, fake.slot2)
+    }
+
+    @Test
+    fun step3ChangesNothingIfTheRouterDoesNotFinishStarting() {
+        prepareAndRestart()
+        fake.uptimeBroken = true
+        val changes = fake.changes.size
+        assertStops(Problem.NOT_STARTED) { swap.giveNewImeis(factory, secret) }
         assertEquals(changes, fake.changes.size)
         assertEquals(Slot2.ESIM, fake.slot2)
     }
