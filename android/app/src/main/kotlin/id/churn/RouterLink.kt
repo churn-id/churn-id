@@ -23,48 +23,57 @@ import net.schmizz.sshj.transport.verification.HostKeyVerifier
 import net.schmizz.sshj.userauth.UserAuthException
 
 /**
- * The router's USB Ethernet network. It has no internet, so Android doesn't send anything through it by
- * default; the app requests it and binds its socket to it.
+ * The router's USB Ethernet network, requested from Android until [close]. It has no internet, so Android doesn't
+ * send anything through it by default; the app binds its sockets to [network].
  */
-class RouterNetwork(context: Context) {
+class RouterNetwork private constructor(
+    private val connectivity: ConnectivityManager,
+    private val callback: ConnectivityManager.NetworkCallback,
+    val network: Network,
+) : Closeable {
 
-    private val connectivity = context.getSystemService(ConnectivityManager::class.java)
-    private var callback: ConnectivityManager.NetworkCallback? = null
+    override fun close() = release(connectivity, callback)
 
-    /** Waits up to [timeoutMillis] for the network; null if it doesn't show up. */
-    fun await(timeoutMillis: Int): Network? {
-        release()
-        val found = LinkedBlockingQueue<Network>()
-        val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) {
-                found.offer(network)
+    companion object {
+
+        /** Requests the network and waits up to [timeoutMillis] for it; null if it doesn't show up. */
+        fun connect(context: Context, timeoutMillis: Int): RouterNetwork? {
+            val connectivity = context.getSystemService(ConnectivityManager::class.java)
+            val found = LinkedBlockingQueue<Network>()
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    found.offer(network)
+                }
             }
+            val request = NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
+                .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            connectivity.requestNetwork(request, callback, timeoutMillis)
+            val network = found.poll(timeoutMillis.toLong(), TimeUnit.MILLISECONDS)
+            if (network == null) {
+                release(connectivity, callback)
+                return null
+            }
+            return RouterNetwork(connectivity, callback, network)
         }
-        this.callback = callback
-        val request = NetworkRequest.Builder()
-            .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
-            .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .build()
-        connectivity.requestNetwork(request, callback, timeoutMillis)
-        return found.poll(timeoutMillis.toLong(), TimeUnit.MILLISECONDS)
-    }
 
-    fun release() {
-        // A request that timed out is already gone, and unregistering it again throws.
-        callback?.let { runCatching { connectivity.unregisterNetworkCallback(it) } }
-        callback = null
-    }
+        /**
+         * Whether Android lets the app open sockets at all. Without the network permission, which GrapheneOS lets
+         * the user turn off per app, it refuses every socket, even one for the cable.
+         */
+        fun socketsAllowed() = try {
+            Os.close(Os.socket(OsConstants.AF_INET, OsConstants.SOCK_STREAM, 0))
+            true
+        } catch (e: ErrnoException) {
+            // Any other error shows up again when the app connects.
+            e.errno != OsConstants.EPERM && e.errno != OsConstants.EACCES
+        }
 
-    /**
-     * Whether Android lets the app open sockets at all. Without the network permission, which GrapheneOS lets
-     * the user turn off per app, it refuses every socket, even one for the cable.
-     */
-    fun socketsAllowed() = try {
-        Os.close(Os.socket(OsConstants.AF_INET, OsConstants.SOCK_STREAM, 0))
-        true
-    } catch (e: ErrnoException) {
-        // Any other error shows up again when the app connects.
-        e.errno != OsConstants.EPERM && e.errno != OsConstants.EACCES
+        private fun release(connectivity: ConnectivityManager, callback: ConnectivityManager.NetworkCallback) {
+            // A request that timed out or was released before is already gone, and unregistering it again throws.
+            runCatching { connectivity.unregisterNetworkCallback(callback) }
+        }
     }
 }
 
@@ -91,8 +100,11 @@ object HostKeys {
     private fun blob(key: PublicKey) = Buffer.PlainBuffer().putPublicKey(key).compactData
 }
 
-/** An SSH connection to the router as root. */
-class RouterConnection private constructor(private val ssh: SSHClient) : Shell, Closeable {
+/** An SSH connection to the router as root, over a [RouterNetwork] that it closes with itself. */
+class RouterConnection private constructor(
+    private val ssh: SSHClient,
+    private val usb: RouterNetwork,
+) : Shell, Closeable {
 
     override fun run(command: String, input: ByteArray?, timeoutSeconds: Long): Output =
         ssh.startSession().use { session ->
@@ -107,26 +119,29 @@ class RouterConnection private constructor(private val ssh: SSHClient) : Shell, 
 
     override fun close() {
         runCatching { ssh.disconnect() }
+        usb.close()
     }
 
     companion object {
 
         /**
-         * Connects through [network] to [address] and logs in with [password]. Throws [UntrustedHostKey]
-         * unless the router presents [trustedKey], and [WrongPassword] if it refuses the password.
+         * Connects through [usb] to [address] and logs in with [password]. Throws [UntrustedHostKey]
+         * unless the router presents [trustedKey], and [WrongPassword] if it refuses the password. The
+         * connection takes [usb] over: it closes it when it closes, or at once if it can't connect.
          */
-        fun open(network: Network, address: String, password: String, trustedKey: String?): RouterConnection {
+        fun open(usb: RouterNetwork, address: String, password: String, trustedKey: String?): RouterConnection {
             val verifier = PinnedKey(trustedKey)
             val ssh = SSHClient(DefaultConfig())
             try {
-                ssh.socketFactory = network.socketFactory
+                ssh.socketFactory = usb.network.socketFactory
                 ssh.connectTimeout = 10_000
                 ssh.addHostKeyVerifier(verifier)
                 ssh.connect(address, 22)
                 ssh.authPassword("root", password)
-                return RouterConnection(ssh)
+                return RouterConnection(ssh, usb)
             } catch (e: Exception) {
                 runCatching { ssh.disconnect() }
+                usb.close()
                 val presented = verifier.presented
                 when {
                     e is TransportException && presented != null && presented != trustedKey ->

@@ -50,7 +50,6 @@ private class MissingPassword : Exception()
 class Controller(private val context: Context) {
 
     private val saved = Saved(context)
-    private val network = RouterNetwork(context)
     private val worker = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
 
@@ -230,12 +229,12 @@ class Controller(private val context: Context) {
     /** The router, connecting first if needed, and waiting up to [waitSeconds] for it to come up. */
     private fun router(waitSeconds: Int = CONNECT_WAIT_SECONDS): Router {
         connection?.let { return Router(it) }
-        if (!network.socketsAllowed()) throw NoNetworkPermission()
+        if (!RouterNetwork.socketsAllowed()) throw NoNetworkPermission()
         val password = typedPassword ?: saved.sealedPassword?.let { PasswordVault.open(it) } ?: throw MissingPassword()
         val deadline = System.nanoTime() + waitSeconds * 1_000_000_000L
         while (true) {
             val left = ((deadline - System.nanoTime()) / 1_000_000).toInt()
-            val usb = network.await(maxOf(left, 1_000)) ?: throw NoRouterNetwork()
+            val usb = RouterNetwork.connect(context, maxOf(left, 1_000)) ?: throw NoRouterNetwork()
             try {
                 val opened = RouterConnection.open(usb, saved.address, password, saved.hostKey)
                 connection = opened
@@ -246,11 +245,9 @@ class Controller(private val context: Context) {
                 return Router(opened)
             } catch (e: WrongPassword) {
                 typedPassword = null
-                network.release()
                 throw e
             } catch (e: IOException) {
                 // While the router starts, its network can show up before it accepts connections.
-                network.release()
                 if (System.nanoTime() >= deadline) throw e
                 Thread.sleep(RETRY_MILLISECONDS)
             }
@@ -260,7 +257,6 @@ class Controller(private val context: Context) {
     private fun disconnect() {
         connection?.close()
         connection = null
-        network.release()
     }
 
     /** Shows the router screen, or the setup screen if Churn's folder isn't complete. */
