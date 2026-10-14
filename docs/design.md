@@ -477,6 +477,13 @@ Hardware, other:
   blocks all traffic that matches no tunnel. With only the Enhanced Kill
   Switch on, a website no longer loaded after we disconnected the tunnel,
   and the routing rules that block traffic stayed in place (verified).
+- Does the router send traffic of its own past the VPN? The rules that
+  block traffic with the Enhanced Kill Switch on match only traffic from
+  `br-lan` and traffic marked for a tunnel, so neither kill switch blocks
+  what the router sends itself (inferred from `ip rule show`). The router
+  needs this to reach the VPN server, but its other services, such as time
+  synchronization, could reach the internet over the SIM while the tunnel
+  is down. Rule 5 depends on it.
 - Can the app give the router's Wi-Fi a new network name and hardware
   address at every swap? OpenWrt has a setting for each; GL's firmware
   may override them.

@@ -112,7 +112,9 @@ tunnel up, `ip rule show` also lists rules that send traffic marked
 other marked traffic and unmarked traffic from `br-lan` to a blackhole
 (verified). With the tunnel's own Kill Switch off and the tunnel
 disconnected, only the rule to table 1001 is gone, and a website no
-longer loaded (verified).
+longer loaded (verified). Ahead of all these, at priority 1, `ip rule show`
+sends what the router sends itself to table 16800 (verified); what that
+table holds is not known yet.
 
 The app counts a VPN as set up if a section of type `rule` names an
 existing network interface in `via`, as on our Mudi 7 with one WireGuard
