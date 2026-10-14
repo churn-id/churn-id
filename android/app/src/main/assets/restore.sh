@@ -42,4 +42,6 @@ done
 
 write 7 "$imei1" || fail "Writing IMEI 1 failed."
 write 11 "$imei2" || fail "Writing IMEI 2 failed."
+# Without it, a reboot soon after the write brings the earlier IMEIs back.
+at 'AT+QPRTPARA=1' | grep -q '^OK' || fail "The IMEIs are written but not saved, so a reboot may undo them."
 echo "The factory IMEIs are back: IMEI 1 $imei1, IMEI 2 $imei2. Airplane mode is on."

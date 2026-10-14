@@ -57,11 +57,17 @@ it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
 | Slot 2's card | `AT+QSIMTYPE="slot2"`: `0` SIM 2 tray, `1` eSIM | verified |
 | Read IMEI 1 | `AT+EGMR=0,7` | verified |
 | Read IMEI 2 | `AT+EGMR=0,11` | verified |
-| Write IMEI 1 | `AT+EGMR=1,7,"<15 digits>"` | verified, survives reboot |
-| Write IMEI 2 | `AT+EGMR=1,11,"<15 digits>"` | verified, survives reboot |
+| Write IMEI 1 | `AT+EGMR=1,7,"<15 digits>"` | verified, survives a reboot once saved |
+| Write IMEI 2 | `AT+EGMR=1,11,"<15 digits>"` | verified, survives a reboot once saved |
 | ICCID | `AT+QCCID`: a 19-digit ICCID comes with a trailing `F` | verified |
 | Slot select | `AT+QUIMSLOT` | rejected by this modem |
-| Persist modem settings | `AT+QPRTPARA=1` | sent by blue-merle v2 after writes; our writes persisted without it |
+| Save IMEI writes | `AT+QPRTPARA=1` | verified |
+
+An IMEI write reads back at once, but without `AT+QPRTPARA=1` a reboot 5 s
+later brought the earlier IMEI back; with it, the new one stayed (verified).
+GL's own IMEI tool and blue-merle v2 send it after their writes too. It
+also overwrites the modem's backup of its settings, so that backup holds
+the IMEIs written last, not the factory ones (inferred).
 
 `AT+GSN` and `AT+CGSN` return one of the two IMEIs, switching irregularly,
 so don't use them.
@@ -256,7 +262,7 @@ before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
 | `/etc/churn/README.txt` | 600 | What the folder is; how to restore the factory IMEIs by hand; to do so before a factory reset |
 | `/etc/churn/secret` | 600 | 32 random bytes, the HMAC key |
 | `/etc/churn/factory` | 600 | Factory IMEI 1 and IMEI 2, one per line |
-| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory` and reads them back |
+| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them |
 
 At setup the app also adds the line `/etc/churn/` to `/etc/sysupgrade.conf`.
 

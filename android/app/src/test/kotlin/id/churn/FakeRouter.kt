@@ -27,6 +27,9 @@ class FakeRouter : Shell {
     var uptimeBroken = false
     var imei1 = "356090215000002"
     var imei2 = "356090215000077"
+
+    /** The IMEIs as last saved to flash, while a later write isn't saved yet. Power-on brings them back. */
+    private var savedImeis: ImeiPair? = null
     var slot2 = Slot2.SIM2
     var activeSlot = 2
 
@@ -56,6 +59,11 @@ class FakeRouter : Shell {
 
     /** Power-on with the settings kept. */
     fun boot() {
+        savedImeis?.let {
+            imei1 = it.imei1
+            imei2 = it.imei2
+        }
+        savedImeis = null
         bootedAt = clock
         poweredOff = false
     }
@@ -121,7 +129,12 @@ class FakeRouter : Shell {
             imeiWrite != null -> {
                 val (item, imei) = imeiWrite.destructured
                 change("IMEI $item")
+                if (savedImeis == null) savedImeis = ImeiPair(imei1, imei2)
                 if (item == "7") imei1 = imei else imei2 = imei
+                atOk()
+            }
+            command == "AT+QPRTPARA=1" -> {
+                savedImeis = null
                 atOk()
             }
             command == "AT+QSIMTYPE=\"slot2\"" -> atOk("+QSIMTYPE: \"slot2\",${slot2.type}")

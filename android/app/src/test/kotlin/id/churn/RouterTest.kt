@@ -89,6 +89,14 @@ class RouterTest {
         assertEquals(ImeiPair("356090213059463", "356090213059539"), router.imeis())
     }
 
+    @Test
+    fun savesTheImeisItWrites() {
+        val pair = ImeiPair("356090213059463", "356090213059539")
+        router.writeImeis(pair)
+        fake.boot()
+        assertEquals(pair, ImeiPair(fake.imei1, fake.imei2))
+    }
+
     @Test(expected = java.io.IOException::class)
     fun reportsABrokenConnectionAsSuch() {
         Router { _, _, _ -> throw java.io.IOException("broken") }.slot2Iccid()

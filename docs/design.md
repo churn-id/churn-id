@@ -245,8 +245,10 @@ and AT commands sent over SSH.
 - **No setting starts the radio off.** None of the modem's configuration
   commands offers a power-up radio state, so nothing saved can make a boot
   with an enabled SIM profile silent.
-- **Both IMEIs are writable.** IMEI 1 and IMEI 2 can be written, the new
-  values read back at once and survive a reboot.
+- **Both IMEIs are writable.** IMEI 1 and IMEI 2 can be written, and the
+  new values read back at once. They survive a reboot only once the modem
+  has saved them: without that, a reboot 5 s after the write brought the
+  earlier IMEIs back.
 - **No automatic power-on.** With GL's "Power On with Charger" setting off,
   connecting a charger doesn't switch the router on.
 - **Auto power-off is limited.** GL's automatic power-off fires only on
@@ -269,17 +271,18 @@ the eSIM (section 6). Slot 1 is never used, because a card there emits at
 every boot:
 
 1. With the cable connected, the app turns airplane mode on and verifies
-   that the radio is off, writes a throwaway pair (section 4) and verifies
-   it, sets slot 2 to the built-in eSIM with no profile enabled and shuts
-   the router down.
+   that the radio is off, writes a throwaway pair (section 4), saves and
+   verifies it, sets slot 2 to the built-in eSIM with no profile enabled
+   and shuts the router down.
 2. With the router off, the user replaces the old SIM in slot 2's tray with
    the new one, goes to a place that doesn't matter, and switches the router
    on. Only the eSIM's short bursts go out, with the throwaway IMEI and the
    near-generic test identity.
 3. Once the radio is off after the boot (section 6), the app switches
    slot 2 to SIM 2 in airplane mode, reads the ICCID, writes the derived
-   pair and verifies it. If it finds no usable card, it switches slot 2
-   back to the built-in eSIM, so the card stays off at the next power-on.
+   pair, saves and verifies it. If it finds no usable card, it switches
+   slot 2 back to the built-in eSIM, so the card stays off at the next
+   power-on.
 4. The user turns airplane mode off later, at another place and time.
 
 ### App behavior
