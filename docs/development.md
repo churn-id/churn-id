@@ -4,7 +4,8 @@ Technical detail for writing Churn's code. Why things are done this way is
 in [design.md](design.md); building, testing and the contribution process
 are in [CONTRIBUTING.md](../CONTRIBUTING.md). *Verified* means we observed
 it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
-*inferred* means not yet tested.
+*inferred* means not yet tested. [testing.md](testing.md) lists these claims
+with the test planned for each on a real router.
 
 ## Connecting to the router
 
