@@ -103,7 +103,12 @@ GL's web interface shows the new state at once. With the switch turned on
 this way and the tunnel down, a website no longer loaded (all verified).
 The app counts the switch as on only if both settings say so and
 `ip rule show` lists no rule at priority 9000, so a switch turned on
-without the reload counts as off.
+without the reload counts as off. With the switch on and a WireGuard
+tunnel up, `ip rule show` also lists rules that send traffic marked
+`0x1000/0xf000` to the tunnel's table 1001 and traffic marked
+`0x8000/0xf000` to the main table, and at priorities 9910 and 9920 send
+other marked traffic and unmarked traffic from `br-lan` to a blackhole
+(verified).
 
 Two settings the app needs are not in `uci` (verified by searching
 `uci show`):
