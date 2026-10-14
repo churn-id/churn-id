@@ -85,6 +85,14 @@ class SwapTest {
     }
 
     @Test
+    fun step1ChangesNothingWithoutAVpn() {
+        fake.vpnTunnel = null
+        assertStops(Problem.NO_VPN) { swap.prepare(factory, SecureRandom()) }
+        assertEquals(emptyList<String>(), fake.changes)
+        assertFalse(fake.airplaneMode)
+    }
+
+    @Test
     fun step1ChangesNothingWhileTheRadioStaysOn() {
         fake.radioStuckOn = true
         assertStops(Problem.RADIO_ON) { swap.prepare(factory, SecureRandom()) }

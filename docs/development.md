@@ -91,6 +91,8 @@ commits every change, so it survives a reboot (inferred from OpenWrt's
 | `lpm.global.auto_shutdown_time` | `'30'`, set by us | Delay in seconds before GL's auto power-off. It fires only on battery with no cable or Wi-Fi client connected, and shutdown starts more than 20 s after the set delay, counted from when the display goes dark | verified |
 | `gl_timer.reboot.enable` | `'0'` | GL's scheduled reboot, off | verified |
 | `network.modem_cpu.dds_id` | `'1'` or `'2'` | The active SIM slot. GL rewrites it at every slot change, so it only reports the slot: writing it, even with a commit, switches nothing | verified |
+| `route_policy.@rule[<n>]` | `rule`, one section per tunnel, with `name='Tunnel 1'`, `via_type='wireguard'`, `enabled`, `killswitch` | A tunnel in GL's VPN dashboard | verified for one WireGuard tunnel |
+| `route_policy.@rule[<n>].via` | `'wgclient1'` | The tunnel's network interface, `network.wgclient1` with `proto='wgclient'` | verified |
 | `route_policy.@rule[0].killswitch` | `'1'` | Kill switch of the first VPN rule. Writing it turns it on and off | verified |
 | `route_policy.@default[0].enabled` | `'0'` with Enhanced Kill Switch on, `'1'` off | GL's fallback policy, which sends traffic that matches no VPN rule past the VPN (`via='novpn'`, mark `0x8000`) | values verified, meaning inferred |
 | `network.vpn_to_main` | absent with Enhanced Kill Switch on, present off | Routing rule that sends marked traffic (`mark='0x0/0xf000'`, `invert='1'`) to the main table, outside the VPN. `ip rule` lists it at priority 9000 only while the switch is off | values and `ip rule` verified, meaning inferred |
@@ -109,6 +111,14 @@ tunnel up, `ip rule show` also lists rules that send traffic marked
 `0x8000/0xf000` to the main table, and at priorities 9910 and 9920 send
 other marked traffic and unmarked traffic from `br-lan` to a blackhole
 (verified).
+
+The app counts a VPN as set up if a section of type `rule` names an
+existing network interface in `via`, as on our Mudi 7 with one WireGuard
+tunnel (verified). GL's two sections of type `rule_process`
+(`gl_process` and `gl_process_vpn`) name the same interface but seem to
+be GL's policies for its own processes, so they don't count (inferred).
+Untested: a router without a tunnel, an OpenVPN tunnel, and whether
+turning a tunnel off in GL's VPN dashboard changes its `enabled`.
 
 Two settings the app needs are not in `uci` (verified by searching
 `uci show`):

@@ -302,6 +302,7 @@ class Controller(private val context: Context) {
         val written = saved.written
         if (written != null && written != imeis) notes += context.getString(R.string.note_imeis_changed)
         if (router.scheduledReboot()) notes += context.getString(R.string.note_scheduled_reboot)
+        if (!router.vpnSetUp()) notes += context.getString(R.string.note_no_vpn)
         val status = RouterStatus(
             imeis = imeis,
             factory = factory,
@@ -359,6 +360,7 @@ class Controller(private val context: Context) {
             Problem.NOT_SET_UP -> R.string.problem_not_set_up
             Problem.NOT_STARTED -> R.string.problem_not_started
             Problem.KILL_SWITCH_OFF -> R.string.problem_kill_switch_off
+            Problem.NO_VPN -> R.string.problem_no_vpn
         },
     )
 

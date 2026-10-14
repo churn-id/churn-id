@@ -16,7 +16,7 @@ class Output(val status: Int?, val stdout: ByteArray, val stderr: String) {
 /** Why a step stopped. Nothing it did after the last confirmed answer is assumed done. */
 enum class Problem {
     UNEXPECTED_ANSWER, RADIO_ON, SCHEDULED_REBOOT, IMEIS_NOT_KEPT, SLOT_NOT_SWITCHED, PROFILE_STILL_ENABLED,
-    NO_CARD, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF,
+    NO_CARD, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN,
 }
 
 /** [detail] is what the router said, for the log; it never holds the secret or a password. */
@@ -111,6 +111,18 @@ class Router(private val shell: Shell) {
         ?: throw unexpected("/proc/uptime")
 
     fun scheduledReboot() = uci("gl_timer.reboot.enable") == "1"
+
+    /**
+     * Whether GL's VPN client has a tunnel set up, as development.md describes it: a rule in GL's route policy that
+     * sends traffic through an existing network interface. Whether the tunnel is on or up doesn't count.
+     */
+    fun vpnSetUp(): Boolean {
+        val settings = run("uci -q show route_policy").text.lines()
+            .associate { it.substringBefore('=') to it.substringAfter('=').removeSurrounding("'") }
+        return settings.filterValues { it == "rule" }.keys
+            .mapNotNull { settings["$it.via"]?.takeIf { via -> via.matches(Regex("[A-Za-z0-9_]+")) } }
+            .any { uci("network.$it") == "interface" }
+    }
 
     /**
      * Whether GL's Enhanced Kill Switch is on, as development.md describes it: in GL's settings, and in the routing

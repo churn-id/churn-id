@@ -31,8 +31,21 @@ class RouterTest {
         assertFalse(router.airplaneMode())
         assertFalse(router.scheduledReboot())
         assertTrue(router.enhancedKillSwitch())
+        assertTrue(router.vpnSetUp())
         assertEquals("8941000000000000015F", router.slot2Iccid())
         assertEquals("228010000000001", router.slot2Imsi())
+    }
+
+    @Test
+    fun seesARouterWithoutVpn() {
+        fake.vpnTunnel = null
+        assertFalse(router.vpnSetUp())
+    }
+
+    @Test
+    fun ignoresATunnelWithoutItsInterface() {
+        fake.vpnTunnel = "wgclient2"
+        assertFalse(router.vpnSetUp())
     }
 
     @Test

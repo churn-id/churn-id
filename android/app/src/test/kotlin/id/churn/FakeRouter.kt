@@ -48,6 +48,9 @@ class FakeRouter : Shell {
 
     /** For a radio that comes on at a network reload. */
     var radioOnAtReload = false
+
+    /** The network interface the VPN tunnel in GL's route policy uses, or null for no tunnel. */
+    var vpnTunnel: String? = "wgclient1"
     var poweredOff = false
     val files = mutableMapOf<String, ByteArray>()
     var sysupgrade = "/etc/config/\n/etc/profile"
@@ -105,6 +108,7 @@ class FakeRouter : Shell {
             return ok("")
         }
         if (command == "ip rule show") return ok(ipRules())
+        if (command == "uci -q show route_policy") return ok(routePolicy())
         if (command == KILL_SWITCH_ON) {
             change("Enhanced Kill Switch")
             killSwitchSet = true
@@ -207,7 +211,27 @@ class FakeRouter : Shell {
         "network.modem_cpu.dds_id" -> ok("$activeSlot\n")
         "route_policy.@default[0].enabled" -> ok(if (killSwitchSet) "0\n" else "1\n")
         "network.vpn_to_main" -> if (killSwitchSet) Output(1, ByteArray(0), "") else ok("rule\n")
+        "network.wgclient1" -> ok("interface\n")
         else -> Output(1, ByteArray(0), "")
+    }
+
+    /**
+     * As our Mudi 7 showed it with one WireGuard tunnel, shortened. GL's process policies name the tunnel's interface
+     * too; they stay here without a tunnel, so that only the tunnel's own rule counts.
+     */
+    private fun routePolicy() = buildString {
+        appendLine("route_policy.global=policy")
+        appendLine("route_policy.@default[0]=default")
+        appendLine("route_policy.@default[0].via='novpn'")
+        appendLine("route_policy.@default[0].enabled='${if (killSwitchSet) 0 else 1}'")
+        vpnTunnel?.let {
+            appendLine("route_policy.@rule[0]=rule")
+            appendLine("route_policy.@rule[0].name='Tunnel 1'")
+            appendLine("route_policy.@rule[0].via_type='wireguard'")
+            appendLine("route_policy.@rule[0].via='$it'")
+        }
+        appendLine("route_policy.gl_process=rule_process")
+        appendLine("route_policy.gl_process.via='wgclient1'")
     }
 
     /** The rule at priority 9000 as our Mudi 7 printed it, among Linux's default rules. */

@@ -293,7 +293,11 @@ every boot:
   the user's memory.
 - Before each rotation the app checks the slot 2 setting, airplane mode, and
   that "Power On with Charger" and GL's scheduled reboot are off. A reboot
-  is a power-on, so wherever it happens, the SIM registers there.
+  is a power-on, so wherever it happens, the SIM registers there. It also
+  checks that a VPN is set up (rule 5): with the Enhanced Kill Switch on, a
+  router without one has no internet at all, which invites turning the
+  switch off. Step 1 is where this check stops a swap, since the old card
+  is still there to reach the internet while the user sets one up.
 - Step 3 is the last step before the router goes online, so that is where
   the app makes sure the Enhanced Kill Switch is on (rule 5). Turning it on
   takes a network reload, whose effect on the modem is untested, so the

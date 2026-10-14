@@ -41,6 +41,8 @@ class Swap(
     fun prepare(factory: ImeiPair, random: SecureRandom): ImeiPair {
         // A reboot is a power-on, so with a SIM inside it registers wherever it happens.
         if (router.scheduledReboot()) throw RouterException(Problem.SCHEDULED_REBOOT)
+        // Rule 5. Checked before anything changes, while the old card can still reach the internet to set one up.
+        if (!router.vpnSetUp()) throw RouterException(Problem.NO_VPN)
         turnAirplaneModeOn()
         waitForRadioOff()
         val throwaway = Imei.throwaway(random, factory)
