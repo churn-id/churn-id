@@ -110,7 +110,9 @@ tunnel up, `ip rule show` also lists rules that send traffic marked
 `0x1000/0xf000` to the tunnel's table 1001 and traffic marked
 `0x8000/0xf000` to the main table, and at priorities 9910 and 9920 send
 other marked traffic and unmarked traffic from `br-lan` to a blackhole
-(verified).
+(verified). With the tunnel's own Kill Switch off and the tunnel
+disconnected, only the rule to table 1001 is gone, and a website no
+longer loaded (verified).
 
 The app counts a VPN as set up if a section of type `rule` names an
 existing network interface in `via`, as on our Mudi 7 with one WireGuard
