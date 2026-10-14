@@ -113,13 +113,15 @@ class Router(private val shell: Shell) {
     fun scheduledReboot() = uci("gl_timer.reboot.enable") == "1"
 
     /**
-     * Whether GL's VPN client has a tunnel set up, as development.md describes it: a rule in GL's route policy that
-     * sends traffic through an existing network interface. Whether the tunnel is on or up doesn't count.
+     * Whether GL's VPN client has a WireGuard tunnel set up, as development.md describes it: a rule in GL's route
+     * policy that sends traffic through an existing WireGuard interface. Other tunnel types are untested, so they
+     * don't count. Whether the tunnel is on or up doesn't count either.
      */
     fun vpnSetUp(): Boolean {
         val settings = run("uci -q show route_policy").text.lines()
             .associate { it.substringBefore('=') to it.substringAfter('=').removeSurrounding("'") }
         return settings.filterValues { it == "rule" }.keys
+            .filter { settings["$it.via_type"] == "wireguard" }
             .mapNotNull { settings["$it.via"]?.takeIf { via -> via.matches(Regex("[A-Za-z0-9_]+")) } }
             .any { uci("network.$it") == "interface" }
     }

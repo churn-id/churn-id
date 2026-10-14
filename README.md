@@ -89,7 +89,7 @@ work on its own.
 - A USB-C cable to connect the phone to the router, ideally the router's
   own cable.
 - The router's admin password.
-- A VPN service, set up on the router.
+- A VPN service, set up on the router with WireGuard.
 - A new SIM for each swap, either
   - a normal SIM card, or
   - an eSIM adapter card, such as [JMP's](https://jmp.chat/esim-adapter),

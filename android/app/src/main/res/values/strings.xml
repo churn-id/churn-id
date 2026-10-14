@@ -79,7 +79,7 @@
     <string name="status_slot2_esim">Slot 2 is on the built-in eSIM.</string>
     <string name="note_imeis_changed">The IMEIs aren\'t the ones Churn wrote last. A firmware upgrade or reset may have restored the factory IMEIs; the next swap writes new ones.</string>
     <string name="note_scheduled_reboot">GL\'s scheduled reboot is on. Turn it off in GL\'s web interface: a reboot is a power-on, so with a SIM inside it registers wherever it happens.</string>
-    <string name="note_no_vpn">No VPN is set up on the router. Set one up in GL\'s web interface before you swap a SIM (rule 5).</string>
+    <string name="note_no_vpn">No WireGuard VPN is set up on the router. Set one up in GL\'s web interface before you swap a SIM (rule 5). Churn doesn\'t support other VPN types yet.</string>
     <string name="note_kill_switch">The Enhanced Kill Switch is off, so traffic can bypass the VPN (rule 5).</string>
     <string name="note_restored">The factory IMEIs are back, and airplane mode is on.</string>
     <string name="kill_switch_on">Turn the Enhanced Kill Switch on</string>
@@ -139,7 +139,7 @@
     <string name="problem_not_set_up">Churn\'s folder on the router is missing or damaged. Connect from the start to set the router up again.</string>
     <string name="problem_not_started">The router didn\'t finish starting, so Churn stopped. Slot 2 is still on the built-in eSIM, so you can switch the router off and on again and tap Try again.</string>
     <string name="problem_kill_switch_off">The Enhanced Kill Switch didn\'t come on.</string>
-    <string name="problem_no_vpn">No VPN is set up on the router. Set one up in GL\'s web interface first (rule 5).</string>
+    <string name="problem_no_vpn">No WireGuard VPN is set up on the router. Set one up in GL\'s web interface first (rule 5).</string>
 
     <!-- The notification while a step runs -->
     <string name="notification_channel">SIM swap</string>

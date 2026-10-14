@@ -49,6 +49,13 @@ class RouterTest {
     }
 
     @Test
+    fun ignoresATunnelThatIsNotWireGuard() {
+        fake.vpnTunnel = "ovpnclient1"
+        fake.vpnType = "openvpn"
+        assertFalse(router.vpnSetUp())
+    }
+
+    @Test
     fun turnsTheEnhancedKillSwitchOn() {
         fake.killSwitchSet = false
         fake.killSwitchInUse = false

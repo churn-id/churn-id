@@ -51,6 +51,9 @@ class FakeRouter : Shell {
 
     /** The network interface the VPN tunnel in GL's route policy uses, or null for no tunnel. */
     var vpnTunnel: String? = "wgclient1"
+
+    /** The tunnel's type in GL's route policy. */
+    var vpnType = "wireguard"
     var poweredOff = false
     val files = mutableMapOf<String, ByteArray>()
     var sysupgrade = "/etc/config/\n/etc/profile"
@@ -211,7 +214,7 @@ class FakeRouter : Shell {
         "network.modem_cpu.dds_id" -> ok("$activeSlot\n")
         "route_policy.@default[0].enabled" -> ok(if (killSwitchSet) "0\n" else "1\n")
         "network.vpn_to_main" -> if (killSwitchSet) Output(1, ByteArray(0), "") else ok("rule\n")
-        "network.wgclient1" -> ok("interface\n")
+        "network.wgclient1", "network.ovpnclient1" -> ok("interface\n")
         else -> Output(1, ByteArray(0), "")
     }
 
@@ -227,7 +230,7 @@ class FakeRouter : Shell {
         vpnTunnel?.let {
             appendLine("route_policy.@rule[0]=rule")
             appendLine("route_policy.@rule[0].name='Tunnel 1'")
-            appendLine("route_policy.@rule[0].via_type='wireguard'")
+            appendLine("route_policy.@rule[0].via_type='$vpnType'")
             appendLine("route_policy.@rule[0].via='$it'")
         }
         appendLine("route_policy.gl_process=rule_process")

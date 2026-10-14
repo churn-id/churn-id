@@ -132,13 +132,15 @@ the router came back from airplane mode, the main instance passed lookups
 from devices on to its servers over the SIM (verified), presumably before
 GL marked their traffic for the tunnel again (inferred).
 
-The app counts a VPN as set up if a section of type `rule` names an
-existing network interface in `via`, as on our Mudi 7 with one WireGuard
-tunnel (verified). GL's two sections of type `rule_process`
-(`gl_process` and `gl_process_vpn`) name the same interface but seem to
-be GL's policies for its own processes, so they don't count (inferred).
-Untested: a router without a tunnel, an OpenVPN tunnel, and whether
-turning a tunnel off in GL's VPN dashboard changes its `enabled`.
+The app counts a VPN as set up if a section of type `rule` with
+`via_type='wireguard'` names an existing network interface in `via`, as
+on our Mudi 7 with one WireGuard tunnel (verified). GL's two sections of
+type `rule_process` (`gl_process` and `gl_process_vpn`) name the same
+interface but seem to be GL's policies for its own processes, so they
+don't count (inferred). The app ignores other tunnel types until we have
+seen how GL stores an OpenVPN tunnel and what its DNS and routing rules
+look like. Untested: a router without a tunnel, and whether turning a
+tunnel off in GL's VPN dashboard changes its `enabled`.
 
 Two settings the app needs are not in `uci` (verified by searching
 `uci show`):
