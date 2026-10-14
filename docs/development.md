@@ -284,7 +284,6 @@ before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
 
 - Where GL stores "Power On with Charger". Until then the app asks the user
   to confirm that it is off.
-- Whether GL's firmware has `flock`, which Churn's lock needs.
 - Whether `/etc/init.d/network reload` interrupts the cable connection or
   turns the radio on.
 - Whether the modem can tell that slot 1 holds a card, so the app can warn
