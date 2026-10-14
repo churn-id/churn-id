@@ -126,7 +126,10 @@ port 2153, and drop lookups that a device sends past the router unless
 they carry the mark `0x8000/0xf000` (verified). With the tunnel up, the
 VPN provider's connection check on a device saw no DNS leak; with the
 tunnel down and the Enhanced Kill Switch on, a lookup of a made-up name
-through the router timed out (verified).
+through the router timed out (verified). But for about 2 seconds after
+the router came back from airplane mode, the main instance passed lookups
+from devices on to its servers over the SIM (verified), presumably before
+GL marked their traffic for the tunnel again (inferred).
 
 The app counts a VPN as set up if a section of type `rule` names an
 existing network interface in `via`, as on our Mudi 7 with one WireGuard

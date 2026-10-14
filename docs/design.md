@@ -477,16 +477,23 @@ Hardware, other:
   blocks all traffic that matches no tunnel. With only the Enhanced Kill
   Switch on, a website no longer loaded after we disconnected the tunnel,
   and the routing rules that block traffic stayed in place (verified).
+- How can the app keep lookups from devices off the SIM while the router
+  goes online? With the tunnel up, lookups from devices behind the router
+  went through the VPN, and with the tunnel disconnected by hand they got
+  no answer. But for about 2 seconds after the router came back from
+  airplane mode, it passed lookups from devices on to Google's servers
+  over the SIM (all verified). Step 4 of a swap goes online this way, so
+  rule 5 doesn't hold there yet.
 - What does the router send of its own past the VPN? The rules that
   block traffic with the Enhanced Kill Switch on match only traffic from
   `br-lan` and traffic marked for a tunnel, and the main routing table
   sends the rest over the SIM, so neither kill switch blocks what the
   router sends itself (inferred from `ip rule` and `ip route`). The router
-  needs this to reach the VPN server. Its own DNS lookups go to Google's
-  servers, over the SIM (inferred). Lookups from devices behind it went
-  through the VPN, and while the tunnel was down they got no answer
-  (verified). Which names the router looks up, and what else it sends,
-  such as time synchronization, we don't know yet. Rule 5 depends on it.
+  needs this to reach the VPN server. Over the SIM it also synchronized
+  its time with its time servers, looked up one of their names at Google
+  when it went online, and GL's connection check pinged four public
+  addresses once a second (verified). Do these, or the VPN server, which
+  is the same on every SIM, link the SIMs?
 - Can the app give the router's Wi-Fi a new network name and hardware
   address at every swap? OpenWrt has a setting for each; GL's firmware
   may override them.
