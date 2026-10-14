@@ -60,6 +60,14 @@ class SwapTest {
     }
 
     @Test
+    fun step1sThrowawayImeisOutlastTheShutdown() {
+        val throwaway = swap.prepare(factory, SecureRandom())
+        swap.shutDown()
+        fake.boot()
+        assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
+    }
+
+    @Test
     fun step1LeavesAnEsimWithoutProfileAsItIs() {
         fake.esimProfile = null
         swap.prepare(factory, SecureRandom())

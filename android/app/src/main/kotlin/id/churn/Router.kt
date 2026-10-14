@@ -62,11 +62,13 @@ class Router(private val shell: Shell) {
 
     fun imeis() = ImeiPair(readImei(7), readImei(11))
 
-    /** Writes both IMEIs and reads them back. */
+    /** Writes both IMEIs, saves them to the modem's flash and reads them back. */
     fun writeImeis(pair: ImeiPair) {
         require(Imei.isValid(pair.imei1) && Imei.isValid(pair.imei2))
         at("AT+EGMR=1,7,\"${pair.imei1}\"")
         at("AT+EGMR=1,11,\"${pair.imei2}\"")
+        // Without it, a power-off soon after the write brings the earlier IMEIs back.
+        at("AT+QPRTPARA=1")
         if (imeis() != pair) throw RouterException(Problem.IMEIS_NOT_KEPT)
     }
 
