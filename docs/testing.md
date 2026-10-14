@@ -1,0 +1,204 @@
+# Router tests
+
+Churn relies on many claims about the Mudi 7, its firmware and the phone.
+This document lists them, one per row, with the test that is to confirm
+each one on a real router, so that a new GL firmware, or a claim that was
+wrong all along, shows up before a user depends on it. The claims come
+from [design.md](design.md) and [development.md](development.md).
+
+Status: plan. No test on a real router exists yet. The app's unit tests
+run in CI against a simulated Mudi 7 (`FakeRouter`) built from these
+claims, so a claim that turns out wrong makes the simulation wrong too.
+*Verified* means we observed it by hand on a Mudi 7 with GL firmware
+4.10.0 and a Quectel RG650V-EU modem; *inferred* means not yet tested;
+*open* means one of the open questions in design.md or development.md.
+
+## Tiers
+
+The tests will run in the app, over the same cable and SSH connection as a
+swap, with the same code. They come in four tiers, by what a test may do
+to the router:
+
+| Tier | What a test may do | Where it runs |
+| --- | --- | --- |
+| 1 | Read only | Whenever the app is connected: at every connection and before steps 1 and 3 of a swap |
+| 2 | Change settings and put them back, with the radio off and no reboot | At home, with no SIM in the router and airplane mode on |
+| 3 | Also turn the radio on and reboot the router | At home, with both trays empty and slot 2 on the empty SIM 2 tray |
+| 4 | Anything that needs a person: an RF meter, a real SIM, or a SIM online | At a place that doesn't matter (rule 1) |
+
+- Every test keeps the swap's rules: it changes nothing unless airplane
+  mode is on and the modem answers `+CFUN: 4`, checks the radio again after
+  each change, and stops at anything unexpected. Tier 3 is the exception
+  for the radio: with both trays empty and slot 2 on the empty SIM 2 tray,
+  the router emitted nothing at power-on, with airplane mode on or off
+  (design.md, section 6).
+- A tier 2 or 3 test saves its progress like a swap, so an interrupted
+  test is finished at the next connection, and it ends with the router as
+  it was.
+- A tier 1 check marked *blocks* stops a swap when it fails, because the
+  app's commands can't be trusted then. The other checks show a note.
+  On firmware we haven't tested, a swap goes ahead if every blocking check
+  passes, with a note that the firmware is untested.
+- Tier 1 runs for every user. Tiers 2 and 3 start in debug builds; tier 2
+  may later be offered to users. Tiers 3 and 4 are for the maintainer.
+
+## Platform
+
+From development.md, "Sending AT commands", and design.md, section 6.
+
+| Claim | Status | Check | Tier |
+| --- | --- | --- | --- |
+| GL firmware 4.10.0 (OpenWrt 23.05.4), modem Quectel RG650V-EU | verified | Read `/etc/glversion`, `/etc/openwrt_release` and `ATI`, and compare with the versions we tested | 1 |
+| The firmware has `flock`, `curl` and `ubus` | verified | `command -v` for each | 1, blocks |
+| AT commands work through `gl_modem -B cpu AT` | verified | `AT+CFUN?` answers, ending with `OK` | 1, blocks |
+| `gl_modem` keeps Churn's commands apart from those of GL's daemons | inferred | Read the radio and both IMEIs many times in a row while GL's services run, and check every answer | 2 |
+
+## Phone and cable
+
+From development.md, "Connecting to the router", and design.md, section 3.
+
+| Claim | Status | Check | Tier |
+| --- | --- | --- | --- |
+| Over USB-C the router is a USB Ethernet device and hands out an address | verified | The app finds the cable's network and connects | 1 |
+| SSH is on and accepts `root` with the admin password | verified | The app logs in | 1 |
+| Phones other than the Pixels we used reach the router this way | open | A connection from such a phone answers it for that phone | 1 |
+| On GrapheneOS, without the Network permission every socket fails with `EPERM`, the cable's included | verified | The app tries a socket before it connects | 1 |
+
+## Modem
+
+From development.md, "AT commands (RG650V-EU)", and design.md, section 6.
+
+| Claim | Status | Check | Tier |
+| --- | --- | --- | --- |
+| `AT+CFUN?` answers `1` with the radio on and `4` with it off | verified | The answer parses | 1, blocks |
+| `AT+EGMR=0,7` and `AT+EGMR=0,11` return IMEI 1 and IMEI 2 | verified | Both are 15 digits with a valid check digit and the factory IMEIs' TAC | 1, blocks |
+| `AT+QSIMTYPE="slot2"` answers `0` for the SIM 2 tray and `1` for the eSIM | verified | The answer parses | 1, blocks |
+| `AT+QUIMSUB?` answers `2,"SUB2"` for slot 2's card | verified | The answer parses | 1 |
+| No modem setting starts the radio off at power-on | verified | The test commands `AT+CFUN=?`, `AT+QCFG=?` and `AT+QNWCFG=?` list the same settings as when we searched | 1 |
+| Both IMEIs can be written and read back at once | verified | Write a throwaway pair and read it back, then write the earlier pair back | 2 |
+| `AT+QPRTPARA=1` saves the written IMEIs; without it, a reboot 5 s after a write brought the earlier IMEIs back | verified | Write and save a throwaway pair, reboot and read it; then the earlier pair the same way | 3 |
+| `AT+QPRTPARA=1` also overwrites the modem's backup of its settings | inferred | None known: we know no command that reads the backup | – |
+
+The app doesn't send `AT+CFUN=1`, `AT+CFUN=4`, `AT+CPIN?`, `AT+QCCID`,
+`AT+GSN`, `AT+CGSN` or `AT+QUIMSLOT`, so development.md's claims about
+them need no test. It never sends `AT+QUIMSUB` with a value, which
+blue-merle v2 reports breaks the AT channel until a reboot.
+
+## uci settings
+
+From development.md, "uci settings".
+
+| Claim | Status | Check | Tier |
+| --- | --- | --- | --- |
+| `glconfig.general.airplane_mode` is `0` or `1`, and with `1` the modem answers `+CFUN: 4` once the router has started | verified | Read both once uptime is past 120 s | 1, blocks |
+| Setting `glconfig.general.airplane_mode` turns airplane mode on or off at once, before the commit | verified | Turn airplane mode off and on again, and time how long the modem takes to answer `+CFUN: 4` | 3 |
+| `uci commit` makes a change survive a reboot | inferred | Read airplane mode and the kill switch settings after a reboot | 3 |
+| `gl_timer.reboot.enable` is GL's scheduled reboot | verified | The setting exists and is `0` or `1` | 1, blocks |
+| `network.modem_cpu.dds_id` reports the active slot, and writing it switches nothing | verified | It is `1` or `2` (tier 1) and follows a slot switch (tier 2) | 1, blocks; 2 |
+| GL's auto power-off fires only on battery with nothing connected, more than 20 s after the set delay | verified | Unplug everything and time it | 4 |
+| "Power On with Charger" is not in `uci`, and with it off a charger doesn't switch the router on | verified | Plug in a charger with the router off | 4 |
+| Where GL keeps "Power On with Charger" | open | None until it's found; the user confirms the setting | – |
+
+## Kill switch and VPN
+
+From development.md, "uci settings", and design.md, sections 7 and 10.
+
+| Claim | Status | Check | Tier |
+| --- | --- | --- | --- |
+| A tunnel is a `route_policy` section of type `rule` whose `via` names a network interface | verified for one WireGuard tunnel | `route_policy` has its `@default` section and such a `rule` section | 1, blocks |
+| GL's `rule_process` sections are GL's policies for its own processes, not tunnels | inferred | None known | – |
+| The VPN check also works without a tunnel and with OpenVPN | open | Set up such a router | 4 |
+| The Enhanced Kill Switch is on when `route_policy.@default[0].enabled` is `0`, `network.vpn_to_main` is absent and `ip rule show` lists no rule at priority 9000 | values verified, meaning inferred | Read both settings and the rules | 1 |
+| With the switch on and a tunnel up, `ip rule show` lists the rules to table 1001 and to the main table, and the blackhole rules at priorities 9910 and 9920 | verified | Compare the rules with this list | 1, blocks |
+| The USB-C port `ecm0` is in `br-lan`, so the blackhole at priority 9920 covers a device on it | port verified, coverage inferred | `ip link show ecm0` | 1 |
+| Turning the switch on takes `/etc/init.d/network reload`, which neither drops the cable nor turns the radio on | open | The connection and `+CFUN: 4` across a reload (tier 2); the RF meter (tier 4) | 2, 4 |
+| With the switch on and the tunnel disconnected, nothing gets through, also with the tunnel's own Kill Switch off | verified | Disconnect the tunnel and load a website on a device | 4 |
+| The switch also blocks traffic while the router boots and when a tunnel fails on its own | open | The blocking rules are in place right after a boot (tier 3); traffic during a boot and through a failing tunnel (tier 4) | 3, 4 |
+
+## DNS and the router's own traffic
+
+From development.md, "uci settings", and design.md, section 10.
+
+| Claim | Status | Check | Tier |
+| --- | --- | --- | --- |
+| The main dnsmasq listens on port 53 and asks the cellular interface's servers; the tunnel's own one listens on port 2153 and asks the VPN's DNS server | verified | The listening ports and the servers in their settings | 1 |
+| GL's nftables rules redirect devices' lookups marked for the tunnel to port 2153 and drop lookups sent past the router without the mark `0x8000` | verified | The rules are present | 1 |
+| With the tunnel up, devices' lookups go through the VPN; with it down, they get no answer | verified | A lookup of a made-up name from a device | 4 |
+| For about 2 s after airplane mode goes off, the main dnsmasq passes devices' lookups on over the SIM | verified | Watch what leaves over the cellular interface after airplane mode goes off | 4 |
+| What the router sends itself goes over the SIM, past both kill switches: the rule at priority 1 points to an empty table 16800, and the main table's default route goes over `rmnet_data0` | rules verified, traffic inferred | `ip rule show` and `ip route show` | 1 |
+| Over the SIM the router itself reaches the VPN server and its time servers, looks up one time server's name at Google when it goes online, and GL's connection check pings four public addresses | verified | The enabled services and their targets are unchanged (tier 1); watch the cellular interface (tier 4) | 1, 4 |
+
+## Slot switching
+
+From development.md, "Switching SIM slots", and design.md, section 6.
+
+| Claim | Status | Check | Tier |
+| --- | --- | --- | --- |
+| `get_feature_config` has exactly one key whose entry holds `failover`, the modem's `location_id` | verified | Read it | 1, blocks |
+| `set_feature_config` sets slot 2 to the tray or the eSIM and makes slot 2 the active slot, answers `"ok": true`, and the new state shows at once in `AT+QSIMTYPE="slot2"` and `dds_id` | verified | Switch slot 2 to the tray, make it the active slot, and switch it back to the eSIM | 2 |
+| Both switches work in airplane mode, with the modem answering `+CFUN: 4` before and after | verified | `+CFUN: 4` after each switch | 2 |
+| Both switches emit nothing | verified | RF meter | 4 |
+| Changing the active slot moves only the data connection; a card in the other slot stays registered while the radio is on | inferred | Cards in both slots, radio on | 4 |
+
+## Built-in eSIM
+
+From development.md, "eSIM profiles", and design.md, section 6.
+
+| Claim | Status | Check | Tier |
+| --- | --- | --- | --- |
+| Slot 2's card answers `AT+ICCID` and `AT+CIMI` through `ubus call modem.CPU.AT get_result_AT` with `sub_id` 2 | verified for the eSIM | Both answer while slot 2 is on the eSIM | 1, blocks |
+| A 19-digit ICCID comes with a trailing `F` | verified | The answer's format | 1 |
+| With no profile enabled, slot 2 shows the placeholder ICCID `89000123456789012341` and a 001/01 IMSI | verified | Read both after step 1 | 1 |
+| The chip answers only while slot 2 is set to the eSIM | inferred | With slot 2 on the empty tray, the placeholder doesn't show | 2 |
+| GL's eSIM manager listens on port 3456, and its firewall rule `block_lpa_port` keeps devices from reaching it, which would otherwise let them change profiles without a login | verified | The listening port and the rule | 1 |
+| Posting `disable` to GL's eSIM manager from the router's shell disables the enabled profile without a login, answers `code` 200, and the placeholder shows within about 5 s, with airplane mode and `+CFUN: 4` holding | verified | Enable GL's pre-installed profile in airplane mode, then run step 1. Tier 4, because a power-on with a profile enabled registers wherever it happens | 4 |
+| The chip enables at most one profile at a time | inferred | Enable a second profile and check that the first one is disabled | 4 |
+| A card in the SIM 2 tray answers `AT+ICCID` and `AT+CIMI` like the eSIM | inferred | Step 3 with a card in the tray | 4 |
+| An eSIM adapter card with no profile enabled may show a placeholder ICCID, the same on every card | inferred | Step 3 with such a card | 4 |
+| Deleting GL's pre-installed profile can't be undone without a factory reset, as blue-merle v2 reports | inferred | None: the app never deletes a profile | – |
+
+## Power-on
+
+From development.md, "After power-on", and design.md, section 6.
+
+| Claim | Status | Check | Tier |
+| --- | --- | --- | --- |
+| The modem doesn't answer AT commands for a while after power-on | verified | Poll `/proc/uptime` and `AT+CFUN?` from the moment the app reconnects | 3 |
+| At every power-on the radio is on for about 12 s whatever airplane mode says, ending 58 s after power-on at the latest | verified | The end: when the polling above first sees `+CFUN: 4` (tier 3); the start and the length: RF meter (tier 4) | 3, 4 |
+| 120 s after power-on, with `+CFUN: 4`, is a safe point for step 3 to change slot 2 | inferred | The end of the window above, on each firmware | 3 |
+| `poweroff` over SSH shuts the router down | verified | Step 1 of a swap, or a tier 3 test that ends with it | 3 |
+| With both trays empty and slot 2 on the SIM 2 tray, a power-on emits nothing, with airplane mode on or off | verified | RF meter | 4 |
+| A card in slot 2 emits for several seconds at every power-on while slot 2 is set to it, whatever airplane mode and GL's switches say, slot 1 selected included | verified with an eSIM profile | RF meter | 4 |
+| The built-in eSIM emits two short bursts at power-on even with no profile enabled | verified | RF meter | 4 |
+| An eSIM adapter card in the tray stays off at power-on while slot 2 is on the eSIM, and switching slot 2 to it afterwards in airplane mode emits nothing | verified | RF meter | 4 |
+| A normal SIM card does the same | open | RF meter | 4 |
+| A card in slot 1 emits for about 10 s at every power-on | verified | RF meter | 4 |
+| The modem can tell whether slot 1 holds a card | open | Read the modem's SIM status with a card in slot 1 | 4 |
+| The eSIM's test-network identity is the same, or nearly, on every unit | inferred | None: it needs a second router | – |
+
+## Churn's files and firmware upgrades
+
+From development.md, "Files on the router", and design.md, section 5.
+
+| Claim | Status | Check | Tier |
+| --- | --- | --- | --- |
+| `/etc/churn/` and its files have the modes and contents development.md lists, and `restore.sh` is the app's copy | contents verified by the app, modes inferred | Modes, sizes, and `restore.sh` compared with the app's copy | 1, blocks |
+| `/etc/churn/` is listed in `/etc/sysupgrade.conf` | verified by the app | The line is there | 1, blocks |
+| GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | The IMEIs equal the ones the app last wrote, at every connection (tier 1, which the app already does) and after an upgrade (tier 3) | 1, 3 |
+| A firmware upgrade with "keep settings" keeps `/etc/churn/` | open | Upgrade, then check the folder | 3 |
+| `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
+| A factory reset deletes `/etc/churn/` | inferred | Factory reset. It also resets GL's settings, so it is the last test to run | 4 |
+
+## Beyond the router
+
+Some claims no test on the router can confirm:
+
+- Which IMEI the network sees for a card in slot 2 (design.md,
+  section 10). Only the carrier's side shows it.
+- Whether real Mudi 7 serials fall in a narrow range. It needs the IMEIs
+  of many units.
+- That a GrapheneOS phone with its eSIM profile disabled transmits
+  nothing (rule 7). It is a measurement of the phone, not the router.
+- The IMEI derivation. The unit tests check it against the test vectors in
+  development.md.
+- The legal and distribution questions in design.md, section 10.
