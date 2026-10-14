@@ -36,9 +36,9 @@ it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
   (`/dev/smd7`, `smd8`, `smd9`, `smd11`, `/dev/at_mdm0`) is held by a GL or
   Quectel daemon (verified).
 - Run each modem operation under `flock` on `/var/lock/churn.lock`:
-  `exec 9>/var/lock/churn.lock && flock 9 && <command>`. The lock keeps
-  Churn's own operations apart; `gl_modem` arbitrates against GL's daemons
-  (inferred).
+  `exec 9>/var/lock/churn.lock && flock 9 && <command>`. GL's firmware has
+  `flock` (verified). The lock keeps Churn's own operations apart;
+  `gl_modem` arbitrates against GL's daemons (inferred).
 - Accept a step only when the expected answer and `OK` arrive. Anything else
   means the step is repeated, never assumed done. After every write, read
   the value back.
