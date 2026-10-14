@@ -113,8 +113,20 @@ other marked traffic and unmarked traffic from `br-lan` to a blackhole
 (verified). With the tunnel's own Kill Switch off and the tunnel
 disconnected, only the rule to table 1001 is gone, and a website no
 longer loaded (verified). Ahead of all these, at priority 1, `ip rule show`
-sends what the router sends itself to table 16800 (verified); what that
-table holds is not known yet.
+sends what the router sends itself to table 16800, which was empty, and
+the main table's default route goes over the cellular interface
+`rmnet_data0` (verified).
+
+GL runs two dnsmasq instances. The main one listens on port 53 and asks
+the cellular interface's servers, 8.8.8.8 and 8.8.4.4. The tunnel's own
+one, user `dnsmasq_vpn`, listens on port 2153 and asks the VPN's DNS
+server (verified). GL's nftables rules redirect UDP lookups that a device
+sends to the router and that carry the tunnel's mark `0x1000/0xf000` to
+port 2153, and drop lookups that a device sends past the router unless
+they carry the mark `0x8000/0xf000` (verified). With the tunnel up, the
+VPN provider's connection check on a device saw no DNS leak; with the
+tunnel down and the Enhanced Kill Switch on, a lookup of a made-up name
+through the router timed out (verified).
 
 The app counts a VPN as set up if a section of type `rule` names an
 existing network interface in `via`, as on our Mudi 7 with one WireGuard
