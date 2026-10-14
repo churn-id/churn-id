@@ -31,8 +31,49 @@ class RouterTest {
         assertFalse(router.airplaneMode())
         assertFalse(router.scheduledReboot())
         assertTrue(router.enhancedKillSwitch())
+        assertTrue(router.vpnSetUp())
         assertEquals("8941000000000000015F", router.slot2Iccid())
         assertEquals("228010000000001", router.slot2Imsi())
+    }
+
+    @Test
+    fun seesARouterWithoutVpn() {
+        fake.vpnTunnel = null
+        assertFalse(router.vpnSetUp())
+    }
+
+    @Test
+    fun ignoresATunnelWithoutItsInterface() {
+        fake.vpnTunnel = "wgclient2"
+        assertFalse(router.vpnSetUp())
+    }
+
+    @Test
+    fun turnsTheEnhancedKillSwitchOn() {
+        fake.killSwitchSet = false
+        fake.killSwitchInUse = false
+        assertFalse(router.enhancedKillSwitch())
+        router.turnEnhancedKillSwitchOn()
+        assertTrue(router.enhancedKillSwitch())
+    }
+
+    @Test
+    fun seesAKillSwitchThatIsNotInUseYet() {
+        // Turned on in the settings, but without the network reload.
+        fake.killSwitchInUse = false
+        assertFalse(router.enhancedKillSwitch())
+    }
+
+    @Test
+    fun stopsIfTheKillSwitchDoesNotComeOn() {
+        fake.killSwitchInUse = false
+        fake.reloadIgnored = true
+        try {
+            router.turnEnhancedKillSwitchOn()
+            throw AssertionError("The switch was taken for on")
+        } catch (e: RouterException) {
+            assertEquals(Problem.KILL_SWITCH_OFF, e.problem)
+        }
     }
 
     @Test

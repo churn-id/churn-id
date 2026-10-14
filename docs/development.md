@@ -91,6 +91,8 @@ commits every change, so it survives a reboot (inferred from OpenWrt's
 | `lpm.global.auto_shutdown_time` | `'30'`, set by us | Delay in seconds before GL's auto power-off. It fires only on battery with no cable or Wi-Fi client connected, and shutdown starts more than 20 s after the set delay, counted from when the display goes dark | verified |
 | `gl_timer.reboot.enable` | `'0'` | GL's scheduled reboot, off | verified |
 | `network.modem_cpu.dds_id` | `'1'` or `'2'` | The active SIM slot. GL rewrites it at every slot change, so it only reports the slot: writing it, even with a commit, switches nothing | verified |
+| `route_policy.@rule[<n>]` | `rule`, one section per tunnel, with `name='Tunnel 1'`, `via_type='wireguard'`, `enabled`, `killswitch` | A tunnel in GL's VPN dashboard | verified for one WireGuard tunnel |
+| `route_policy.@rule[<n>].via` | `'wgclient1'` | The tunnel's network interface, `network.wgclient1` with `proto='wgclient'` | verified |
 | `route_policy.@rule[0].killswitch` | `'1'` | Kill switch of the first VPN rule. Writing it turns it on and off | verified |
 | `route_policy.@default[0].enabled` | `'0'` with Enhanced Kill Switch on, `'1'` off | GL's fallback policy, which sends traffic that matches no VPN rule past the VPN (`via='novpn'`, mark `0x8000`) | values verified, meaning inferred |
 | `network.vpn_to_main` | absent with Enhanced Kill Switch on, present off | Routing rule that sends marked traffic (`mark='0x0/0xf000'`, `invert='1'`) to the main table, outside the VPN. `ip rule` lists it at priority 9000 only while the switch is off | values and `ip rule` verified, meaning inferred |
@@ -101,6 +103,38 @@ commits both configs and runs `/etc/init.d/network reload`; turning it off
 reverses this. The priority 9000 rule changes only after the reload, and
 GL's web interface shows the new state at once. With the switch turned on
 this way and the tunnel down, a website no longer loaded (all verified).
+The app counts the switch as on only if both settings say so and
+`ip rule show` lists no rule at priority 9000, so a switch turned on
+without the reload counts as off. With the switch on and a WireGuard
+tunnel up, `ip rule show` also lists rules that send traffic marked
+`0x1000/0xf000` to the tunnel's table 1001 and traffic marked
+`0x8000/0xf000` to the main table, and at priorities 9910 and 9920 send
+other marked traffic and unmarked traffic from `br-lan` to a blackhole
+(verified). With the tunnel's own Kill Switch off and the tunnel
+disconnected, only the rule to table 1001 is gone, and a website no
+longer loaded (verified). Ahead of all these, at priority 1, `ip rule show`
+sends what the router sends itself to table 16800, which was empty, and
+the main table's default route goes over the cellular interface
+`rmnet_data0` (verified).
+
+GL runs two dnsmasq instances. The main one listens on port 53 and asks
+the cellular interface's servers, 8.8.8.8 and 8.8.4.4. The tunnel's own
+one, user `dnsmasq_vpn`, listens on port 2153 and asks the VPN's DNS
+server (verified). GL's nftables rules redirect UDP lookups that a device
+sends to the router and that carry the tunnel's mark `0x1000/0xf000` to
+port 2153, and drop lookups that a device sends past the router unless
+they carry the mark `0x8000/0xf000` (verified). With the tunnel up, the
+VPN provider's connection check on a device saw no DNS leak; with the
+tunnel down and the Enhanced Kill Switch on, a lookup of a made-up name
+through the router timed out (verified).
+
+The app counts a VPN as set up if a section of type `rule` names an
+existing network interface in `via`, as on our Mudi 7 with one WireGuard
+tunnel (verified). GL's two sections of type `rule_process`
+(`gl_process` and `gl_process_vpn`) name the same interface but seem to
+be GL's policies for its own processes, so they don't count (inferred).
+Untested: a router without a tunnel, an OpenVPN tunnel, and whether
+turning a tunnel off in GL's VPN dashboard changes its `enabled`.
 
 Two settings the app needs are not in `uci` (verified by searching
 `uci show`):
@@ -251,6 +285,8 @@ before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
 - Where GL stores "Power On with Charger". Until then the app asks the user
   to confirm that it is off.
 - Whether GL's firmware has `flock`, which Churn's lock needs.
+- Whether `/etc/init.d/network reload` interrupts the cable connection or
+  turns the radio on.
 - Whether the modem can tell that slot 1 holds a card, so the app can warn
   the user.
 

@@ -85,6 +85,14 @@ class SwapTest {
     }
 
     @Test
+    fun step1ChangesNothingWithoutAVpn() {
+        fake.vpnTunnel = null
+        assertStops(Problem.NO_VPN) { swap.prepare(factory, SecureRandom()) }
+        assertEquals(emptyList<String>(), fake.changes)
+        assertFalse(fake.airplaneMode)
+    }
+
+    @Test
     fun step1ChangesNothingWhileTheRadioStaysOn() {
         fake.radioStuckOn = true
         assertStops(Problem.RADIO_ON) { swap.prepare(factory, SecureRandom()) }
@@ -117,11 +125,41 @@ class SwapTest {
         assertTrue(firstChange, firstChange.substringAfter(" at ").substringBefore(" s").toInt() >= 120)
         assertEquals(
             listOf(
-                Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SLOT2_ON_SIM2,
-                Progress.SLOT2_ACTIVE, Progress.CARD_FOUND, Progress.NEW_IMEIS,
+                Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.KILL_SWITCH_ON,
+                Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE, Progress.CARD_FOUND, Progress.NEW_IMEIS,
             ),
             progress,
         )
+    }
+
+    @Test
+    fun step3TurnsTheKillSwitchOnBeforeTheCardComesOn() {
+        prepareAndRestart()
+        fake.killSwitchSet = false
+        fake.killSwitchInUse = false
+        swap.giveNewImeis(factory, secret)
+        assertTrue(fake.killSwitchSet && fake.killSwitchInUse)
+        val changes = fake.changes.map { it.substringBefore(" at ") }
+        assertTrue(changes.indexOf("Enhanced Kill Switch") < changes.lastIndexOf("slot 2"))
+        assertSafe()
+    }
+
+    @Test
+    fun step3LeavesAKillSwitchThatIsOnAsItIs() {
+        prepareAndRestart()
+        swap.giveNewImeis(factory, secret)
+        assertTrue(fake.commands.none { "network reload" in it })
+    }
+
+    @Test
+    fun step3StopsIfTheRadioComesOnWithTheKillSwitch() {
+        prepareAndRestart()
+        fake.killSwitchSet = false
+        fake.killSwitchInUse = false
+        fake.radioOnAtReload = true
+        assertStops(Problem.RADIO_ON) { swap.giveNewImeis(factory, secret) }
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertSafe()
     }
 
     @Test

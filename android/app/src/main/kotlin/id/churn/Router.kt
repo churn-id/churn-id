@@ -16,7 +16,7 @@ class Output(val status: Int?, val stdout: ByteArray, val stderr: String) {
 /** Why a step stopped. Nothing it did after the last confirmed answer is assumed done. */
 enum class Problem {
     UNEXPECTED_ANSWER, RADIO_ON, SCHEDULED_REBOOT, IMEIS_NOT_KEPT, SLOT_NOT_SWITCHED, PROFILE_STILL_ENABLED,
-    NO_CARD, NOT_SET_UP, NOT_STARTED,
+    NO_CARD, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN,
 }
 
 /** [detail] is what the router said, for the log; it never holds the secret or a password. */
@@ -112,8 +112,40 @@ class Router(private val shell: Shell) {
 
     fun scheduledReboot() = uci("gl_timer.reboot.enable") == "1"
 
-    /** Whether GL's Enhanced Kill Switch is on, as development.md describes it. */
-    fun enhancedKillSwitch() = uci("route_policy.@default[0].enabled") == "0" && uci("network.vpn_to_main") == null
+    /**
+     * Whether GL's VPN client has a tunnel set up, as development.md describes it: a rule in GL's route policy that
+     * sends traffic through an existing network interface. Whether the tunnel is on or up doesn't count.
+     */
+    fun vpnSetUp(): Boolean {
+        val settings = run("uci -q show route_policy").text.lines()
+            .associate { it.substringBefore('=') to it.substringAfter('=').removeSurrounding("'") }
+        return settings.filterValues { it == "rule" }.keys
+            .mapNotNull { settings["$it.via"]?.takeIf { via -> via.matches(Regex("[A-Za-z0-9_]+")) } }
+            .any { uci("network.$it") == "interface" }
+    }
+
+    /**
+     * Whether GL's Enhanced Kill Switch is on, as development.md describes it: in GL's settings, and in the routing
+     * rules in use, which follow the settings only at a network reload.
+     */
+    fun enhancedKillSwitch(): Boolean {
+        val rules = run("ip rule show")
+        rules.check("ip rule")
+        // network.vpn_to_main is the rule at priority 9000.
+        val ruleInUse = rules.text.lines().any { it.startsWith("9000:") }
+        return uci(DEFAULT_POLICY) == "0" && uci(VPN_TO_MAIN) == null && !ruleInUse
+    }
+
+    /** Turns GL's Enhanced Kill Switch on, also for later power-ons, and checks that it is on. */
+    fun turnEnhancedKillSwitchOn() {
+        // Deleting the rule fails if it is already gone, which is fine: only the check afterwards counts.
+        run(
+            "uci set ${quote("$DEFAULT_POLICY=0")} && { uci -q delete ${quote(VPN_TO_MAIN)} || true; } && " +
+                "uci commit route_policy && uci commit network && /etc/init.d/network reload",
+            timeoutSeconds = 60,
+        ).check("Enhanced Kill Switch")
+        if (!enhancedKillSwitch()) throw RouterException(Problem.KILL_SWITCH_OFF)
+    }
 
     /** Starts the shutdown. The router may close the connection before it answers. */
     fun powerOff() {
@@ -250,6 +282,8 @@ class Router(private val shell: Shell) {
         /** Churn's folder on the router. */
         const val CHURN = "/etc/churn"
 
+        private const val DEFAULT_POLICY = "route_policy.@default[0].enabled"
+        private const val VPN_TO_MAIN = "network.vpn_to_main"
         private const val LOCK = "/var/lock/churn.lock"
         private const val SYSUPGRADE = "/etc/sysupgrade.conf"
         private const val ESIM_API = "http://127.0.0.1:3456/sdk/v1"

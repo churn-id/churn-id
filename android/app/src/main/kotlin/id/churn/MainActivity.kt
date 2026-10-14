@@ -110,6 +110,12 @@ class MainActivity : Activity() {
             ).joinToString("\n"),
         )
         screen.notes.forEach { warning(it) }
+        if (!status.enhancedKillSwitch) {
+            warning(getString(R.string.note_kill_switch))
+            button(R.string.kill_switch_on) {
+                confirm(getString(R.string.kill_switch_on_text)) { controller.turnKillSwitchOn() }
+            }
+        }
         button(R.string.swap) { controller.beginSwap() }
         button(R.string.refresh) { controller.refresh() }
         button(R.string.show_rules) { showRules() }

@@ -35,6 +35,7 @@ class RouterStatus(
     val radio: Int?,
     val activeSlot: String?,
     val slot2: Slot2?,
+    val enhancedKillSwitch: Boolean,
 )
 
 private class NoRouterNetwork : Exception()
@@ -121,6 +122,11 @@ class Controller(private val context: Context) {
         router.restoreFactoryImeis()
         saved.written = router.readChurnFolder().factory
         showRouter(context.getString(R.string.note_restored))
+    }
+
+    fun turnKillSwitchOn() = job(R.string.turning_kill_switch_on) {
+        router().turnEnhancedKillSwitchOn()
+        showRouter()
     }
 
     fun forget() {
@@ -296,7 +302,7 @@ class Controller(private val context: Context) {
         val written = saved.written
         if (written != null && written != imeis) notes += context.getString(R.string.note_imeis_changed)
         if (router.scheduledReboot()) notes += context.getString(R.string.note_scheduled_reboot)
-        if (!router.enhancedKillSwitch()) notes += context.getString(R.string.note_kill_switch)
+        if (!router.vpnSetUp()) notes += context.getString(R.string.note_no_vpn)
         val status = RouterStatus(
             imeis = imeis,
             factory = factory,
@@ -304,6 +310,7 @@ class Controller(private val context: Context) {
             radio = runCatching { router.radio() }.getOrNull(),
             activeSlot = router.activeSlot(),
             slot2 = runCatching { router.slot2() }.getOrNull(),
+            enhancedKillSwitch = router.enhancedKillSwitch(),
         )
         return Screen.Home(status, notes)
     }
@@ -333,6 +340,7 @@ class Controller(private val context: Context) {
             Progress.NO_PROFILE -> R.string.progress_no_profile
             Progress.PROFILE_DISABLED -> R.string.progress_profile_disabled
             Progress.WAITING_FOR_START -> R.string.progress_waiting_for_start
+            Progress.KILL_SWITCH_ON -> R.string.progress_kill_switch_on
             Progress.SLOT2_ON_SIM2 -> R.string.progress_slot2_on_sim2
             Progress.SLOT2_ACTIVE -> R.string.progress_slot2_active
             Progress.CARD_FOUND -> R.string.progress_card_found
@@ -351,6 +359,8 @@ class Controller(private val context: Context) {
             Problem.NO_CARD -> R.string.problem_no_card
             Problem.NOT_SET_UP -> R.string.problem_not_set_up
             Problem.NOT_STARTED -> R.string.problem_not_started
+            Problem.KILL_SWITCH_OFF -> R.string.problem_kill_switch_off
+            Problem.NO_VPN -> R.string.problem_no_vpn
         },
     )
 

@@ -79,8 +79,11 @@
     <string name="status_slot2_esim">Slot 2 is on the built-in eSIM.</string>
     <string name="note_imeis_changed">The IMEIs aren\'t the ones Churn wrote last. A firmware upgrade or reset may have restored the factory IMEIs; the next swap writes new ones.</string>
     <string name="note_scheduled_reboot">GL\'s scheduled reboot is on. Turn it off in GL\'s web interface: a reboot is a power-on, so with a SIM inside it registers wherever it happens.</string>
-    <string name="note_kill_switch">The Enhanced Kill Switch is off, so traffic can bypass the VPN. Turn it on in GL\'s VPN settings (rule 5).</string>
+    <string name="note_no_vpn">No VPN is set up on the router. Set one up in GL\'s web interface before you swap a SIM (rule 5).</string>
+    <string name="note_kill_switch">The Enhanced Kill Switch is off, so traffic can bypass the VPN (rule 5).</string>
     <string name="note_restored">The factory IMEIs are back, and airplane mode is on.</string>
+    <string name="kill_switch_on">Turn the Enhanced Kill Switch on</string>
+    <string name="kill_switch_on_text">Churn turns GL\'s Enhanced Kill Switch on. Devices behind the router then reach the internet only through the VPN, and not at all while it is down.</string>
     <string name="swap">Swap the SIM card</string>
     <string name="show_rules">Rules</string>
     <string name="refresh">Refresh</string>
@@ -89,6 +92,7 @@
     <string name="forget">Forget this router</string>
     <string name="forget_text">Churn forgets the router\'s key and password. Its folder on the router stays.</string>
     <string name="restoring">Restoring the factory IMEIs</string>
+    <string name="turning_kill_switch_on">Turning the Enhanced Kill Switch on</string>
     <string name="setting_up">Setting up the router</string>
     <string name="reading">Reading the router\'s state</string>
 
@@ -102,7 +106,7 @@
     <string name="step2_text">1. Wait until the router is off, then unplug the cable.\n2. Take out the battery and replace the card in the SIM 2 tray with the new one. Leave the SIM 1 tray empty.\n3. Put the battery back.\n4. Go to a place you don\'t return to, away from where you used the old card.\n5. Switch the router on, connect the cable and tap Continue.\n\nWhy: at power-on only the built-in eSIM\'s short bursts go out, with the throwaway IMEIs and a test identity that is likely the same on every Mudi 7.\n\nIf you keep the old card after all, Continue gives it back its own IMEIs.</string>
     <string name="step2_continue">Continue</string>
     <string name="step3_title">Give the new card its IMEIs</string>
-    <string name="step3_text">Churn waits until the router\'s radio is off, sets slot 2 to the SIM 2 tray, reads the new card\'s ICCID and writes the IMEIs that belong to it. The radio stays off throughout.</string>
+    <string name="step3_text">Churn waits until the router\'s radio is off, turns the Enhanced Kill Switch on if it is off, sets slot 2 to the SIM 2 tray, reads the new card\'s ICCID and writes the IMEIs that belong to it. The radio stays off throughout.\n\nWhy: with the Enhanced Kill Switch on, no traffic bypasses the VPN, even while the VPN is down (rule 5).</string>
     <string name="step4_title">Go online later</string>
     <string name="step4_text">The router has the new card\'s IMEIs, and its radio stays off until you turn airplane mode off, on the router\'s screen or in GL\'s web interface.\n\nTurn it off later, at another place and time, and never at home, at work or another place you return to.\n\nWhy: the old card went quiet where you started the swap. If the new one starts where and when the old one stopped, the two are easy to match.</string>
     <string name="step4_done">Done</string>
@@ -118,6 +122,7 @@
     <string name="progress_profile_disabled">The eSIM profile is disabled.</string>
     <string name="progress_shutting_down">The router is shutting down.</string>
     <string name="progress_waiting_for_start">Waiting until the router has finished starting. This takes about two minutes after power-on.</string>
+    <string name="progress_kill_switch_on">The Enhanced Kill Switch is on.</string>
     <string name="progress_slot2_on_sim2">Slot 2 is on the SIM 2 tray.</string>
     <string name="progress_slot2_active">Slot 2 is the active slot.</string>
     <string name="progress_card_found">Found the new card.</string>
@@ -133,6 +138,8 @@
     <string name="problem_no_card">Churn found no usable card in the SIM 2 tray: no card at all, or an eSIM adapter card without an enabled profile. Slot 2 is back on the built-in eSIM, so you can switch the router off, check the card, switch the router on again and tap Try again.</string>
     <string name="problem_not_set_up">Churn\'s folder on the router is missing or damaged. Connect from the start to set the router up again.</string>
     <string name="problem_not_started">The router didn\'t finish starting, so Churn stopped. Slot 2 is still on the built-in eSIM, so you can switch the router off and on again and tap Try again.</string>
+    <string name="problem_kill_switch_off">The Enhanced Kill Switch didn\'t come on.</string>
+    <string name="problem_no_vpn">No VPN is set up on the router. Set one up in GL\'s web interface first (rule 5).</string>
 
     <!-- The notification while a step runs -->
     <string name="notification_channel">SIM swap</string>

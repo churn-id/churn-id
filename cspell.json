@@ -3,6 +3,7 @@
   "words": [
     "BABT",
     "bcpu",
+    "blackhole",
     "blocklisted",
     "bouncycastle",
     "CFUN",
@@ -11,12 +12,14 @@
     "claude",
     "CPIN",
     "CSIM",
+    "dnsmasq",
     "EACCES",
     "EGMR",
     "EPERM",
     "esim",
     "fccid",
     "framebuffer",
+    "fwmark",
     "glconfig",
     "gradlew",
     "GrapheneOS",
@@ -36,6 +39,7 @@
     "kotlin",
     "Mudi",
     "NETGEAR",
+    "nftables",
     "nginx",
     "novpn",
     "OpenWrt",
@@ -49,11 +53,13 @@
     "Quectel",
     "QUIMSLOT",
     "QUIMSUB",
+    "rmnet",
     "RNDIS",
     "schmizz",
     "sshj",
     "sysupgrade",
     "ubus",
-    "userauth"
+    "userauth",
+    "wgclient"
   ]
 }

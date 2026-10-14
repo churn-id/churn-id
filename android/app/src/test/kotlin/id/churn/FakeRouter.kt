@@ -38,6 +38,19 @@ class FakeRouter : Shell {
     private var esimReloadsUntil = 0L
     var trayCard: Card? = Card("8941000000000000015F", "228010000000001")
     var scheduledReboot = false
+
+    /** GL's Enhanced Kill Switch in GL's settings, and in the routing rules in use, which follow at a reload. */
+    var killSwitchSet = true
+    var killSwitchInUse = true
+
+    /** For a network reload that leaves the routing rules as they are. */
+    var reloadIgnored = false
+
+    /** For a radio that comes on at a network reload. */
+    var radioOnAtReload = false
+
+    /** The network interface the VPN tunnel in GL's route policy uses, or null for no tunnel. */
+    var vpnTunnel: String? = "wgclient1"
     var poweredOff = false
     val files = mutableMapOf<String, ByteArray>()
     var sysupgrade = "/etc/config/\n/etc/profile"
@@ -92,6 +105,15 @@ class FakeRouter : Shell {
         val airplaneModeSet = Regex("""uci set 'glconfig.general.airplane_mode=([01])' && uci commit 'glconfig'""")
         airplaneModeSet.matchEntire(command)?.let {
             airplaneMode = it.groupValues[1] == "1"
+            return ok("")
+        }
+        if (command == "ip rule show") return ok(ipRules())
+        if (command == "uci -q show route_policy") return ok(routePolicy())
+        if (command == KILL_SWITCH_ON) {
+            change("Enhanced Kill Switch")
+            killSwitchSet = true
+            if (!reloadIgnored) killSwitchInUse = true
+            if (radioOnAtReload) radioStuckOn = true
             return ok("")
         }
         if (command == "cat /proc/uptime") return ok(if (uptimeBroken) "" else "%.2f 100.00\n".format(uptime))
@@ -187,9 +209,35 @@ class FakeRouter : Shell {
         "glconfig.general.airplane_mode" -> ok(if (airplaneMode) "1\n" else "0\n")
         "gl_timer.reboot.enable" -> ok(if (scheduledReboot) "1\n" else "0\n")
         "network.modem_cpu.dds_id" -> ok("$activeSlot\n")
-        "route_policy.@default[0].enabled" -> ok("0\n")
+        "route_policy.@default[0].enabled" -> ok(if (killSwitchSet) "0\n" else "1\n")
+        "network.vpn_to_main" -> if (killSwitchSet) Output(1, ByteArray(0), "") else ok("rule\n")
+        "network.wgclient1" -> ok("interface\n")
         else -> Output(1, ByteArray(0), "")
     }
+
+    /**
+     * As our Mudi 7 showed it with one WireGuard tunnel, shortened. GL's process policies name the tunnel's interface
+     * too; they stay here without a tunnel, so that only the tunnel's own rule counts.
+     */
+    private fun routePolicy() = buildString {
+        appendLine("route_policy.global=policy")
+        appendLine("route_policy.@default[0]=default")
+        appendLine("route_policy.@default[0].via='novpn'")
+        appendLine("route_policy.@default[0].enabled='${if (killSwitchSet) 0 else 1}'")
+        vpnTunnel?.let {
+            appendLine("route_policy.@rule[0]=rule")
+            appendLine("route_policy.@rule[0].name='Tunnel 1'")
+            appendLine("route_policy.@rule[0].via_type='wireguard'")
+            appendLine("route_policy.@rule[0].via='$it'")
+        }
+        appendLine("route_policy.gl_process=rule_process")
+        appendLine("route_policy.gl_process.via='wgclient1'")
+    }
+
+    /** The rule at priority 9000 as our Mudi 7 printed it, among Linux's default rules. */
+    private fun ipRules() = "0:\tfrom all lookup local\n" +
+        (if (killSwitchInUse) "" else "9000:\tnot from all fwmark 0/0xf000 lookup main\n") +
+        "32766:\tfrom all lookup main\n32767:\tfrom all lookup default\n"
 
     private fun change(what: String) {
         changes += "$what at ${uptime.toInt()} s"
@@ -203,6 +251,9 @@ class FakeRouter : Shell {
     companion object {
         const val LOCK = "exec 9>/var/lock/churn.lock && flock 9 && "
         const val LOCATION_ID = "bcpu_p0133_v2c7c"
+        private const val KILL_SWITCH_ON = "uci set 'route_policy.@default[0].enabled=0' && " +
+            "{ uci -q delete 'network.vpn_to_main' || true; } && uci commit route_policy && uci commit network && " +
+            "/etc/init.d/network reload"
         private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "curl")
 
         /** The answer recorded on our Mudi 7, shortened. */

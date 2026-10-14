@@ -278,11 +278,11 @@ every boot:
    the new one, goes to a place that doesn't matter, and switches the router
    on. Only the eSIM's short bursts go out, with the throwaway IMEI and the
    near-generic test identity.
-3. Once the radio is off after the boot (section 6), the app switches
-   slot 2 to SIM 2 in airplane mode, reads the ICCID, writes the derived
-   pair, saves and verifies it. If it finds no usable card, it switches
-   slot 2 back to the built-in eSIM, so the card stays off at the next
-   power-on.
+3. Once the radio is off after the boot (section 6), the app turns GL's
+   Enhanced Kill Switch on if it is off, then switches slot 2 to SIM 2 in
+   airplane mode, reads the ICCID, writes the derived pair, saves and
+   verifies it. If it finds no usable card, it switches slot 2 back to the
+   built-in eSIM, so the card stays off at the next power-on.
 4. The user turns airplane mode off later, at another place and time.
 
 ### App behavior
@@ -293,7 +293,19 @@ every boot:
   the user's memory.
 - Before each rotation the app checks the slot 2 setting, airplane mode, and
   that "Power On with Charger" and GL's scheduled reboot are off. A reboot
-  is a power-on, so wherever it happens, the SIM registers there.
+  is a power-on, so wherever it happens, the SIM registers there. It also
+  checks that a VPN is set up (rule 5): with the Enhanced Kill Switch on, a
+  router without one has no internet at all, which invites turning the
+  switch off. Step 1 is where this check stops a swap, since the old card
+  is still there to reach the internet while the user sets one up.
+- Step 3 is the last step before the router goes online, so that is where
+  the app makes sure the Enhanced Kill Switch is on (rule 5). Turning it on
+  takes a network reload, whose effect on the modem is untested, so the
+  app does it while slot 2 is still on the built-in eSIM and then checks
+  that the radio is still off. It leaves each tunnel's own Kill Switch as
+  it is, since the Enhanced Kill Switch blocks that traffic too
+  (section 10). The router screen also warns while the switch is off and
+  offers to turn it on.
 
 ## 8. Usage rules
 
@@ -457,11 +469,24 @@ Hardware, other:
   commands for it.
 - Do Android phones other than the one we tested accept the router's USB
   Ethernet?
-- Does GL's VPN client on the Mudi 7 block all traffic while the VPN is
-  down? GL's documentation says it does if and only if the "Kill Switch"
-  setting is on for every tunnel and the global "Enhanced Kill Switch"
-  setting is on. Rule 5 depends on it. In one test with both on and the
-  tunnel down, a website no longer loaded.
+- Does GL's Enhanced Kill Switch also block all traffic while the router
+  boots, and when a tunnel fails on its own? Rule 5 depends on it. GL's
+  documentation says that a tunnel's traffic fails over to "All Other
+  Traffic" when the tunnel fails and its own "Kill Switch" is off, and
+  that the Enhanced Kill Switch takes the place of "All Other Traffic" and
+  blocks all traffic that matches no tunnel. With only the Enhanced Kill
+  Switch on, a website no longer loaded after we disconnected the tunnel,
+  and the routing rules that block traffic stayed in place (verified).
+- What does the router send of its own past the VPN? The rules that
+  block traffic with the Enhanced Kill Switch on match only traffic from
+  `br-lan` and traffic marked for a tunnel, and the main routing table
+  sends the rest over the SIM, so neither kill switch blocks what the
+  router sends itself (inferred from `ip rule` and `ip route`). The router
+  needs this to reach the VPN server. Its own DNS lookups go to Google's
+  servers, over the SIM (inferred). Lookups from devices behind it went
+  through the VPN, and while the tunnel was down they got no answer
+  (verified). Which names the router looks up, and what else it sends,
+  such as time synchronization, we don't know yet. Rule 5 depends on it.
 - Can the app give the router's Wi-Fi a new network name and hardware
   address at every swap? OpenWrt has a setting for each; GL's firmware
   may override them.
