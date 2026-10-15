@@ -36,6 +36,7 @@ class RouterStatus(
     val activeSlot: String?,
     val slot2: Slot2?,
     val enhancedKillSwitch: Boolean,
+    val firewall: Boolean,
 )
 
 private class NoRouterNetwork : Exception()
@@ -104,8 +105,7 @@ class Controller(private val context: Context) {
     fun setUp(factory: ImeiPair) = job(R.string.setting_up) {
         val router = router()
         val folder = router.readChurnFolder()
-        router.writeChurnFile("README.txt", asset("README.txt"))
-        router.writeChurnFile("restore.sh", asset("restore.sh"), executable = true)
+        updateChurnFiles(router)
         router.keepChurnFolder()
         if (folder.factory == null) {
             router.writeChurnFile("factory", "${factory.imei1}\n${factory.imei2}\n".toByteArray())
@@ -126,6 +126,11 @@ class Controller(private val context: Context) {
 
     fun turnKillSwitchOn() = job(R.string.turning_kill_switch_on) {
         router().turnEnhancedKillSwitchOn()
+        showRouter()
+    }
+
+    fun installFirewall() = job(R.string.installing_firewall) {
+        router().installFirewall()
         showRouter()
     }
 
@@ -269,6 +274,9 @@ class Controller(private val context: Context) {
     private fun showRouter(note: String? = null) {
         val router = router()
         val folder = router.readChurnFolder()
+        // A router set up by an earlier version of the app keeps that version's restore script, which may not undo
+        // everything this version changes.
+        if (folder.complete) updateChurnFiles(router)
         val step = saved.step
         show(
             when {
@@ -311,8 +319,16 @@ class Controller(private val context: Context) {
             activeSlot = router.activeSlot(),
             slot2 = runCatching { router.slot2() }.getOrNull(),
             enhancedKillSwitch = router.enhancedKillSwitch(),
+            // A router whose firewall the app can't read shows the warning, and adding the rules says why.
+            firewall = runCatching { router.firewallInPlace() }.getOrDefault(false),
         )
         return Screen.Home(status, notes)
+    }
+
+    /** The README and restore script in Churn's folder, as this version of the app ships them. */
+    private fun updateChurnFiles(router: Router) {
+        router.updateChurnFile("README.txt", asset("README.txt"))
+        router.updateChurnFile("restore.sh", asset("restore.sh"), executable = true)
     }
 
     private fun asset(name: String) = context.assets.open(name).use { it.readBytes() }
@@ -341,6 +357,7 @@ class Controller(private val context: Context) {
             Progress.PROFILE_DISABLED -> R.string.progress_profile_disabled
             Progress.WAITING_FOR_START -> R.string.progress_waiting_for_start
             Progress.KILL_SWITCH_ON -> R.string.progress_kill_switch_on
+            Progress.FIREWALL -> R.string.progress_firewall
             Progress.SLOT2_ON_SIM2 -> R.string.progress_slot2_on_sim2
             Progress.SLOT2_ACTIVE -> R.string.progress_slot2_active
             Progress.CARD_FOUND -> R.string.progress_card_found
@@ -361,6 +378,7 @@ class Controller(private val context: Context) {
             Problem.NOT_STARTED -> R.string.problem_not_started
             Problem.KILL_SWITCH_OFF -> R.string.problem_kill_switch_off
             Problem.NO_VPN -> R.string.problem_no_vpn
+            Problem.FIREWALL_NOT_LOADED -> R.string.problem_firewall_not_loaded
         },
     )
 

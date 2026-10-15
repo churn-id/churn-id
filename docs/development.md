@@ -130,7 +130,9 @@ tunnel down and the Enhanced Kill Switch on, a lookup of a made-up name
 through the router timed out (verified). But for about 2 seconds after
 the router came back from airplane mode, the main instance passed lookups
 from devices on to its servers over the SIM (verified), presumably before
-GL marked their traffic for the tunnel again (inferred).
+GL marked their traffic for the tunnel again (inferred). Churn's firewall
+rules, in the next section, stop this, and send the router's own lookups
+to the VPN's DNS server.
 
 The app counts a VPN as set up if a section of type `rule` with
 `via_type='wireguard'` names an existing network interface in `via`, as
@@ -150,6 +152,55 @@ Two settings the app needs are not in `uci` (verified by searching
   `/etc/config/cellular/slot_map.json`, and the modem reports it with
   `AT+QSIMTYPE="slot2"` (verified). The next section shows how to change
   it.
+
+## Churn's firewall rules
+
+GL's firewall, fw4, includes every `*.nft` file in `/etc/nftables.d/` in
+its table `inet fw4` at each reload, so the chains in Churn's file
+`churn.nft` become chains of that table (verified). The folder also holds
+OpenWrt's `10-custom-filter-chains.nft` and a README. `fw4 reload` prints
+warnings starting with `[!]` about GL's own options and still exits with 0
+(verified), so the app goes by the exit status. A reload resets the rules'
+counters, and GL reloads the firewall itself whenever the Enhanced Kill
+Switch is turned on or off (verified).
+
+The file, as `Router.firewallRules` writes it, has three chains:
+
+| Chain | Hook | What it does |
+| --- | --- | --- |
+| `churn_sim` | filter, postrouting, priority 0 | Lets the router's own UDP packets with mark `0x8000` out of `rmnet_data*`, and drops everything else that would leave there |
+| `churn_route` | route, output, priority mangle | Gives packets that the router starts toward `rmnet_data*` without a mark in `0xf000` GL's tunnel mark `0x1000`, so the kernel routes them again, to the tunnel's table 1001, or to the blackhole at priority 9910 while the tunnel is down |
+| `churn_dns` | nat, output, priority -100 | Redirects lookups that the main dnsmasq sends to port 53 with the tunnel mark to port 2153, the tunnel's dnsmasq |
+
+What the rules rely on, all verified on our Mudi 7:
+
+- WireGuard sends with the mark `0x8000` (`wg show all fwmark`), the same
+  mark as GL's `novpn` policy. Counted on output across airplane mode off
+  and on, only WireGuard's packets carried it.
+- The SIM's data interfaces are `rmnet_data0` to `rmnet_data5`,
+  `rmnet_data15` and `rmnet_data16`, also in airplane mode, and
+  `ifstatus modem_cpu` names `rmnet_data0` while online.
+- The drop has to be in postrouting. After a route chain routes a packet
+  again, later output chains still see the old interface in `oifname`;
+  postrouting sees the one the packet leaves on. Our first version dropped
+  in output and so dropped the time sync it had sent into the tunnel.
+- The route hook at priority mangle, -150, runs before nat at -100, so the
+  redirect sees the mark that `churn_route` set.
+- The tunnel's IP Masquerading already translates the router's own packets
+  to the tunnel's address, so the rules need no masquerade of their own.
+- The main dnsmasq runs as user `dnsmasq`, ID 453; the tunnel's as
+  `dnsmasq_vpn`, ID 456. The rule names the ID as a number, which the app
+  reads with `id -u dnsmasq`, because a user name that nftables doesn't
+  know would make the whole ruleset fail (inferred).
+
+The app writes the file under a temporary name and renames it, adds it to
+`/etc/sysupgrade.conf` and runs `fw4 reload`. It counts the rules as in
+place only if the file is what the app would write now and
+`nft list chain inet fw4 <chain>` finds all three chains. If the reload
+fails or a chain is missing, it deletes the file and reloads again.
+`restore.sh` deletes the file and reloads if the file or the chain
+`churn_sim` is still there, then deletes the line in
+`/etc/sysupgrade.conf`.
 
 ## Switching SIM slots
 
@@ -291,7 +342,7 @@ before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
 - Where GL stores "Power On with Charger". Until then the app asks the user
   to confirm that it is off.
 - Whether `/etc/init.d/network reload` interrupts the cable connection or
-  turns the radio on.
+  turns the radio on, and whether `fw4 reload` does.
 - Whether the modem can tell that slot 1 holds a card, so the app can warn
   the user.
 
@@ -303,9 +354,13 @@ before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
 | `/etc/churn/README.txt` | 600 | What the folder is; how to restore the factory IMEIs by hand; to do so before a factory reset |
 | `/etc/churn/secret` | 600 | 32 random bytes, the HMAC key |
 | `/etc/churn/factory` | 600 | Factory IMEI 1 and IMEI 2, one per line |
-| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them |
+| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, then removes Churn's firewall rules |
+| `/etc/nftables.d/churn.nft` | 644 | Churn's firewall rules, from `Router.firewallRules` |
 
-At setup the app also adds the line `/etc/churn/` to `/etc/sysupgrade.conf`.
+At setup the app also adds the line `/etc/churn/` to `/etc/sysupgrade.conf`,
+and with its firewall rules the line `/etc/nftables.d/churn.nft`. At every
+connection it rewrites `README.txt` and `restore.sh` where they differ from
+its assets.
 
 ## IMEI derivation
 

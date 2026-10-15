@@ -16,7 +16,7 @@ class Output(val status: Int?, val stdout: ByteArray, val stderr: String) {
 /** Why a step stopped. Nothing it did after the last confirmed answer is assumed done. */
 enum class Problem {
     UNEXPECTED_ANSWER, RADIO_ON, SCHEDULED_REBOOT, IMEIS_NOT_KEPT, SLOT_NOT_SWITCHED, PROFILE_STILL_ENABLED,
-    NO_CARD, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN,
+    NO_CARD, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN, FIREWALL_NOT_LOADED,
 }
 
 /** [detail] is what the router said, for the log; it never holds the secret or a password. */
@@ -149,6 +149,27 @@ class Router(private val shell: Shell) {
         if (!enhancedKillSwitch()) throw RouterException(Problem.KILL_SWITCH_OFF)
     }
 
+    /** Whether Churn's firewall rules are in place: the file as the app would write it now, and its chains loaded. */
+    fun firewallInPlace() =
+        readFile(FIREWALL).contentEquals(firewallRules(dnsmasqUid()).toByteArray()) && firewallLoaded()
+
+    /**
+     * Writes Churn's firewall rules, keeps them across firmware upgrades and has GL's firewall load them. Rules that
+     * don't load are removed again, since at the next power-on GL's firewall might then load none of its own either.
+     */
+    fun installFirewall() {
+        val rules = firewallRules(dnsmasqUid()).toByteArray()
+        run("umask 022 && cat > $FIREWALL.new && mv $FIREWALL.new $FIREWALL", rules).check(FIREWALL)
+        keep(FIREWALL)
+        // fw4 warns about GL's own options at every reload, so only its exit status counts.
+        val reload = run("fw4 reload", timeoutSeconds = 60)
+        if (reload.status != 0 || !firewallLoaded()) {
+            run("rm -f $FIREWALL && fw4 reload", timeoutSeconds = 60)
+            throw RouterException(Problem.FIREWALL_NOT_LOADED, (reload.text + " " + reload.stderr).trim().take(300))
+        }
+        if (!firewallInPlace()) throw unexpected(FIREWALL)
+    }
+
     /** Starts the shutdown. The router may close the connection before it answers. */
     fun powerOff() {
         runCatching { shell.run("poweroff", null, 15) }
@@ -168,7 +189,13 @@ class Router(private val shell: Shell) {
         return ChurnFolder(factory, secret)
     }
 
-    /** Writes [content] to [path] in Churn's folder, which only root can read. */
+    /** Writes [content] to [name] in Churn's folder, unless the file holds it already. */
+    fun updateChurnFile(name: String, content: ByteArray, executable: Boolean = false) {
+        require(name.matches(Regex("[A-Za-z0-9._-]+")))
+        if (!readFile("$CHURN/$name").contentEquals(content)) writeChurnFile(name, content, executable)
+    }
+
+    /** Writes [content] to [name] in Churn's folder, which only root can read. */
     fun writeChurnFile(name: String, content: ByteArray, executable: Boolean = false) {
         require(name.matches(Regex("[A-Za-z0-9._-]+")))
         val path = "$CHURN/$name"
@@ -181,8 +208,10 @@ class Router(private val shell: Shell) {
     }
 
     /** Lists Churn's folder in `/etc/sysupgrade.conf`, so a firmware upgrade keeps it. */
-    fun keepChurnFolder() {
-        val line = "$CHURN/"
+    fun keepChurnFolder() = keep("$CHURN/")
+
+    /** Lists [line], a path, in `/etc/sysupgrade.conf`, so a firmware upgrade that keeps settings keeps it. */
+    private fun keep(line: String) {
         val file = SYSUPGRADE
         // A last line without a line break would otherwise run into Churn's.
         run(
@@ -191,6 +220,12 @@ class Router(private val shell: Shell) {
         ).check(file)
         run("grep -qxF $line $file").check(file)
     }
+
+    /** The user ID GL's main DNS server runs as. */
+    private fun dnsmasqUid() = run("id -u dnsmasq").text.trim().toIntOrNull() ?: throw unexpected("id -u dnsmasq")
+
+    private fun firewallLoaded() =
+        run(FIREWALL_CHAINS.joinToString(" && ") { "nft list chain inet fw4 $it >/dev/null" }).status == 0
 
     /** Runs Churn's restore script; returns what it printed. */
     fun restoreFactoryImeis(): String {
@@ -284,11 +319,48 @@ class Router(private val shell: Shell) {
         /** Churn's folder on the router. */
         const val CHURN = "/etc/churn"
 
+        /** Churn's firewall rules. GL's firewall, fw4, loads the files in this folder into its own table. */
+        const val FIREWALL = "/etc/nftables.d/churn.nft"
+        private val FIREWALL_CHAINS = listOf("churn_sim", "churn_route", "churn_dns")
+
         private const val DEFAULT_POLICY = "route_policy.@default[0].enabled"
         private const val VPN_TO_MAIN = "network.vpn_to_main"
         private const val LOCK = "/var/lock/churn.lock"
         private const val SYSUPGRADE = "/etc/sysupgrade.conf"
         private const val ESIM_API = "http://127.0.0.1:3456/sdk/v1"
+
+        /**
+         * Churn's firewall rules, for GL's main DNS server running as user [dnsmasqUid]. development.md, "Churn's
+         * firewall rules", explains them.
+         */
+        fun firewallRules(dnsmasqUid: Int) = """
+            # Churn's firewall rules: https://github.com/churn-id/churn-id
+            # The Churn app writes this file, and /etc/churn/restore.sh removes it.
+            # GL's firewall, fw4, loads it into its table inet fw4.
+
+            # Over the SIM, only the router's WireGuard packets go out, which
+            # carry the mark 0x8000. Postrouting sees the interface a packet
+            # really leaves on, also after churn_route has re-routed it.
+            chain churn_sim {
+            	type filter hook postrouting priority 0; policy accept;
+            	oifname "rmnet_data*" fib saddr type local meta mark 0x8000 meta l4proto udp counter accept
+            	oifname "rmnet_data*" counter drop
+            }
+
+            # What the router itself starts toward the SIM gets GL's tunnel
+            # mark, so it goes through the tunnel, or nowhere while it is down.
+            chain churn_route {
+            	type route hook output priority mangle; policy accept;
+            	oifname "rmnet_data*" ct direction original meta mark & 0x0000f000 == 0x00000000 counter meta mark set meta mark & 0xffff1fff | 0x00001000
+            }
+
+            # GL's main DNS server asks the VPN's DNS server, through GL's DNS
+            # server for the tunnel on port 2153.
+            chain churn_dns {
+            	type nat hook output priority -100; policy accept;
+            	meta skuid $dnsmasqUid meta mark & 0x0000f000 == 0x00001000 meta l4proto { tcp, udp } th dport 53 counter redirect to :2153
+            }
+        """.trimIndent() + "\n"
 
         /** [s] as one single-quoted shell word. */
         fun quote(s: String) = "'" + s.replace("'", "'\\''") + "'"

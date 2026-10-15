@@ -126,7 +126,8 @@ class SwapTest {
         assertEquals(
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.KILL_SWITCH_ON,
-                Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE, Progress.CARD_FOUND, Progress.NEW_IMEIS,
+                Progress.FIREWALL, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE, Progress.CARD_FOUND,
+                Progress.NEW_IMEIS,
             ),
             progress,
         )
@@ -158,6 +159,44 @@ class SwapTest {
         fake.killSwitchInUse = false
         fake.radioOnAtReload = true
         assertStops(Problem.RADIO_ON) { swap.giveNewImeis(factory, secret) }
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertSafe()
+    }
+
+    @Test
+    fun step3PutsTheFirewallRulesInPlaceBeforeTheCardComesOn() {
+        prepareAndRestart()
+        swap.giveNewImeis(factory, secret)
+        assertTrue(Router(fake).firewallInPlace())
+        val changes = fake.changes.map { it.substringBefore(" at ") }
+        assertTrue(changes.indexOf("firewall") in 0 until changes.lastIndexOf("slot 2"))
+        assertSafe()
+    }
+
+    @Test
+    fun step3StopsIfTheRadioComesOnWithTheFirewallRules() {
+        prepareAndRestart()
+        fake.radioOnAtReload = true
+        assertStops(Problem.RADIO_ON) { swap.giveNewImeis(factory, secret) }
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertSafe()
+    }
+
+    @Test
+    fun step3LeavesFirewallRulesInPlaceAsTheyAre() {
+        Router(fake).installFirewall()
+        prepareAndRestart()
+        val reloads = fake.commands.count { it == "fw4 reload" }
+        swap.giveNewImeis(factory, secret)
+        assertEquals(reloads, fake.commands.count { it == "fw4 reload" })
+    }
+
+    @Test
+    fun step3StopsIfTheFirewallRulesDoNotLoad() {
+        prepareAndRestart()
+        fake.fw4Rejects = true
+        assertStops(Problem.FIREWALL_NOT_LOADED) { swap.giveNewImeis(factory, secret) }
+        assertNull(fake.files[Router.FIREWALL])
         assertEquals(Slot2.ESIM, fake.slot2)
         assertSafe()
     }
