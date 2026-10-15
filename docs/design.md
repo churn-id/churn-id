@@ -297,7 +297,8 @@ every boot:
   checks that a VPN is set up (rule 5): with the Enhanced Kill Switch on, a
   router without one has no internet at all, which invites turning the
   switch off. Step 1 is where this check stops a swap, since the old card
-  is still there to reach the internet while the user sets one up.
+  is still there to reach the internet while the user sets one up. The
+  app accepts only WireGuard tunnels, the only type we have tested.
 - Step 3 is the last step before the router goes online, so that is where
   the app makes sure the Enhanced Kill Switch is on (rule 5). Turning it on
   takes a network reload, whose effect on the modem is untested, so the

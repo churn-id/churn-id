@@ -105,9 +105,10 @@ From development.md, "uci settings", and design.md, sections 7 and 10.
 
 | Claim | Status | Check | Tier |
 | --- | --- | --- | --- |
-| A tunnel is a `route_policy` section of type `rule` whose `via` names a network interface | verified for one WireGuard tunnel | `route_policy` has its `@default` section and such a `rule` section | 1, blocks |
+| A WireGuard tunnel is a `route_policy` section of type `rule` with `via_type='wireguard'` whose `via` names a network interface | verified for one tunnel | `route_policy` has its `@default` section and such a `rule` section | 1, blocks |
 | GL's `rule_process` sections are GL's policies for its own processes, not tunnels | inferred | None known | – |
-| The VPN check also works without a tunnel and with OpenVPN | open | Set up such a router | 4 |
+| The VPN check also works on a router without a tunnel | open | Set up such a router | 4 |
+| GL sets up an OpenVPN tunnel with routing and DNS rules like a WireGuard one's, so the app could accept it too | open | Set up an OpenVPN tunnel and compare its settings, rules and lookups | 4 |
 | The Enhanced Kill Switch is on when `route_policy.@default[0].enabled` is `0`, `network.vpn_to_main` is absent and `ip rule show` lists no rule at priority 9000 | values verified, meaning inferred | Read both settings and the rules | 1 |
 | With the switch on and a tunnel up, `ip rule show` lists the rules to table 1001 and to the main table, and the blackhole rules at priorities 9910 and 9920 | verified | Compare the rules with this list | 1, blocks |
 | The USB-C port `ecm0` is in `br-lan`, so the blackhole at priority 9920 covers a device on it | port verified, coverage inferred | `ip link show ecm0` | 1 |
