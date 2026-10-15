@@ -71,6 +71,10 @@ class FakeRouter : Shell {
             else -> 1
         }
 
+    /**
+     * The modem doesn't answer for a while after power-on (development.md, "After power-on"); 30 s is our guess, not
+     * a measurement. The swap sends no modem command before 120 s, so only a swap that sends one too early gets here.
+     */
     private val modemAnswers get() = uptime >= 30
 
     /** Power-on with the settings kept. */
@@ -184,6 +188,11 @@ class FakeRouter : Shell {
         return ok(JSONObject().put("data", data).put("channel_status", true).toString(1))
     }
 
+    /**
+     * GL's eSIM manager disables only the enabled profile the request names, and only while slot 2 is on the eSIM
+     * (inferred). The swap always meets both, so only a broken swap sends another request. That still gets `code` 200,
+     * as GL answered even when it logged an error, and the swap notices only that the profile stays enabled.
+     */
     private fun disable(request: JSONObject): Output {
         if (slot2 == Slot2.ESIM && request.getString("iccid") == esimProfile) {
             change("eSIM profile")
@@ -214,13 +223,19 @@ class FakeRouter : Shell {
         "network.modem_cpu.dds_id" -> ok("$activeSlot\n")
         "route_policy.@default[0].enabled" -> ok(if (killSwitchSet) "0\n" else "1\n")
         "network.vpn_to_main" -> if (killSwitchSet) Output(1, ByteArray(0), "") else ok("rule\n")
-        "network.wgclient1", "network.ovpnclient1" -> ok("interface\n")
+        "network.wgclient1" -> ok("interface\n")
+        // Only for ignoresATunnelThatIsNotWireGuard: with the interface present, only the WireGuard check can reject
+        // that tunnel.
+        "network.ovpnclient1" -> ok("interface\n")
         else -> Output(1, ByteArray(0), "")
     }
 
     /**
      * As our Mudi 7 showed it with one WireGuard tunnel, shortened. GL's process policies name the tunnel's interface
-     * too; they stay here without a tunnel, so that only the tunnel's own rule counts.
+     * too; they stay here without a tunnel or with another interface, so that seesARouterWithoutVpn,
+     * ignoresATunnelWithoutItsInterface and step1ChangesNothingWithoutAVpn fail if the app counts them as a tunnel.
+     * As on our router, they have no `via_type`, so the app skips them both for their section type and as not
+     * WireGuard; those tests fail only if both checks are gone.
      */
     private fun routePolicy() = buildString {
         appendLine("route_policy.global=policy")
