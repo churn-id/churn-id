@@ -172,6 +172,11 @@ The file, as `Router.firewallRules` writes it, has three chains:
 | `churn_route` | route, output, priority mangle | Gives packets that the router starts toward `rmnet_data*` without a mark in `0xf000` GL's tunnel mark `0x1000`, so the kernel routes them again, to the tunnel's table 1001, or to the blackhole at priority 9910 while the tunnel is down |
 | `churn_dns` | nat, output, priority -100 | Redirects lookups that the main dnsmasq sends to port 53 with the tunnel mark to port 2153, the tunnel's dnsmasq |
 
+The rules match only the SIM's interfaces. Devices reach the router as
+before, however they connect, and an uplink over Ethernet or Wi-Fi works
+as without the rules, so the router's own traffic goes past the VPN there
+(inferred from the rules).
+
 What the rules rely on, all verified on our Mudi 7:
 
 - WireGuard sends with the mark `0x8000` (`wg show all fwmark`), the same

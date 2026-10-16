@@ -10,7 +10,8 @@ IMEIs with every SIM swap: https://github.com/churn-id/churn-id
 
 Churn's firewall rules are in /etc/nftables.d/churn.nft. Over the SIM they
 let out only the VPN's own packets, and they send the router's own traffic
-through the VPN.
+through the VPN. They don't cover internet connections over Wi-Fi or the
+Ethernet port.
 
 A factory reset deletes this folder and the rules. Before one, and if you
 stop using Churn, write the factory IMEIs back over SSH:

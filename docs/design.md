@@ -362,6 +362,15 @@ Choices and their effects:
   earlier than at its last handshake. The router's clock resumes from its
   last write to `/etc`, which GL makes every minute, so the tunnel came up
   after a reboot (verified). At worst, it waits about a minute (inferred).
+- The rules cover only the SIM. Over another uplink, such as a hotel's
+  Wi-Fi or a cable to a hotel's network, everything works as it did
+  without them: devices' traffic goes through the VPN with the Enhanced
+  Kill Switch on, but the router's own traffic goes past it (inferred).
+  Such a network sees no SIM, but it does see the router's hardware
+  address, which never changes, so it ties the router to that stay with or
+  without the rules. Rule 3 already rules out the router's Wi-Fi. How
+  devices connect to the router, by Wi-Fi, the Ethernet port or USB-C,
+  makes no difference to the rules.
 - The rules leave GL's tunnel options alone. The tunnel's IP Masquerading
   must stay on, for devices' traffic and the router's own alike: without
   it, their packets would enter the tunnel with addresses the VPN server
@@ -549,6 +558,10 @@ Hardware, other:
 
 Design:
 
+- Should Churn's firewall rules also cover an uplink over Ethernet or
+  Wi-Fi? Over one, the router's own traffic goes past the VPN (section 7).
+  The rules would need the names of those uplinks' interfaces, which we
+  haven't seen yet.
 - Do real Mudi 7 serials fall in a narrow range? A derived serial far
   outside it could stand out. Serials are uniform over all 6 digits until
   this is known.
