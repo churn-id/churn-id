@@ -46,7 +46,7 @@ class FakeRouter : Shell {
     /** For a network reload that leaves the routing rules as they are. */
     var reloadIgnored = false
 
-    /** For a radio that comes on at a network reload. */
+    /** For a radio that comes on at a network or firewall reload. */
     var radioOnAtReload = false
 
     /** The network interface the VPN tunnel in GL's route policy uses, or null for no tunnel. */
@@ -57,6 +57,15 @@ class FakeRouter : Shell {
     var poweredOff = false
     val files = mutableMapOf<String, ByteArray>()
     var sysupgrade = "/etc/config/\n/etc/profile"
+
+    /** The user ID of GL's main DNS server, 453 on our Mudi 7. */
+    var dnsmasqUid = 453
+
+    /** For a firewall that can't load Churn's rules, such as a later fw4 or nftables that rejects one of them. */
+    var fw4Rejects = false
+
+    /** The chains of Churn's firewall rules that fw4 loaded at its last reload. */
+    val loadedChains = mutableSetOf<String>()
 
     val commands = mutableListOf<String>()
     val changes = mutableListOf<String>()
@@ -136,15 +145,44 @@ class FakeRouter : Shell {
             files[it.groupValues[1]] = input!!
             return ok("")
         }
-        if (command.startsWith("grep -qxF /etc/churn/ /etc/sysupgrade.conf")) {
-            val listed = "/etc/churn/" in sysupgrade.lines()
+        Regex("""grep -qxF (\S+) /etc/sysupgrade.conf.*""").matchEntire(command)?.let {
+            val line = it.groupValues[1]
+            val listed = line in sysupgrade.lines()
             if (command.contains("||") && !listed) {
-                sysupgrade += (if (sysupgrade.endsWith("\n")) "" else "\n") + "/etc/churn/\n"
+                sysupgrade += (if (sysupgrade.endsWith("\n")) "" else "\n") + "$line\n"
                 return ok("")
             }
             return Output(if (listed) 0 else 1, ByteArray(0), "")
         }
+        if (command == "id -u dnsmasq") return ok("$dnsmasqUid\n")
+        Regex("""umask 022 && cat > (\S+)\.new && mv \S+ \S+""").matchEntire(command)?.let {
+            files[it.groupValues[1]] = input!!
+            return ok("")
+        }
+        if (command == "fw4 reload") return fw4Reload()
+        if (command == "rm -f ${Router.FIREWALL} && fw4 reload") {
+            files.remove(Router.FIREWALL)
+            return fw4Reload()
+        }
+        if (command == FIREWALL_LOADED) {
+            val all = listOf("churn_sim", "churn_route", "churn_dns").all { it in loadedChains }
+            return Output(if (all) 0 else 1, ByteArray(0), "")
+        }
         error("Unexpected command: $command")
+    }
+
+    /**
+     * Loads the chains of Churn's rules file, all or, if [fw4Rejects], none: a reload that fails keeps the rules
+     * loaded before. Like GL's fw4, it warns about GL's own options.
+     */
+    private fun fw4Reload(): Output {
+        change("firewall")
+        if (radioOnAtReload) radioStuckOn = true
+        val file = files[Router.FIREWALL]?.toString(Charsets.UTF_8)
+        if (file != null && fw4Rejects) return Output(1, ByteArray(0), "Error: syntax error")
+        loadedChains.clear()
+        file?.let { loadedChains += Regex("""chain (\w+) \{""").findAll(it).map { m -> m.groupValues[1] } }
+        return Output(0, ByteArray(0), "[!] Section glblock option 'reload' is not supported by fw4")
     }
 
     private fun at(command: String): Output {
@@ -273,6 +311,8 @@ class FakeRouter : Shell {
             "{ uci -q delete 'network.vpn_to_main' || true; } && uci commit route_policy && uci commit network && " +
             "/etc/init.d/network reload"
         private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "curl")
+        private const val FIREWALL_LOADED = "nft list chain inet fw4 churn_sim >/dev/null && " +
+            "nft list chain inet fw4 churn_route >/dev/null && nft list chain inet fw4 churn_dns >/dev/null"
 
         /** The answer recorded on our Mudi 7, shortened. */
         val FEATURE_CONFIG = """

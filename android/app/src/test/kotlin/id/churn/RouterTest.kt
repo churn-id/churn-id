@@ -32,6 +32,7 @@ class RouterTest {
         assertFalse(router.scheduledReboot())
         assertTrue(router.enhancedKillSwitch())
         assertTrue(router.vpnSetUp())
+        assertFalse(router.firewallInPlace())
         assertEquals("8941000000000000015F", router.slot2Iccid())
         assertEquals("228010000000001", router.slot2Imsi())
     }
@@ -84,6 +85,51 @@ class RouterTest {
     }
 
     @Test
+    fun putsChurnsFirewallRulesInPlace() {
+        router.installFirewall()
+        assertTrue(router.firewallInPlace())
+        assertEquals(setOf("churn_sim", "churn_route", "churn_dns"), fake.loadedChains)
+        assertTrue("meta skuid 453 " in fake.files[Router.FIREWALL]!!.toString(Charsets.UTF_8))
+        assertEquals("/etc/config/\n/etc/profile\n${Router.FIREWALL}\n", fake.sysupgrade)
+        router.installFirewall()
+        assertEquals("/etc/config/\n/etc/profile\n${Router.FIREWALL}\n", fake.sysupgrade)
+    }
+
+    @Test
+    fun redirectsTheDnsServerByItsUserId() {
+        fake.dnsmasqUid = 460
+        router.installFirewall()
+        assertTrue("meta skuid 460 " in fake.files[Router.FIREWALL]!!.toString(Charsets.UTF_8))
+    }
+
+    @Test
+    fun seesRulesForAnotherUserId() {
+        // As after a firmware upgrade that kept the rules but gave the DNS server another user ID.
+        router.installFirewall()
+        fake.dnsmasqUid = 460
+        assertFalse(router.firewallInPlace())
+    }
+
+    @Test
+    fun seesRulesThatAreNotLoaded() {
+        fake.files[Router.FIREWALL] = Router.firewallRules(453).toByteArray()
+        assertFalse(router.firewallInPlace())
+    }
+
+    @Test
+    fun removesRulesTheFirewallDoesNotLoad() {
+        fake.fw4Rejects = true
+        try {
+            router.installFirewall()
+            throw AssertionError("Rules that didn't load were taken for in place")
+        } catch (e: RouterException) {
+            assertEquals(Problem.FIREWALL_NOT_LOADED, e.problem)
+        }
+        assertNull(fake.files[Router.FIREWALL])
+        assertFalse(router.firewallInPlace())
+    }
+
+    @Test
     fun readsTheLocationIdFromGlsSettings() {
         router.setSlot2(Slot2.ESIM)
         assertTrue(fake.commands.any { "\"location_id\":\"${FakeRouter.LOCATION_ID}\"" in it })
@@ -124,6 +170,17 @@ class RouterTest {
         } catch (e: RouterException) {
             assertEquals(Problem.NOT_SET_UP, e.problem)
         }
+    }
+
+    @Test
+    fun rewritesOnlyChurnFilesThatChanged() {
+        fun writes() = fake.commands.count { "cat > /etc/churn/restore.sh.new" in it }
+        router.updateChurnFile("restore.sh", "old".toByteArray(), executable = true)
+        router.updateChurnFile("restore.sh", "new".toByteArray(), executable = true)
+        assertArrayEquals("new".toByteArray(), fake.files["/etc/churn/restore.sh"])
+        assertEquals(2, writes())
+        router.updateChurnFile("restore.sh", "new".toByteArray(), executable = true)
+        assertEquals(2, writes())
     }
 
     @Test(expected = IllegalArgumentException::class)

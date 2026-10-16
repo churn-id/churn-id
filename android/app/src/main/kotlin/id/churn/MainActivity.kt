@@ -116,6 +116,12 @@ class MainActivity : Activity() {
                 confirm(getString(R.string.kill_switch_on_text)) { controller.turnKillSwitchOn() }
             }
         }
+        if (!status.firewall) {
+            warning(getString(R.string.note_firewall))
+            button(R.string.firewall_on) {
+                confirm(getString(R.string.firewall_on_text)) { controller.installFirewall() }
+            }
+        }
         button(R.string.swap) { controller.beginSwap() }
         button(R.string.refresh) { controller.refresh() }
         button(R.string.show_rules) { showRules() }

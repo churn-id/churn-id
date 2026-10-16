@@ -52,7 +52,11 @@ after it.
 ## 2. Architecture
 
 Everything runs in a native Kotlin app on the phone. No package is installed
-on the router; the app only keeps a few files there (section 5). blue-merle,
+on the router, and nothing of Churn's runs there. The app keeps a few files
+on the router (section 5), one of which adds rules to the router's firewall.
+We first meant to leave the router's own setup alone, but GL's firmware
+offers no setting that keeps the router's own traffic off the SIM, so the
+rules do it (section 7). blue-merle,
 an existing IMEI tool for GL.iNet routers, is neither installed nor forked;
 Churn reimplements what it needs.
 
@@ -176,19 +180,25 @@ profile's IMEIs.
 
 ## 5. Storage on the router
 
-Everything Churn keeps on the router is in `/etc/churn/`, readable by root
+Churn keeps its files on the router in `/etc/churn/`, readable by root
 only: a README explaining the folder, the secret, the factory IMEIs and a
-restore script. The script writes the factory IMEIs back; the app runs it
-on request, and it also works over a plain SSH session if the app is gone.
-The script ships inside the app and is copied to the router at setup, so the
-repository has no separate router component.
+restore script. The script writes the factory IMEIs back and removes
+Churn's firewall rules; the app runs it on request, and it also works over
+a plain SSH session if the app is gone. The only file outside the folder
+holds those firewall rules, `/etc/nftables.d/churn.nft` (section 7). The
+script and the rules ship inside the app and are copied to the router, so
+the repository has no separate router component.
 
 - **Kept across firmware upgrades.** OpenWrt's upgrade with "keep settings"
-  keeps only listed paths, so the app adds `/etc/churn/` to
-  `/etc/sysupgrade.conf`. Otherwise an upgrade would lose the secret and the
-  factory IMEIs, and setup would run again and could record already rewritten
-  IMEIs as the factory ones. A factory reset still deletes the folder; the
-  README says to restore the factory IMEIs first.
+  keeps only listed paths, so the app adds `/etc/churn/` and the rules file
+  to `/etc/sysupgrade.conf`. Otherwise an upgrade would lose the secret and
+  the factory IMEIs, and setup would run again and could record already
+  rewritten IMEIs as the factory ones. A factory reset still deletes both;
+  the README says to restore the factory IMEIs first.
+- **Updated with the app.** At every connection the app rewrites the README
+  and the restore script where they differ from its own copies, so a
+  router set up by an earlier version gets a script that undoes everything
+  the current version changes.
 - **Checked on every connection.** The app checks that the folder exists and
   that the IMEIs are the ones it last wrote. GL's firmware contains the
   command that writes IMEI 1, so an upgrade or reset might restore the
@@ -279,10 +289,11 @@ every boot:
    on. Only the eSIM's short bursts go out, with the throwaway IMEI and the
    near-generic test identity.
 3. Once the radio is off after the boot (section 6), the app turns GL's
-   Enhanced Kill Switch on if it is off, then switches slot 2 to SIM 2 in
-   airplane mode, reads the ICCID, writes the derived pair, saves and
-   verifies it. If it finds no usable card, it switches slot 2 back to the
-   built-in eSIM, so the card stays off at the next power-on.
+   Enhanced Kill Switch on if it is off and adds Churn's firewall rules if
+   they are missing, then switches slot 2 to SIM 2 in airplane mode, reads
+   the ICCID, writes the derived pair, saves and verifies it. If it finds
+   no usable card, it switches slot 2 back to the built-in eSIM, so the
+   card stays off at the next power-on.
 4. The user turns airplane mode off later, at another place and time.
 
 ### App behavior
@@ -300,13 +311,70 @@ every boot:
   is still there to reach the internet while the user sets one up. The
   app accepts only WireGuard tunnels, the only type we have tested.
 - Step 3 is the last step before the router goes online, so that is where
-  the app makes sure the Enhanced Kill Switch is on (rule 5). Turning it on
-  takes a network reload, whose effect on the modem is untested, so the
-  app does it while slot 2 is still on the built-in eSIM and then checks
-  that the radio is still off. It leaves each tunnel's own Kill Switch as
-  it is, since the Enhanced Kill Switch blocks that traffic too
-  (section 10). The router screen also warns while the switch is off and
-  offers to turn it on.
+  the app makes sure the Enhanced Kill Switch is on and Churn's firewall
+  rules are in place (rule 5). Both take a reload, of the network or of
+  the firewall, whose effect on the modem is untested, so the app does
+  them while slot 2 is still on the built-in eSIM and then checks that the
+  radio is still off. It leaves each tunnel's own Kill Switch as it is,
+  since the Enhanced Kill Switch blocks that traffic too (section 10). The
+  router screen also warns while the switch is off or the rules are
+  missing, and offers to fix either.
+
+### The router's own traffic
+
+GL's Enhanced Kill Switch blocks only devices' traffic. What the router
+sends itself went over the SIM, past the VPN: it synchronized its time
+and looked up names at Google's DNS servers. For about 2 seconds after it
+went online, it also passed devices' lookups on to Google's servers over
+the SIM (all verified; development.md, "uci settings"). GL's update check
+would take the same path (inferred). Any of this could link SIMs, and the
+lookups showed where devices were about to go. So the app adds firewall
+rules of its own, which GL's firewall loads along with GL's rules:
+
+- **Over the SIM, only WireGuard.** Nothing leaves over the SIM but the
+  router's WireGuard packets, which carry GL's mark `0x8000`. This also
+  holds for devices' traffic, with the Enhanced Kill Switch off and the
+  tunnel down (verified), and for IPv6 (inferred). Matching the mark
+  instead of the VPN server's address means that a new server needs no new
+  rules.
+- **The router's own traffic through the tunnel.** What the router itself
+  starts toward the SIM gets GL's tunnel mark `0x1000`, so it takes the
+  tunnel, or nowhere while the tunnel is down, as devices' traffic does.
+  Time sync, and anything else the router fetches, then reach the
+  internet from the VPN's address (verified for time sync and a test
+  request).
+- **Lookups at the VPN's DNS server.** GL's main DNS server, which answers
+  the router's own lookups and asks Google's servers, passes them through
+  the tunnel to GL's DNS server for the tunnel, which asks the VPN's
+  (verified).
+
+Choices and their effects:
+
+- A dropped packet stays dropped in Linux's firewall, whatever other rules
+  say. The app can't tell a user's change to GL's routing or firewall from
+  GL's own, so instead of checking them, it relies on its rules dropping
+  everything but WireGuard over the SIM.
+- The rules are a file that GL's firewall reads; nothing of Churn's runs on
+  the router. If GL's firewall can't load the file, the app removes it
+  again and stops the step, since a file the firewall rejects might keep
+  it from loading any rules at the next boot (inferred).
+- Time sync waits for the tunnel now, and the tunnel needs a clock no
+  earlier than at its last handshake. The router's clock resumes from its
+  last write to `/etc`, which GL makes every minute, so the tunnel came up
+  after a reboot (verified). At worst, it waits about a minute (inferred).
+- The rules cover only the SIM. Over another uplink, such as a hotel's
+  Wi-Fi or a cable to a hotel's network, everything works as it did
+  without them: devices' traffic goes through the VPN with the Enhanced
+  Kill Switch on, but the router's own traffic goes past it (inferred).
+  Such a network sees no SIM, but it does see the router's hardware
+  address, which never changes, so it ties the router to that stay with or
+  without the rules. Rule 3 already rules out the router's Wi-Fi. How
+  devices connect to the router, by Wi-Fi, the Ethernet port or USB-C,
+  makes no difference to the rules.
+- The rules leave GL's tunnel options alone. The tunnel's IP Masquerading
+  must stay on, for devices' traffic and the router's own alike: without
+  it, their packets would enter the tunnel with addresses the VPN server
+  doesn't accept (inferred).
 
 ## 8. Usage rules
 
@@ -378,9 +446,10 @@ Why:
    current SIM's IP address and logs it with the account, so one account
    links all SIMs, as the IMEI would. The carrier also sees the traffic,
    whose pattern can probably recognize the same devices across SIMs
-   (inferred). A VPN on the router covers every device behind it. It must
-   block traffic while it is down, or a boot or a dropped tunnel leaks
-   (section 10).
+   (inferred). A VPN on the router covers every device behind it, and
+   Churn's firewall rules send the router's own traffic through it too. It
+   must block traffic while it is down, or a boot or a dropped tunnel leaks
+   (sections 7 and 10).
 6. Running without the battery risks file-system corruption on power loss.
 7. A phone, or any other device with an active SIM, that travels with the
    router is seen at the same cells as each router SIM. Matching the two
@@ -478,29 +547,21 @@ Hardware, other:
   blocks all traffic that matches no tunnel. With only the Enhanced Kill
   Switch on, a website no longer loaded after we disconnected the tunnel,
   and the routing rules that block traffic stayed in place (verified).
-- How can the app keep lookups from devices off the SIM while the router
-  goes online? With the tunnel up, lookups from devices behind the router
-  went through the VPN, and with the tunnel disconnected by hand they got
-  no answer. But for about 2 seconds after the router came back from
-  airplane mode, it passed lookups from devices on to Google's servers
-  over the SIM (all verified). Step 4 of a swap goes online this way, so
-  rule 5 doesn't hold there yet.
-- What does the router send of its own past the VPN? The rules that
-  block traffic with the Enhanced Kill Switch on match only traffic from
-  `br-lan` and traffic marked for a tunnel, and the main routing table
-  sends the rest over the SIM, so neither kill switch blocks what the
-  router sends itself (inferred from `ip rule` and `ip route`). The router
-  needs this to reach the VPN server. Over the SIM it also synchronized
-  its time with its time servers, looked up one of their names at Google
-  when it went online, and GL's connection check pinged four public
-  addresses once a second (verified). Do these, or the VPN server, which
-  is the same on every SIM, link the SIMs?
+  Churn's firewall rules block what would leave over the SIM in either
+  case, once GL's firewall has loaded them (section 7). Does it load them
+  before the modem goes online at boot?
+- Does the VPN server, which is the same on every SIM, link the SIMs? Over
+  the SIM the router sends nothing else (section 7).
 - Can the app give the router's Wi-Fi a new network name and hardware
   address at every swap? OpenWrt has a setting for each; GL's firmware
   may override them.
 
 Design:
 
+- Should Churn's firewall rules also cover an uplink over Ethernet or
+  Wi-Fi? Over one, the router's own traffic goes past the VPN (section 7).
+  The rules would need the names of those uplinks' interfaces, which we
+  haven't seen yet.
 - Do real Mudi 7 serials fall in a narrow range? A derived serial far
   outside it could stand out. Serials are uniform over all 6 digits until
   this is known.
@@ -516,8 +577,8 @@ Legal and distribution:
 [blue-merle](https://github.com/srlabs/blue-merle) and its fork
 [blue-merle v2](https://github.com/WSchlesner/blue-merle-v2) rewrite the
 IMEI on GL.iNet routers and were the starting point for Churn. Churn differs
-in ways that follow from the sections above: nothing is installed on the
-router, the derivation is keyed, derived IMEIs keep the router's own TAC
+in ways that follow from the sections above: no package is installed on
+the router, the derivation is keyed, derived IMEIs keep the router's own TAC
 instead of a pool of other devices' TACs, and every swap is a guided
 procedure that teaches the usage rules. blue-merle v2 was also the source
 for the command that writes IMEI 2.

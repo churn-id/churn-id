@@ -118,16 +118,27 @@ From development.md, "uci settings", and design.md, sections 7 and 10.
 
 ## DNS and the router's own traffic
 
-From development.md, "uci settings", and design.md, section 10.
+From development.md, "uci settings" and "Churn's firewall rules", and
+design.md, sections 7 and 10.
 
 | Claim | Status | Check | Tier |
 | --- | --- | --- | --- |
 | The main dnsmasq listens on port 53 and asks the cellular interface's servers; the tunnel's own one listens on port 2153 and asks the VPN's DNS server | verified | The listening ports and the servers in their settings | 1 |
 | GL's nftables rules redirect devices' lookups marked for the tunnel to port 2153 and drop lookups sent past the router without the mark `0x8000` | verified | The rules are present | 1 |
 | With the tunnel up, devices' lookups go through the VPN; with it down, they get no answer | verified | A lookup of a made-up name from a device | 4 |
-| For about 2 s after airplane mode goes off, the main dnsmasq passes devices' lookups on over the SIM | verified | Watch what leaves over the cellular interface after airplane mode goes off | 4 |
-| What the router sends itself goes over the SIM, past both kill switches: the rule at priority 1 points to an empty table 16800, and the main table's default route goes over `rmnet_data0` | rules verified, traffic inferred | `ip rule show` and `ip route show` | 1 |
-| Over the SIM the router itself reaches the VPN server and its time servers, looks up one time server's name at Google when it goes online, and GL's connection check pings four public addresses | verified | The enabled services and their targets are unchanged (tier 1); watch the cellular interface (tier 4) | 1, 4 |
+| Without Churn's firewall rules, for about 2 s after airplane mode goes off, the main dnsmasq passes devices' lookups on over the SIM | verified | Watch what leaves over the cellular interface after airplane mode goes off | 4 |
+| Without Churn's firewall rules, what the router sends itself goes over the SIM, past both kill switches: the rule at priority 1 points to an empty table 16800, and the main table's default route goes over `rmnet_data0` | rules verified, traffic inferred | `ip rule show` and `ip route show` | 1 |
+| Without Churn's firewall rules, the router itself reaches the VPN server and its time servers over the SIM, looks up one time server's name at Google when it goes online, and GL's connection check pings four public addresses | verified | The enabled services and their targets are unchanged (tier 1); watch the cellular interface (tier 4) | 1, 4 |
+| GL's firewall loads `/etc/nftables.d/churn.nft` into its table `inet fw4`, and `fw4 reload` exits with 0 despite its warnings | verified, and checked by the app | All three chains are listed after a reload | 1, blocks |
+| The SIM's data interfaces match `rmnet_data*`, online and in airplane mode | verified | The interfaces in `/sys/class/net` and the one `ifstatus modem_cpu` names | 1, blocks |
+| WireGuard sends with the mark `0x8000`, and on output no other packets carry it | verified | `wg show all fwmark` (tier 1); the rules' counters across airplane mode off and on (tier 4) | 1, 4 |
+| The main dnsmasq runs as the user ID the rules name | verified, and checked by the app | `id -u dnsmasq` | 1 |
+| With the rules, nothing but WireGuard leaves over the SIM, from devices too, also with the Enhanced Kill Switch off and the tunnel down | verified for devices with the switch off and the tunnel down; going online inferred | The drop counter grows and a device's website fails (tier 4); watch the cellular interface after airplane mode goes off (tier 4) | 4 |
+| With the rules, the router's own traffic leaves through the tunnel from the VPN's address, and its lookups go to the VPN's DNS server | verified | A request and a lookup from the router, watched on the tunnel interface | 4 |
+| With the rules, the tunnel comes up after a reboot and after airplane mode off and on, and the clock then syncs through it | verified | Reboot and turn airplane mode off and on; the handshake, the clock and a website | 4 |
+| With the rules, GL still treats the cellular connection as connected, though its connection check can't ping over the SIM | verified with an earlier version of the rules | GL's connection status after airplane mode goes off | 4 |
+| With the rules, devices work alike over Wi-Fi, the Ethernet port and USB-C, and an uplink over Ethernet or Wi-Fi works as without the rules | inferred | A website from a device on each; the router's own traffic with an Ethernet uplink | 4 |
+| `fw4 reload` neither drops the cable nor turns the radio on | open | The connection and `+CFUN: 4` across a reload (tier 2); the RF meter (tier 4) | 2, 4 |
 
 ## Slot switching
 
@@ -185,10 +196,12 @@ From development.md, "Files on the router", and design.md, section 5.
 | --- | --- | --- | --- |
 | `/etc/churn/` and its files have the modes and contents development.md lists, and `restore.sh` is the app's copy | contents verified by the app, modes inferred | Modes, sizes, and `restore.sh` compared with the app's copy | 1, blocks |
 | `/etc/churn/` is listed in `/etc/sysupgrade.conf` | verified by the app | The line is there | 1, blocks |
+| With the firewall rules, `/etc/nftables.d/churn.nft` is listed in `/etc/sysupgrade.conf` | inferred | The line is there | 1 |
 | GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | The IMEIs equal the ones the app last wrote, at every connection (tier 1, which the app already does) and after an upgrade (tier 3) | 1, 3 |
-| A firmware upgrade with "keep settings" keeps `/etc/churn/` | open | Upgrade, then check the folder | 3 |
+| A firmware upgrade with "keep settings" keeps `/etc/churn/` and Churn's firewall rules | open | Upgrade, then check the folder and the rules | 3 |
 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
-| A factory reset deletes `/etc/churn/` | inferred | Factory reset. It also resets GL's settings, so it is the last test to run | 4 |
+| `restore.sh` then removes Churn's firewall rules and their line in `/etc/sysupgrade.conf` | inferred | Run it, then check that the chains, the file and the line are gone (tier 2) | 2 |
+| A factory reset deletes `/etc/churn/` and Churn's firewall rules | inferred | Factory reset. It also resets GL's settings, so it is the last test to run | 4 |
 
 ## Beyond the router
 

@@ -20,7 +20,7 @@ enum class Step {
 /** What a step reports as it goes. */
 enum class Progress {
     AIRPLANE_MODE_ON, RADIO_OFF, THROWAWAY_IMEIS, SLOT2_ON_ESIM, NO_PROFILE, PROFILE_DISABLED, WAITING_FOR_START,
-    KILL_SWITCH_ON, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, NEW_IMEIS,
+    KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, NEW_IMEIS,
 }
 
 /**
@@ -70,9 +70,11 @@ class Swap(
             throw RouterException(Problem.NOT_STARTED)
         }
         waitForRadioOff()
-        // Step 4 lets the router go online, so the switch must be on by then (rule 5). This comes while slot 2 is
-        // still on the eSIM, in case the network reload it may take turns the radio on.
+        // Step 4 lets the router go online, so the Enhanced Kill Switch and Churn's firewall rules must be in place
+        // by then (rule 5). Turning the switch on takes a network reload, and adding the rules a firewall reload.
+        // Either might turn the radio on, so both come while slot 2 is still on the eSIM.
         turnKillSwitchOn()
+        putFirewallInPlace()
         val pair = try {
             writeCardsImeis(factory, secret)
         } catch (e: RouterException) {
@@ -135,6 +137,15 @@ class Swap(
             checkRadioOff()
         }
         report(Progress.KILL_SWITCH_ON)
+    }
+
+    /** Puts Churn's firewall rules in place if they aren't, and checks that the radio is still off afterwards. */
+    private fun putFirewallInPlace() {
+        if (!router.firewallInPlace()) {
+            router.installFirewall()
+            checkRadioOff()
+        }
+        report(Progress.FIREWALL)
     }
 
     private fun checkRadioOff() {

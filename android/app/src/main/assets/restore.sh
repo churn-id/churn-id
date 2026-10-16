@@ -1,10 +1,12 @@
 #!/bin/sh
-# Churn: writes the router's factory IMEIs back, from /etc/churn/factory.
+# Churn: writes the router's factory IMEIs back, from /etc/churn/factory,
+# and removes Churn's firewall rules.
 # Run it before a factory reset, or to stop using Churn:
 #   sh /etc/churn/restore.sh
 # It turns airplane mode on first; turn it off when you want to go online.
 
 DIR=/etc/churn
+FIREWALL=/etc/nftables.d/churn.nft
 
 fail() {
 	echo "$1" >&2
@@ -44,4 +46,15 @@ write 7 "$imei1" || fail "Writing IMEI 1 failed."
 write 11 "$imei2" || fail "Writing IMEI 2 failed."
 # Without it, a reboot soon after the write brings the earlier IMEIs back.
 at 'AT+QPRTPARA=1' | grep -q '^OK' || fail "The IMEIs are written but not saved, so a reboot may undo them."
-echo "The factory IMEIs are back: IMEI 1 $imei1, IMEI 2 $imei2. Airplane mode is on."
+
+# The firewall rules go last, so that a restore that stops earlier keeps them.
+# Airplane mode is on, so nothing goes out over the SIM once they are gone.
+# The chain test covers a reload that failed after the file was gone.
+if [ -e "$FIREWALL" ] || nft list chain inet fw4 churn_sim >/dev/null 2>&1; then
+	# fw4 warns about GL's own options at every reload, so only its exit status counts.
+	rm -f "$FIREWALL" && fw4 reload >/dev/null 2>&1 ||
+		fail "The factory IMEIs are back, but removing Churn's firewall rules failed."
+fi
+sed -i '/^\/etc\/nftables\.d\/churn\.nft$/d' /etc/sysupgrade.conf ||
+	fail "The factory IMEIs are back, but /etc/sysupgrade.conf still lists $FIREWALL."
+echo "The factory IMEIs are back: IMEI 1 $imei1, IMEI 2 $imei2. Churn's firewall rules are removed. Airplane mode is on."
