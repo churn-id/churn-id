@@ -70,8 +70,9 @@ class Swap(
             throw RouterException(Problem.NOT_STARTED)
         }
         waitForRadioOff()
-        // Step 4 lets the router go online, so the switch and Churn's firewall rules must be in place by then
-        // (rule 5). This comes while slot 2 is still on the eSIM, in case a reload they take turns the radio on.
+        // Step 4 lets the router go online, so the Enhanced Kill Switch and Churn's firewall rules must be in place
+        // by then (rule 5). Turning the switch on takes a network reload, and adding the rules a firewall reload.
+        // Either might turn the radio on, so both come while slot 2 is still on the eSIM.
         turnKillSwitchOn()
         putFirewallInPlace()
         val pair = try {
