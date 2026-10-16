@@ -188,6 +188,24 @@ From development.md, "After power-on", and design.md, section 6.
 | The modem can tell whether slot 1 holds a card | open | Read the modem's SIM status with a card in slot 1 | 4 |
 | The eSIM's test-network identity is the same, or nearly, on every unit | inferred | None: it needs a second router | – |
 
+## SIM history
+
+From development.md, "Clearing the SIM history", and design.md, section 7.
+
+| Claim | Status | Check | Tier |
+| --- | --- | --- | --- |
+| GL writes its system log to the file `system.@system[0].log_file` names, and the log pairs cards' ICCIDs with their IMSIs and names the cells they used | verified | The setting and a running `logread -f -F` (tier 1); the log's lines (tier 4) | 1, 4 |
+| Deleting `log_file`, committing and reloading the log service ends the `logread` that writes the file | verified | No `logread -f` process afterwards | 1 |
+| Setting `log_file` back and reloading the log service makes `logread` write the file again | open | Run `restore.sh`, check the process and the file, then clear again | 2 |
+| GL's card files and the eSIM manager's records have the formats development.md lists | verified | Both card files parse, and every member name and `iccid` in them is an ICCID | 1 |
+| GL doesn't add back pruned cards, also not when airplane mode goes off and on | verified | The card files after airplane mode off and on | 4 |
+| GL copes with card files that name no card until it records the new one | inferred | Step 3 with a new card, then airplane mode off | 4 |
+| A card used again after a clearing gets GL's defaults, and GL's search finds its APN | verified with the built-in eSIM's profile | Use a cleared card again | 4 |
+| After a clearing, the raw partition holds no IMSI and only a few bare ICCIDs of earlier cards | verified | Count the cards' numbers on the raw partition and in its files | 2 |
+| GL's files stay valid while the overwrite fills the partition | verified once | GL's JSON files parse after a clearing | 2 |
+| The SSH connection stays open through the overwrite, which prints nothing for minutes | inferred | Clear the history from the router screen | 2 |
+| GL writes files in `/etc` every minute, so with the log's file off, the clock after a power-on still resumes from about the time of the power-off | verified with the SIM online | The files written in `/etc` within a minute, in airplane mode too | 1 |
+
 ## Churn's files and firmware upgrades
 
 From development.md, "Files on the router", and design.md, section 5.
@@ -200,6 +218,7 @@ From development.md, "Files on the router", and design.md, section 5.
 | GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | The IMEIs equal the ones the app last wrote, at every connection (tier 1, which the app already does) and after an upgrade (tier 3) | 1, 3 |
 | A firmware upgrade with "keep settings" keeps `/etc/churn/` and Churn's firewall rules | open | Upgrade, then check the folder and the rules | 3 |
 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
+| `restore.sh` then sets GL's `log_file` back from Churn's copy, and deletes the copy | inferred | Run it, then check the setting and the copy (tier 2) | 2 |
 | `restore.sh` then removes Churn's firewall rules and their line in `/etc/sysupgrade.conf` | inferred | Run it, then check that the chains, the file and the line are gone (tier 2) | 2 |
 | A factory reset deletes `/etc/churn/` and Churn's firewall rules | inferred | Factory reset. It also resets GL's settings, so it is the last test to run | 4 |
 

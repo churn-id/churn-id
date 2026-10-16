@@ -1,5 +1,6 @@
 package id.churn
 
+import org.json.JSONArray
 import org.json.JSONObject
 
 /** Runs commands with the router's shell. */
@@ -170,6 +171,99 @@ class Router(private val shell: Shell) {
         if (!firewallInPlace()) throw unexpected(FIREWALL)
     }
 
+    /** The ICCID GL recorded for the active card, as GL stores it, or null if it recorded none. */
+    fun currentCardIccid() = uci(MODEM_ICCID)?.takeIf { it.matches(Regex("[0-9A-Fa-f]{18,20}")) }
+
+    /** Whether GL's system log to the flash is off, so no new SIM details are written to the flash. */
+    fun flashLogOff() = uci(LOG_FILE) == null
+
+    /**
+     * Removes the record GL keeps of past SIMs on the flash: it turns GL's system log to the flash off (saving the
+     * original setting first, so [restoreFactoryImeis] can put it back), deletes the log files, keeps only the card
+     * with [keepIccid] in GL's card files and the eSIM manager's records, empties the eSIM log, and overwrites the
+     * free space so that deleted copies can't be read from the raw partition. [keepIccid] is a card's ICCID as the
+     * modem gives it, or null to keep none; GL records the current card again when it next goes online.
+     * development.md, "Clearing the SIM history", explains what and why.
+     */
+    fun clearHistory(keepIccid: String?) {
+        val keep = keepIccid?.let(::iccidKey)
+        turnFlashLogOff()
+        run("rm -f $SYS_LOG $SYS_LOG.old").check("delete the system log")
+        pruneSimMap("$CELLULAR/sim_map.json", keep)
+        pruneApnHistory("$CELLULAR/history_apn_database.json", keep)
+        pruneEsimRecords(keep)
+        overwriteFreeSpace()
+    }
+
+    /** Turns GL's flash system log off and saves its original setting, unless it is already off. */
+    private fun turnFlashLogOff() {
+        val current = uci(LOG_FILE) ?: return
+        // Saved once, so restore.sh can turn the log back on as it was.
+        if (readFile("$CHURN/log_file") == null) writeChurnFile("log_file", (current + "\n").toByteArray())
+        run("uci delete ${quote(LOG_FILE)} && uci commit system").check("turn the system log off")
+        // Stops GL's logread from writing the file; an open file would keep its data on the flash after deletion.
+        run("/etc/init.d/log reload").check("reload the log service")
+    }
+
+    /** Keeps only the object named by [keep] in GL's `sim_map.json`, which holds one object per ICCID. */
+    private fun pruneSimMap(path: String, keep: String?) {
+        val root = readJson(path) ?: return
+        var removed = false
+        for (key in root.keys().asSequence().toList()) {
+            if (keep == null || iccidKey(key) != keep) {
+                root.remove(key)
+                removed = true
+            }
+        }
+        if (removed) writeFile(path, pretty(root))
+    }
+
+    /** Keeps only the entry named by [keep] in the `apns` list of GL's `history_apn_database.json`. */
+    private fun pruneApnHistory(path: String, keep: String?) {
+        val root = readJson(path) ?: return
+        val apns = root.optJSONArray("apns") ?: return
+        val kept = JSONArray()
+        for (i in 0 until apns.length()) {
+            val entry = apns.optJSONObject(i) ?: continue
+            if (keep != null && iccidKey(entry.optString("iccid")) == keep) kept.put(entry)
+        }
+        if (kept.length() != apns.length()) {
+            root.put("apns", kept)
+            writeFile(path, pretty(root))
+        }
+    }
+
+    /** Deletes the eSIM manager's record files that don't name [keep], and empties its log. */
+    private fun pruneEsimRecords(keep: String?) {
+        // GL names each file by the chip's 32-digit id; other names are left alone rather than passed to the shell.
+        val files = run("find $ESIM/db -maxdepth 1 -type f 2>/dev/null").text.lines()
+            .filter { it.matches(Regex("$ESIM/db/[A-Za-z0-9._-]+")) }
+        for (file in files) {
+            val content = readFile(file)?.toString(Charsets.UTF_8) ?: continue
+            if (keep == null || !content.contains(keep)) run("rm -f $file").check("remove an eSIM record")
+        }
+        if (readFile("$ESIM/log.txt") != null) run(": > $ESIM/log.txt").check("empty the eSIM log")
+    }
+
+    /**
+     * Overwrites the overlay's free space with zeros, so that copies of deleted files left in it can't be read from
+     * the raw partition. Writes in small parts, each flushed to the flash, so the partition is full only briefly.
+     * On our Mudi 7 it took about 3 minutes; the timeout allows for a slower flash.
+     */
+    private fun overwriteFreeSpace() = run(OVERWRITE_FREE_SPACE, timeoutSeconds = 900).check("overwrite the free space")
+
+    private fun readJson(path: String) =
+        readFile(path)?.let { runCatching { JSONObject(it.toString(Charsets.UTF_8)) }.getOrNull() }
+
+    /** Writes [content] to [path], which only root can change. Used for GL's own files, not Churn's folder. */
+    private fun writeFile(path: String, content: ByteArray) =
+        run("umask 022 && cat > $path.new && mv $path.new $path", content).check(path)
+
+    /** An ICCID without the trailing `F` the modem pads a 19-digit one with, for comparing the forms GL stores. */
+    private fun iccidKey(iccid: String) = iccid.trim().trimEnd('F', 'f')
+
+    private fun pretty(json: JSONObject) = (json.toString(2) + "\n").toByteArray()
+
     /** Starts the shutdown. The router may close the connection before it answers. */
     fun powerOff() {
         runCatching { shell.run("poweroff", null, 15) }
@@ -328,6 +422,31 @@ class Router(private val shell: Shell) {
         private const val LOCK = "/var/lock/churn.lock"
         private const val SYSUPGRADE = "/etc/sysupgrade.conf"
         private const val ESIM_API = "http://127.0.0.1:3456/sdk/v1"
+
+        /** GL's uci setting that names the flash file its system log is written to. */
+        private const val LOG_FILE = "system.@system[0].log_file"
+
+        /** GL's uci value for the ICCID of the active card. */
+        private const val MODEM_ICCID = "network.modem_cpu.iccid"
+
+        private const val SYS_LOG = "/etc/sys_log"
+        private const val CELLULAR = "/etc/config/cellular"
+        private const val ESIM = "/root/esim"
+
+        /**
+         * Fills the overlay's free space with zeros in 64 MB parts, each flushed to the flash before the next, then
+         * frees it again. The partition is 2.9 GB, so `dd` stops at a full partition after at most 47 parts. A part
+         * left by an earlier run that stopped is overwritten or deleted with the rest.
+         */
+        private val OVERWRITE_FREE_SPACE = """
+            i=0
+            while [ "${'$'}i" -lt 256 ] && dd if=/dev/zero of=/overlay/churn-fill.${'$'}i bs=1M count=64 2>/dev/null; do
+            	sync
+            	i=${'$'}((i + 1))
+            done
+            rm -f /overlay/churn-fill.*
+            sync
+        """.trimIndent()
 
         /**
          * Churn's firewall rules, for GL's main DNS server running as user [dnsmasqUid]. development.md, "Churn's
