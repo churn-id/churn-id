@@ -61,7 +61,7 @@ class Router(private val shell: Shell) {
     /** The modem's radio state, `+CFUN:`: 1 on, 4 off. */
     fun radio() = at("AT+CFUN?").after("+CFUN:")?.toIntOrNull() ?: throw unexpected("AT+CFUN?")
 
-    fun imeis() = ImeiPair(readImei(7), readImei(11))
+    fun imeis() = ImeiPair(readImei(item = 7), readImei(item = 11))
 
     /** Writes both IMEIs, saves them to the modem's flash and reads them back. */
     fun writeImeis(pair: ImeiPair) {
@@ -266,7 +266,7 @@ class Router(private val shell: Shell) {
 
     /** Starts the shutdown. The router may close the connection before it answers. */
     fun powerOff() {
-        runCatching { shell.run("poweroff", null, 15) }
+        runCatching { shell.run("poweroff", input = null, timeoutSeconds = 15) }
     }
 
     fun readChurnFolder(): ChurnFolder {

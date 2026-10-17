@@ -99,7 +99,7 @@ class RouterTest {
     @Test
     fun clearsEveryCardWithoutACurrentOne() {
         fake.recordCards(OLD_CARD, CURRENT_CARD)
-        router.clearHistory(null)
+        router.clearHistory(keepIccid = null)
         assertEquals(emptySet<String>(), fake.cardsInSimMap)
         assertEquals(emptySet<String>(), fake.cardsInApnHistory)
         assertEquals(emptySet<String>(), fake.cardsInEsimRecords)
