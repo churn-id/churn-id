@@ -49,6 +49,11 @@ is in [docs/development.md](docs/development.md).
 
 - Keep code and configuration as short as possible; don't spell out
   settings that only restate a default.
+- In Kotlin, name `Boolean` arguments, number and `null` literals, and the
+  arguments of a call that takes several of the same primitive type, unless
+  the code already says what each value is, as in `setAirplaneMode(true)`.
+  Pull requests are reviewed on GitHub, whose diffs show no parameter hints,
+  and swapped arguments of the same type still compile.
 - Pin GitHub Actions to full commit SHAs with the version as a comment.
 - Signing secrets belong in the `release` environment, never in repository
   secrets.

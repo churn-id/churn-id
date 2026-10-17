@@ -20,7 +20,7 @@ enum class Step {
 /** What a step reports as it goes. */
 enum class Progress {
     AIRPLANE_MODE_ON, RADIO_OFF, THROWAWAY_IMEIS, SLOT2_ON_ESIM, NO_PROFILE, PROFILE_DISABLED, WAITING_FOR_START,
-    KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, NEW_IMEIS,
+    KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, NEW_IMEIS, CLEARING_HISTORY,
 }
 
 /**
@@ -75,7 +75,7 @@ class Swap(
         // Either might turn the radio on, so both come while slot 2 is still on the eSIM.
         turnKillSwitchOn()
         putFirewallInPlace()
-        val pair = try {
+        val (pair, iccid) = try {
             writeCardsImeis(factory, secret)
         } catch (e: RouterException) {
             // Back to the eSIM, so that the card stays off if the router is switched off and on before the next try.
@@ -84,11 +84,16 @@ class Swap(
             throw e
         }
         report(Progress.NEW_IMEIS)
+        // Only now that the new card is in use: it is the one to keep, and the old cards' records go.
+        report(Progress.CLEARING_HISTORY)
+        router.clearHistory(iccid)
+        // The clearing reloads GL's log service and fills the flash for a moment.
+        checkRadioOff()
         return pair
     }
 
-    /** Switches slot 2 to the SIM 2 tray and gives the card there its pair. */
-    private fun writeCardsImeis(factory: ImeiPair, secret: ByteArray): ImeiPair {
+    /** Switches slot 2 to the SIM 2 tray, gives the card there its pair, and returns the pair with the card's ICCID. */
+    private fun writeCardsImeis(factory: ImeiPair, secret: ByteArray): Pair<ImeiPair, String> {
         setSlot2(Slot2.SIM2)
         report(Progress.SLOT2_ON_SIM2)
         if (router.activeSlot() != "2") {
@@ -105,8 +110,8 @@ class Swap(
             raw = router.slot2Iccid()?.takeIf { it != Router.PLACEHOLDER_ICCID }
             raw != null
         }
-        val iccid = Imei.iccidDigits(raw ?: throw RouterException(Problem.NO_CARD))
-            ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+ICCID")
+        val cardIccid = raw ?: throw RouterException(Problem.NO_CARD)
+        val iccid = Imei.iccidDigits(cardIccid) ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+ICCID")
         // A card without an enabled profile might show an ICCID of its own, which would give every such card
         // the same IMEIs. Only a card with a real network's IMSI goes on.
         val imsi = router.slot2Imsi()
@@ -115,7 +120,7 @@ class Swap(
         val pair = Imei.derive(secret, iccid, factory)
         router.writeImeis(pair)
         checkRadioOff()
-        return pair
+        return pair to cardIccid
     }
 
     private fun turnAirplaneModeOn() {

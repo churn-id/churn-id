@@ -59,7 +59,7 @@
 
     <!-- Setup -->
     <string name="setup_title">Set up the router</string>
-    <string name="setup_text">Churn keeps a folder on the router, /etc/churn/, with a random secret, the router\'s IMEIs as its factory IMEIs, and a script that writes them back. A firmware upgrade that keeps settings keeps the folder; a factory reset deletes it.\n\nThe router\'s IMEIs are:\nIMEI 1: %1$s\nIMEI 2: %2$s</string>
+    <string name="setup_text">Churn keeps a folder on the router, /etc/churn/, with a random secret, the router\'s IMEIs as its factory IMEIs, and a script that writes them back. A firmware upgrade that keeps settings keeps the folder; a factory reset deletes it.\n\nChurn also keeps GL\'s system log, which records each SIM card\'s ICCID and IMSI and the cells it used, in memory only, so it is gone at every power-off. It deletes the saved log, removes all but the current card from GL\'s records and overwrites the router\'s free storage. This takes a few minutes.\n\nThe router\'s IMEIs are:\nIMEI 1: %1$s\nIMEI 2: %2$s</string>
     <string name="setup_warning_tac">These IMEIs don\'t have the Mudi 7\'s type allocation code, so they may already have been rewritten, for example by blue-merle. Churn would restore exactly these.</string>
     <string name="setup_warning_check_digit">An IMEI has a wrong check digit, so it may already have been rewritten.</string>
     <string name="setup_warning_written">These are IMEIs Churn wrote, but Churn\'s folder on the router is gone, for example after a firmware upgrade. Setting up again would record them as the factory IMEIs.</string>
@@ -81,22 +81,26 @@
     <string name="note_scheduled_reboot">GL\'s scheduled reboot is on. Turn it off in GL\'s web interface: a reboot is a power-on, so with a SIM inside it registers wherever it happens.</string>
     <string name="note_no_vpn">No WireGuard VPN is set up on the router. Set one up in GL\'s web interface before you swap a SIM (rule 5). Churn doesn\'t support other VPN types yet.</string>
     <string name="note_kill_switch">The Enhanced Kill Switch is off, so traffic can bypass the VPN (rule 5).</string>
-    <string name="note_restored">The factory IMEIs are back, Churn\'s firewall rules are removed, and airplane mode is on.</string>
+    <string name="note_restored">The factory IMEIs are back, Churn\'s firewall rules are removed, GL\'s setting for saving the system log is as before, and airplane mode is on.</string>
     <string name="kill_switch_on">Turn the Enhanced Kill Switch on</string>
     <string name="kill_switch_on_text">Churn turns GL\'s Enhanced Kill Switch on. Devices behind the router then reach the internet only through the VPN, and not at all while it is down.</string>
     <string name="note_firewall">Churn\'s firewall rules aren\'t on the router, so the router\'s own traffic can bypass the VPN (rule 5).</string>
     <string name="firewall_on">Add Churn\'s firewall rules</string>
     <string name="firewall_on_text">Churn adds firewall rules to the router. Over the SIM, only the VPN\'s own traffic then goes out. Everything else that would use the SIM, the router\'s own traffic included, goes through the VPN, and nowhere while it is down. The router also looks up names at the VPN\'s DNS server. The rules cover only the SIM, not an internet connection over Wi-Fi or the Ethernet port.\n\nRestoring the factory IMEIs removes the rules.</string>
+    <string name="note_flash_log">GL saves its system log on the router, with each SIM card\'s ICCID and IMSI and the cells it used. The log links your cards to each other and to places.</string>
+    <string name="clear_history">Clear the SIM history</string>
+    <string name="clear_history_text">Churn keeps GL\'s system log in memory only, deletes the saved log, removes all but the current card from GL\'s records and overwrites the router\'s free storage, so that what it deleted can\'t be read back. This takes a few minutes.\n\nA few copies of earlier cards\' ICCIDs can remain on the router\'s storage, without IMSIs or places. Restoring the factory IMEIs puts back GL\'s setting for saving the system log.</string>
     <string name="swap">Swap the SIM card</string>
     <string name="show_rules">Rules</string>
     <string name="refresh">Refresh</string>
     <string name="restore">Restore factory IMEIs</string>
-    <string name="restore_text">Churn turns airplane mode on, writes the factory IMEIs back and removes its firewall rules:\n\nIMEI 1: %1$s\nIMEI 2: %2$s</string>
+    <string name="restore_text">Churn turns airplane mode on, writes the factory IMEIs back, removes its firewall rules and puts back GL\'s setting for saving the system log:\n\nIMEI 1: %1$s\nIMEI 2: %2$s</string>
     <string name="forget">Forget this router</string>
     <string name="forget_text">Churn forgets the router\'s key and password. Its folder on the router stays.</string>
     <string name="restoring">Restoring the factory IMEIs</string>
     <string name="turning_kill_switch_on">Turning the Enhanced Kill Switch on</string>
     <string name="installing_firewall">Adding Churn\'s firewall rules</string>
+    <string name="clearing_history">Clearing the SIM history</string>
     <string name="setting_up">Setting up the router</string>
     <string name="reading">Reading the router\'s state</string>
 
@@ -110,7 +114,7 @@
     <string name="step2_text">1. Wait until the router is off, then unplug the cable.\n2. Take out the battery and replace the card in the SIM 2 tray with the new one. Leave the SIM 1 tray empty.\n3. Put the battery back.\n4. Go to a place you don\'t return to, away from where you used the old card.\n5. Switch the router on, connect the cable and tap Continue.\n\nWhy: at power-on only the built-in eSIM\'s short bursts go out, with the throwaway IMEIs and a test identity that is likely the same on every Mudi 7.\n\nIf you keep the old card after all, Continue gives it back its own IMEIs.</string>
     <string name="step2_continue">Continue</string>
     <string name="step3_title">Give the new card its IMEIs</string>
-    <string name="step3_text">Churn waits until the router\'s radio is off, turns the Enhanced Kill Switch on if it is off, adds its firewall rules if they\'re missing, sets slot 2 to the SIM 2 tray, reads the new card\'s ICCID and writes the IMEIs that belong to it. The radio stays off throughout.\n\nWhy: with the Enhanced Kill Switch on, devices\' traffic doesn\'t bypass the VPN, even while the VPN is down (rule 5). Churn\'s firewall rules do the same for the router\'s own traffic over the SIM, and let nothing but the VPN use the SIM.</string>
+    <string name="step3_text">Churn waits until the router\'s radio is off, turns the Enhanced Kill Switch on if it is off, adds its firewall rules if they\'re missing, sets slot 2 to the SIM 2 tray, reads the new card\'s ICCID and writes the IMEIs that belong to it. Then it clears the SIM history on the router, which takes a few minutes. The radio stays off throughout.\n\nWhy: with the Enhanced Kill Switch on, devices\' traffic doesn\'t bypass the VPN, even while the VPN is down (rule 5). Churn\'s firewall rules do the same for the router\'s own traffic over the SIM, and let nothing but the VPN use the SIM. The router\'s record of earlier cards would link them to the new one.</string>
     <string name="step4_title">Go online later</string>
     <string name="step4_text">The router has the new card\'s IMEIs, and its radio stays off until you turn airplane mode off, on the router\'s screen or in GL\'s web interface.\n\nTurn it off later, at another place and time, and never at home, at work or another place you return to.\n\nWhy: the old card went quiet where you started the swap. If the new one starts where and when the old one stopped, the two are easy to match.</string>
     <string name="step4_done">Done</string>
@@ -132,6 +136,7 @@
     <string name="progress_slot2_active">Slot 2 is the active slot.</string>
     <string name="progress_card_found">Found the new card.</string>
     <string name="progress_new_imeis">The card\'s IMEIs are written and read back.</string>
+    <string name="progress_clearing_history">Clearing the router\'s SIM history. This takes a few minutes.</string>
 
     <!-- Why a step stopped -->
     <string name="problem_unexpected_answer">The router gave an answer Churn didn\'t expect, so Churn stopped. Nothing after the last line above is assumed done.</string>

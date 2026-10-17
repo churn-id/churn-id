@@ -9,7 +9,10 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 
-/** Keeps the app running while a swap step talks to the router, also with the screen off. */
+/**
+ * Keeps the app running while a swap step, or another job that takes minutes, talks to the router, also with the
+ * screen off.
+ */
 class SwapService : Service() {
 
     override fun onBind(intent: Intent?) = null

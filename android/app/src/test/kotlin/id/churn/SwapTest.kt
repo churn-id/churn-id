@@ -127,10 +127,46 @@ class SwapTest {
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.KILL_SWITCH_ON,
                 Progress.FIREWALL, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE, Progress.CARD_FOUND,
-                Progress.NEW_IMEIS,
+                Progress.NEW_IMEIS, Progress.CLEARING_HISTORY,
             ),
             progress,
         )
+    }
+
+    @Test
+    fun step3ClearsTheHistoryOfEarlierCards() {
+        val newCard = fake.trayCard!!.iccid
+        fake.recordCards("8949000077777777777F", newCard)
+        prepareAndRestart()
+        swap.giveNewImeis(factory, secret)
+        assertTrue(Router(fake).flashLogOff())
+        assertNull(fake.files["/etc/sys_log"])
+        assertEquals(setOf(newCard), fake.cardsInSimMap)
+        assertEquals(setOf(newCard), fake.cardsInApnHistory)
+        assertEquals(setOf(newCard), fake.cardsInEsimRecords)
+        assertTrue(fake.freeSpaceOverwritten)
+        assertSafe()
+    }
+
+    @Test
+    fun step3StopsIfTheRadioComesOnWhileClearing() {
+        // With the switch and the rules in place, the log service's reload is step 3's only reload.
+        Router(fake).installFirewall()
+        prepareAndRestart()
+        fake.radioOnAtReload = true
+        assertStops(Problem.RADIO_ON) { swap.giveNewImeis(factory, secret) }
+        assertEquals(Progress.CLEARING_HISTORY, progress.last())
+    }
+
+    @Test
+    fun step3LeavesTheHistoryAloneWithoutACard() {
+        fake.recordCards("8949000077777777777F", fake.trayCard!!.iccid)
+        prepareAndRestart()
+        fake.trayCard = null
+        assertStops(Problem.NO_CARD) { swap.giveNewImeis(factory, secret) }
+        assertFalse(Router(fake).flashLogOff())
+        assertEquals(2, fake.cardsInSimMap.size)
+        assertFalse(fake.freeSpaceOverwritten)
     }
 
     @Test
