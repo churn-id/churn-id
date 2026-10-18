@@ -447,25 +447,39 @@ class Router(private val shell: Shell) {
         private const val ESIM = "/root/esim"
 
         /**
-         * Fills the overlay's free space with zeros, then frees it again. ext4 keeps back free space that even root
-         * can't fill, 16 MB on the Mudi 7, and copies of deleted files would stay in it, so the fill sets that reserve
-         * to 0 and puts it back at the end, or when the run is stopped; a reboot also puts it back.
+         * Fills the overlay's free space with zeros, then frees 512 MB of it again. ext4 keeps back free space that
+         * even root can't fill, 16 MB on the Mudi 7, and copies of deleted files would stay in it, so the fill sets
+         * that reserve to 0 and puts it back at the end, or when the run is stopped; a reboot also puts it back.
          *
          * 64 MB parts come first, each flushed to the flash before the next, so the partition is full only briefly. It
          * is 2.9 GB, so `dd` stops at a full partition after at most 47 parts. Files of 4 KB then take the single free
          * blocks between small files that the parts leave, where old versions of GL's config files are. Their
          * directories are made beforehand with at most 300 names each, so that they never need a new block on the
          * full partition. Fill files left by an earlier run that stopped are deleted first.
+         *
+         * The 64 MB parts stay, in `/overlay/churn-zeros` beside the router's file system in `/overlay/upper`, and the
+         * oldest are deleted only until 512 MB are free, also when the run is stopped. Deleted data can then only be in
+         * those 512 MB, so the next run fills about 0.5 GB instead of 2.9 GB. restore.sh deletes the folder.
          */
         private val OVERWRITE_FREE_SPACE = """
             dev=${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1; exit }' /proc/mounts)
             reserve=/sys/fs/ext4/${'$'}{dev##*/}/reserved_clusters
             size=${'$'}(cat ${'$'}reserve)
+            zeros=/overlay/churn-zeros
+            free_kb() { df -k /overlay | awk 'END { print ${'$'}(NF - 4) - ${'$'}(NF - 3) }'; }
+            trim() {
+            	for f in ${'$'}(ls ${'$'}zeros | sort -n); do
+            		[ "${'$'}(free_kb)" -ge 524288 ] && break
+            		rm ${'$'}zeros/${'$'}f
+            		sync
+            	done
+            }
             rm -rf /overlay/churn-fill.*
+            mkdir -p ${'$'}zeros
             d=0
             while [ "${'$'}d" -lt 16 ]; do mkdir /overlay/churn-fill.d${'$'}d; d=${'$'}((d + 1)); done
             sync
-            trap 'rm -rf /overlay/churn-fill.*; sync; echo ${'$'}size > ${'$'}reserve; exit 1' HUP INT TERM PIPE
+            trap 'rm -rf /overlay/churn-fill.*; sync; echo ${'$'}size > ${'$'}reserve; trim; exit 1' HUP INT TERM PIPE
             echo 0 > ${'$'}reserve
             i=0
             while [ "${'$'}i" -lt 256 ] && dd if=/dev/zero of=/overlay/churn-fill.${'$'}i bs=1M count=64 2>/dev/null; do
@@ -482,9 +496,15 @@ class Router(private val shell: Shell) {
             	[ "${'$'}i" -lt 300 ] && break
             	d=${'$'}((d + 1))
             done
-            rm -rf /overlay/churn-fill.*
+            rm -rf /overlay/churn-fill.d*
+            n=${'$'}(ls ${'$'}zeros | sort -n | tail -n 1)
+            for f in /overlay/churn-fill.*; do
+            	n=${'$'}((${'$'}{n:-0} + 1))
+            	mv ${'$'}f ${'$'}zeros/${'$'}n
+            done
             sync
             echo ${'$'}size > ${'$'}reserve
+            trim
         """.trimIndent()
 
         /**

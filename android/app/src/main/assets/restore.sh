@@ -1,7 +1,7 @@
 #!/bin/sh
 # Churn: writes the router's factory IMEIs back, from /etc/churn/factory,
-# puts back GL's setting for saving the system log and removes Churn's
-# firewall rules.
+# puts back GL's setting for saving the system log, deletes Churn's zero
+# files and removes Churn's firewall rules.
 # Run it before a factory reset, or to stop using Churn:
 #   sh /etc/churn/restore.sh
 # It turns airplane mode on first; turn it off when you want to go online.
@@ -57,6 +57,11 @@ if [ -s "$DIR/log_file" ]; then
 	rm -f "$DIR/log_file"
 fi
 
+# The zero files that take most of the flash's free space between
+# clearings, and fill files left by a clearing that stopped.
+rm -rf /overlay/churn-zeros /overlay/churn-fill.* ||
+	fail "The factory IMEIs are back, but deleting Churn's zero files in /overlay/churn-zeros failed."
+
 # The firewall rules go last, so that a restore that stops earlier keeps them.
 # Airplane mode is on, so nothing goes out over the SIM once they are gone.
 # The chain test covers a reload that failed after the file was gone.
@@ -67,4 +72,4 @@ if [ -e "$FIREWALL" ] || nft list chain inet fw4 churn_sim >/dev/null 2>&1; then
 fi
 sed -i '/^\/etc\/nftables\.d\/churn\.nft$/d' /etc/sysupgrade.conf ||
 	fail "The factory IMEIs are back, but /etc/sysupgrade.conf still lists $FIREWALL."
-echo "The factory IMEIs are back: IMEI 1 $imei1, IMEI 2 $imei2. GL's setting for saving the system log is as before. Churn's firewall rules are removed. Airplane mode is on."
+echo "The factory IMEIs are back: IMEI 1 $imei1, IMEI 2 $imei2. GL's setting for saving the system log is as before. Churn's zero files and firewall rules are removed. Airplane mode is on."

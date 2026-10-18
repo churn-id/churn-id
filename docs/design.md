@@ -183,12 +183,13 @@ profile's IMEIs.
 Churn keeps its files on the router in `/etc/churn/`, readable by root
 only: a README explaining the folder, the secret, the factory IMEIs and a
 restore script. The script writes the factory IMEIs back, puts back GL's
-setting for its system log (section 7) and removes Churn's firewall rules;
-the app runs it on request, and it also works over a plain SSH session if
-the app is gone. The only file outside the folder holds those firewall
-rules, `/etc/nftables.d/churn.nft` (section 7). The script and the rules
-ship inside the app and are copied to the router, so the repository has no
-separate router component.
+setting for its system log, deletes Churn's zero files and removes Churn's
+firewall rules (all section 7); the app runs it on request, and it also
+works over a plain SSH session if the app is gone. Outside the folder are
+only the firewall rules, in `/etc/nftables.d/churn.nft`, and the zero
+files, in `/overlay/churn-zeros/` beside the router's file system. The
+script and the rules ship inside the app and are copied to the router, so
+the repository has no separate router component.
 
 - **Kept across firmware upgrades.** OpenWrt's upgrade with "keep settings"
   keeps only listed paths, so the app adds `/etc/churn/` and the rules file
@@ -438,7 +439,9 @@ the router screen while the log goes to the flash:
 4. It overwrites the flash's free space with zeros. A deleted file stays
    readable on the raw partition until something overwrites it: before the
    clearing, the partition held 460 copies of an old card's ICCID, of
-   which only 270 were in files.
+   which only 270 were in files. The zeros stay, as files, apart from
+   512 MB of free space, so deleted data can only be in those 512 MB, and
+   the next overwrite fills only them.
 
 Choices and their effects:
 
@@ -456,11 +459,22 @@ Choices and their effects:
   router's last write to `/etc`, and GL writes other files there every
   minute (verified with the SIM online; see "The router's own traffic"
   above).
-- The overwrite took about 3 minutes on our router, while the app keeps
-  itself alive as during a swap step. For its last seconds the partition
-  is full and GL can't save anything; GL's files stayed intact in our test.
-  It also writes about 2.9 GB to the flash each time, and we don't know
-  how much of the flash's life that uses (section 10).
+- Overwriting all 2.9 GB of free space took about 3 minutes on our
+  router, while the app keeps itself alive as during a swap step. Only the
+  first clearing, at setup, does that. Later ones fill the 512 MB that the
+  zero files leave free, which should take about half a minute (inferred
+  from the first one's speed). For the last seconds of an overwrite the
+  partition is full and GL can't save anything; GL's files stayed intact
+  in our test.
+- The zero files count as used storage, so `df` shows the partition about
+  88% used (verified on a disk image), and 512 MB are left for GL and
+  anything installed on the router. The restore script deletes them. If
+  they are gone, as after a factory reset, the next clearing fills all the
+  free space again.
+- Our router's 7.8 GB flash rates its own wear in steps of 10%, and after
+  our tests it still reported under 10% used (verified). A clearing after
+  the first writes about 0.5 GB, so if each block takes 1,000 writes, a
+  step is about 1,400 clearings (inferred).
 - The overwrite reaches what the flash's controller shows as the
   partition. The flash chips underneath may keep old data for a while
   beyond that, as flash memory does (inferred).
@@ -662,8 +676,6 @@ Hardware, other:
 - Does GL's firmware write its log file again once the restore script has
   put the setting back? The app turns it off the same way, which worked
   (section 7).
-- How much of the flash's life does overwriting its free space at every
-  swap use?
 
 Design:
 
