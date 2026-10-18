@@ -245,6 +245,9 @@ and AT commands sent over SSH.
   switches slots only while running.
 - **Switching slots while running is silent.** Switching slot 2 from SIM 2
   to an enabled eSIM profile in airplane mode emitted no RF.
+- **Shutting down is silent.** In airplane mode, the meter showed no RF
+  while the router shut down, with slot 2 on the built-in eSIM and with
+  slot 2 on a card in the SIM 2 tray.
 - **A card in slot 2 stays off while slot 2 is on the eSIM.** With slot 2
   set to the built-in eSIM with its profiles disabled and airplane mode on,
   we switched the router off, put an eSIM adapter card into slot 2's tray
@@ -294,11 +297,19 @@ every boot:
 3. Once the radio is off after the boot (section 6), the app turns GL's
    Enhanced Kill Switch on if it is off and adds Churn's firewall rules if
    they are missing, then switches slot 2 to SIM 2 in airplane mode, reads
-   the ICCID, writes the derived pair, saves and verifies it, and clears
-   the router's record of earlier cards (below). If it finds no usable
-   card, it switches slot 2 back to the built-in eSIM, so the card stays
-   off at the next power-on, and clears nothing.
-4. The user turns airplane mode off later, at another place and time.
+   the ICCID, writes the derived pair, saves and verifies it, clears the
+   router's record of earlier cards (below) and shuts the router down. If
+   it finds no usable card, it switches slot 2 back to the built-in eSIM,
+   so the card stays off at the next power-on, and stops, clearing
+   nothing.
+4. The user switches the router on later, at another place and time, and
+   turns airplane mode off there. The new card registers at that power-on,
+   whatever airplane mode says (section 6).
+
+Step 3 ends with a shutdown, which emits nothing (section 6), rather than
+leaving the router on in airplane mode until the user goes online. The
+router then travels to the next place switched off, as rule 2 asks before
+any place the user returns to.
 
 ### App behavior
 

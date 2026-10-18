@@ -165,22 +165,26 @@ class Controller(private val context: Context) {
         when (step) {
             Step.PREPARE -> runStep(Step.PREPARE, CONNECT_WAIT_SECONDS) { swap, folder ->
                 saved.written = swap.prepare(folder.factory!!, SecureRandom())
-                // Saved before the router goes down, which may end the connection before it answers.
-                saved.step = Step.SWAP_CARD
-                swap.shutDown()
-                disconnect()
-                Step.SWAP_CARD
+                shutDown(swap, next = Step.SWAP_CARD)
             }
             Step.SWAP_CARD, Step.NEW_IMEIS -> runStep(Step.NEW_IMEIS, BOOT_WAIT_SECONDS) { swap, folder ->
                 saved.written = swap.giveNewImeis(folder.factory!!, folder.secret!!)
-                saved.step = Step.GO_ONLINE
-                Step.GO_ONLINE
+                shutDown(swap, next = Step.GO_ONLINE)
             }
             Step.GO_ONLINE -> {
                 saved.step = null
-                refresh()
+                show(Screen.Connect())
             }
         }
+    }
+
+    /** Ends step 1 or 3: saves [next] as the step reached, shuts the router down, and returns [next]. */
+    private fun shutDown(swap: Swap, next: Step): Step {
+        // Saved before the router goes down, which may end the connection before it answers.
+        saved.step = next
+        swap.shutDown()
+        disconnect()
+        return next
     }
 
     private fun start(): Screen {

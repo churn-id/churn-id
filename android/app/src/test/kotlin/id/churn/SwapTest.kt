@@ -291,6 +291,16 @@ class SwapTest {
     }
 
     @Test
+    fun step3sImeisOutlastTheShutdown() {
+        prepareAndRestart()
+        val pair = swap.giveNewImeis(factory, secret)
+        swap.shutDown()
+        assertTrue(fake.poweredOff)
+        fake.boot()
+        assertEquals(pair, ImeiPair(fake.imei1, fake.imei2))
+    }
+
+    @Test
     fun step3ChangesNothingWhileTheRadioStaysOn() {
         prepareAndRestart()
         fake.radioStuckOn = true
