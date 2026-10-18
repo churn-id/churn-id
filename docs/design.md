@@ -212,7 +212,11 @@ separate router component.
   Nothing stored on the phone goes into the check, so it also holds after
   a swap from another phone or a reinstall of the app. A card in the tray
   while slot 2 is on the built-in eSIM stays off and isn't checked, since
-  reading it would take a switch of the slot.
+  reading it would take a switch of the slot. The warning asks for a new
+  card rather than the card's own pair: the network has already seen the
+  card with the other IMEIs, so its own pair would only join that link,
+  and a card whose IMEI changes shows its issuer that the IMEI was
+  rewritten (section 4).
 - **What the secret reveals.** Anyone with root on the router can recompute
   the IMEIs for a known ICCID. GL's firmware lists every card it has seen,
   so the app clears that list (section 7). Apart from what the flash chips
