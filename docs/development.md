@@ -367,15 +367,22 @@ so the app compares ICCIDs without the `F`. The current card is the one
    name the current card, and empties `log.txt`, which the eSIM manager
    goes on writing to (verified).
 4. It fills the free space of the overlay, ext4 on the eMMC partition
-   `mmcblk0p59` (2.9 GB), with files `/overlay/churn-fill.<n>` of 64 MB
-   from `/dev/zero`, with a `sync` after each, until `dd` fails on the
-   full partition. Then it deletes them and syncs again.
+   `mmcblk0p59` (2.9 GB). It sets
+   `/sys/fs/ext4/mmcblk0p59/reserved_clusters`, the 4096 blocks that ext4
+   keeps free even from root, to 0, and makes 16 directories
+   `/overlay/churn-fill.d<n>`. It writes files `/overlay/churn-fill.<n>`
+   of 64 MB from `/dev/zero`, with a `sync` after each, until `dd` fails
+   on the full partition, then files of 4 KB into the directories, at
+   most 300 in each, until `dd` fails again. Then it deletes them all,
+   syncs and sets the reserve back, which a trap also does when a signal
+   stops the run; a reboot sets it back too.
 
-We ran these steps as a script on our router, which had seen two old
-cards, A and B, the empty eSIM's placeholder and the current card, D
-(verified). Afterwards GL's card files named only D, and still did after
-airplane mode went off and on: GL doesn't add back cards it isn't using.
-The overwrite took 46 parts and about 3 minutes, the last parts up to 9 s
+We ran these steps as a script on our router, with step 4 still without
+the reserve and the 4 KB files. The router had seen two old cards, A and
+B, the empty eSIM's placeholder and the current card, D (verified).
+Afterwards GL's card files named only D, and still did after airplane
+mode went off and on: GL doesn't add back cards it isn't using. The
+overwrite took 46 parts and about 3 minutes, the last parts up to 9 s
 each, and GL's JSON files stayed valid. We counted the cards' numbers on
 the raw partition and in its files, after
 `sync; echo 3 > /proc/sys/vm/drop_caches` so that the reads came from the
@@ -389,9 +396,21 @@ flash:
 | The empty eSIM's placeholder ICCID | 543 | 485 | 0 | 0 |
 | ICCID of card D | 502 | 199 | 58 | 5 |
 
-The 14 copies of A and B that are left are in no file, and not in the free
-space, which the overwrite filled, so they are probably in the ext4
-journal or other metadata (inferred). Our script also remounted the
+The 14 copies of A and B that were left were in no file. Two days later,
+after a switch to another card, a script that located each copy on the
+partition found 8 copies of an old card's ICCID, all in free blocks, in
+old versions of a settings file in uci's format that names the card in
+use, and none in the ext4 journal (verified). The overwrite missed them
+because of ext4's reserve, which root can't fill either, and because a
+fill with large files takes the single free blocks between small files
+last. Step 4 as it is now then took every free block with its 64 MB
+files on our router, so the 4 KB files found none, and afterwards every
+copy of a card's ICCID on the raw partition was in a file that names the
+card (verified). On a disk image with 300 old versions of such a file in
+the free space, the overwrite left 299 of them before step 4 had the
+reserve and the 4 KB files, and none after; there the 64 MB files with
+the reserve at 0 still left about 200 single blocks free, which the 4 KB
+files took (verified on the image). Our script also remounted the
 overlay with `discard` for the run; the app leaves that out, since the
 overwrite already covers the free space.
 
@@ -415,8 +434,6 @@ before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
   `log_file` back and reloaded the log service.
 - Whether GL copes with card files that name no card, as they can after a
   clearing at step 3, until it records the new card.
-- Where the copies of earlier ICCIDs that a clearing leaves are, and
-  whether the router's later writes overwrite them.
 
 ## Files on the router
 

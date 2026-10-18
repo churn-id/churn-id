@@ -207,9 +207,9 @@ separate router component.
   that SIM.
 - **What the secret reveals.** Anyone with root on the router can recompute
   the IMEIs for a known ICCID. GL's firmware lists every card it has seen,
-  so the app clears that list (section 7). Apart from a few copies of past
-  ICCIDs that the clearing can't reach, nothing else on the router links a
-  past SIM to a past IMEI.
+  so the app clears that list (section 7). Apart from what the flash chips
+  may keep beneath the partition (section 7), nothing else on the router
+  links a past SIM to a past IMEI.
 - **Factory capture.** The IMEIs read at first setup may already be
   rewritten, for example by blue-merle. The app warns if their TAC isn't a
   known Mudi 7 TAC.
@@ -436,14 +436,21 @@ Choices and their effects:
 - The overwrite reaches what the flash's controller shows as the
   partition. The flash chips underneath may keep old data for a while
   beyond that, as flash memory does (inferred).
-- A few copies of earlier cards' ICCIDs remain. After the clearing, the
-  raw partition still held 11 copies of one old card's ICCID and 3 of
-  another, in no file and with no IMSI or cell next to them, and they were
-  still there after airplane mode went off and on (verified). They are
-  probably in the file system's journal, which the overwrite can't reach,
-  and only reformatting the partition would remove them (inferred). Anyone
-  who reads the raw partition can find those ICCIDs and, with the secret,
-  their IMEIs.
+- ext4, the partition's file system, keeps back free space that even root
+  can't fill, 16 MB on our router, so that it can finish writes it has
+  already accepted on a full partition. A fill with large files reaches
+  the single free blocks between small files last, so those are the ones
+  the reserve leaves free, and old versions of GL's settings files sit
+  there: two days after our first clearing, the raw partition held 8
+  copies of an earlier card's ICCID, all in free space in old versions of
+  a settings file that names the card in use, and none in the file
+  system's journal (verified). So the overwrite sets that reserve to 0
+  while it runs, puts it back at the end or when it is stopped (a reboot
+  does too), and fills any single blocks its large files leave with 4 KB
+  files. On our router, the overwrite then left no card's ICCID on the
+  raw partition outside the files that name it (verified). On a disk
+  image with 300 old versions of a settings file, it left 299 without
+  these changes and none with them (verified on the image).
 
 ## 8. Usage rules
 
@@ -627,8 +634,6 @@ Hardware, other:
 - Does GL's firmware write its log file again once the restore script has
   put the setting back? The app turns it off the same way, which worked
   (section 7).
-- Do the copies of earlier ICCIDs that a clearing leaves fade as the router
-  keeps writing? They hadn't minutes later (section 7).
 - How much of the flash's life does overwriting its free space at every
   swap use?
 

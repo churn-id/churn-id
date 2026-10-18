@@ -434,18 +434,44 @@ class Router(private val shell: Shell) {
         private const val ESIM = "/root/esim"
 
         /**
-         * Fills the overlay's free space with zeros in 64 MB parts, each flushed to the flash before the next, then
-         * frees it again. The partition is 2.9 GB, so `dd` stops at a full partition after at most 47 parts. A part
-         * left by an earlier run that stopped is overwritten or deleted with the rest.
+         * Fills the overlay's free space with zeros, then frees it again. ext4 keeps back free space that even root
+         * can't fill, 16 MB on the Mudi 7, and copies of deleted files would stay in it, so the fill sets that reserve
+         * to 0 and puts it back at the end, or when the run is stopped; a reboot also puts it back.
+         *
+         * 64 MB parts come first, each flushed to the flash before the next, so the partition is full only briefly. It
+         * is 2.9 GB, so `dd` stops at a full partition after at most 47 parts. Files of 4 KB then take the single free
+         * blocks between small files that the parts leave, where old versions of GL's config files are. Their
+         * directories are made beforehand with at most 300 names each, so that they never need a new block on the
+         * full partition. Fill files left by an earlier run that stopped are deleted first.
          */
         private val OVERWRITE_FREE_SPACE = """
+            dev=${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1; exit }' /proc/mounts)
+            reserve=/sys/fs/ext4/${'$'}{dev##*/}/reserved_clusters
+            size=${'$'}(cat ${'$'}reserve)
+            rm -rf /overlay/churn-fill.*
+            d=0
+            while [ "${'$'}d" -lt 16 ]; do mkdir /overlay/churn-fill.d${'$'}d; d=${'$'}((d + 1)); done
+            sync
+            trap 'rm -rf /overlay/churn-fill.*; sync; echo ${'$'}size > ${'$'}reserve; exit 1' HUP INT TERM PIPE
+            echo 0 > ${'$'}reserve
             i=0
             while [ "${'$'}i" -lt 256 ] && dd if=/dev/zero of=/overlay/churn-fill.${'$'}i bs=1M count=64 2>/dev/null; do
             	sync
             	i=${'$'}((i + 1))
             done
-            rm -f /overlay/churn-fill.*
+            d=0
+            while [ "${'$'}d" -lt 16 ]; do
+            	f=/overlay/churn-fill.d${'$'}d
+            	i=0
+            	while [ "${'$'}i" -lt 300 ] && dd if=/dev/zero of=${'$'}f/${'$'}i bs=4k count=1 2>/dev/null; do
+            		i=${'$'}((i + 1))
+            	done
+            	[ "${'$'}i" -lt 300 ] && break
+            	d=${'$'}((d + 1))
+            done
+            rm -rf /overlay/churn-fill.*
             sync
+            echo ${'$'}size > ${'$'}reserve
         """.trimIndent()
 
         /**

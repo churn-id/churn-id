@@ -89,7 +89,7 @@
     <string name="firewall_on_text">Churn adds firewall rules to the router. Over the SIM, only the VPN\'s own traffic then goes out. Everything else that would use the SIM, the router\'s own traffic included, goes through the VPN, and nowhere while it is down. The router also looks up names at the VPN\'s DNS server. The rules cover only the SIM, not an internet connection over Wi-Fi or the Ethernet port.\n\nRestoring the factory IMEIs removes the rules.</string>
     <string name="note_flash_log">GL saves its system log on the router, with each SIM card\'s ICCID and IMSI and the cells it used. The log links your cards to each other and to places.</string>
     <string name="clear_history">Clear the SIM history</string>
-    <string name="clear_history_text">Churn keeps GL\'s system log in memory only, deletes the saved log, removes all but the current card from GL\'s records and overwrites the router\'s free storage, so that what it deleted can\'t be read back. This takes a few minutes.\n\nA few copies of earlier cards\' ICCIDs can remain on the router\'s storage, without IMSIs or places. Restoring the factory IMEIs puts back GL\'s setting for saving the system log.</string>
+    <string name="clear_history_text">Churn keeps GL\'s system log in memory only, deletes the saved log, removes all but the current card from GL\'s records and overwrites the router\'s free storage, so that what it deleted can\'t be read back. This takes a few minutes.\n\nRestoring the factory IMEIs puts back GL\'s setting for saving the system log.</string>
     <string name="swap">Swap the SIM card</string>
     <string name="show_rules">Rules</string>
     <string name="refresh">Refresh</string>

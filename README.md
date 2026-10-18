@@ -37,8 +37,7 @@ router new IMEIs.
 ## What Churn protects, and what it doesn't
 
 Churn stops the router's IMEI from linking your old SIM to your new one.
-It also clears the list of earlier SIMs that the router's firmware keeps,
-apart from a few copies of their card numbers that it can't reach.
+It also clears the list of earlier SIMs that the router's firmware keeps.
 
 It doesn't hide:
 

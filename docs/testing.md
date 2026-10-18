@@ -201,7 +201,9 @@ From development.md, "Clearing the SIM history", and design.md, section 7.
 | GL doesn't add back pruned cards, also not when airplane mode goes off and on | verified | The card files after airplane mode off and on | 4 |
 | GL copes with card files that name no card until it records the new one | inferred | Step 3 with a new card, then airplane mode off | 4 |
 | A card used again after a clearing gets GL's defaults, and GL's search finds its APN | verified with the built-in eSIM's profile | Use a cleared card again | 4 |
-| After a clearing, the raw partition holds no IMSI and only a few bare ICCIDs of earlier cards | verified | Count the cards' numbers on the raw partition and in its files | 2 |
+| After a clearing, the raw partition holds no IMSI of an earlier card | verified | Count the cards' numbers on the raw partition and in its files | 2 |
+| After a clearing, the raw partition holds no ICCID of an earlier card either | verified | Count the cards' numbers on the raw partition and in its files | 2 |
+| The overwrite puts ext4's reserve back at its end, and a trap does when a signal stops it | verified; the trap on a disk image | Read `reserved_clusters` after a clearing | 2 |
 | GL's files stay valid while the overwrite fills the partition | verified once | GL's JSON files parse after a clearing | 2 |
 | The SSH connection stays open through the overwrite, which prints nothing for minutes | inferred | Clear the history from the router screen | 2 |
 | GL writes files in `/etc` every minute, so with the log's file off, the clock after a power-on still resumes from about the time of the power-off | verified with the SIM online | The files written in `/etc` within a minute, in airplane mode too | 1 |
