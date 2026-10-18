@@ -41,6 +41,10 @@ to the router:
   passes, with a note that the firmware is untested.
 - Tier 1 runs for every user. Tiers 2 and 3 start in debug builds; tier 2
   may later be offered to users. Tiers 3 and 4 are for the maintainer.
+- A test that clears the SIM history writes about 2.9 GB to the flash
+  (development.md, "Clearing the SIM history"), so it runs once for each
+  firmware, not with every dry run. The dry run itself clears nothing:
+  step 3 with an empty tray stops before the clearing.
 
 ## Platform
 
@@ -49,7 +53,7 @@ From development.md, "Sending AT commands", and design.md, section 6.
 | Claim | Status | Check | Tier |
 | --- | --- | --- | --- |
 | GL firmware 4.10.0 (OpenWrt 23.05.4), modem Quectel RG650V-EU | verified | Read `/etc/glversion`, `/etc/openwrt_release` and `ATI`, and compare with the versions we tested | 1 |
-| The firmware has `flock`, `curl` and `ubus` | verified | `command -v` for each | 1, blocks |
+| The firmware has `flock`, `curl`, `ubus`, `fw4` and `nft` | verified | `command -v` for each | 1, blocks |
 | AT commands work through `gl_modem -B cpu AT` | verified | `AT+CFUN?` answers, ending with `OK` | 1, blocks |
 | `gl_modem` keeps Churn's commands apart from those of GL's daemons | inferred | Read the radio and both IMEIs many times in a row while GL's services run, and check every answer | 2 |
 
@@ -94,6 +98,7 @@ From development.md, "uci settings".
 | Setting `glconfig.general.airplane_mode` turns airplane mode on or off at once, before the commit | verified | Turn airplane mode off and on again, and time how long the modem takes to answer `+CFUN: 4` | 3 |
 | `uci commit` makes a change survive a reboot | inferred | Read airplane mode and the kill switch settings after a reboot | 3 |
 | `gl_timer.reboot.enable` is GL's scheduled reboot | verified | The setting exists and is `0` or `1` | 1, blocks |
+| `network.modem_cpu.iccid` holds the ICCID of the card GL uses, a 19-digit one with a trailing `F` | verified | It is an ICCID or absent | 1 |
 | `network.modem_cpu.dds_id` reports the active slot, and writing it switches nothing | verified | It is `1` or `2` (tier 1) and follows a slot switch (tier 2) | 1, blocks; 2 |
 | GL's auto power-off fires only on battery with nothing connected, more than 20 s after the set delay | verified | Unplug everything and time it | 4 |
 | "Power On with Charger" is not in `uci`, and with it off a charger doesn't switch the router on | verified | Plug in a charger with the router off | 4 |
@@ -133,8 +138,11 @@ design.md, sections 7 and 10.
 | The SIM's data interfaces match `rmnet_data*`, online and in airplane mode | verified | The interfaces in `/sys/class/net` and the one `ifstatus modem_cpu` names | 1, blocks |
 | WireGuard sends with the mark `0x8000`, and on output no other packets carry it | verified | `wg show all fwmark` (tier 1); the rules' counters across airplane mode off and on (tier 4) | 1, 4 |
 | The main dnsmasq runs as the user ID the rules name | verified, and checked by the app | `id -u dnsmasq` | 1 |
-| With the rules, nothing but WireGuard leaves over the SIM, from devices too, also with the Enhanced Kill Switch off and the tunnel down | verified for devices with the switch off and the tunnel down; going online inferred | The drop counter grows and a device's website fails (tier 4); watch the cellular interface after airplane mode goes off (tier 4) | 4 |
+| With the rules, nothing but WireGuard leaves over the SIM, from devices too, also with the Enhanced Kill Switch off and the tunnel down, and over IPv6 as over IPv4 | verified for devices over IPv4 with the switch off and the tunnel down; going online and IPv6 inferred | The drop counter grows and a device's website fails (tier 4); watch the cellular interface after airplane mode goes off (tier 4) | 4 |
 | With the rules, the router's own traffic leaves through the tunnel from the VPN's address, and its lookups go to the VPN's DNS server | verified | A request and a lookup from the router, watched on the tunnel interface | 4 |
+| The tunnel's IP Masquerading translates the router's own packets to the tunnel's address; without it, the VPN server wouldn't accept them | translation verified, without it inferred | The setting is on, once we know where GL keeps it (tier 1); a request from the router with it off (tier 4) | 1, 4 |
+| GL's firewall loads Churn's rules at boot before the modem goes online | open | The chains are listed right after a boot (tier 3); what leaves over the SIM during a boot with a card (tier 4) | 3, 4 |
+| A rules file that GL's firewall rejects might keep it from loading any rules at the next boot, which is why the app removes such a file | inferred | None: a test could leave the router without a firewall | – |
 | With the rules, the tunnel comes up after a reboot and after airplane mode off and on, and the clock then syncs through it | verified | Reboot and turn airplane mode off and on; the handshake, the clock and a website | 4 |
 | With the rules, GL still treats the cellular connection as connected, though its connection check can't ping over the SIM | verified with an earlier version of the rules | GL's connection status after airplane mode goes off | 4 |
 | With the rules, devices work alike over Wi-Fi, the Ethernet port and USB-C, and an uplink over Ethernet or Wi-Fi works as without the rules | inferred | A website from a device on each; the router's own traffic with an Ethernet uplink | 4 |
@@ -190,22 +198,25 @@ From development.md, "After power-on", and design.md, section 6.
 
 ## SIM history
 
-From development.md, "Clearing the SIM history", and design.md, section 7.
+From development.md, "Clearing the SIM history", and design.md, sections 7
+and 10.
 
 | Claim | Status | Check | Tier |
 | --- | --- | --- | --- |
 | GL writes its system log to the file `system.@system[0].log_file` names, and the log pairs cards' ICCIDs with their IMSIs and names the cells they used | verified | The setting and a running `logread -f -F` (tier 1); the log's lines (tier 4) | 1, 4 |
 | Deleting `log_file`, committing and reloading the log service ends the `logread` that writes the file | verified | No `logread -f` process afterwards | 1 |
-| Setting `log_file` back and reloading the log service makes `logread` write the file again | open | Run `restore.sh`, check the process and the file, then clear again | 2 |
+| Setting `log_file` back and reloading the log service makes `logread` write the file again | open | Run `restore.sh`, check the process and the file; the clearing test that follows turns the file off again | 2 |
 | GL's card files and the eSIM manager's records have the formats development.md lists | verified | Both card files parse, and every member name and `iccid` in them is an ICCID | 1 |
 | GL doesn't add back pruned cards, also not when airplane mode goes off and on | verified | The card files after airplane mode off and on | 4 |
 | GL copes with card files that name no card until it records the new one | inferred | Step 3 with a new card, then airplane mode off | 4 |
 | A card used again after a clearing gets GL's defaults, and GL's search finds its APN | verified with the built-in eSIM's profile | Use a cleared card again | 4 |
-| After a clearing, the raw partition holds no IMSI of an earlier card | verified | Count the cards' numbers on the raw partition and in its files | 2 |
-| After a clearing, the raw partition holds no ICCID of an earlier card either | verified | Count the cards' numbers on the raw partition and in its files | 2 |
+| After a clearing, the raw partition holds no IMSI of an earlier card | verified | Before the clearing, read the earlier cards' numbers from GL's files and log, keeping them only in memory; afterwards, count them on the raw partition and in its files | 2 |
+| After a clearing, the raw partition holds no ICCID of an earlier card either | verified | Before the clearing, read the earlier cards' numbers from GL's files and log, keeping them only in memory; afterwards, count them on the raw partition and in its files | 2 |
+| The overlay is ext4 on `mmcblk0p59`, 2.9 GB, and ext4 keeps 4096 blocks back from it in `reserved_clusters` | verified | The overlay's line in `/proc/mounts` and its `reserved_clusters` file | 1, blocks |
 | The overwrite puts ext4's reserve back at its end, and a trap does when a signal stops it | verified; the trap on a disk image | Read `reserved_clusters` after a clearing | 2 |
 | GL's files stay valid while the overwrite fills the partition | verified once | GL's JSON files parse after a clearing | 2 |
 | The SSH connection stays open through the overwrite, which prints nothing for minutes | inferred | Clear the history from the router screen | 2 |
+| How much of the flash's life the overwrite at every swap uses | open | The flash's own wear estimate, `life_time` and `pre_eol_info` in `/sys/block/mmcblk0/device/`, if it reports one (unchecked), recorded at every connection | 1 |
 | GL writes files in `/etc` every minute, so with the log's file off, the clock after a power-on still resumes from about the time of the power-off | verified with the SIM online | The files written in `/etc` within a minute, in airplane mode too | 1 |
 
 ## Churn's files and firmware upgrades
@@ -214,11 +225,11 @@ From development.md, "Files on the router", and design.md, section 5.
 
 | Claim | Status | Check | Tier |
 | --- | --- | --- | --- |
-| `/etc/churn/` and its files have the modes and contents development.md lists, and `restore.sh` is the app's copy | contents verified by the app, modes inferred | Modes, sizes, and `restore.sh` compared with the app's copy | 1, blocks |
+| `/etc/churn/` and its files have the modes and contents development.md lists | contents verified by the app, modes inferred | Modes and sizes; the app itself rewrites `README.txt` and `restore.sh` at every connection where they differ from its copies | 1, blocks |
 | `/etc/churn/` is listed in `/etc/sysupgrade.conf` | verified by the app | The line is there | 1, blocks |
 | With the firewall rules, `/etc/nftables.d/churn.nft` is listed in `/etc/sysupgrade.conf` | inferred | The line is there | 1 |
 | GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | The IMEIs equal the ones the app last wrote, at every connection (tier 1, which the app already does) and after an upgrade (tier 3) | 1, 3 |
-| A firmware upgrade with "keep settings" keeps `/etc/churn/` and Churn's firewall rules | open | Upgrade, then check the folder and the rules | 3 |
+| A firmware upgrade with "keep settings" keeps `/etc/churn/`, Churn's firewall rules and the log's file off | open | Upgrade, then check the folder, the rules and `log_file` | 3 |
 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
 | `restore.sh` then sets GL's `log_file` back from Churn's copy, and deletes the copy | inferred | Run it, then check the setting and the copy (tier 2) | 2 |
 | `restore.sh` then removes Churn's firewall rules and their line in `/etc/sysupgrade.conf` | inferred | Run it, then check that the chains, the file and the line are gone (tier 2) | 2 |
@@ -236,4 +247,9 @@ Some claims no test on the router can confirm:
   nothing (rule 7). It is a measurement of the phone, not the router.
 - The IMEI derivation. The unit tests check it against the test vectors in
   development.md.
+- Whether the VPN server, which is the same on every SIM, links the SIMs
+  (design.md, section 10). It depends on what the carrier and the VPN
+  provider can match, not on the router.
+- What the flash chips keep beneath the partition after the overwrite
+  (design.md, section 7). Only reading the chips themselves would show it.
 - The legal and distribution questions in design.md, section 10.
