@@ -10,10 +10,10 @@ enum class Step {
     /** 2: the user swaps the card, goes elsewhere and switches the router on. */
     SWAP_CARD,
 
-    /** 3: the app gives the new card its IMEIs. */
+    /** 3: the app gives the new card its IMEIs and shuts the router down. */
     NEW_IMEIS,
 
-    /** 4: the user turns airplane mode off later, at another place and time. */
+    /** 4: the user switches the router on later, at another place and time, and turns airplane mode off. */
     GO_ONLINE,
 }
 
@@ -56,7 +56,7 @@ class Swap(
         return throwaway
     }
 
-    /** Ends step 1. */
+    /** Ends steps 1 and 3. */
     fun shutDown() = router.powerOff()
 
     /** Step 3: slot 2 on the new card, which gets its own pair. Returns that pair. */

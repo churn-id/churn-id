@@ -186,7 +186,8 @@ From development.md, "After power-on", and design.md, section 6.
 | The modem doesn't answer AT commands for a while after power-on | verified | Poll `/proc/uptime` and `AT+CFUN?` from the moment the app reconnects | 3 |
 | At every power-on the radio is on for about 12 s whatever airplane mode says, ending 58 s after power-on at the latest | verified | The end: when the polling above first sees `+CFUN: 4` (tier 3); the start and the length: RF meter (tier 4) | 3, 4 |
 | 120 s after power-on, with `+CFUN: 4`, is a safe point for step 3 to change slot 2 | inferred | The end of the window above, on each firmware | 3 |
-| `poweroff` over SSH shuts the router down | verified | Step 1 of a swap, or a tier 3 test that ends with it | 3 |
+| `poweroff` over SSH shuts the router down | verified | Steps 1 and 3 of a swap, or a tier 3 test that ends with it | 3 |
+| The router emits nothing while it shuts down in airplane mode, with slot 2 on the eSIM or on a card in the tray | verified | RF meter | 4 |
 | With both trays empty and slot 2 on the SIM 2 tray, a power-on emits nothing, with airplane mode on or off | verified | RF meter | 4 |
 | A card in slot 2 emits for several seconds at every power-on while slot 2 is set to it, whatever airplane mode and GL's switches say, slot 1 selected included | verified with an eSIM profile | RF meter | 4 |
 | The built-in eSIM emits two short bursts at power-on even with no profile enabled | verified | RF meter | 4 |
@@ -208,7 +209,7 @@ and 10.
 | Setting `log_file` back and reloading the log service makes `logread` write the file again | open | Run `restore.sh`, check the process and the file; the clearing test that follows turns the file off again | 2 |
 | GL's card files and the eSIM manager's records have the formats development.md lists | verified | Both card files parse, and every member name and `iccid` in them is an ICCID | 1 |
 | GL doesn't add back pruned cards, also not when airplane mode goes off and on | verified | The card files after airplane mode off and on | 4 |
-| GL copes with card files that name no card until it records the new one | inferred | Step 3 with a new card, then airplane mode off | 4 |
+| GL copes with card files that name no card until it records the new one | inferred | Step 3 with a new card, then a power-on and airplane mode off | 4 |
 | A card used again after a clearing gets GL's defaults, and GL's search finds its APN | verified with the built-in eSIM's profile | Use a cleared card again | 4 |
 | After a clearing, the raw partition holds no IMSI of an earlier card | verified | Before the clearing, read the earlier cards' numbers from GL's files and log, keeping them only in memory; afterwards, count them on the raw partition and in its files | 2 |
 | After a clearing, the raw partition holds no ICCID of an earlier card either | verified | Before the clearing, read the earlier cards' numbers from GL's files and log, keeping them only in memory; afterwards, count them on the raw partition and in its files | 2 |
