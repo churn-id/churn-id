@@ -304,6 +304,11 @@ every boot:
 
 - The step reached is saved, and a foreground service keeps the app alive,
   so the procedure resumes after the screen locks or Android stops the app.
+- While the app works on the router, it keeps the phone's screen on, as a
+  video player does. A swap failed when we let the screen go dark and
+  worked when we kept it on. One way a locked phone breaks a swap:
+  GrapheneOS by default blocks new USB connections while the phone is
+  locked, and in step 3 the router, just switched on, connects anew.
 - Each step says what to do, where, and why, so the rules don't depend on
   the user's memory.
 - Before each rotation the app checks the slot 2 setting, airplane mode, and
