@@ -67,7 +67,7 @@ class MainActivity : Activity() {
         button(R.string.show_rules) { showRules() }
     }
 
-    private fun working(screen: Screen.Working) = page {
+    private fun working(screen: Screen.Working) = page(keepScreenOn = true) {
         heading(screen.title)
         addView(ProgressBar(context))
     }
@@ -138,7 +138,7 @@ class MainActivity : Activity() {
         button(R.string.forget) { confirm(getString(R.string.forget_text)) { controller.forget() } }
     }
 
-    private fun swapping(screen: Screen.Swapping) = page {
+    private fun swapping(screen: Screen.Swapping) = page(keepScreenOn = screen.running) {
         val (number, title, text) = when (screen.step) {
             Step.PREPARE -> Triple(1, R.string.step1_title, R.string.step1_text)
             Step.SWAP_CARD -> Triple(2, R.string.step2_title, R.string.step2_text)
@@ -217,7 +217,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun page(build: LinearLayout.() -> Unit) {
+    private fun page(keepScreenOn: Boolean = false, build: LinearLayout.() -> Unit) {
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             val padding = dp(20)
@@ -228,6 +228,10 @@ class MainActivity : Activity() {
             ScrollView(this).apply {
                 // Keeps the content clear of the status and navigation bars, which the app draws behind.
                 fitsSystemWindows = true
+                // While the app works on the router, the screen stays on, as it does while a video plays, so that the
+                // phone doesn't lock. GrapheneOS by default blocks new USB connections on a locked phone, and in
+                // step 3 the router, just switched on, connects anew.
+                this.keepScreenOn = keepScreenOn
                 addView(column)
             },
         )
