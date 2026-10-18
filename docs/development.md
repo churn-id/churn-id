@@ -92,6 +92,8 @@ commits every change, so it survives a reboot (inferred from OpenWrt's
 | `lpm.global.auto_shutdown_time` | `'30'`, set by us | Delay in seconds before GL's auto power-off. It fires only on battery with no cable or Wi-Fi client connected, and shutdown starts more than 20 s after the set delay, counted from when the display goes dark | verified |
 | `gl_timer.reboot.enable` | `'0'` | GL's scheduled reboot, off | verified |
 | `network.modem_cpu.dds_id` | `'1'` or `'2'` | The active SIM slot. GL rewrites it at every slot change, so it only reports the slot: writing it, even with a commit, switches nothing | verified |
+| `network.modem_cpu.iccid` | The card's ICCID, a 19-digit one with a trailing `F` | The card GL uses | verified |
+| `system.@system[0].log_file` | `'/etc/sys_log'` | The file that GL's `logread -f -F` writes the system log to, rotated to `/etc/sys_log.old` at `log_size` (`'128000'`, in KB). Without it, the log stays in `logd`'s buffer in RAM, `log_buffer_size` (`'64'`, in KB) | verified |
 | `route_policy.@rule[<n>]` | `rule`, one section per tunnel, with `name='Tunnel 1'`, `via_type='wireguard'`, `enabled`, `killswitch` | A tunnel in GL's VPN dashboard | verified for one WireGuard tunnel |
 | `route_policy.@rule[<n>].via` | `'wgclient1'` | The tunnel's network interface, `network.wgclient1` with `proto='wgclient'` | verified |
 | `route_policy.@rule[0].killswitch` | `'1'` | Kill switch of the first VPN rule. Writing it turns it on and off | verified |
@@ -334,6 +336,84 @@ Not used:
   interleave with its own (inferred). They stay a fallback if the API
   changes.
 
+## Clearing the SIM history
+
+design.md, section 7, explains why the app clears what GL records of
+earlier cards. On our Mudi 7, GL kept it in these files (verified):
+
+| Path | Contents |
+| --- | --- |
+| `/etc/sys_log`, `/etc/sys_log.old` | The system log. `Diag_Lib` lines pair each card's ICCID with its IMSI, `ql_ril` lines give the network code, cell ID and tracking area of each registration, and GL logs the ICCID at each dial-up |
+| `/etc/config/cellular/sim_map.json` | A JSON object with a member per card, named by its ICCID and holding the card's settings: `manual`, `pincode`, `auth`, `username`, `password`, `roaming` and `cid` |
+| `/etc/config/cellular/history_apn_database.json` | `{"apns": [...]}`, with an object per card holding `iccid`, `apn`, `ip_type` and `cid`: the APN that worked |
+| `/root/esim/db/<32 digits>` | The eSIM manager's record of a chip, one file per chip: `{"records": {...}}`, with a member per profile, named by its ICCID and holding `iccid`, `ac_code`, `apn` and `oplmn`, which were empty |
+| `/root/esim/log.txt` | The eSIM manager's log, which names profiles by ICCID |
+
+GL stores a 19-digit ICCID with a trailing `F` and a 20-digit one without,
+so the app compares ICCIDs without the `F`. The current card is the one
+`network.modem_cpu.iccid` names, or at step 3 the one in slot 2.
+`Router.clearHistory` clears the files in this order:
+
+1. If `system.@system[0].log_file` is set, the app saves its value to
+   `/etc/churn/log_file`, unless that file exists, deletes the setting,
+   commits and runs `/etc/init.d/log reload`. The reload ends the
+   `logread -f -F` that writes the file, and `logd` goes on with its
+   buffer in RAM (verified). A file still open would keep its data on the
+   flash after it is deleted.
+2. It deletes both log files.
+3. It rewrites both card files with only the current card's entry,
+   through a new file renamed over the old one, and leaves a file that
+   doesn't parse as it is. It deletes each eSIM record file that doesn't
+   name the current card, and empties `log.txt`, which the eSIM manager
+   goes on writing to (verified).
+4. It fills the free space of the overlay, ext4 on the eMMC partition
+   `mmcblk0p59` (2.9 GB). It sets
+   `/sys/fs/ext4/mmcblk0p59/reserved_clusters`, the 4096 blocks that ext4
+   keeps free even from root, to 0, and makes 16 directories
+   `/overlay/churn-fill.d<n>`. It writes files `/overlay/churn-fill.<n>`
+   of 64 MB from `/dev/zero`, with a `sync` after each, until `dd` fails
+   on the full partition, then files of 4 KB into the directories, at
+   most 300 in each, until `dd` fails again. Then it deletes them all,
+   syncs and sets the reserve back, which a trap also does when a signal
+   stops the run; a reboot sets it back too.
+
+We ran these steps as a script on our router, with step 4 still without
+the reserve and the 4 KB files. The router had seen two old cards, A and
+B, the empty eSIM's placeholder and the current card, D (verified).
+Afterwards GL's card files named only D, and still did after airplane
+mode went off and on: GL doesn't add back cards it isn't using. The
+overwrite took 46 parts and about 3 minutes, the last parts up to 9 s
+each, and GL's JSON files stayed valid. We counted the cards' numbers on
+the raw partition and in its files, after
+`sync; echo 3 > /proc/sys/vm/drop_caches` so that the reads came from the
+flash:
+
+| Number | Raw partition, a day before | Files, a day before | Raw partition after | Files after |
+| --- | --- | --- | --- | --- |
+| The three IMSIs | 48 | 48 | 0 | 0 |
+| ICCID of card A | 460 | 270 | 11 | 0 |
+| ICCID of card B | 30 | 16 | 3 | 0 |
+| The empty eSIM's placeholder ICCID | 543 | 485 | 0 | 0 |
+| ICCID of card D | 502 | 199 | 58 | 5 |
+
+The 14 copies of A and B that were left were in no file. Two days later,
+after a switch to another card, a script that located each copy on the
+partition found 8 copies of an old card's ICCID, all in free blocks, in
+old versions of a settings file in uci's format that names the card in
+use, and none in the ext4 journal (verified). The overwrite missed them
+because of ext4's reserve, which root can't fill either, and because a
+fill with large files takes the single free blocks between small files
+last. Step 4 as it is now then took every free block with its 64 MB
+files on our router, so the 4 KB files found none, and afterwards every
+copy of a card's ICCID on the raw partition was in a file that names the
+card (verified). On a disk image with 300 old versions of such a file in
+the free space, the overwrite left 299 of them before step 4 had the
+reserve and the 4 KB files, and none after; there the 64 MB files with
+the reserve at 0 still left about 200 single blocks free, which the 4 KB
+files took (verified on the image). Our script also remounted the
+overlay with `discard` for the run; the app leaves that out, since the
+overwrite already covers the free space.
+
 ## After power-on
 
 At every power-on the radio is on for about 12 s, whatever airplane mode
@@ -350,6 +430,10 @@ before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
   turns the radio on, and whether `fw4 reload` does.
 - Whether the modem can tell that slot 1 holds a card, so the app can warn
   the user.
+- Whether `logread` writes the log's file again once `restore.sh` has set
+  `log_file` back and reloaded the log service.
+- Whether GL copes with card files that name no card, as they can after a
+  clearing at step 3, until it records the new card.
 
 ## Files on the router
 
@@ -359,7 +443,8 @@ before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
 | `/etc/churn/README.txt` | 600 | What the folder is; how to restore the factory IMEIs by hand; to do so before a factory reset |
 | `/etc/churn/secret` | 600 | 32 random bytes, the HMAC key |
 | `/etc/churn/factory` | 600 | Factory IMEI 1 and IMEI 2, one per line |
-| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, then removes Churn's firewall rules |
+| `/etc/churn/log_file` | 600 | GL's `system.@system[0].log_file` as it was before the app first deleted it. Only there after the app has deleted it |
+| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, sets `log_file` back from Churn's copy and deletes the copy, then removes Churn's firewall rules |
 | `/etc/nftables.d/churn.nft` | 644 | Churn's firewall rules, from `Router.firewallRules` |
 
 At setup the app also adds the line `/etc/churn/` to `/etc/sysupgrade.conf`,

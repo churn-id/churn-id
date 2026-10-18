@@ -1,5 +1,6 @@
 package id.churn
 
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -33,6 +34,15 @@ class FakeRouter : Shell {
     var slot2 = Slot2.SIM2
     var activeSlot = 2
 
+    /** GL's uci setting naming the flash file its system log goes to; null once the app turns the log off. */
+    var logFile: String? = "/etc/sys_log"
+
+    /** The ICCID GL recorded for the active card (`network.modem_cpu.iccid`), as GL stores it, or null for none. */
+    var modemCpuIccid: String? = "8941000000000000015F"
+
+    /** Set once the app overwrites the overlay's free space. */
+    var freeSpaceOverwritten = false
+
     /** The enabled profile's ICCID as `AT+ICCID` gives it, or null for none. */
     var esimProfile: String? = "8944000000000000123F"
     private var esimReloadsUntil = 0L
@@ -46,7 +56,7 @@ class FakeRouter : Shell {
     /** For a network reload that leaves the routing rules as they are. */
     var reloadIgnored = false
 
-    /** For a radio that comes on at a network or firewall reload. */
+    /** For a radio that comes on at a reload of the network, the firewall or the log service. */
     var radioOnAtReload = false
 
     /** The network interface the VPN tunnel in GL's route policy uses, or null for no tunnel. */
@@ -85,6 +95,43 @@ class FakeRouter : Shell {
      * a measurement. The swap sends no modem command before 120 s, so only a swap that sends one too early gets here.
      */
     private val modemAnswers get() = uptime >= 30
+
+    /**
+     * GL's records of [cards], given by their ICCIDs as GL stores them, in the files and formats of our Mudi 7: the
+     * system log, the two card files, and a record in the eSIM manager's folder for each, as if each card were an
+     * eSIM adapter card. The eSIM manager's log names them too.
+     */
+    fun recordCards(vararg cards: String) {
+        val simMap = JSONObject()
+        val apns = JSONArray()
+        cards.forEachIndexed { i, iccid ->
+            simMap.put(iccid, JSONObject().put("manual", false).put("pincode", "").put("roaming", true).put("cid", 1))
+            apns.put(JSONObject().put("iccid", iccid).put("apn", "internet").put("ip_type", "IPV4V6").put("cid", 1))
+            val record = JSONObject().put("iccid", iccid).put("ac_code", "").put("apn", "").put("oplmn", "")
+            files["$ESIM_DB/${"${i + 1}".repeat(32)}"] =
+                JSONObject().put("records", JSONObject().put(iccid, record)).toString().toByteArray()
+        }
+        files[SIM_MAP] = simMap.toString(2).toByteArray()
+        files[APN_HISTORY] = JSONObject().put("apns", apns).toString(2).toByteArray()
+        files["/root/esim/log.txt"] = cards.joinToString("") { "get profile list: $it\n" }.toByteArray()
+        files["/etc/sys_log"] = cards.joinToString("") { "user.info Diag_Lib[1]: iccid[$it]\n" }.toByteArray()
+    }
+
+    /** The cards GL's `sim_map.json` still names. */
+    val cardsInSimMap: Set<String>
+        get() = JSONObject(files[SIM_MAP]!!.toString(Charsets.UTF_8)).keys().asSequence().toSet()
+
+    /** The cards GL's `history_apn_database.json` still names. */
+    val cardsInApnHistory: Set<String>
+        get() {
+            val apns = JSONObject(files[APN_HISTORY]!!.toString(Charsets.UTF_8)).getJSONArray("apns")
+            return (0 until apns.length()).map { apns.getJSONObject(it).getString("iccid") }.toSet()
+        }
+
+    /** The cards the eSIM manager's records still name. */
+    val cardsInEsimRecords: Set<String>
+        get() = files.filterKeys { it.startsWith("$ESIM_DB/") }.values
+            .flatMap { JSONObject(it.toString(Charsets.UTF_8)).getJSONObject("records").keys().asSequence() }.toSet()
 
     /** Power-on with the settings kept. */
     fun boot() {
@@ -167,6 +214,33 @@ class FakeRouter : Shell {
         if (command == FIREWALL_LOADED) {
             val all = listOf("churn_sim", "churn_route", "churn_dns").all { it in loadedChains }
             return Output(if (all) 0 else 1, ByteArray(0), "")
+        }
+        // The app turns GL's flash system log off by deleting its uci setting, then reloads the log service.
+        if (command == "uci delete 'system.@system[0].log_file' && uci commit system") {
+            logFile = null
+            return ok("")
+        }
+        if (command == "/etc/init.d/log reload") {
+            if (radioOnAtReload) radioStuckOn = true
+            return ok("")
+        }
+        // GL's eSIM manager keeps one record file per chip under /root/esim/db, named by a 32-digit id.
+        Regex("""find (\S+/db) -maxdepth 1 -type f 2>/dev/null""").matchEntire(command)?.let {
+            val dir = "${it.groupValues[1]}/"
+            return ok(files.keys.filter { key -> key.startsWith(dir) }.joinToString("") { key -> "$key\n" })
+        }
+        Regex(""": > (\S+)""").matchEntire(command)?.let {
+            files[it.groupValues[1]] = ByteArray(0)
+            return ok("")
+        }
+        // The free-space overwrite writes and deletes /overlay/churn-fill.* parts; its effect is not in the files.
+        if ("/overlay/churn-fill." in command) {
+            freeSpaceOverwritten = true
+            return ok("")
+        }
+        Regex("""rm -f (.+)""").matchEntire(command)?.let {
+            it.groupValues[1].split(" ").filter(String::isNotBlank).forEach(files::remove)
+            return ok("")
         }
         error("Unexpected command: $command")
     }
@@ -259,6 +333,8 @@ class FakeRouter : Shell {
         "glconfig.general.airplane_mode" -> ok(if (airplaneMode) "1\n" else "0\n")
         "gl_timer.reboot.enable" -> ok(if (scheduledReboot) "1\n" else "0\n")
         "network.modem_cpu.dds_id" -> ok("$activeSlot\n")
+        "system.@system[0].log_file" -> logFile?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
+        "network.modem_cpu.iccid" -> modemCpuIccid?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
         "route_policy.@default[0].enabled" -> ok(if (killSwitchSet) "0\n" else "1\n")
         "network.vpn_to_main" -> if (killSwitchSet) Output(1, ByteArray(0), "") else ok("rule\n")
         "network.wgclient1" -> ok("interface\n")
@@ -307,6 +383,9 @@ class FakeRouter : Shell {
     companion object {
         const val LOCK = "exec 9>/var/lock/churn.lock && flock 9 && "
         const val LOCATION_ID = "bcpu_p0133_v2c7c"
+        const val SIM_MAP = "/etc/config/cellular/sim_map.json"
+        const val APN_HISTORY = "/etc/config/cellular/history_apn_database.json"
+        const val ESIM_DB = "/root/esim/db"
         private const val KILL_SWITCH_ON = "uci set 'route_policy.@default[0].enabled=0' && " +
             "{ uci -q delete 'network.vpn_to_main' || true; } && uci commit route_policy && uci commit network && " +
             "/etc/init.d/network reload"

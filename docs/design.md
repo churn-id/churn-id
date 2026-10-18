@@ -182,12 +182,13 @@ profile's IMEIs.
 
 Churn keeps its files on the router in `/etc/churn/`, readable by root
 only: a README explaining the folder, the secret, the factory IMEIs and a
-restore script. The script writes the factory IMEIs back and removes
-Churn's firewall rules; the app runs it on request, and it also works over
-a plain SSH session if the app is gone. The only file outside the folder
-holds those firewall rules, `/etc/nftables.d/churn.nft` (section 7). The
-script and the rules ship inside the app and are copied to the router, so
-the repository has no separate router component.
+restore script. The script writes the factory IMEIs back, puts back GL's
+setting for its system log (section 7) and removes Churn's firewall rules;
+the app runs it on request, and it also works over a plain SSH session if
+the app is gone. The only file outside the folder holds those firewall
+rules, `/etc/nftables.d/churn.nft` (section 7). The script and the rules
+ship inside the app and are copied to the router, so the repository has no
+separate router component.
 
 - **Kept across firmware upgrades.** OpenWrt's upgrade with "keep settings"
   keeps only listed paths, so the app adds `/etc/churn/` and the rules file
@@ -205,8 +206,10 @@ the repository has no separate router component.
   factory IMEI (inferred), and the next boot with a SIM would pair it with
   that SIM.
 - **What the secret reveals.** Anyone with root on the router can recompute
-  the IMEIs for a known ICCID. Nothing else on the router links a past SIM
-  to a past IMEI.
+  the IMEIs for a known ICCID. GL's firmware lists every card it has seen,
+  so the app clears that list (section 7). Apart from what the flash chips
+  may keep beneath the partition (section 7), nothing else on the router
+  links a past SIM to a past IMEI.
 - **Factory capture.** The IMEIs read at first setup may already be
   rewritten, for example by blue-merle. The app warns if their TAC isn't a
   known Mudi 7 TAC.
@@ -291,9 +294,10 @@ every boot:
 3. Once the radio is off after the boot (section 6), the app turns GL's
    Enhanced Kill Switch on if it is off and adds Churn's firewall rules if
    they are missing, then switches slot 2 to SIM 2 in airplane mode, reads
-   the ICCID, writes the derived pair, saves and verifies it. If it finds
-   no usable card, it switches slot 2 back to the built-in eSIM, so the
-   card stays off at the next power-on.
+   the ICCID, writes the derived pair, saves and verifies it, and clears
+   the router's record of earlier cards (below). If it finds no usable
+   card, it switches slot 2 back to the built-in eSIM, so the card stays
+   off at the next power-on, and clears nothing.
 4. The user turns airplane mode off later, at another place and time.
 
 ### App behavior
@@ -317,8 +321,8 @@ every boot:
   them while slot 2 is still on the built-in eSIM and then checks that the
   radio is still off. It leaves each tunnel's own Kill Switch as it is,
   since the Enhanced Kill Switch blocks that traffic too (section 10). The
-  router screen also warns while the switch is off or the rules are
-  missing, and offers to fix either.
+  router screen also warns while the switch is off, the rules are missing
+  or GL's system log goes to the flash, and offers to fix each.
 
 ### The router's own traffic
 
@@ -375,6 +379,78 @@ Choices and their effects:
   must stay on, for devices' traffic and the router's own alike: without
   it, their packets would enter the tunnel with addresses the VPN server
   doesn't accept (inferred).
+
+### The router's record of SIMs
+
+GL's firmware records every card the router uses on its flash, where the
+record outlasts power-offs and swaps (all verified; development.md,
+"Clearing the SIM history"):
+
+- **The system log** goes to a file. It pairs each card's ICCID with its
+  IMSI and names the network and cell of each registration, so it is a
+  location history of the router. GL keeps it in two files of up to
+  128 MB, which on our router went back seven weeks, to its first day.
+- **GL's card files** keep each card's settings, such as its APN, PIN and
+  roaming, under its ICCID, and are never pruned.
+- **GL's eSIM manager** keeps a record of each eSIM chip's profiles, and a
+  log.
+
+Whoever gets hold of the router or its admin password can read this
+record, which links the router's cards to each other, and the secret then
+gives each card's IMEIs (section 5). So the app clears the record at
+setup, at step 3 of every swap once the new card has its IMEIs, and from
+the router screen while the log goes to the flash:
+
+1. It turns off the system log's file. The log then stays in a 64 KB
+   buffer in RAM, which every power-off empties.
+2. It deletes the log files.
+3. It removes every card but the current one, at step 3 the new one, from
+   GL's card files and the eSIM manager's records, and empties the eSIM
+   manager's log.
+4. It overwrites the flash's free space with zeros. A deleted file stays
+   readable on the raw partition until something overwrites it: before the
+   clearing, the partition held 460 copies of an old card's ICCID, of
+   which only 270 were in files.
+
+Choices and their effects:
+
+- The restore script puts the log setting back (section 5), but what the
+  app deleted, the old cards' settings included, doesn't come back.
+- A card used again after a clearing has lost its settings, so GL treats
+  it as new. It searches for a working APN once, trying the APNs it knows
+  for the card's network until one works, and saves that one again
+  (verified with the built-in eSIM's profile). An APN or PIN typed in by
+  hand has to be typed in again. Rule 11 makes this rare.
+- At step 3 the card files may name no card at all until GL records the
+  new card when it goes online. GL treats a card it hasn't seen as new
+  anyway, so this changes nothing for it (inferred).
+- The router's clock doesn't need the log. At power-on it resumes from the
+  router's last write to `/etc`, and GL writes other files there every
+  minute (verified with the SIM online; see "The router's own traffic"
+  above).
+- The overwrite took about 3 minutes on our router, while the app keeps
+  itself alive as during a swap step. For its last seconds the partition
+  is full and GL can't save anything; GL's files stayed intact in our test.
+  It also writes about 2.9 GB to the flash each time, and we don't know
+  how much of the flash's life that uses (section 10).
+- The overwrite reaches what the flash's controller shows as the
+  partition. The flash chips underneath may keep old data for a while
+  beyond that, as flash memory does (inferred).
+- ext4, the partition's file system, keeps back free space that even root
+  can't fill, 16 MB on our router, so that it can finish writes it has
+  already accepted on a full partition. A fill with large files reaches
+  the single free blocks between small files last, so those are the ones
+  the reserve leaves free, and old versions of GL's settings files sit
+  there: two days after our first clearing, the raw partition held 8
+  copies of an earlier card's ICCID, all in free space in old versions of
+  a settings file that names the card in use, and none in the file
+  system's journal (verified). So the overwrite sets that reserve to 0
+  while it runs, puts it back at the end or when it is stopped (a reboot
+  does too), and fills any single blocks its large files leave with 4 KB
+  files. On our router, the overwrite then left no card's ICCID on the
+  raw partition outside the files that name it (verified). On a disk
+  image with 300 old versions of a settings file, it left 299 without
+  these changes and none with them (verified on the image).
 
 ## 8. Usage rules
 
@@ -555,6 +631,11 @@ Hardware, other:
 - Can the app give the router's Wi-Fi a new network name and hardware
   address at every swap? OpenWrt has a setting for each; GL's firmware
   may override them.
+- Does GL's firmware write its log file again once the restore script has
+  put the setting back? The app turns it off the same way, which worked
+  (section 7).
+- How much of the flash's life does overwriting its free space at every
+  swap use?
 
 Design:
 

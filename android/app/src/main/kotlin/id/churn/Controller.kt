@@ -37,6 +37,7 @@ class RouterStatus(
     val slot2: Slot2?,
     val enhancedKillSwitch: Boolean,
     val firewall: Boolean,
+    val flashLogOff: Boolean,
 )
 
 private class NoRouterNetwork : Exception()
@@ -65,11 +66,14 @@ class Controller(private val context: Context) {
     /** Called on the main thread with every new screen. */
     var onScreen: ((Screen) -> Unit)? = null
 
-    /** Whether a swap step is running, with [SwapService] keeping the app alive. Main thread only. */
+    /**
+     * Whether a swap step, or another job that takes minutes, is running, with [SwapService] keeping the app alive.
+     * Main thread only.
+     */
     var stepRunning = false
         private set
 
-    /** Called on the main thread when a swap step ends. */
+    /** Called on the main thread when that step or job ends. */
     var onStepEnd: (() -> Unit)? = null
 
     val address get() = saved.address
@@ -102,7 +106,7 @@ class Controller(private val context: Context) {
 
     fun cancel() = show(Screen.Connect())
 
-    fun setUp(factory: ImeiPair) = job(R.string.setting_up) {
+    fun setUp(factory: ImeiPair) = job(R.string.setting_up, keepAlive = true) {
         val router = router()
         val folder = router.readChurnFolder()
         updateChurnFiles(router)
@@ -112,6 +116,8 @@ class Controller(private val context: Context) {
         }
         // Written last: a folder with the secret and the factory IMEIs counts as set up.
         if (folder.secret == null) router.writeChurnFile("secret", ByteArray(32).also { SecureRandom().nextBytes(it) })
+        // Turns the flash log off and clears the SIM history that built up before Churn.
+        router.clearHistory(router.currentCardIccid())
         showRouter()
     }
 
@@ -131,6 +137,12 @@ class Controller(private val context: Context) {
 
     fun installFirewall() = job(R.string.installing_firewall) {
         router().installFirewall()
+        showRouter()
+    }
+
+    fun clearHistory() = job(R.string.clearing_history, keepAlive = true) {
+        val router = router()
+        router.clearHistory(router.currentCardIccid())
         showRouter()
     }
 
@@ -187,9 +199,16 @@ class Controller(private val context: Context) {
         }
     }
 
-    /** Runs [body] on the worker thread while the screen shows [title]. */
-    private fun job(title: Int, body: () -> Unit) {
+    /**
+     * Runs [body] on the worker thread while the screen shows [title]. With [keepAlive], for a job that takes minutes,
+     * the foreground service keeps the app alive meanwhile.
+     */
+    private fun job(title: Int, keepAlive: Boolean = false, body: () -> Unit) {
         show(Screen.Working(context.getString(title)))
+        if (keepAlive) {
+            stepRunning = true
+            context.startForegroundService(Intent(context, SwapService::class.java))
+        }
         worker.execute {
             try {
                 body()
@@ -197,6 +216,12 @@ class Controller(private val context: Context) {
                 show(Screen.TrustKey(e.key, e.fingerprint, e.changed))
             } catch (e: Exception) {
                 show(Screen.Connect(describe(e)))
+            }
+            if (keepAlive) {
+                main.post {
+                    stepRunning = false
+                    onStepEnd?.invoke()
+                }
             }
         }
     }
@@ -321,6 +346,7 @@ class Controller(private val context: Context) {
             enhancedKillSwitch = router.enhancedKillSwitch(),
             // A router whose firewall the app can't read shows the warning, and adding the rules says why.
             firewall = runCatching { router.firewallInPlace() }.getOrDefault(false),
+            flashLogOff = router.flashLogOff(),
         )
         return Screen.Home(status, notes)
     }
@@ -362,6 +388,7 @@ class Controller(private val context: Context) {
             Progress.SLOT2_ACTIVE -> R.string.progress_slot2_active
             Progress.CARD_FOUND -> R.string.progress_card_found
             Progress.NEW_IMEIS -> R.string.progress_new_imeis
+            Progress.CLEARING_HISTORY -> R.string.progress_clearing_history
         },
     )
 

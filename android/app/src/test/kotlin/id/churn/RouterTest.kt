@@ -1,5 +1,6 @@
 package id.churn
 
+import org.json.JSONObject
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -35,6 +36,109 @@ class RouterTest {
         assertFalse(router.firewallInPlace())
         assertEquals("8941000000000000015F", router.slot2Iccid())
         assertEquals("228010000000001", router.slot2Imsi())
+        assertEquals("8941000000000000015F", router.currentCardIccid())
+        assertFalse(router.flashLogOff())
+    }
+
+    @Test
+    fun takesOnlyAnIccidForTheCurrentCard() {
+        fake.modemCpuIccid = "unknown"
+        assertNull(router.currentCardIccid())
+        fake.modemCpuIccid = null
+        assertNull(router.currentCardIccid())
+    }
+
+    @Test
+    fun clearsTheSimHistoryButTheCurrentCard() {
+        fake.recordCards(OLD_CARD, OLD_CARD_20, CURRENT_CARD)
+        fake.files["/etc/sys_log.old"] = "user.info Diag_Lib[1]: iccid[$OLD_CARD]\n".toByteArray()
+        router.clearHistory(CURRENT_CARD)
+        assertTrue(router.flashLogOff())
+        assertNull(fake.files["/etc/sys_log"])
+        assertNull(fake.files["/etc/sys_log.old"])
+        assertEquals(setOf(CURRENT_CARD), fake.cardsInSimMap)
+        assertEquals(setOf(CURRENT_CARD), fake.cardsInApnHistory)
+        assertEquals(setOf(CURRENT_CARD), fake.cardsInEsimRecords)
+        assertEquals(0, fake.files["/root/esim/log.txt"]!!.size)
+        // The current card keeps its settings.
+        val settings = JSONObject(fake.files[FakeRouter.SIM_MAP]!!.toString(Charsets.UTF_8))
+        assertTrue(settings.getJSONObject(CURRENT_CARD).getBoolean("roaming"))
+        assertTrue(fake.freeSpaceOverwritten)
+    }
+
+    @Test
+    fun turnsTheLogOffBeforeDeletingIt() {
+        // An open file keeps its data on the flash after it is deleted.
+        router.clearHistory(CURRENT_CARD)
+        val off = fake.commands.indexOfFirst { it.startsWith("uci delete 'system.@system[0].log_file'") }
+        val reload = fake.commands.indexOf("/etc/init.d/log reload")
+        val delete = fake.commands.indexOf("rm -f /etc/sys_log /etc/sys_log.old")
+        assertTrue(off in 0 until reload && reload < delete)
+    }
+
+    @Test
+    fun overwritesTheFreeSpaceLast() {
+        // Only then is everything it deleted in the free space.
+        fake.recordCards(OLD_CARD, CURRENT_CARD)
+        router.clearHistory(CURRENT_CARD)
+        assertTrue("/overlay/churn-fill." in fake.commands.last())
+    }
+
+    @Test
+    fun matchesTheCurrentCardWithOrWithoutItsTrailingF() {
+        fake.recordCards(OLD_CARD, CURRENT_CARD)
+        router.clearHistory(CURRENT_CARD.removeSuffix("F"))
+        assertEquals(setOf(CURRENT_CARD), fake.cardsInSimMap)
+        assertEquals(setOf(CURRENT_CARD), fake.cardsInApnHistory)
+        assertEquals(setOf(CURRENT_CARD), fake.cardsInEsimRecords)
+        fake.recordCards(OLD_CARD, CURRENT_CARD.removeSuffix("F"))
+        router.clearHistory(CURRENT_CARD)
+        assertEquals(setOf(CURRENT_CARD.removeSuffix("F")), fake.cardsInSimMap)
+    }
+
+    @Test
+    fun clearsEveryCardWithoutACurrentOne() {
+        fake.recordCards(OLD_CARD, CURRENT_CARD)
+        router.clearHistory(keepIccid = null)
+        assertEquals(emptySet<String>(), fake.cardsInSimMap)
+        assertEquals(emptySet<String>(), fake.cardsInApnHistory)
+        assertEquals(emptySet<String>(), fake.cardsInEsimRecords)
+    }
+
+    @Test
+    fun savesTheLogSettingOnlyOnce() {
+        router.clearHistory(CURRENT_CARD)
+        assertArrayEquals("/etc/sys_log\n".toByteArray(), fake.files["/etc/churn/log_file"])
+        // As after a firmware upgrade that turned the log back on: restore.sh still puts back what came before Churn.
+        fake.logFile = "/etc/messages"
+        router.clearHistory(CURRENT_CARD)
+        assertTrue(router.flashLogOff())
+        assertArrayEquals("/etc/sys_log\n".toByteArray(), fake.files["/etc/churn/log_file"])
+    }
+
+    @Test
+    fun leavesALogThatIsOffAsItIs() {
+        fake.logFile = null
+        fake.recordCards(OLD_CARD, CURRENT_CARD)
+        router.clearHistory(CURRENT_CARD)
+        assertNull(fake.files["/etc/churn/log_file"])
+        assertTrue(fake.commands.none { "uci delete" in it || "log reload" in it })
+        assertEquals(setOf(CURRENT_CARD), fake.cardsInSimMap)
+        assertTrue(fake.freeSpaceOverwritten)
+    }
+
+    @Test
+    fun rewritesOnlyCardFilesThatChange() {
+        fake.recordCards(CURRENT_CARD)
+        router.clearHistory(CURRENT_CARD)
+        assertTrue(fake.commands.none { "cat > /etc/config/cellular/" in it })
+    }
+
+    @Test
+    fun leavesACardFileItCannotReadAsItIs() {
+        fake.files[FakeRouter.SIM_MAP] = "{ \"$OLD_CARD\": ".toByteArray()
+        router.clearHistory(CURRENT_CARD)
+        assertArrayEquals("{ \"$OLD_CARD\": ".toByteArray(), fake.files[FakeRouter.SIM_MAP])
     }
 
     @Test
@@ -210,5 +314,14 @@ class RouterTest {
     @Test(expected = IllegalArgumentException::class)
     fun writesOnlyValidImeis() {
         router.writeImeis(ImeiPair("356090213059464", "356090213059539"))
+    }
+
+    private companion object {
+        /** The card in the fake router's SIM 2 tray, as GL stores its 19-digit ICCID. */
+        const val CURRENT_CARD = "8941000000000000015F"
+        const val OLD_CARD = "8949000077777777777F"
+
+        /** A card with a 20-digit ICCID, which GL stores without an `F`. */
+        const val OLD_CARD_20 = "89320000555555555555"
     }
 }

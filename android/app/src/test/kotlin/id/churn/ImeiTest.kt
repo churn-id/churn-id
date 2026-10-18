@@ -31,15 +31,15 @@ class ImeiTest {
         val iccid = "8941000000000000015"
         assertEquals(
             ImeiPair("356090213059463", "356090213059539"),
-            Imei.derive(secret, iccid, factory(7)),
+            Imei.derive(secret, iccid, factory(d = 7)),
         )
         assertEquals(
             ImeiPair("356090213059539", "356090213059463"),
-            Imei.derive(secret, iccid, factory(-7)),
+            Imei.derive(secret, iccid, factory(d = -7)),
         )
         assertEquals(
             ImeiPair("356090213012637", "356090213012637"),
-            Imei.derive(secret, iccid, factory(0)),
+            Imei.derive(secret, iccid, factory(d = 0)),
         )
     }
 
@@ -48,7 +48,7 @@ class ImeiTest {
         // The first word of this ICCID's HMAC, ffff2de0, is rejected.
         assertEquals(
             ImeiPair("356090219466134", "356090219466209"),
-            Imei.derive(secret, "8941000000000104627", factory(7)),
+            Imei.derive(secret, "8941000000000104627", factory(d = 7)),
         )
     }
 

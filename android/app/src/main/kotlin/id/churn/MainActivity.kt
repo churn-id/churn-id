@@ -122,6 +122,12 @@ class MainActivity : Activity() {
                 confirm(getString(R.string.firewall_on_text)) { controller.installFirewall() }
             }
         }
+        if (!status.flashLogOff) {
+            warning(getString(R.string.note_flash_log))
+            button(R.string.clear_history) {
+                confirm(getString(R.string.clear_history_text)) { controller.clearHistory() }
+            }
+        }
         button(R.string.swap) { controller.beginSwap() }
         button(R.string.refresh) { controller.refresh() }
         button(R.string.show_rules) { showRules() }
