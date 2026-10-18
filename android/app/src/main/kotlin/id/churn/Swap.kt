@@ -107,15 +107,11 @@ class Swap(
         // The card answers a moment after the switch.
         var raw: String? = null
         poll(CARD_TIMEOUT_SECONDS) {
-            raw = router.slot2Iccid()?.takeIf { it != Router.PLACEHOLDER_ICCID }
+            raw = router.slot2CardIccid()
             raw != null
         }
         val cardIccid = raw ?: throw RouterException(Problem.NO_CARD)
         val iccid = Imei.iccidDigits(cardIccid) ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+ICCID")
-        // A card without an enabled profile might show an ICCID of its own, which would give every such card
-        // the same IMEIs. Only a card with a real network's IMSI goes on.
-        val imsi = router.slot2Imsi()
-        if (imsi == null || imsi.startsWith(TEST_NETWORK)) throw RouterException(Problem.NO_CARD)
         report(Progress.CARD_FOUND)
         val pair = Imei.derive(secret, iccid, factory)
         router.writeImeis(pair)
@@ -185,7 +181,8 @@ class Swap(
         // GL's eSIM manager waits about 5 s for the modem to reload the card.
         sleep(5_000)
         val disabled = poll(PROFILE_TIMEOUT_SECONDS) {
-            router.slot2Iccid() == Router.PLACEHOLDER_ICCID && router.slot2Imsi()?.startsWith(TEST_NETWORK) == true
+            router.slot2Iccid() == Router.PLACEHOLDER_ICCID &&
+                router.slot2Imsi()?.startsWith(Router.TEST_NETWORK) == true
         }
         if (!disabled) throw RouterException(Problem.PROFILE_STILL_ENABLED)
         report(Progress.PROFILE_DISABLED)
@@ -209,7 +206,6 @@ class Swap(
 
     private companion object {
         const val RADIO_OFF = 4
-        const val TEST_NETWORK = "00101"
         const val POLL_MILLISECONDS = 2_000L
         const val RADIO_TIMEOUT_SECONDS = 30
         const val SWITCH_TIMEOUT_SECONDS = 30
