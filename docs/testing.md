@@ -229,7 +229,7 @@ From development.md, "Files on the router", and design.md, section 5.
 | `/etc/churn/` and its files have the modes and contents development.md lists | contents verified by the app, modes inferred | Modes and sizes; the app itself rewrites `README.txt` and `restore.sh` at every connection where they differ from its copies | 1, blocks |
 | `/etc/churn/` is listed in `/etc/sysupgrade.conf` | verified by the app | The line is there | 1, blocks |
 | With the firewall rules, `/etc/nftables.d/churn.nft` is listed in `/etc/sysupgrade.conf` | inferred | The line is there | 1 |
-| GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | The IMEIs equal the ones the app last wrote, at every connection (tier 1, which the app already does) and after an upgrade (tier 3) | 1, 3 |
+| GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | At every connection, the IMEIs are the pair of the card in slot 2 (tier 1, which the app already does); after an upgrade, they are the ones from before it (tier 3) | 1, 3 |
 | A firmware upgrade with "keep settings" keeps `/etc/churn/`, Churn's firewall rules and the log's file off | open | Upgrade, then check the folder, the rules and `log_file` | 3 |
 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
 | `restore.sh` then sets GL's `log_file` back from Churn's copy, and deletes the copy | inferred | Run it, then check the setting and the copy (tier 2) | 2 |

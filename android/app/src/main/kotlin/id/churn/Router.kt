@@ -98,6 +98,16 @@ class Router(private val shell: Shell) {
     /** Slot 2's IMSI; null if the card doesn't answer. */
     fun slot2Imsi() = slot2Answer("AT+CIMI")?.lines?.firstOrNull { it.matches(Regex("[0-9]{6,15}")) }
 
+    /**
+     * Slot 2's ICCID, as [slot2Iccid] gives it, if the card there has a real network's IMSI; otherwise null. A card
+     * without an enabled profile might show an ICCID of its own, which would give every such card the same IMEIs.
+     */
+    fun slot2CardIccid(): String? {
+        val iccid = slot2Iccid()?.takeIf { it != PLACEHOLDER_ICCID } ?: return null
+        val imsi = slot2Imsi() ?: return null
+        return iccid.takeIf { !imsi.startsWith(TEST_NETWORK) }
+    }
+
     /** Asks GL's eSIM manager to disable the profile with [iccid], given as [slot2Iccid] returns it. */
     fun disableProfile(iccid: String): String {
         require(iccid.matches(Regex("[0-9A-Fa-f]{18,20}")))
@@ -409,6 +419,9 @@ class Router(private val shell: Shell) {
     companion object {
         /** The ICCID slot 2 shows while it is on the built-in eSIM with no profile enabled. */
         const val PLACEHOLDER_ICCID = "89000123456789012341"
+
+        /** The start of a test network's IMSI, which a card without an enabled profile shows. */
+        const val TEST_NETWORK = "00101"
 
         /** Churn's folder on the router. */
         const val CHURN = "/etc/churn"
