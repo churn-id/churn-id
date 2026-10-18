@@ -311,7 +311,7 @@ class Controller(private val context: Context) {
             when {
                 !folder.complete -> setUpScreen(router, folder)
                 step != null -> Screen.Swapping(step)
-                else -> home(router, folder.factory!!, note)
+                else -> home(router, folder, note)
             },
         )
     }
@@ -333,11 +333,16 @@ class Controller(private val context: Context) {
         return Screen.SetUp(factory, warnings.map { context.getString(it) })
     }
 
-    private fun home(router: Router, factory: ImeiPair, note: String?): Screen.Home {
+    private fun home(router: Router, folder: ChurnFolder, note: String?): Screen.Home {
+        val factory = folder.factory!!
         val imeis = router.imeis()
         val notes = listOfNotNull(note).toMutableList()
-        val written = saved.written
-        if (written != null && written != imeis) notes += context.getString(R.string.note_imeis_changed)
+        // The card in slot 2 registers with the IMEIs at every power-on, so they must be its own. A card in the tray
+        // while slot 2 is on the built-in eSIM stays off, and reading it would take a switch of the slot.
+        val card = router.slot2CardIccid()?.let(Imei::iccidDigits)
+        if (card != null && imeis != Imei.derive(folder.secret!!, card, factory)) {
+            notes += context.getString(R.string.note_not_cards_imeis)
+        }
         if (router.scheduledReboot()) notes += context.getString(R.string.note_scheduled_reboot)
         if (!router.vpnSetUp()) notes += context.getString(R.string.note_no_vpn)
         val status = RouterStatus(

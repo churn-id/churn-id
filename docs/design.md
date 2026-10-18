@@ -201,10 +201,18 @@ separate router component.
   router set up by an earlier version gets a script that undoes everything
   the current version changes.
 - **Checked on every connection.** The app checks that the folder exists and
-  that the IMEIs are the ones it last wrote. GL's firmware contains the
-  command that writes IMEI 1, so an upgrade or reset might restore the
-  factory IMEI (inferred), and the next boot with a SIM would pair it with
-  that SIM.
+  that the IMEIs are the pair the card in slot 2 gets (section 4), from the
+  secret, the factory IMEIs and the card's ICCID, all read from the router.
+  At every power-on the card registers with whatever IMEIs are there
+  (section 6), so the router screen warns if they aren't its pair. That is
+  the case before the first swap and after a restore, when the router has
+  its factory IMEIs; after the card was swapped without the app; and maybe
+  after a firmware upgrade or reset: GL's firmware contains the command
+  that writes IMEI 1, so either might restore the factory IMEI (inferred).
+  Nothing stored on the phone goes into the check, so it also holds after
+  a swap from another phone or a reinstall of the app. A card in the tray
+  while slot 2 is on the built-in eSIM stays off and isn't checked, since
+  reading it would take a switch of the slot.
 - **What the secret reveals.** Anyone with root on the router can recompute
   the IMEIs for a known ICCID. GL's firmware lists every card it has seen,
   so the app clears that list (section 7). Apart from what the flash chips
