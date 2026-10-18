@@ -233,8 +233,14 @@ class MainActivity : Activity() {
         )
     }
 
+    /**
+     * A text view in the theme's primary text color, which buttons use too. A plain one takes the
+     * theme's small text appearance, whose color is the one Material uses for outlines.
+     */
+    private fun textView() = TextView(this).apply { setTextAppearance(android.R.style.TextAppearance_DeviceDefault) }
+
     private fun LinearLayout.heading(text: String) = addView(
-        TextView(context).apply {
+        textView().apply {
             this.text = text
             textSize = 22f
             setPadding(0, 0, 0, dp(16))
@@ -242,7 +248,7 @@ class MainActivity : Activity() {
     )
 
     private fun LinearLayout.paragraph(text: String, monospace: Boolean = false) = addView(
-        TextView(context).apply {
+        textView().apply {
             this.text = text
             textSize = 16f
             if (monospace) typeface = Typeface.MONOSPACE
@@ -252,7 +258,7 @@ class MainActivity : Activity() {
     )
 
     private fun LinearLayout.warning(text: String) = addView(
-        TextView(context).apply {
+        textView().apply {
             this.text = text
             textSize = 16f
             setTextColor(Color.rgb(0xFF, 0xB3, 0x00))
