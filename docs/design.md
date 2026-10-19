@@ -360,12 +360,19 @@ every boot:
    next power-on, and stops, clearing nothing.
 4. The user switches the router on later, at another place and time, and
    turns airplane mode off there. The new card registers at that power-on,
-   whatever airplane mode says (section 6).
+   whatever airplane mode says (section 6). A place card is switched on at
+   its own place only (rule 1). The app also tells the user to destroy the
+   card taken out, unless it is a place card or still in SIM 2 (rule 11).
 
 Step 3 ends with a shutdown, which emits nothing (section 6), rather than
 leaving the router on in airplane mode until the user goes online. The
 router then travels to the next place switched off, as rule 2 asks before
 any place the user returns to.
+
+Step 4, not step 2, says to destroy the card taken out: until step 3 has
+given the new card its IMEIs, the old card is the fallback, as when the user
+keeps it after all. Step 1 notes on the phone which card the record names,
+since step 3 replaces the record and may run more than once.
 
 ### App behavior
 
@@ -585,8 +592,9 @@ For maximum privacy, also follow these rules where you can:
 10. Get each new SIM card or eSIM profile from a different provider than the
     last one and than your place cards. If you can't, start using the new
     one somewhere else and some days after you stopped using the last one.
-11. Don't reuse a travel card once you've swapped it out. If you run out of
-    new cards, keep using the current one until you get a new one.
+11. Don't reuse a travel card once you've swapped it out, and destroy it
+    away from home. If you run out of new cards, keep using the current one
+    until you get a new one.
 12. Vary when you swap SIMs, and where you switch the radio on and off.
 13. Pay for the VPN in a way that isn't tied to your name.
 14. Block SIM slot 1, for example with a drop of hot glue.
@@ -681,7 +689,10 @@ Why:
     card goes quiet, the swap could also link the two cards by timing
     (inferred). A reused travel card also gets new IMEIs, which shows its
     issuer that the IMEI was rewritten (section 4). A place card is reused
-    by design, at its own place only (rule 1).
+    by design, at its own place only (rule 1). A used travel card found with
+    the user ties them to its whole history, so it is destroyed: cut
+    through the chip, and for an eSIM adapter card the adapter goes too,
+    since its EID links its profiles (rule 4).
 12. Regular habits, such as always swapping on the same day or at the same
     station, can link identities without any identifier.
 13. The VPN provider sees each SIM's IP address in turn, all under one VPN

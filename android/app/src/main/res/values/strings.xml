@@ -26,7 +26,7 @@
     <string-array name="rules_where_you_can">
         <item>Use SIM cards that aren\'t registered to your name. The same goes for eSIM profiles.</item>
         <item>Get each new SIM card or eSIM profile from a different provider than the last one and than your place cards. If you can\'t, start using the new one somewhere else and some days after you stopped using the last one.</item>
-        <item>Don\'t reuse a travel card once you\'ve swapped it out. If you run out of new cards, keep using the current one until you get a new one.</item>
+        <item>Don\'t reuse a travel card once you\'ve swapped it out, and destroy it away from home. If you run out of new cards, keep using the current one until you get a new one.</item>
         <item>Vary when you swap SIMs, and where you switch the radio on and off.</item>
         <item>Pay for the VPN in a way that isn\'t tied to your name.</item>
         <item>Block SIM slot 1, for example with a drop of hot glue.</item>
@@ -132,6 +132,8 @@
     <string name="step3_travel_card_answer">Travel card</string>
     <string name="step4_title">Go online later</string>
     <string name="step4_text">The router has the new card\'s IMEIs and is shutting down. Wait until it is off, then unplug the cable.\n\nSwitch it on again later, at another place and time, and never at home, at work or another place you return to. At power-on the new card registers with the network, whatever airplane mode says. The radio then stays off until you turn airplane mode off, on the router\'s screen or in GL\'s web interface.\n\nWhy: the old card went quiet where you started the swap. If the new one starts where and when the old one stopped, the two are easy to match.</string>
+    <string name="step4_text_place_card">The router has the place card\'s IMEIs and is shutting down. Wait until it is off, then unplug the cable.\n\nSwitch it on again later, at the card\'s own place, and never anywhere else. At power-on the card registers with the network, whatever airplane mode says. The radio then stays off until you turn airplane mode off, on the router\'s screen or in GL\'s web interface.\n\nWhy: used only at its place, the card links nothing but your visits there (rule 1). The old card went quiet where you started the swap. If the new one starts when the old one stopped, the two are easy to match.</string>
+    <string name="step4_destroy">Destroy the card you took out, ending in %1$s: cut through its chip and get rid of the pieces away from home. If it\'s an eSIM adapter card, the adapter goes too (rule 4).\n\nWhy: a used travel card found with you ties you to its whole history (rule 11).</string>
     <string name="step4_done">Done</string>
     <string name="try_again">Try again</string>
     <string name="cancel_swap">Cancel the swap</string>

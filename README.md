@@ -133,8 +133,9 @@ For maximum privacy, also follow these rules where you can:
 10. Get each new SIM card or eSIM profile from a different provider than the
     last one and than your place cards. If you can't, start using the new
     one somewhere else and some days after you stopped using the last one.
-11. Don't reuse a travel card once you've swapped it out. If you run out of
-    new cards, keep using the current one until you get a new one.
+11. Don't reuse a travel card once you've swapped it out, and destroy it
+    away from home. If you run out of new cards, keep using the current one
+    until you get a new one.
 12. Vary when you swap SIMs, and where you switch the radio on and off.
 13. Pay for the VPN in a way that isn't tied to your name.
 14. Block SIM slot 1, for example with a drop of hot glue.

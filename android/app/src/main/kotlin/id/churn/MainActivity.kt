@@ -151,7 +151,11 @@ class MainActivity : Activity() {
             Step.PREPARE -> Triple(1, R.string.step1_title, R.string.step1_text)
             Step.SWAP_CARD -> Triple(2, R.string.step2_title, R.string.step2_text)
             Step.NEW_IMEIS -> Triple(3, R.string.step3_title, R.string.step3_text)
-            Step.GO_ONLINE -> Triple(4, R.string.step4_title, R.string.step4_text)
+            Step.GO_ONLINE -> Triple(
+                4,
+                R.string.step4_title,
+                if (controller.placeCardIn) R.string.step4_text_place_card else R.string.step4_text,
+            )
         }
         paragraph(getString(R.string.step_number, number))
         heading(getString(title))
@@ -160,6 +164,8 @@ class MainActivity : Activity() {
             return@page
         }
         paragraph(getString(text))
+        val destroy = controller.cardToDestroy
+        if (screen.step == Step.GO_ONLINE && destroy != null) paragraph(getString(R.string.step4_destroy, destroy))
         screen.log.forEach { paragraph("✓ $it") }
         if (screen.running) {
             addView(ProgressBar(context))

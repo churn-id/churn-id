@@ -85,6 +85,10 @@ class Controller(private val context: Context) {
     val address get() = saved.address
     val hasPassword get() = saved.sealedPassword != null
 
+    /** What step 4 says: whether the new card is a place card, and the last digits of the card to destroy. */
+    val placeCardIn get() = saved.placeCardIn
+    val cardToDestroy get() = saved.cardToDestroy
+
     fun acceptIntro() {
         saved.introAccepted = true
         show(start())
@@ -179,6 +183,8 @@ class Controller(private val context: Context) {
     fun advance(step: Step) {
         when (step) {
             Step.PREPARE -> runStep(Step.PREPARE, CONNECT_WAIT_SECONDS) { swap, folder ->
+                // Step 3 replaces the record, and may run more than once.
+                saved.cardBeforeSwap = folder.card?.iccid
                 saved.written = swap.prepare(folder.factory!!, SecureRandom())
                 shutDown(swap, next = Step.SWAP_CARD)
             }
@@ -189,11 +195,16 @@ class Controller(private val context: Context) {
                     shutDown(swap, next = Step.SWAP_CARD)
                 } else {
                     saved.written = card.imeis
+                    saved.placeCardIn = saved.placeCards.find(card.iccid) != null
+                    val destroy = saved.placeCards.toDestroy(before = saved.cardBeforeSwap, after = card.iccid)
+                    saved.cardToDestroy = destroy?.takeLast(4)
+                    saved.cardBeforeSwap = null
                     shutDown(swap, next = Step.GO_ONLINE)
                 }
             }
             Step.GO_ONLINE -> {
                 saved.step = null
+                saved.cardToDestroy = null
                 show(Screen.Connect())
             }
         }

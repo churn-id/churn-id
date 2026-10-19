@@ -251,6 +251,7 @@ From design.md, sections 4 and 7.
 | While step 3 asks about a card, slot 2 is back on the built-in eSIM; after the answer it switches to the tray again and finds the same card, with `+CFUN: 4` throughout | inferred | Step 3 with a new card, answered after a minute | 4 |
 | Canceling at step 3's question leaves slot 2 on the built-in eSIM, so the card stays off at the next power-on | inferred | Cancel, then switch the router on with an RF meter | 4 |
 | A place card swapped back in gets the IMEIs it had at its earlier visits | inferred | Swap a place card out and back in, and compare the IMEIs on the router screen | 4 |
+| Step 4 says to destroy the card taken out, unless it is a place card or still in SIM 2 | inferred | Swap a travel card for a place card and back, and once keep the card | 4 |
 
 ## Beyond the router
 

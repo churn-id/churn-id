@@ -47,6 +47,12 @@ class PlaceCards(private val load: () -> String?, private val save: (String) -> 
         }
     }
 
+    /**
+     * The card step 4 tells the user to destroy, of [before], the card recorded before the swap, and [after], the
+     * card step 3 gave IMEIs: [before], unless the user kept it or it's a place card.
+     */
+    fun toDestroy(before: String?, after: String) = before?.takeIf { it != after && find(it) == null }
+
     /** Gives the place card with [iccid] the name [name], or no name if it is blank. */
     fun name(iccid: String, name: String) = save(
         encode(all.map { if (it.card.iccid == iccid) it.copy(name = name.trim().ifEmpty { null }) else it }),

@@ -60,6 +60,17 @@ class PlaceCardsTest {
     }
 
     @Test
+    fun destroysOnlyATravelCardTakenOut() {
+        val other = "8949000077777777777"
+        assertNull(places.toDestroy(before = null, after = card.iccid))
+        // Kept after all.
+        assertNull(places.toDestroy(before = card.iccid, after = card.iccid))
+        assertEquals(other, places.toDestroy(before = other, after = card.iccid))
+        places.choose(Card(other, card.imeis), answering(Answer.PLACE_CARD))
+        assertNull(places.toDestroy(before = other, after = card.iccid))
+    }
+
+    @Test
     fun forgetsAPlaceCard() {
         val other = Card("8949000077777777777", ImeiPair("356090219876548", "356090219876613"))
         places.choose(card, answering(Answer.PLACE_CARD))
