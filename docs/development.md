@@ -277,8 +277,8 @@ and `OK`. Like `AT+QCCID`, it pads a 19-digit ICCID with a trailing `F`
 | A profile enabled | the profile's ICCID | the profile's network |
 
 Step 3 of the swap reads the card in the SIM 2 tray the same way, once
-slot 2 is set to it (inferred; verified only for the eSIM). It derives
-IMEIs only for a card with a real network's IMSI, not one on test network
+slot 2 is set to it (inferred; verified only for the eSIM). It records a
+pair only for a card with a real network's IMSI, not one on test network
 001/01: an eSIM adapter card without an enabled profile may show a
 placeholder ICCID like the built-in eSIM's, the same on every card
 (inferred).
@@ -365,7 +365,9 @@ so the app compares ICCIDs without the `F`. The current card is the one
    through a new file renamed over the old one, and leaves a file that
    doesn't parse as it is. It deletes each eSIM record file that doesn't
    name the current card, and empties `log.txt`, which the eSIM manager
-   goes on writing to (verified).
+   goes on writing to (verified). It also deletes `/etc/churn/secret`,
+   which routers set up by earlier versions of the app still hold: those
+   versions derived each card's IMEIs from it.
 4. It fills the free space of the overlay, ext4 on the eMMC partition
    `mmcblk0p59` (2.9 GB). It sets
    `/sys/fs/ext4/mmcblk0p59/reserved_clusters`, the 4096 blocks that ext4
@@ -458,10 +460,10 @@ before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
 | --- | --- | --- |
 | `/etc/churn/` | 700 | Churn's folder |
 | `/etc/churn/README.txt` | 600 | What the folder is; how to restore the factory IMEIs by hand; to do so before a factory reset |
-| `/etc/churn/secret` | 600 | 32 random bytes, the HMAC key |
 | `/etc/churn/factory` | 600 | Factory IMEI 1 and IMEI 2, one per line |
+| `/etc/churn/card` | 600 | The card step 3 last gave IMEIs: its ICCID's digits, IMEI 1 and IMEI 2, one per line. Written before the IMEIs |
 | `/etc/churn/log_file` | 600 | GL's `system.@system[0].log_file` as it was before the app first deleted it. Only there after the app has deleted it |
-| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, sets `log_file` back from Churn's copy and deletes the copy, deletes `/overlay/churn-zeros`, the link to it and any fill files, then removes Churn's firewall rules |
+| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, deletes `card`, sets `log_file` back from Churn's copy and deletes the copy, deletes `/overlay/churn-zeros`, the link to it and any fill files, then removes Churn's firewall rules |
 | `/etc/churn/zeros` | – | Link to `/overlay/churn-zeros`, made by the free-space overwrite |
 | `/etc/nftables.d/churn.nft` | 644 | Churn's firewall rules, from `Router.firewallRules` |
 | `/overlay/churn-zeros/` | – | Files of zeros from the free-space overwrite, up to 64 MB each and numbered, that take all but 512 MB of the free space. Beside the router's own files, so that upgrades and tools reading `/etc` skip them (design.md, section 5) |
@@ -471,31 +473,13 @@ and with its firewall rules the line `/etc/nftables.d/churn.nft`. At every
 connection it rewrites `README.txt` and `restore.sh` where they differ from
 its assets.
 
-## IMEI derivation
+## IMEI pairs
 
-The algorithm is specified in design.md, section 4. Notes for implementing
-it:
+The pairs are specified in design.md, section 4. Notes for implementing
+them:
 
 - **ICCID read from the modem:** keep the digits only. The modem pads a
   19-digit ICCID with a trailing `F` (verified), which is dropped.
-- **Throwaway pair:** draw `s` with `SecureRandom.nextInt(n)`, which is
-  unbiased, then build the serials as for a derived pair.
+- **Serial:** draw `s` with `SecureRandom.nextInt(n)`, which is unbiased.
 - **Luhn:** the standard algorithm. Example: `49015420323751` gets check
   digit `8`.
-
-### Test vectors
-
-All vectors use `secret` = bytes `00 01 02 … 1f` (32 bytes) and TAC
-`35609021` for both IMEIs. The HMAC message is the ASCII string
-`churn-imei-v1:` followed by the ICCID.
-
-| ICCID | `d` | First words of `mac` | `s` | IMEI 1 | IMEI 2 |
-| --- | --- | --- | --- | --- | --- |
-| `8941000000000000015` | 7 | `27e4ba0f` = 669301263, accepted | 305946 | `356090213059463` | `356090213059539` |
-| `8941000000000000015` | −7 | `27e4ba0f` = 669301263, accepted | 305946 | `356090213059539` | `356090213059463` |
-| `8941000000000000015` | 0 | `27e4ba0f` = 669301263, accepted | 301263 | `356090213012637` | `356090213012637` |
-| `8941000000000104627` | 7 | `ffff2de0` = 4294913504, rejected; `a8f98cb7` = 2834926775, accepted | 946613 | `356090219466134` | `356090219466209` |
-
-For `d` = ±7 the rejection limit is 4,293,969,942 (`n` = 999,993); for
-`d` = 0 it is 4,294,000,000. The full `mac` for the first ICCID is
-`27e4ba0f49588b7f93391353f26f1e86cff6c7079bf5d1f1ebd9de4144bc63a4`.

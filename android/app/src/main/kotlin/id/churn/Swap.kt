@@ -45,7 +45,7 @@ class Swap(
         if (!router.vpnSetUp()) throw RouterException(Problem.NO_VPN)
         turnAirplaneModeOn()
         waitForRadioOff()
-        val throwaway = Imei.throwaway(random, factory)
+        val throwaway = Imei.random(random, factory)
         router.writeImeis(throwaway)
         checkRadioOff()
         report(Progress.THROWAWAY_IMEIS)
@@ -59,8 +59,11 @@ class Swap(
     /** Ends steps 1 and 3. */
     fun shutDown() = router.powerOff()
 
-    /** Step 3: slot 2 on the new card, which gets its own pair. Returns that pair. */
-    fun giveNewImeis(factory: ImeiPair, secret: ByteArray): ImeiPair {
+    /**
+     * Step 3: slot 2 on the new card, which gets a pair of its own. The card in [record] keeps its pair; any other
+     * card gets a new random one, recorded before it is written. Returns the card with its pair.
+     */
+    fun giveNewImeis(factory: ImeiPair, record: Card?, random: SecureRandom): Card {
         // Before the wait, in case the user turned it off, so that the radio goes off after its burst at power-on.
         turnAirplaneModeOn()
         report(Progress.WAITING_FOR_START)
@@ -75,8 +78,8 @@ class Swap(
         // Either might turn the radio on, so both come while slot 2 is still on the eSIM.
         turnKillSwitchOn()
         putFirewallInPlace()
-        val (pair, iccid) = try {
-            writeCardsImeis(factory, secret)
+        val card = try {
+            writeCardsImeis(factory, record, random)
         } catch (e: RouterException) {
             // Back to the eSIM, so that the card stays off if the router is switched off and on before the next try.
             setSlot2(Slot2.ESIM)
@@ -86,14 +89,26 @@ class Swap(
         report(Progress.NEW_IMEIS)
         // Only now that the new card is in use: it is the one to keep, and the old cards' records go.
         report(Progress.CLEARING_HISTORY)
-        router.clearHistory(iccid)
+        router.clearHistory(card.iccid)
         // The clearing reloads GL's log service and fills the flash for a moment.
         checkRadioOff()
-        return pair
+        return card
     }
 
-    /** Switches slot 2 to the SIM 2 tray, gives the card there its pair, and returns the pair with the card's ICCID. */
-    private fun writeCardsImeis(factory: ImeiPair, secret: ByteArray): Pair<ImeiPair, String> {
+    /** Switches slot 2 to the SIM 2 tray and gives the card there its pair. */
+    private fun writeCardsImeis(factory: ImeiPair, record: Card?, random: SecureRandom): Card {
+        val iccid = cardInTray()
+        val card = record?.takeIf { it.iccid == iccid } ?: Card(iccid, Imei.random(random, factory))
+        // Recorded before the IMEIs are written, so that a step stopped in between gives the card the same pair when
+        // it runs again.
+        if (card != record) router.recordCard(card)
+        router.writeImeis(card.imeis)
+        checkRadioOff()
+        return card
+    }
+
+    /** Switches slot 2 to the SIM 2 tray and returns the ICCID of the card there, digits only. */
+    private fun cardInTray(): String {
         setSlot2(Slot2.SIM2)
         report(Progress.SLOT2_ON_SIM2)
         if (router.activeSlot() != "2") {
@@ -113,10 +128,7 @@ class Swap(
         val cardIccid = raw ?: throw RouterException(Problem.NO_CARD)
         val iccid = Imei.iccidDigits(cardIccid) ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+ICCID")
         report(Progress.CARD_FOUND)
-        val pair = Imei.derive(secret, iccid, factory)
-        router.writeImeis(pair)
-        checkRadioOff()
-        return pair to cardIccid
+        return iccid
     }
 
     private fun turnAirplaneModeOn() {

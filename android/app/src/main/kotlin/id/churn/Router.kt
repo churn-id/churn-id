@@ -20,7 +20,7 @@ enum class Problem {
     NO_CARD, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN, FIREWALL_NOT_LOADED,
 }
 
-/** [detail] is what the router said, for the log; it never holds the secret or a password. */
+/** [detail] is what the router said, for the log; it never holds a password. */
 class RouterException(val problem: Problem, val detail: String? = null) :
     Exception(if (detail == null) problem.name else "${problem.name}: $detail")
 
@@ -42,9 +42,17 @@ class AtAnswer(val lines: List<String>) {
 /** A setting that slot 2 can take: its card is in the SIM 2 tray or the built-in eSIM. */
 enum class Slot2(val type: Int) { SIM2(0), ESIM(1) }
 
-/** Churn's files on the router; null where a file is missing. */
-class ChurnFolder(val factory: ImeiPair?, val secret: ByteArray?) {
-    val complete get() = factory != null && secret != null
+/** A card, by its ICCID's digits, and the IMEIs Churn gives it. */
+data class Card(val iccid: String, val imeis: ImeiPair)
+
+/** Churn's files on the router; null where a file is missing. [card] is the card step 3 last gave IMEIs. */
+class ChurnFolder(val factory: ImeiPair?, val card: Card?) {
+
+    /** A folder with the factory IMEIs counts as set up. */
+    val complete get() = factory != null
+
+    /** Whether the card with [iccid] (digits only) is the recorded card, and [imeis] are its pair. */
+    fun isRecorded(iccid: String, imeis: ImeiPair) = card == Card(iccid, imeis)
 }
 
 /**
@@ -190,10 +198,11 @@ class Router(private val shell: Shell) {
     /**
      * Removes the record GL keeps of past SIMs on the flash: it turns GL's system log to the flash off (saving the
      * original setting first, so [restoreFactoryImeis] can put it back), deletes the log files, keeps only the card
-     * with [keepIccid] in GL's card files and the eSIM manager's records, empties the eSIM log, and overwrites the
-     * free space so that deleted copies can't be read from the raw partition. [keepIccid] is a card's ICCID as the
-     * modem gives it, or null to keep none; GL records the current card again when it next goes online.
-     * development.md, "Clearing the SIM history", explains what and why.
+     * with [keepIccid] in GL's card files and the eSIM manager's records, empties the eSIM log, deletes the secret
+     * that earlier versions of the app kept, and overwrites the free space so that deleted copies can't be read from
+     * the raw partition. [keepIccid] is a card's ICCID, with or without the `F` the modem pads a 19-digit one with,
+     * or null to keep none; GL records the current card again when it next goes online. development.md, "Clearing
+     * the SIM history", explains what and why.
      */
     fun clearHistory(keepIccid: String?) {
         val keep = keepIccid?.let(::iccidKey)
@@ -202,6 +211,8 @@ class Router(private val shell: Shell) {
         pruneSimMap("$CELLULAR/sim_map.json", keep)
         pruneApnHistory("$CELLULAR/history_apn_database.json", keep)
         pruneEsimRecords(keep)
+        // Earlier versions of the app derived each card's IMEIs from it, which networks' records then find.
+        run("rm -f $CHURN/secret").check("delete the secret")
         overwriteFreeSpace()
     }
 
@@ -280,17 +291,25 @@ class Router(private val shell: Shell) {
     }
 
     fun readChurnFolder(): ChurnFolder {
-        val factory = readFile("$CHURN/factory")?.toString(Charsets.US_ASCII)?.let { text ->
-            val lines = text.lines().filter { it.isNotBlank() }
-            if (lines.size != 2 || lines.any { !it.matches(Regex("[0-9]{15}")) }) {
-                throw RouterException(Problem.NOT_SET_UP, "$CHURN/factory")
-            }
-            ImeiPair(lines[0], lines[1])
+        val factory = readChurnLines("factory", IMEI, IMEI)?.let { ImeiPair(it[0], it[1]) }
+        val card = readChurnLines("card", ICCID, IMEI, IMEI)?.let { Card(it[0], ImeiPair(it[1], it[2])) }
+        return ChurnFolder(factory, card)
+    }
+
+    /** Records [card] in Churn's folder as the card step 3 last gave IMEIs. */
+    fun recordCard(card: Card) = writeChurnFile(
+        "card",
+        "${card.iccid}\n${card.imeis.imei1}\n${card.imeis.imei2}\n".toByteArray(),
+    )
+
+    /** The lines of [name] in Churn's folder, one for each of [formats]; null if the file is missing. */
+    private fun readChurnLines(name: String, vararg formats: Regex): List<String>? {
+        val lines = readFile("$CHURN/$name")?.toString(Charsets.US_ASCII)?.lines()?.filter { it.isNotBlank() }
+            ?: return null
+        if (lines.size != formats.size || lines.zip(formats).any { (line, format) -> !line.matches(format) }) {
+            throw RouterException(Problem.NOT_SET_UP, "$CHURN/$name")
         }
-        val secret = readFile("$CHURN/secret")?.also {
-            if (it.size != 32) throw RouterException(Problem.NOT_SET_UP, "$CHURN/secret")
-        }
-        return ChurnFolder(factory, secret)
+        return lines
     }
 
     /** Writes [content] to [name] in Churn's folder, unless the file holds it already. */
@@ -393,7 +412,7 @@ class Router(private val shell: Shell) {
         return when (output.status) {
             0 -> output.stdout
             3 -> null
-            // Only the error output: the file may be the secret.
+            // Only the error output: the file may name a card.
             else -> throw RouterException(Problem.UNEXPECTED_ANSWER, "$path: ${output.stderr.trim().take(300)}")
         }
     }
@@ -425,6 +444,9 @@ class Router(private val shell: Shell) {
 
         /** Churn's folder on the router. */
         const val CHURN = "/etc/churn"
+
+        private val IMEI = Regex("[0-9]{15}")
+        private val ICCID = Regex("[0-9]{18,20}")
 
         /** Churn's firewall rules. GL's firewall, fw4, loads the files in this folder into its own table. */
         const val FIREWALL = "/etc/nftables.d/churn.nft"

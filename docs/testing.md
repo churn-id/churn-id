@@ -233,9 +233,10 @@ From development.md, "Files on the router", and design.md, section 5.
 | `/etc/churn/` is listed in `/etc/sysupgrade.conf` | verified by the app | The line is there | 1, blocks |
 | With the firewall rules, `/etc/nftables.d/churn.nft` is listed in `/etc/sysupgrade.conf` | inferred | The line is there | 1 |
 | `/etc/churn/zeros` links to `/overlay/churn-zeros`, and `du`, `grep -r`, `cp` and the `find` and `tar` that an upgrade runs take only the link | verified with BusyBox 1.36.1 on a PC | After a clearing, `ls -l /etc/churn` shows the link and `du -sh /etc` stays small; `sysupgrade -l` lists the link but no zero file | 1 |
-| GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | At every connection, the IMEIs are the pair of the card in slot 2 (tier 1, which the app already does); after an upgrade, they are the ones from before it (tier 3) | 1, 3 |
+| GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | At every connection, the IMEIs are the recorded pair of the card in slot 2 (tier 1, which the app already does); after an upgrade, they are the ones from before it (tier 3) | 1, 3 |
 | A firmware upgrade with "keep settings" keeps `/etc/churn/`, the link `zeros` in it included, Churn's firewall rules and the log's file off | open | Upgrade, then check the folder, the link, the rules and `log_file` | 3 |
 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
+| `restore.sh` then deletes Churn's record of the card | inferred | Run it, then check that `/etc/churn/card` is gone (tier 2) | 2 |
 | `restore.sh` then sets GL's `log_file` back from Churn's copy, and deletes the copy | inferred | Run it, then check the setting and the copy (tier 2) | 2 |
 | `restore.sh` then deletes `/overlay/churn-zeros`, the link to it and any fill files | inferred | Run it, then check that the folder and the link are gone and the free space is back (tier 2) | 2 |
 | `restore.sh` then removes Churn's firewall rules and their line in `/etc/sysupgrade.conf` | inferred | Run it, then check that the chains, the file and the line are gone (tier 2) | 2 |
@@ -251,8 +252,6 @@ Some claims no test on the router can confirm:
   of many units.
 - That a GrapheneOS phone with its eSIM profile disabled transmits
   nothing (rule 7). It is a measurement of the phone, not the router.
-- The IMEI derivation. The unit tests check it against the test vectors in
-  development.md.
 - Whether the VPN server, which is the same on every SIM, links the SIMs
   (design.md, section 10). It depends on what the carrier and the VPN
   provider can match, not on the router.

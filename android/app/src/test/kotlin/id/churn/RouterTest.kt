@@ -91,6 +91,15 @@ class RouterTest {
     }
 
     @Test
+    fun deletesTheSecretOfEarlierVersions() {
+        // As on a router set up by an earlier version of the app.
+        fake.files["/etc/churn/secret"] = ByteArray(32)
+        router.clearHistory(CURRENT_CARD)
+        assertNull(fake.files["/etc/churn/secret"])
+        assertTrue("rm -f /etc/churn/secret" in fake.commands)
+    }
+
+    @Test
     fun overwritesTheFreeSpaceLast() {
         // Only then is everything it deleted in the free space.
         fake.recordCards(OLD_CARD, CURRENT_CARD)
@@ -264,19 +273,38 @@ class RouterTest {
     fun setsUpChurnsFolder() {
         val folder = router.readChurnFolder()
         assertNull(folder.factory)
-        assertNull(folder.secret)
         assertFalse(folder.complete)
-        val secret = ByteArray(32) { (it * 7).toByte() }
         router.writeChurnFile("factory", "356090215000002\n356090215000077\n".toByteArray())
-        router.writeChurnFile("secret", secret)
         router.keepChurnFolder()
         val written = router.readChurnFolder()
         assertTrue(written.complete)
         assertEquals(ImeiPair("356090215000002", "356090215000077"), written.factory)
-        assertArrayEquals(secret, written.secret)
+        assertNull(written.card)
         assertEquals("/etc/config/\n/etc/profile\n/etc/churn/\n", fake.sysupgrade)
         router.keepChurnFolder()
         assertEquals("/etc/config/\n/etc/profile\n/etc/churn/\n", fake.sysupgrade)
+    }
+
+    @Test
+    fun recordsTheCard() {
+        val card = Card(CURRENT_CARD.removeSuffix("F"), PAIR)
+        router.recordCard(card)
+        assertEquals(card, router.readChurnFolder().card)
+        assertEquals(
+            "8941000000000000015\n356090213059463\n356090213059539\n",
+            fake.files["/etc/churn/card"]!!.toString(Charsets.US_ASCII),
+        )
+        assertTrue(fake.commands.any { "chmod 600 /etc/churn/card.new" in it })
+    }
+
+    @Test
+    fun checksTheImeisAgainstTheRecord() {
+        val iccid = CURRENT_CARD.removeSuffix("F")
+        val folder = ChurnFolder(router.imeis(), Card(iccid, PAIR))
+        assertTrue(folder.isRecorded(iccid, PAIR))
+        assertFalse(ChurnFolder(router.imeis(), card = null).isRecorded(iccid, PAIR))
+        assertFalse(folder.isRecorded(OLD_CARD.removeSuffix("F"), PAIR))
+        assertFalse(folder.isRecorded(iccid, router.imeis()))
     }
 
     @Test
@@ -285,6 +313,17 @@ class RouterTest {
         try {
             router.readChurnFolder()
             throw AssertionError("A damaged folder was accepted")
+        } catch (e: RouterException) {
+            assertEquals(Problem.NOT_SET_UP, e.problem)
+        }
+    }
+
+    @Test
+    fun refusesADamagedRecord() {
+        fake.files["/etc/churn/card"] = "8941000000000000015\n356090213059463\n".toByteArray()
+        try {
+            router.readChurnFolder()
+            throw AssertionError("A damaged record was accepted")
         } catch (e: RouterException) {
             assertEquals(Problem.NOT_SET_UP, e.problem)
         }
@@ -337,5 +376,8 @@ class RouterTest {
 
         /** A card with a 20-digit ICCID, which GL stores without an `F`. */
         const val OLD_CARD_20 = "89320000555555555555"
+
+        /** A valid pair with the fake router's TAC and spacing. */
+        val PAIR = ImeiPair("356090213059463", "356090213059539")
     }
 }

@@ -111,11 +111,10 @@ class Controller(private val context: Context) {
         val folder = router.readChurnFolder()
         updateChurnFiles(router)
         router.keepChurnFolder()
+        // Written last: a folder with the factory IMEIs counts as set up.
         if (folder.factory == null) {
             router.writeChurnFile("factory", "${factory.imei1}\n${factory.imei2}\n".toByteArray())
         }
-        // Written last: a folder with the secret and the factory IMEIs counts as set up.
-        if (folder.secret == null) router.writeChurnFile("secret", ByteArray(32).also { SecureRandom().nextBytes(it) })
         // Turns the flash log off and clears the SIM history that built up before Churn.
         router.clearHistory(router.currentCardIccid())
         showRouter()
@@ -168,7 +167,7 @@ class Controller(private val context: Context) {
                 shutDown(swap, next = Step.SWAP_CARD)
             }
             Step.SWAP_CARD, Step.NEW_IMEIS -> runStep(Step.NEW_IMEIS, BOOT_WAIT_SECONDS) { swap, folder ->
-                saved.written = swap.giveNewImeis(folder.factory!!, folder.secret!!)
+                saved.written = swap.giveNewImeis(folder.factory!!, folder.card, SecureRandom()).imeis
                 shutDown(swap, next = Step.GO_ONLINE)
             }
             Step.GO_ONLINE -> {
@@ -327,8 +326,6 @@ class Controller(private val context: Context) {
             if (!Imei.isValid(factory.imei1) || !Imei.isValid(factory.imei2)) {
                 warnings += R.string.setup_warning_check_digit
             }
-        } else if (folder.secret == null) {
-            warnings += R.string.setup_warning_secret
         }
         return Screen.SetUp(factory, warnings.map { context.getString(it) })
     }
@@ -337,12 +334,11 @@ class Controller(private val context: Context) {
         val factory = folder.factory!!
         val imeis = router.imeis()
         val notes = listOfNotNull(note).toMutableList()
-        // The card in slot 2 registers with the IMEIs at every power-on, so they must be its own. A card in the tray
-        // while slot 2 is on the built-in eSIM stays off, and reading it would take a switch of the slot.
+        // The card in slot 2 registers with the IMEIs at every power-on, so they must be the pair step 3 recorded for
+        // it. A card in the tray while slot 2 is on the built-in eSIM stays off, and reading it would take a switch of
+        // the slot.
         val card = router.slot2CardIccid()?.let(Imei::iccidDigits)
-        if (card != null && imeis != Imei.derive(folder.secret!!, card, factory)) {
-            notes += context.getString(R.string.note_not_cards_imeis)
-        }
+        if (card != null && !folder.isRecorded(card, imeis)) notes += context.getString(R.string.note_not_cards_imeis)
         if (router.scheduledReboot()) notes += context.getString(R.string.note_scheduled_reboot)
         if (!router.vpnSetUp()) notes += context.getString(R.string.note_no_vpn)
         val status = RouterStatus(
