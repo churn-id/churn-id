@@ -66,7 +66,12 @@ Roughly from larger to smaller, the pieces are:
    phones, iPhones, and computers with Windows or macOS keep talking to
    Google, Apple or Microsoft, even with location services off, and you
    can't check what they send. Use a phone with an Android system built
-   for privacy, such as GrapheneOS, and a computer with Linux.
+   for privacy, such as GrapheneOS, and a computer with Linux. A SIM in your
+   phone tells its network wherever you go, and the phone doesn't need one:
+   it can go online over Wi-Fi or a cable at home and through the router
+   elsewhere, and Signal can replace calls over the mobile network. Bear in
+   mind that some countries, such as Germany, don't put through emergency
+   calls from a phone without a SIM.
 2. **Your accounts.** Every account you log into connects what you do to
    you. Use few, and keep the ones you want private apart from the ones in
    your name.
