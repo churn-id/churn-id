@@ -13,7 +13,26 @@ class SwapTest {
 
     private val fake = FakeRouter()
     private val progress = mutableListOf<Progress>()
-    private val swap = Swap(Router(fake), { progress += it }, sleep = { fake.clock += it }, now = { fake.clock })
+    private val asked = mutableListOf<Question>()
+
+    /** The user's answer to step 3's question. */
+    private var answer = Answer.TRAVEL_CARD
+
+    /** Runs while step 3 waits for the answer. */
+    private var whileAsked = {}
+    private var placesJson: String? = null
+    private val places = PlaceCards(load = { placesJson }, save = { placesJson = it })
+    private val swap = Swap(
+        Router(fake),
+        { progress += it },
+        ask = { question ->
+            asked += question
+            whileAsked()
+            answer
+        },
+        sleep = { fake.clock += it },
+        now = { fake.clock },
+    )
     private val factory = ImeiPair(fake.imei1, fake.imei2)
 
     /** Step 1, the shutdown and the next power-on. Returns the throwaway pair. */
@@ -24,8 +43,8 @@ class SwapTest {
         return throwaway
     }
 
-    /** Step 3, with the record that the app reads first. */
-    private fun giveNewImeis() = swap.giveNewImeis(factory, record(), SecureRandom())
+    /** Step 3, with the record that the app reads first. Null if the user canceled. */
+    private fun giveNewImeis() = swap.giveNewImeis(factory, record(), places, SecureRandom())
 
     private fun record() = Router(fake).readChurnFolder().card
 
@@ -118,7 +137,7 @@ class SwapTest {
     fun step3WritesTheNewCardsImeisOnceTheRadioIsOff() {
         val throwaway = prepareAndRestart()
         progress.clear()
-        val card = giveNewImeis()
+        val card = giveNewImeis()!!
         assertEquals("8941000000000000015", card.iccid)
         assertTrue(Imei.isValid(card.imeis.imei1) && Imei.isValid(card.imeis.imei2))
         assertEquals(Imei.offset(factory), Imei.offset(card.imeis))
@@ -136,6 +155,8 @@ class SwapTest {
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.KILL_SWITCH_ON,
                 Progress.FIREWALL, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE, Progress.CARD_FOUND,
+                // The question, with slot 2 on the eSIM until the answer.
+                Progress.SLOT2_ON_ESIM, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE, Progress.CARD_FOUND,
                 Progress.NEW_IMEIS, Progress.CLEARING_HISTORY,
             ),
             progress,
@@ -298,14 +319,14 @@ class SwapTest {
         assertStops(Problem.NO_CARD) { giveNewImeis() }
         fake.trayCard = card
         fake.boot()
-        assertEquals(giveNewImeis().imeis, ImeiPair(fake.imei1, fake.imei2))
+        assertEquals(giveNewImeis()!!.imeis, ImeiPair(fake.imei1, fake.imei2))
         assertSafe()
     }
 
     @Test
     fun step3sImeisOutlastTheShutdown() {
         prepareAndRestart()
-        val card = giveNewImeis()
+        val card = giveNewImeis()!!
         swap.shutDown()
         assertTrue(fake.poweredOff)
         fake.boot()
@@ -321,25 +342,107 @@ class SwapTest {
         fake.imeiWritesRefused = false
         assertEquals(recorded, giveNewImeis())
         assertEquals(recorded.imeis, ImeiPair(fake.imei1, fake.imei2))
+        // The recorded card brings no question.
+        assertEquals(1, asked.size)
     }
 
     @Test
     fun aNewCardGetsANewPairAndReplacesTheRecord() {
         val firstCard = fake.trayCard
         prepareAndRestart()
-        val first = giveNewImeis()
+        val first = giveNewImeis()!!
         prepareAndRestart()
-        fake.trayCard = FakeRouter.Card("8949000077777777777F", "228010000000002")
-        val second = giveNewImeis()
+        fake.trayCard = OTHER_CARD
+        val second = giveNewImeis()!!
         assertEquals("8949000077777777777", second.iccid)
         assertNotEquals(first.imeis, second.imeis)
         assertEquals(second, record())
         // Used again after another card, the first card gets a new pair too.
         prepareAndRestart()
         fake.trayCard = firstCard
-        val third = giveNewImeis()
+        val third = giveNewImeis()!!
         assertEquals(first.iccid, third.iccid)
         assertNotEquals(first.imeis, third.imeis)
+    }
+
+    @Test
+    fun step3WritesNothingBeforeTheAnswer() {
+        prepareAndRestart()
+        val first = giveNewImeis()
+        val throwaway = prepareAndRestart()
+        fake.trayCard = OTHER_CARD
+        whileAsked = {
+            assertEquals(first, record())
+            assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
+            // So that the card stays off if the router is switched off and on before the answer.
+            assertEquals(Slot2.ESIM, fake.slot2)
+            assertSafe()
+        }
+        val second = giveNewImeis()!!
+        assertEquals(Question.NewCard(second.iccid), asked.last())
+        assertEquals(second, record())
+        // A travel card stays off the place list.
+        assertEquals(emptyList<PlaceCard>(), places.all)
+    }
+
+    @Test
+    fun aNewPlaceCardJoinsThePlaceListBeforeItsImeisAreWritten() {
+        val throwaway = prepareAndRestart()
+        answer = Answer.PLACE_CARD
+        fake.imeiWritesRefused = true
+        assertStops(Problem.UNEXPECTED_ANSWER) { giveNewImeis() }
+        assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
+        assertEquals(listOf(PlaceCard(record()!!)), places.all)
+    }
+
+    @Test
+    fun aPlaceCardGetsItsKeptPairWhenTheUserContinues() {
+        val placeCard = fake.trayCard
+        prepareAndRestart()
+        answer = Answer.PLACE_CARD
+        val place = giveNewImeis()!!
+        prepareAndRestart()
+        fake.trayCard = OTHER_CARD
+        answer = Answer.TRAVEL_CARD
+        giveNewImeis()
+        prepareAndRestart()
+        fake.trayCard = placeCard
+        answer = Answer.CONTINUE
+        assertEquals(place, giveNewImeis())
+        assertEquals(Question.KnownPlaceCard(PlaceCard(place)), asked.last())
+        assertEquals(place.imeis, ImeiPair(fake.imei1, fake.imei2))
+        assertEquals(place, record())
+    }
+
+    @Test
+    fun cancelingLeavesSlot2OnTheEsimAndWritesNothing() {
+        val throwaway = prepareAndRestart()
+        answer = Answer.CANCEL
+        assertNull(giveNewImeis())
+        // Before the shutdown, so that the card stays off at the next power-on.
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
+        assertNull(record())
+        assertEquals(emptyList<PlaceCard>(), places.all)
+        assertFalse(fake.freeSpaceOverwritten)
+        assertSafe()
+        // Back at step 2, the user puts in another card.
+        swap.shutDown()
+        fake.trayCard = OTHER_CARD
+        fake.boot()
+        answer = Answer.TRAVEL_CARD
+        assertEquals(giveNewImeis(), record())
+    }
+
+    @Test
+    fun step3StopsIfTheCardChangesWhileItAsks() {
+        val throwaway = prepareAndRestart()
+        whileAsked = { fake.trayCard = OTHER_CARD }
+        assertStops(Problem.CARD_CHANGED) { giveNewImeis() }
+        assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
+        assertNull(record())
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertSafe()
     }
 
     @Test
@@ -379,5 +482,11 @@ class SwapTest {
         val first = giveNewImeis()
         prepareAndRestart()
         assertEquals(first, giveNewImeis())
+        // The recorded card brings no question.
+        assertEquals(1, asked.size)
+    }
+
+    private companion object {
+        val OTHER_CARD = FakeRouter.Card("8949000077777777777F", "228010000000002")
     }
 }

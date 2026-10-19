@@ -8,9 +8,11 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Build
 import android.text.InputType
+import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
@@ -128,6 +130,12 @@ class MainActivity : Activity() {
                 confirm(getString(R.string.clear_history_text)) { controller.clearHistory() }
             }
         }
+        if (screen.places.isNotEmpty()) {
+            paragraph(getString(R.string.place_cards_text))
+            screen.places.forEach { place ->
+                button(getString(R.string.place_card_button, label(place))) { showPlaceCard(place) }
+            }
+        }
         button(R.string.swap) { controller.beginSwap() }
         button(R.string.refresh) { controller.refresh() }
         button(R.string.show_rules) { showRules() }
@@ -147,6 +155,10 @@ class MainActivity : Activity() {
         }
         paragraph(getString(R.string.step_number, number))
         heading(getString(title))
+        screen.question?.let {
+            question(it)
+            return@page
+        }
         paragraph(getString(text))
         screen.log.forEach { paragraph("✓ $it") }
         if (screen.running) {
@@ -181,10 +193,70 @@ class MainActivity : Activity() {
         if (screen.step != Step.GO_ONLINE) button(R.string.cancel_swap) { controller.cancelSwap() }
     }
 
+    /** Step 3's question, which the step waits for with slot 2 on the built-in eSIM. */
+    private fun LinearLayout.question(question: Question) {
+        when (question) {
+            is Question.KnownPlaceCard -> {
+                paragraph(getString(R.string.step3_place_card, label(question.place)))
+                paragraph(getString(R.string.step3_cancel))
+                button(R.string.step3_continue) { controller.answer(Answer.CONTINUE) }
+            }
+            is Question.NewCard -> {
+                paragraph(getString(R.string.step3_new_card, question.iccid.takeLast(4)))
+                paragraph(getString(R.string.step3_cancel))
+                button(R.string.step3_place_card_answer) { controller.answer(Answer.PLACE_CARD) }
+                button(R.string.step3_travel_card_answer) { controller.answer(Answer.TRAVEL_CARD) }
+            }
+        }
+        button(R.string.cancel) { controller.answer(Answer.CANCEL) }
+    }
+
+    /** A place card's name, or else the last four digits of its ICCID, which are usually printed on the card. */
+    private fun label(place: PlaceCard) = place.name?.let { getString(R.string.place_card_name, it) }
+        ?: getString(R.string.place_card_digits, place.card.iccid.takeLast(4))
+
+    private fun showPlaceCard(place: PlaceCard) {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.place_card_button, label(place)))
+            .setMessage(R.string.place_card_text)
+            .setPositiveButton(R.string.place_card_rename) { _, _ -> renamePlaceCard(place) }
+            .setNeutralButton(R.string.place_card_forget) { _, _ ->
+                confirm(getString(R.string.place_card_forget_text)) { controller.forgetPlaceCard(place.card.iccid) }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun renamePlaceCard(place: PlaceCard) {
+        val name = EditText(this).apply {
+            hint = getString(R.string.place_card_name_hint)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            // Keeps the name out of the keyboard's learned words.
+            imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+            isSingleLine = true
+            setText(place.name)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.place_card_rename)
+            .setView(
+                FrameLayout(this).apply {
+                    val padding = dp(20)
+                    setPadding(padding, 0, padding, 0)
+                    addView(name)
+                },
+            )
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                controller.namePlaceCard(place.card.iccid, name.text.toString())
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
     private fun rules(): String {
         val always = resources.getStringArray(R.array.rules_always)
         val whereYouCan = resources.getStringArray(R.array.rules_where_you_can)
         return buildString {
+            append(getString(R.string.rules_card_kinds)).append("\n\n")
             append(getString(R.string.rules_always_heading))
             always.forEachIndexed { i, rule -> append("\n\n${i + 1}. $rule") }
             append("\n\n").append(getString(R.string.rules_where_you_can_heading))
@@ -277,8 +349,10 @@ class MainActivity : Activity() {
         isSingleLine = true
     }.also { addView(it) }
 
-    private fun LinearLayout.button(text: Int, onClick: () -> Unit) = Button(context).apply {
-        setText(text)
+    private fun LinearLayout.button(text: Int, onClick: () -> Unit) = button(getString(text), onClick)
+
+    private fun LinearLayout.button(text: String, onClick: () -> Unit) = Button(context).apply {
+        this.text = text
         setOnClickListener { onClick() }
     }.also { addView(it) }
 

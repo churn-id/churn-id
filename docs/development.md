@@ -483,3 +483,6 @@ them:
 - **Serial:** draw `s` with `SecureRandom.nextInt(n)`, which is unbiased.
 - **Luhn:** the standard algorithm. Example: `49015420323751` gets check
   digit `8`.
+- **Place list:** the app keeps it in its `SharedPreferences` as a JSON
+  array of objects with `iccid` (digits only), `imei1`, `imei2` and, if the
+  user gave the card one, `name`.

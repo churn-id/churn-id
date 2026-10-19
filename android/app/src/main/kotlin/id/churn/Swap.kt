@@ -25,11 +25,12 @@ enum class Progress {
 
 /**
  * The router's part of steps 1 and 3. Each run starts from the beginning and checks every state it relies on,
- * so a step that stopped is simply run again.
+ * so a step that stopped is simply run again. [ask] shows step 3's question and waits for the user's answer.
  */
 class Swap(
     private val router: Router,
     private val report: (Progress) -> Unit,
+    private val ask: (Question) -> Answer,
     private val sleep: (Long) -> Unit = Thread::sleep,
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
@@ -60,10 +61,12 @@ class Swap(
     fun shutDown() = router.powerOff()
 
     /**
-     * Step 3: slot 2 on the new card, which gets a pair of its own. The card in [record] keeps its pair; any other
-     * card gets a new random one, recorded before it is written. Returns the card with its pair.
+     * Step 3: slot 2 on the new card, which gets a pair of its own. The card in [record] keeps its pair. Any other
+     * card brings a question: a card in [places] gets its kept pair, and a new card a random one. The pair is
+     * recorded before it is written. Returns the card with its pair, or null if the user canceled, with slot 2 back
+     * on the built-in eSIM.
      */
-    fun giveNewImeis(factory: ImeiPair, record: Card?, random: SecureRandom): Card {
+    fun giveNewImeis(factory: ImeiPair, record: Card?, places: PlaceCards, random: SecureRandom): Card? {
         // Before the wait, in case the user turned it off, so that the radio goes off after its burst at power-on.
         turnAirplaneModeOn()
         report(Progress.WAITING_FOR_START)
@@ -79,7 +82,7 @@ class Swap(
         turnKillSwitchOn()
         putFirewallInPlace()
         val card = try {
-            writeCardsImeis(factory, record, random)
+            writeCardsImeis(factory, record, places, random) ?: return null
         } catch (e: RouterException) {
             // Back to the eSIM, so that the card stays off if the router is switched off and on before the next try.
             setSlot2(Slot2.ESIM)
@@ -95,16 +98,32 @@ class Swap(
         return card
     }
 
-    /** Switches slot 2 to the SIM 2 tray and gives the card there its pair. */
-    private fun writeCardsImeis(factory: ImeiPair, record: Card?, random: SecureRandom): Card {
+    /** Switches slot 2 to the SIM 2 tray and gives the card there its pair; null if the user cancels. */
+    private fun writeCardsImeis(factory: ImeiPair, record: Card?, places: PlaceCards, random: SecureRandom): Card? {
         val iccid = cardInTray()
-        val card = record?.takeIf { it.iccid == iccid } ?: Card(iccid, Imei.random(random, factory))
+        val card = record?.takeIf { it.iccid == iccid }
+            ?: askAbout(Card(iccid, Imei.random(random, factory)), places)
+            ?: return null
         // Recorded before the IMEIs are written, so that a step stopped in between gives the card the same pair when
         // it runs again.
         if (card != record) router.recordCard(card)
         router.writeImeis(card.imeis)
         checkRadioOff()
         return card
+    }
+
+    /**
+     * Asks the user about [card], which has a new random pair, and returns it as they chose, with slot 2 on the tray
+     * again; null if they cancel. Meanwhile slot 2 is on the built-in eSIM, so that the card stays off if the router
+     * is switched off and on before they answer.
+     */
+    private fun askAbout(card: Card, places: PlaceCards): Card? {
+        setSlot2(Slot2.ESIM)
+        report(Progress.SLOT2_ON_ESIM)
+        val chosen = places.choose(card, ask) ?: return null
+        // The pair was chosen for this card, so it mustn't go to another.
+        if (cardInTray() != card.iccid) throw RouterException(Problem.CARD_CHANGED)
+        return chosen
     }
 
     /** Switches slot 2 to the SIM 2 tray and returns the ICCID of the card there, digits only. */

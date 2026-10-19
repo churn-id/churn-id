@@ -35,13 +35,16 @@ after it.
   as a service's IP address logs or a phone's location data.
 - **Churn handles:** the IMEI as a link between SIMs. Each new SIM profile
   gets random IMEIs of its own, and Churn keeps nothing on the router that
-  links it to earlier ones (section 5).
+  links it to earlier ones (section 5). A place card keeps its IMEIs for
+  every visit to its place, and the phone, not the router, keeps them
+  (section 4).
 - **The user handles:** time and place. A swap done where the old SIM was
   last used, or a router that registers at home, links identities without
   any IMEI. Section 8 lists the rules the app teaches for this.
 - **The VPN handles:** the SIM's IP address. Without one, every service
   used through the router logs the current SIM's address with the account,
-  so a single account links all SIMs (rule 5).
+  so a single account links all SIMs (rule 5). All SIMs share one VPN
+  account, so we assume a provider that keeps no logs (section 10).
 - **Out of scope:** the location of a router while it is online; what is
   done online and the accounts used; who bought a SIM; radio fingerprinting
   of the transmitter by specialized equipment nearby; and the modem model,
@@ -154,13 +157,31 @@ IMSI.
 Step 3 records the card in `/etc/churn/card` (section 5): its ICCID and its
 pair, written before the IMEIs. When step 3 runs again with the same card,
 because it stopped or because the user kept the old card, it takes the
-recorded pair, so the card keeps its IMEIs. Any other card gets a new pair
-and replaces the record.
+recorded pair, so the card keeps its IMEIs. Any other card gets its pair
+after a question (below) and replaces the record.
 
-A card used again after other cards therefore gets a new pair. Its issuer
-then sees its IMEI change, which shows that the IMEI was rewritten
-(section 5), but rule 11 already advises against using a card again
+A travel card used again after other cards therefore gets a new pair. Its
+issuer then sees its IMEI change, which shows that the IMEI was rewritten
+(section 5), but rule 11 already advises against using a travel card again
 (section 8).
+
+### Place cards
+
+A place card is a new card for one place the user returns to, other than
+home and work, such as their favorite hotel or their cabin in the woods
+(rule 1). It keeps its pair for every visit, so its network sees the same
+IMEIs there each time, and it links only the visits to its own place. The
+phone keeps the place list: each place card's ICCID, pair and an optional
+name (section 7).
+
+About any card but the recorded one, step 3 asks before it writes the record
+or the IMEIs. A card on the place list shows its name or the last four
+digits of its ICCID: continuing gives it its kept pair, and canceling shuts
+the router down with slot 2 on the built-in eSIM and goes back to step 2.
+Any other card becomes either a new place card, which joins the place list
+with a random pair, or a travel card, which gets a random pair. Only a new
+card should become a place card, since one that has traveled would tie its
+earlier places to this one.
 
 ### Two IMEIs, factory spacing
 
@@ -327,9 +348,13 @@ every boot:
    near-generic test identity.
 3. Once the radio is off after the boot (section 6), the app turns GL's
    Enhanced Kill Switch on if it is off and adds Churn's firewall rules if
-   they are missing, then switches slot 2 to SIM 2 in airplane mode, reads
-   the ICCID, records the card with a random pair (section 4), writes the
-   pair, saves and verifies it, clears the router's record of earlier cards
+   they are missing, then switches slot 2 to SIM 2 in airplane mode and
+   reads the ICCID. Unless the card is the recorded one, the app switches
+   slot 2 back to the built-in eSIM while it asks the user about the card
+   (section 4), so that the card stays off if the router is switched off and
+   on before the answer, then switches it to SIM 2 again and checks that the
+   card is the same. It records the card with its pair, writes the pair,
+   saves and verifies it, clears the router's record of earlier cards
    (below) and shuts the router down. If it finds no usable card, it
    switches slot 2 back to the built-in eSIM, so the card stays off at the
    next power-on, and stops, clearing nothing.
@@ -370,6 +395,17 @@ any place the user returns to.
   since the Enhanced Kill Switch blocks that traffic too (section 10). The
   router screen also warns while the switch is off, the rules are missing
   or GL's system log goes to the flash, and offers to fix each.
+- The phone, not the router, keeps the place list (section 4), since whoever
+  holds the router can read its files (inferred). Android keeps the app's
+  data encrypted with a key tied to the screen lock, and GrapheneOS's duress
+  PIN wipes the phone, eSIMs included. Losing the phone or the app's data
+  costs the place cards: each would get a new pair, which shows its network
+  an IMEI change, so each must be replaced. The router screen lists the
+  place cards, by the last four digits of their ICCID, which is usually
+  printed on the card, or by a name the user gives one, and can forget one.
+  Names stay on the phone. They should mean something only to the user, and
+  no card should carry one that would mean something to others: a card
+  labeled "cabin" tells whoever finds it where to look.
 
 ### The router's own traffic
 
@@ -515,10 +551,16 @@ Choices and their effects:
 
 The app shows these rules in this wording:
 
+Churn knows two kinds of cards. A travel card is used on the go and never
+again once you've swapped it out. A place card is a new card for one place
+you return to, other than home and work, and you use it there on every visit
+and nowhere else.
+
 Always follow these rules:
 
 1. At home, at work and anywhere else you return to, keep the router
-   switched off or without a SIM.
+   switched off or without a SIM, unless it holds that place's own place
+   card. Use a place card nowhere else.
 2. Before you get to such a place, unplug everything and switch the router
    off.
 3. Connect to the router by cable only, and keep its Wi-Fi off.
@@ -540,11 +582,11 @@ For maximum privacy, also follow these rules where you can:
 <!-- markdownlint-disable MD029 -->
 9. Use SIM cards that aren't registered to your name. The same goes for
    eSIM profiles.
-10. Get each new SIM card or eSIM profile from a different provider than
-    the last one. If you can't, start using the new one somewhere else and
-    some days after you stopped using the last one.
-11. Don't reuse a card once you've swapped it out. If you run out of new
-    cards, keep using the current one until you get a new one.
+10. Get each new SIM card or eSIM profile from a different provider than the
+    last one and than your place cards. If you can't, start using the new
+    one somewhere else and some days after you stopped using the last one.
+11. Don't reuse a travel card once you've swapped it out. If you run out of
+    new cards, keep using the current one until you get a new one.
 12. Vary when you swap SIMs, and where you switch the radio on and off.
 13. Pay for the VPN in a way that isn't tied to your name.
 14. Block SIM slot 1, for example with a drop of hot glue.
@@ -558,7 +600,11 @@ Why:
 
 1. A router with a SIM registers at every power-on, before airplane mode
    takes effect; a router without one is silent (section 6). Registrations
-   at a recurring place link every identity used there to that place.
+   at a recurring place link every identity used there to that place. A
+   place card links only the visits to its own place, where the user would
+   otherwise go online with their phone, whose SIM ties such places together
+   and to the user. Home and work stay out: they point to the user most
+   directly, and a phone with a SIM is on there, right next to any card.
 2. Switching off before arriving means the router never registers there.
    Unplugging also lets GL's auto power-off step in if someone forgets to
    switch off, because it fires only with nothing connected. The app can
@@ -623,7 +669,9 @@ Why:
 10. A provider that issues two consecutive profiles sees one Mudi 7 IMEI
     stop and another start, both with a rare TAC and possibly in the same
     area. Timing and place could link them (inferred). A different
-    provider sees only one of them. Where the same provider can't be
+    provider sees only one of them. A place card's provider sees it stop at
+    the end of every visit, so a new card from that provider could be
+    matched to it in the same way. Where the same provider can't be
     avoided, a different place and a gap of some days make the stop and
     the start harder to match.
 11. A reused SIM brings back its old IMSI and ICCID. A reused eSIM adapter
@@ -631,7 +679,9 @@ Why:
     Keeping the current card links nothing new, while swapping back to an
     old one links that card's earlier use to today. Done just as the current
     card goes quiet, the swap could also link the two cards by timing
-    (inferred).
+    (inferred). A reused travel card also gets new IMEIs, which shows its
+    issuer that the IMEI was rewritten (section 4). A place card is reused
+    by design, at its own place only (rule 1).
 12. Regular habits, such as always swapping on the same day or at the same
     station, can link identities without any identifier.
 13. The VPN provider sees each SIM's IP address in turn, all under one VPN
@@ -703,6 +753,11 @@ Design:
 - Do real Mudi 7 serials fall in a narrow range? A random serial far
   outside it could stand out. Serials are uniform over all 6 digits until
   this is known.
+- Should each place card get a VPN account of its own, which the app would
+  switch with the card? All cards share one account, so a provider that
+  keeps logs could join them, and the place cards would lead that history to
+  the user's places. For now we assume a provider that keeps no logs
+  (section 1).
 
 Legal and distribution:
 

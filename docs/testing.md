@@ -242,6 +242,16 @@ From development.md, "Files on the router", and design.md, section 5.
 | `restore.sh` then removes Churn's firewall rules and their line in `/etc/sysupgrade.conf` | inferred | Run it, then check that the chains, the file and the line are gone (tier 2) | 2 |
 | A factory reset deletes `/etc/churn/`, Churn's firewall rules and its zero files | inferred | Factory reset. It also resets GL's settings, so it is the last test to run | 4 |
 
+## Swaps
+
+From design.md, sections 4 and 7.
+
+| Claim | Status | Check | Tier |
+| --- | --- | --- | --- |
+| While step 3 asks about a card, slot 2 is back on the built-in eSIM; after the answer it switches to the tray again and finds the same card, with `+CFUN: 4` throughout | inferred | Step 3 with a new card, answered after a minute | 4 |
+| Canceling at step 3's question leaves slot 2 on the built-in eSIM, so the card stays off at the next power-on | inferred | Cancel, then switch the router on with an RF meter | 4 |
+| A place card swapped back in gets the IMEIs it had at its earlier visits | inferred | Swap a place card out and back in, and compare the IMEIs on the router screen | 4 |
+
 ## Beyond the router
 
 Some claims no test on the router can confirm:

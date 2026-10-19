@@ -40,6 +40,12 @@ class Saved(context: Context) {
         }
         set(value) = save { putString(WRITTEN_1, value?.imei1).putString(WRITTEN_2, value?.imei2) }
 
+    /** The place cards, with their pairs and the names the user gave them. */
+    val placeCards = PlaceCards(
+        load = { preferences.getString(PLACE_CARDS, null) },
+        save = { json -> save { putString(PLACE_CARDS, json) } },
+    )
+
     private fun save(edit: SharedPreferences.Editor.() -> Unit) {
         check(preferences.edit().apply(edit).commit()) { "Couldn't save the app's state" }
     }
@@ -53,5 +59,6 @@ class Saved(context: Context) {
         const val STEP = "step"
         const val WRITTEN_1 = "written_imei1"
         const val WRITTEN_2 = "written_imei2"
+        const val PLACE_CARDS = "place_cards"
     }
 }
