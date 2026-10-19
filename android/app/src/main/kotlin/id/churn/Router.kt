@@ -457,9 +457,10 @@ class Router(private val shell: Shell) {
          * directories are made beforehand with at most 300 names each, so that they never need a new block on the
          * full partition. Fill files left by an earlier run that stopped are deleted first.
          *
-         * The 64 MB parts stay, in `/overlay/churn-zeros` beside the router's file system in `/overlay/upper`, and the
-         * oldest are deleted only until 512 MB are free, also when the run is stopped. Deleted data can then only be in
-         * those 512 MB, so the next run fills about 0.5 GB instead of 2.9 GB. restore.sh deletes the folder.
+         * The 64 MB parts stay, in `/overlay/churn-zeros` beside the router's own files, and the oldest are deleted
+         * only until 512 MB are free, also when the run is stopped. Deleted data can then only be in those 512 MB, so
+         * the next run fills about 0.5 GB instead of 2.9 GB. `/etc/churn/zeros` links to the folder, and restore.sh
+         * deletes both.
          */
         private val OVERWRITE_FREE_SPACE = """
             dev=${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1; exit }' /proc/mounts)
@@ -476,6 +477,7 @@ class Router(private val shell: Shell) {
             }
             rm -rf /overlay/churn-fill.*
             mkdir -p ${'$'}zeros
+            ln -sfn ${'$'}zeros $CHURN/zeros
             d=0
             while [ "${'$'}d" -lt 16 ]; do mkdir /overlay/churn-fill.d${'$'}d; d=${'$'}((d + 1)); done
             sync

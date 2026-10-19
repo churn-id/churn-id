@@ -181,15 +181,16 @@ profile's IMEIs.
 ## 5. Storage on the router
 
 Churn keeps its files on the router in `/etc/churn/`, readable by root
-only: a README explaining the folder, the secret, the factory IMEIs and a
-restore script. The script writes the factory IMEIs back, puts back GL's
-setting for its system log, deletes Churn's zero files and removes Churn's
-firewall rules (all section 7); the app runs it on request, and it also
-works over a plain SSH session if the app is gone. Outside the folder are
-only the firewall rules, in `/etc/nftables.d/churn.nft`, and the zero
-files, in `/overlay/churn-zeros/` beside the router's file system. The
-script and the rules ship inside the app and are copied to the router, so
-the repository has no separate router component.
+only: a README explaining the folder, the secret, the factory IMEIs, a
+restore script and a link to the zero files. The script writes the factory
+IMEIs back, puts back GL's setting for its system log, deletes Churn's zero
+files and removes Churn's firewall rules (all section 7); the app runs it
+on request, and it also works over a plain SSH session if the app is gone.
+Outside the folder are only the firewall rules, in
+`/etc/nftables.d/churn.nft`, and the zero files, in `/overlay/churn-zeros/`
+beside the router's own files. The script and the rules ship inside the
+app and are copied to the router, so the repository has no separate router
+component.
 
 - **Kept across firmware upgrades.** OpenWrt's upgrade with "keep settings"
   keeps only listed paths, so the app adds `/etc/churn/` and the rules file
@@ -197,6 +198,17 @@ the repository has no separate router component.
   the factory IMEIs, and setup would run again and could record already
   rewritten IMEIs as the factory ones. A factory reset still deletes both;
   the README says to restore the factory IMEIs first.
+- **Zero files outside the folder.** The zero files (section 7) take about
+  2.4 GB, so they stay out of `/etc/churn/`. In it, an upgrade that keeps
+  settings would copy them with the folder, and anything that reads all of
+  `/etc`, such as `du`, `grep -r` or a copy of it, would read them. They
+  stay in `/overlay/churn-zeros/`, on the same flash partition as the
+  router's own files but outside them, and the folder links to them as
+  `zeros`, next to the README that explains them. `du`, `grep -r`, `cp` and
+  the `find` and `tar` that an upgrade runs take only the link (verified
+  with BusyBox 1.36.1 on a PC). Other places among the router's own files
+  are no better: `/root` is the user's home, `/opt` often holds external
+  storage, and `/tmp` and `/var` are in RAM.
 - **Updated with the app.** At every connection the app rewrites the README
   and the restore script where they differ from its own copies, so a
   router set up by an earlier version gets a script that undoes everything

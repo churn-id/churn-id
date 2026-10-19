@@ -58,8 +58,9 @@ if [ -s "$DIR/log_file" ]; then
 fi
 
 # The zero files that take most of the flash's free space between
-# clearings, and fill files left by a clearing that stopped.
-rm -rf /overlay/churn-zeros /overlay/churn-fill.* ||
+# clearings, the link to them, and fill files left by a clearing that
+# stopped.
+rm -rf /overlay/churn-zeros /overlay/churn-fill.* "$DIR/zeros" ||
 	fail "The factory IMEIs are back, but deleting Churn's zero files in /overlay/churn-zeros failed."
 
 # The firewall rules go last, so that a restore that stops earlier keeps them.
