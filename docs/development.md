@@ -375,13 +375,16 @@ so the app compares ICCIDs without the `F`. The current card is the one
    It writes files `/overlay/churn-fill.<n>` of 64 MB from `/dev/zero`,
    with a `sync` after each, until `dd` fails on the full partition, then
    files of 4 KB into the directories, at most 300 in each, until `dd`
-   fails again. Then it deletes the 4 KB files, moves the 64 MB files into
-   `/overlay/churn-zeros`, numbered on from the files there, syncs and
-   sets the reserve back. Last, it deletes files in `/overlay/churn-zeros`,
-   lowest number first, until 512 MB of the partition are free. When a
-   signal stops the run, a trap deletes the fill files, syncs, sets the
-   reserve back and frees the 512 MB the same way; a reboot sets the
-   reserve back too.
+   fails again. Then it syncs, because the zeros of a file deleted before
+   they are written out never reach the flash (verified on a disk image).
+   Only then does it delete the 4 KB files and move the 64 MB files into
+   `/overlay/churn-zeros`, numbered on from the files there, so the folder
+   gains only flushed parts, and none from a run that stops. It syncs again
+   and sets the reserve back. Last, it deletes files in
+   `/overlay/churn-zeros`, lowest number first, until 512 MB of the
+   partition are free. When a signal stops the run, a trap deletes the fill
+   files, syncs, sets the reserve back and frees the 512 MB the same way; a
+   reboot sets the reserve back too.
 
 We ran these steps as a script on our router, with step 4 still without
 the reserve and the 4 KB files. The router had seen two old cards, A and

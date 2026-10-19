@@ -454,8 +454,10 @@ class Router(private val shell: Shell) {
          * 64 MB parts come first, each flushed to the flash before the next, so the partition is full only briefly. It
          * is 2.9 GB, so `dd` stops at a full partition after at most 47 parts. Files of 4 KB then take the single free
          * blocks between small files that the parts leave, where old versions of GL's config files are. Their
-         * directories are made beforehand with at most 300 names each, so that they never need a new block on the
-         * full partition. Fill files left by an earlier run that stopped are deleted first.
+         * directories are made beforehand with at most 300 names each, so that they never need a new block on the full
+         * partition. Everything is flushed before the 4 KB files are deleted and the parts are kept, since the zeros of
+         * a file deleted before they are written out never reach the flash. Fill files left by an earlier run that
+         * stopped are deleted first.
          *
          * The 64 MB parts stay, in `/overlay/churn-zeros` beside the router's own files, and the oldest are deleted
          * only until 512 MB are free, also when the run is stopped. Deleted data can then only be in those 512 MB, so
@@ -498,6 +500,7 @@ class Router(private val shell: Shell) {
             	[ "${'$'}i" -lt 300 ] && break
             	d=${'$'}((d + 1))
             done
+            sync
             rm -rf /overlay/churn-fill.d*
             n=${'$'}(ls ${'$'}zeros | sort -n | tail -n 1)
             for f in /overlay/churn-fill.*; do
