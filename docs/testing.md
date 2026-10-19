@@ -60,7 +60,8 @@ From development.md, "Sending AT commands", and design.md, section 6.
 
 ## Phone and cable
 
-From development.md, "Connecting to the router", and design.md, section 3.
+From development.md, "Connecting to the router", and design.md, sections 3
+and 7.
 
 | Claim | Status | Check | Tier |
 | --- | --- | --- | --- |
@@ -68,6 +69,7 @@ From development.md, "Connecting to the router", and design.md, section 3.
 | SSH is on and accepts `root` with the admin password | verified | The app logs in | 1 |
 | Phones other than the Pixels we used reach the router this way | open | A connection from such a phone answers it for that phone | 1 |
 | On GrapheneOS, without the Network permission every socket fails with `EPERM`, the cable's included | verified | The app tries a socket before it connects | 1 |
+| On GrapheneOS, the uninstall dialog offers to keep the app's data, as `android:hasFragileUserData` asks | inferred | Uninstall the app, keeping its data, and reinstall it: the router screen still lists the place cards, and the app connects without asking for the password | 4 |
 
 ## Modem
 

@@ -135,7 +135,7 @@ class Controller(private val context: Context) {
     fun restore() = job(R.string.restoring) {
         val router = router()
         router.restoreFactoryImeis()
-        saved.written = router.readChurnFolder().factory
+        router.readChurnFolder().factory?.let { saved.wrote(it, factory = it) }
         showRouter(context.getString(R.string.note_restored))
     }
 
@@ -185,16 +185,18 @@ class Controller(private val context: Context) {
             Step.PREPARE -> runStep(Step.PREPARE, CONNECT_WAIT_SECONDS) { swap, folder ->
                 // Step 3 replaces the record, and may run more than once.
                 saved.cardBeforeSwap = folder.card?.iccid
-                saved.written = swap.prepare(folder.factory!!, SecureRandom())
+                val factory = folder.factory!!
+                saved.wrote(swap.prepare(factory, SecureRandom()), factory = factory)
                 shutDown(swap, next = Step.SWAP_CARD)
             }
             Step.SWAP_CARD, Step.NEW_IMEIS -> runStep(Step.NEW_IMEIS, BOOT_WAIT_SECONDS) { swap, folder ->
-                val card = swap.giveNewImeis(folder.factory!!, folder.card, saved.placeCards, SecureRandom())
+                val factory = folder.factory!!
+                val card = swap.giveNewImeis(factory, folder.card, saved.placeCards, SecureRandom())
                 if (card == null) {
                     // Canceled at the question, with slot 2 back on the eSIM: the user puts in another card.
                     shutDown(swap, next = Step.SWAP_CARD)
                 } else {
-                    saved.written = card.imeis
+                    saved.wrote(card.imeis, factory = factory)
                     saved.placeCardIn = saved.placeCards.find(card.iccid) != null
                     val destroy = saved.placeCards.toDestroy(before = saved.cardBeforeSwap, after = card.iccid)
                     saved.cardToDestroy = destroy?.takeLast(4)
@@ -356,24 +358,30 @@ class Controller(private val context: Context) {
         val step = saved.step
         show(
             when {
-                !folder.complete -> setUpScreen(router, folder)
+                !folder.complete -> setUpScreen(router)
                 step != null -> Screen.Swapping(step)
                 else -> home(router, folder, note)
             },
         )
     }
 
-    private fun setUpScreen(router: Router, folder: ChurnFolder): Screen.SetUp {
-        val factory = folder.factory ?: router.imeis()
+    /** The setup screen, for a router without Churn's folder. */
+    private fun setUpScreen(router: Router): Screen.SetUp {
+        val modem = router.imeis()
+        val written = saved.written
+        val factory = ChurnFolder.factoryAtSetup(modem, written = written, copy = saved.factory)
         val warnings = mutableListOf<Int>()
-        if (folder.factory == null) {
-            if (factory == saved.written) warnings += R.string.setup_warning_written
-            if (listOf(factory.imei1, factory.imei2).any { Imei.tac(it) != Imei.MUDI7_TAC }) {
-                warnings += R.string.setup_warning_tac
-            }
-            if (!Imei.isValid(factory.imei1) || !Imei.isValid(factory.imei2)) {
-                warnings += R.string.setup_warning_check_digit
-            }
+        if (factory != modem) {
+            warnings += R.string.setup_warning_copy
+        } else if (modem == written && saved.factory == null) {
+            // Written by an earlier version of the app, which kept no copy.
+            warnings += R.string.setup_warning_written
+        }
+        if (listOf(factory.imei1, factory.imei2).any { Imei.tac(it) != Imei.MUDI7_TAC }) {
+            warnings += R.string.setup_warning_tac
+        }
+        if (!Imei.isValid(factory.imei1) || !Imei.isValid(factory.imei2)) {
+            warnings += R.string.setup_warning_check_digit
         }
         return Screen.SetUp(factory, warnings.map { context.getString(it) })
     }

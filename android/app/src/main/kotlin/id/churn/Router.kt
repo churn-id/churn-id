@@ -53,6 +53,18 @@ class ChurnFolder(val factory: ImeiPair?, val card: Card?) {
 
     /** Whether the card with [iccid] (digits only) is the recorded card, and [imeis] are its pair. */
     fun isRecorded(iccid: String, imeis: ImeiPair) = card == Card(iccid, imeis)
+
+    companion object {
+
+        /**
+         * The factory IMEIs that setup records, on a router without Churn's folder whose modem has [modem]. If those
+         * are [written], the IMEIs Churn last wrote, the folder was lost after Churn changed the IMEIs, and the
+         * phone's [copy] of the factory IMEIs, kept with [written], goes back. Otherwise, or without a copy, the
+         * modem's IMEIs count as the factory ones.
+         */
+        fun factoryAtSetup(modem: ImeiPair, written: ImeiPair?, copy: ImeiPair?) =
+            copy?.takeIf { modem == written } ?: modem
+    }
 }
 
 /**

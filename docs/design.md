@@ -221,7 +221,9 @@ repository has no separate router component.
   to `/etc/sysupgrade.conf`. Otherwise an upgrade would lose the factory
   IMEIs and the record, and setup would run again and could record already
   rewritten IMEIs as the factory ones. A factory reset still deletes both;
-  the README says to restore the factory IMEIs first.
+  the README says to restore the factory IMEIs first. If the folder is lost
+  anyway, setup can write the factory IMEIs back from the phone's copy
+  (section 7).
 - **Zero files outside the folder.** The zero files (section 7) take about
   2.4 GB, so they stay out of `/etc/churn/`. In it, an upgrade that keeps
   settings would copy them with the folder, and anything that reads all of
@@ -413,6 +415,16 @@ since step 3 replaces the record and may run more than once.
   Names stay on the phone. They should mean something only to the user, and
   no card should carry one that would mean something to others: a card
   labeled "cabin" tells whoever finds it where to look.
+- The phone also keeps a copy of the router's factory IMEIs, saved with each
+  pair the app writes, so that the copy belongs to the router that has that
+  pair. If Churn's folder is lost, as after a factory reset without a
+  restore, and the modem has the pair the app last wrote, setup writes the
+  copy back instead of recording that pair as the factory IMEIs. The record
+  is lost with the folder, so the router screen warns until the next swap.
+- The app sets `android:hasFragileUserData`, so from Android 10 on the
+  system's uninstall dialog offers to keep the app's data, the place list
+  and the copy of the factory IMEIs included, though uninstalls from the
+  Play Store don't offer it (inferred).
 
 ### The router's own traffic
 

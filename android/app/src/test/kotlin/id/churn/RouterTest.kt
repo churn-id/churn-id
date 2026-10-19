@@ -308,6 +308,19 @@ class RouterTest {
     }
 
     @Test
+    fun setupWritesBackThePhonesCopyOfTheFactoryImeis() {
+        val factory = router.imeis()
+        // The folder was lost after Churn wrote PAIR, which the modem still has.
+        assertEquals(factory, ChurnFolder.factoryAtSetup(PAIR, written = PAIR, copy = factory))
+        // Written by an earlier version of the app, which kept no copy. The setup screen warns.
+        assertEquals(PAIR, ChurnFolder.factoryAtSetup(PAIR, written = PAIR, copy = null))
+        // A router Churn didn't write the IMEIs to, such as a new one, keeps its own.
+        val otherRouter = ImeiPair("356090219876548", "356090219876613")
+        assertEquals(factory, ChurnFolder.factoryAtSetup(factory, written = PAIR, copy = otherRouter))
+        assertEquals(factory, ChurnFolder.factoryAtSetup(factory, written = null, copy = null))
+    }
+
+    @Test
     fun refusesADamagedFolder() {
         fake.files["/etc/churn/factory"] = "356090215000002\n".toByteArray()
         try {
