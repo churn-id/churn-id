@@ -233,7 +233,7 @@ class FakeRouter : Shell {
             files[it.groupValues[1]] = ByteArray(0)
             return ok("")
         }
-        // The free-space overwrite writes and deletes /overlay/churn-fill.* parts; its effect is not in the files.
+        // The free-space overwrite writes /overlay/churn-fill.* parts, kept as zero files; its effect is not in the files.
         if ("/overlay/churn-fill." in command) {
             freeSpaceOverwritten = true
             return ok("")

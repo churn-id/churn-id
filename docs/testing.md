@@ -41,10 +41,11 @@ to the router:
   passes, with a note that the firmware is untested.
 - Tier 1 runs for every user. Tiers 2 and 3 start in debug builds; tier 2
   may later be offered to users. Tiers 3 and 4 are for the maintainer.
-- A test that clears the SIM history writes about 2.9 GB to the flash
-  (development.md, "Clearing the SIM history"), so it runs once for each
-  firmware, not with every dry run. The dry run itself clears nothing:
-  step 3 with an empty tray stops before the clearing.
+- A test that clears the SIM history writes about 0.5 GB to the flash,
+  or 2.9 GB without the zero files (development.md, "Clearing the SIM
+  history"), so it runs once for each firmware, not with every dry run.
+  The dry run itself clears nothing: step 3 with an empty tray stops
+  before the clearing.
 
 ## Platform
 
@@ -216,8 +217,10 @@ and 10.
 | The overlay is ext4 on `mmcblk0p59`, 2.9 GB, and ext4 keeps 4096 blocks back from it in `reserved_clusters` | verified | The overlay's line in `/proc/mounts` and its `reserved_clusters` file | 1, blocks |
 | The overwrite puts ext4's reserve back at its end, and a trap does when a signal stops it | verified; the trap on a disk image | Read `reserved_clusters` after a clearing | 2 |
 | GL's files stay valid while the overwrite fills the partition | verified once | GL's JSON files parse after a clearing | 2 |
+| The overwrite leaves all but 512 MB of the free space in `/overlay/churn-zeros`, so the next one fills only those 512 MB | verified on disk images | The free space and the folder after a clearing; `lifetime_write_kbytes` in `/sys/fs/ext4/mmcblk0p59/` before and after the next | 2 |
+| With the zero files in place, an overwrite takes about half a minute | inferred from the first overwrite's speed | Time a clearing from the router screen | 2 |
 | The SSH connection stays open through the overwrite, which prints nothing for minutes | inferred | Clear the history from the router screen | 2 |
-| How much of the flash's life the overwrite at every swap uses | open | The flash's own wear estimate, `life_time` and `pre_eol_info` in `/sys/block/mmcblk0/device/`, if it reports one (unchecked), recorded at every connection | 1 |
+| The flash rates its own wear, and reported under 10% used on our router after our tests | verified | `life_time` and `pre_eol_info` in `/sys/block/mmcblk0/device/`, recorded at every connection | 1 |
 | GL writes files in `/etc` every minute, so with the log's file off, the clock after a power-on still resumes from about the time of the power-off | verified with the SIM online | The files written in `/etc` within a minute, in airplane mode too | 1 |
 
 ## Churn's files and firmware upgrades
@@ -229,12 +232,14 @@ From development.md, "Files on the router", and design.md, section 5.
 | `/etc/churn/` and its files have the modes and contents development.md lists | contents verified by the app, modes inferred | Modes and sizes; the app itself rewrites `README.txt` and `restore.sh` at every connection where they differ from its copies | 1, blocks |
 | `/etc/churn/` is listed in `/etc/sysupgrade.conf` | verified by the app | The line is there | 1, blocks |
 | With the firewall rules, `/etc/nftables.d/churn.nft` is listed in `/etc/sysupgrade.conf` | inferred | The line is there | 1 |
+| `/etc/churn/zeros` links to `/overlay/churn-zeros`, and `du`, `grep -r`, `cp` and the `find` and `tar` that an upgrade runs take only the link | verified with BusyBox 1.36.1 on a PC | After a clearing, `ls -l /etc/churn` shows the link and `du -sh /etc` stays small; `sysupgrade -l` lists the link but no zero file | 1 |
 | GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | At every connection, the IMEIs are the pair of the card in slot 2 (tier 1, which the app already does); after an upgrade, they are the ones from before it (tier 3) | 1, 3 |
-| A firmware upgrade with "keep settings" keeps `/etc/churn/`, Churn's firewall rules and the log's file off | open | Upgrade, then check the folder, the rules and `log_file` | 3 |
+| A firmware upgrade with "keep settings" keeps `/etc/churn/`, the link `zeros` in it included, Churn's firewall rules and the log's file off | open | Upgrade, then check the folder, the link, the rules and `log_file` | 3 |
 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
 | `restore.sh` then sets GL's `log_file` back from Churn's copy, and deletes the copy | inferred | Run it, then check the setting and the copy (tier 2) | 2 |
+| `restore.sh` then deletes `/overlay/churn-zeros`, the link to it and any fill files | inferred | Run it, then check that the folder and the link are gone and the free space is back (tier 2) | 2 |
 | `restore.sh` then removes Churn's firewall rules and their line in `/etc/sysupgrade.conf` | inferred | Run it, then check that the chains, the file and the line are gone (tier 2) | 2 |
-| A factory reset deletes `/etc/churn/` and Churn's firewall rules | inferred | Factory reset. It also resets GL's settings, so it is the last test to run | 4 |
+| A factory reset deletes `/etc/churn/`, Churn's firewall rules and its zero files | inferred | Factory reset. It also resets GL's settings, so it is the last test to run | 4 |
 
 ## Beyond the router
 

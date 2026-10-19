@@ -369,13 +369,22 @@ so the app compares ICCIDs without the `F`. The current card is the one
 4. It fills the free space of the overlay, ext4 on the eMMC partition
    `mmcblk0p59` (2.9 GB). It sets
    `/sys/fs/ext4/mmcblk0p59/reserved_clusters`, the 4096 blocks that ext4
-   keeps free even from root, to 0, and makes 16 directories
-   `/overlay/churn-fill.d<n>`. It writes files `/overlay/churn-fill.<n>`
-   of 64 MB from `/dev/zero`, with a `sync` after each, until `dd` fails
-   on the full partition, then files of 4 KB into the directories, at
-   most 300 in each, until `dd` fails again. Then it deletes them all,
-   syncs and sets the reserve back, which a trap also does when a signal
-   stops the run; a reboot sets it back too.
+   keeps free even from root, to 0, and makes the directory
+   `/overlay/churn-zeros`, the link `/etc/churn/zeros` to it, and 16
+   directories `/overlay/churn-fill.d<n>`.
+   It writes files `/overlay/churn-fill.<n>` of 64 MB from `/dev/zero`,
+   with a `sync` after each, until `dd` fails on the full partition, then
+   files of 4 KB into the directories, at most 300 in each, until `dd`
+   fails again. Then it syncs, because the zeros of a file deleted before
+   they are written out never reach the flash (verified on a disk image).
+   Only then does it delete the 4 KB files and move the 64 MB files into
+   `/overlay/churn-zeros`, numbered on from the files there, so the folder
+   gains only flushed parts, and none from a run that stops. It syncs again
+   and sets the reserve back. Last, it deletes files in
+   `/overlay/churn-zeros`, lowest number first, until 512 MB of the
+   partition are free. When a signal stops the run, a trap deletes the fill
+   files, syncs, sets the reserve back and frees the 512 MB the same way; a
+   reboot sets the reserve back too.
 
 We ran these steps as a script on our router, with step 4 still without
 the reserve and the 4 KB files. The router had seen two old cards, A and
@@ -414,6 +423,14 @@ files took (verified on the image). Our script also remounted the
 overlay with `discard` for the run; the app leaves that out, since the
 overwrite already covers the free space.
 
+On disk images with GL-like config rewrites, the second of two swaps in
+a row overwrote only the 512 MB that the zero files left free: on an
+image of the overlay's size, the first overwrite wrote 2.9 GB and the
+second 0.5 GB. Neither left a copy of the outgoing card, a run stopped by
+a signal left the zero files and the reserve as they were before it, a
+run that found the partition full freed the 512 MB, and e2fsck found the
+file system clean (verified on the images).
+
 ## After power-on
 
 At every power-on the radio is on for about 12 s, whatever airplane mode
@@ -444,8 +461,10 @@ before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
 | `/etc/churn/secret` | 600 | 32 random bytes, the HMAC key |
 | `/etc/churn/factory` | 600 | Factory IMEI 1 and IMEI 2, one per line |
 | `/etc/churn/log_file` | 600 | GL's `system.@system[0].log_file` as it was before the app first deleted it. Only there after the app has deleted it |
-| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, sets `log_file` back from Churn's copy and deletes the copy, then removes Churn's firewall rules |
+| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, sets `log_file` back from Churn's copy and deletes the copy, deletes `/overlay/churn-zeros`, the link to it and any fill files, then removes Churn's firewall rules |
+| `/etc/churn/zeros` | – | Link to `/overlay/churn-zeros`, made by the free-space overwrite |
 | `/etc/nftables.d/churn.nft` | 644 | Churn's firewall rules, from `Router.firewallRules` |
+| `/overlay/churn-zeros/` | – | Files of zeros from the free-space overwrite, up to 64 MB each and numbered, that take all but 512 MB of the free space. Beside the router's own files, so that upgrades and tools reading `/etc` skip them (design.md, section 5) |
 
 At setup the app also adds the line `/etc/churn/` to `/etc/sysupgrade.conf`,
 and with its firewall rules the line `/etc/nftables.d/churn.nft`. At every
