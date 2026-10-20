@@ -106,6 +106,9 @@ class RouterConnection private constructor(
     private val usb: RouterNetwork,
 ) : Shell, Closeable {
 
+    /** False once the router or the phone ended the connection; [run] then fails at once. */
+    val isOpen get() = ssh.isConnected
+
     override fun run(command: String, input: ByteArray?, timeoutSeconds: Long): Output =
         ssh.startSession().use { session ->
             val running = session.exec(command)

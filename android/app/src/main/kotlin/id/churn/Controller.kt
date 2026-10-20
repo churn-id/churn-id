@@ -280,7 +280,7 @@ class Controller(private val context: Context) {
         context.startForegroundService(Intent(context, SwapService::class.java))
         worker.execute {
             val next = try {
-                if (connection == null) {
+                if (openConnection() == null) {
                     log += context.getString(R.string.waiting_for_router)
                     update()
                 }
@@ -317,7 +317,7 @@ class Controller(private val context: Context) {
 
     /** The router, connecting first if needed, and waiting up to [waitSeconds] for it to come up. */
     private fun router(waitSeconds: Int = CONNECT_WAIT_SECONDS): Router {
-        connection?.let { return Router(it) }
+        openConnection()?.let { return Router(it) }
         if (!RouterNetwork.socketsAllowed()) throw NoNetworkPermission()
         val password = typedPassword ?: saved.sealedPassword?.let { PasswordVault.open(it) } ?: throw MissingPassword()
         val deadline = System.nanoTime() + waitSeconds * 1_000_000_000L
@@ -341,6 +341,15 @@ class Controller(private val context: Context) {
                 Thread.sleep(RETRY_MILLISECONDS)
             }
         }
+    }
+
+    /**
+     * The connection from an earlier job, unless it ended since. Android ends the connections of an app it freezes in
+     * the background, as when the phone locks while a screen waits for the user.
+     */
+    private fun openConnection(): RouterConnection? {
+        if (connection?.isOpen == false) disconnect()
+        return connection
     }
 
     private fun disconnect() {
