@@ -75,9 +75,13 @@
     <string name="status_airplane_off">Airplane mode is off.</string>
     <string name="status_radio_on">The radio is on.</string>
     <string name="status_radio_off">The radio is off.</string>
-    <string name="status_slot">SIM slot %1$s is active.</string>
-    <string name="status_slot2_sim2">Slot 2 is on the SIM 2 tray.</string>
-    <string name="status_slot2_esim">Slot 2 is on the built-in eSIM.</string>
+    <string name="sim_place_card">SIM 2: place card %1$s</string>
+    <string name="sim_travel_card">SIM 2: travel card ending in %1$s</string>
+    <string name="sim_unknown_card">SIM 2: unknown card ending in %1$s</string>
+    <string name="sim_no_card">SIM 2: no card found</string>
+    <string name="sim_parked">SIM 2: off, since slot 2 is on the built-in eSIM</string>
+    <string name="sim_slot1_active">SIM slot 1 is the active slot, but Churn uses only slot 2 (rule 4). The next swap makes slot 2 the active slot.</string>
+    <string name="sim_esim_profile">Slot 2 is on the built-in eSIM, with a profile enabled. Don\'t use the built-in eSIM (rule 4). Step 1 of the next swap disables the profile.</string>
     <string name="note_not_cards_imeis">These aren\'t IMEIs Churn gave the card in slot 2. The card registers with them at every power-on, probably at this one too, so the network can link it to whatever used them before: an earlier card, or the router itself if they\'re the factory IMEIs. Giving this card its own IMEIs now wouldn\'t undo that link, and the network would see its IMEI change, so swap it for a new card.</string>
     <string name="note_scheduled_reboot">GL\'s scheduled reboot is on. Turn it off in GL\'s web interface: a reboot is a power-on, so with a SIM inside it registers wherever it happens.</string>
     <string name="note_no_vpn">No WireGuard VPN is set up on the router. Set one up in GL\'s web interface before you swap a SIM (rule 5). Churn doesn\'t support other VPN types yet.</string>
