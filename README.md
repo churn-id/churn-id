@@ -27,7 +27,8 @@ things hold:
 - The IMEI changes too. If it stays the same, it ties each new SIM to the
   last one.
 - No piece includes your home, your work or other places you return to,
-  because those places tie it back to you.
+  because those places tie it back to you. The one exception is a place
+  card's piece, which holds only its own place (see the rules).
 
 Ordinary phones can't change their IMEI, but the Mudi 7 can. So when you're
 out with the router, you switch off your phone's own SIM and get online
@@ -65,7 +66,12 @@ Roughly from larger to smaller, the pieces are:
    phones, iPhones, and computers with Windows or macOS keep talking to
    Google, Apple or Microsoft, even with location services off, and you
    can't check what they send. Use a phone with an Android system built
-   for privacy, such as GrapheneOS, and a computer with Linux.
+   for privacy, such as GrapheneOS, and a computer with Linux. A SIM in your
+   phone tells its network wherever you go, and the phone doesn't need one:
+   it can go online over Wi-Fi or a cable at home and through the router
+   elsewhere, and Signal can replace calls over the mobile network. Bear in
+   mind that some countries, such as Germany, don't put through emergency
+   calls from a phone without a SIM.
 2. **Your accounts.** Every account you log into connects what you do to
    you. Use few, and keep the ones you want private apart from the ones in
    your name.
@@ -90,18 +96,24 @@ work on its own.
 - A USB-C cable to connect the phone to the router, ideally the router's
   own cable.
 - The router's admin password.
-- A VPN service, set up on the router with WireGuard.
-- A new SIM for each swap, either
+- A VPN service that keeps no logs, set up on the router with WireGuard.
+- A new SIM for each swap, unless you put a place card back in, either
   - a normal SIM card, or
   - an eSIM adapter card, such as [JMP's](https://jmp.chat/esim-adapter),
     containing one eSIM profile.
 
 ## Rules
 
+Churn knows two kinds of cards. A travel card is used on the go and never
+again once you've swapped it out. A place card is a new card for one place
+you return to, other than home and work, and you use it there on every visit
+and nowhere else.
+
 Always follow these rules:
 
 1. At home, at work and anywhere else you return to, keep the router
-   switched off or without a SIM.
+   switched off or without a SIM, unless it holds that place's own place
+   card. Use a place card nowhere else.
 2. Before you get to such a place, unplug everything and switch the router
    off.
 3. Connect to the router by cable only, and keep its Wi-Fi off.
@@ -123,11 +135,12 @@ For maximum privacy, also follow these rules where you can:
 <!-- markdownlint-disable MD029 -->
 9. Use SIM cards that aren't registered to your name. The same goes for
    eSIM profiles.
-10. Get each new SIM card or eSIM profile from a different provider than
-    the last one. If you can't, start using the new one somewhere else and
-    some days after you stopped using the last one.
-11. Don't reuse a card once you've swapped it out. If you run out of new
-    cards, keep using the current one until you get a new one.
+10. Get each new SIM card or eSIM profile from a different provider than the
+    last one and than your place cards. If you can't, start using the new
+    one somewhere else and some days after you stopped using the last one.
+11. Don't reuse a travel card once you've swapped it out, and destroy it
+    away from home. If you run out of new cards, keep using the current one
+    until you get a new one.
 12. Vary when you swap SIMs, and where you switch the radio on and off.
 13. Pay for the VPN in a way that isn't tied to your name.
 14. Block SIM slot 1, for example with a drop of hot glue.

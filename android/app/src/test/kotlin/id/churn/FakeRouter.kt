@@ -26,6 +26,9 @@ class FakeRouter : Shell {
 
     /** For a `/proc/uptime` that doesn't parse. */
     var uptimeBroken = false
+
+    /** For a modem that refuses IMEI writes. */
+    var imeiWritesRefused = false
     var imei1 = "356090215000002"
     var imei2 = "356090215000077"
 
@@ -267,6 +270,7 @@ class FakeRouter : Shell {
             command == "AT+CFUN?" -> atOk("+CFUN: $radio")
             command == "AT+EGMR=0,7" -> atOk("+EGMR: \"$imei1\"")
             command == "AT+EGMR=0,11" -> atOk("+EGMR: \"$imei2\"")
+            imeiWrite != null && imeiWritesRefused -> ok("\r\nERROR\r\n")
             imeiWrite != null -> {
                 val (item, imei) = imeiWrite.destructured
                 change("IMEI $item")

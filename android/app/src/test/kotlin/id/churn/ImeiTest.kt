@@ -7,10 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The test vectors of development.md, "IMEI derivation". */
 class ImeiTest {
-
-    private val secret = ByteArray(32) { it.toByte() }
 
     /** Factory IMEIs with TAC 35609021 whose serials are [d] apart. Only the TAC and `d` matter. */
     private fun factory(d: Int): ImeiPair {
@@ -27,51 +24,31 @@ class ImeiTest {
     }
 
     @Test
-    fun derivesTheDocumentedPairs() {
-        val iccid = "8941000000000000015"
-        assertEquals(
-            ImeiPair("356090213059463", "356090213059539"),
-            Imei.derive(secret, iccid, factory(d = 7)),
-        )
-        assertEquals(
-            ImeiPair("356090213059539", "356090213059463"),
-            Imei.derive(secret, iccid, factory(d = -7)),
-        )
-        assertEquals(
-            ImeiPair("356090213012637", "356090213012637"),
-            Imei.derive(secret, iccid, factory(d = 0)),
-        )
-    }
-
-    @Test
-    fun skipsWordsAboveTheLimit() {
-        // The first word of this ICCID's HMAC, ffff2de0, is rejected.
-        assertEquals(
-            ImeiPair("356090219466134", "356090219466209"),
-            Imei.derive(secret, "8941000000000104627", factory(d = 7)),
-        )
-    }
-
-    @Test
     fun keepsEachFactoryTac() {
         val factory = ImeiPair("356090215000003", "350000005000075")
-        val pair = Imei.derive(secret, "8941000000000000015", factory)
+        val pair = Imei.random(SecureRandom(), factory)
         assertEquals("35609021", Imei.tac(pair.imei1))
         assertEquals("35000000", Imei.tac(pair.imei2))
         assertTrue(Imei.isValid(pair.imei1) && Imei.isValid(pair.imei2))
     }
 
     @Test
-    fun throwawayPairsKeepTheFactorySpacing() {
+    fun randomPairsKeepTheFactorySpacing() {
         val random = SecureRandom()
         for (d in listOf(7, -7, 0, 999_998)) {
             val factory = factory(d)
             repeat(200) {
-                val pair = Imei.throwaway(random, factory)
+                val pair = Imei.random(random, factory)
                 assertTrue(Imei.isValid(pair.imei1) && Imei.isValid(pair.imei2))
                 assertEquals(d, Imei.offset(pair))
             }
         }
+    }
+
+    @Test
+    fun drawsTheSerialAtRandom() {
+        val pairs = List(100) { Imei.random(SecureRandom(), factory(d = 7)) }.toSet()
+        assertTrue(pairs.size > 90)
     }
 
     @Test

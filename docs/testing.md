@@ -60,7 +60,8 @@ From development.md, "Sending AT commands", and design.md, section 6.
 
 ## Phone and cable
 
-From development.md, "Connecting to the router", and design.md, section 3.
+From development.md, "Connecting to the router", and design.md, sections 3
+and 7.
 
 | Claim | Status | Check | Tier |
 | --- | --- | --- | --- |
@@ -68,6 +69,7 @@ From development.md, "Connecting to the router", and design.md, section 3.
 | SSH is on and accepts `root` with the admin password | verified | The app logs in | 1 |
 | Phones other than the Pixels we used reach the router this way | open | A connection from such a phone answers it for that phone | 1 |
 | On GrapheneOS, without the Network permission every socket fails with `EPERM`, the cable's included | verified | The app tries a socket before it connects | 1 |
+| On GrapheneOS, the uninstall dialog offers to keep the app's data, as `android:hasFragileUserData` asks | inferred | Uninstall the app, keeping its data, and reinstall it: the router screen still lists the place cards, and the app connects without asking for the password | 4 |
 
 ## Modem
 
@@ -233,13 +235,25 @@ From development.md, "Files on the router", and design.md, section 5.
 | `/etc/churn/` is listed in `/etc/sysupgrade.conf` | verified by the app | The line is there | 1, blocks |
 | With the firewall rules, `/etc/nftables.d/churn.nft` is listed in `/etc/sysupgrade.conf` | inferred | The line is there | 1 |
 | `/etc/churn/zeros` links to `/overlay/churn-zeros`, and `du`, `grep -r`, `cp` and the `find` and `tar` that an upgrade runs take only the link | verified with BusyBox 1.36.1 on a PC | After a clearing, `ls -l /etc/churn` shows the link and `du -sh /etc` stays small; `sysupgrade -l` lists the link but no zero file | 1 |
-| GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | At every connection, the IMEIs are the pair of the card in slot 2 (tier 1, which the app already does); after an upgrade, they are the ones from before it (tier 3) | 1, 3 |
+| GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | At every connection, the IMEIs are the recorded pair of the card in slot 2 (tier 1, which the app already does); after an upgrade, they are the ones from before it (tier 3) | 1, 3 |
 | A firmware upgrade with "keep settings" keeps `/etc/churn/`, the link `zeros` in it included, Churn's firewall rules and the log's file off | open | Upgrade, then check the folder, the link, the rules and `log_file` | 3 |
 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
+| `restore.sh` then deletes Churn's record of the card | inferred | Run it, then check that `/etc/churn/card` is gone (tier 2) | 2 |
 | `restore.sh` then sets GL's `log_file` back from Churn's copy, and deletes the copy | inferred | Run it, then check the setting and the copy (tier 2) | 2 |
 | `restore.sh` then deletes `/overlay/churn-zeros`, the link to it and any fill files | inferred | Run it, then check that the folder and the link are gone and the free space is back (tier 2) | 2 |
 | `restore.sh` then removes Churn's firewall rules and their line in `/etc/sysupgrade.conf` | inferred | Run it, then check that the chains, the file and the line are gone (tier 2) | 2 |
 | A factory reset deletes `/etc/churn/`, Churn's firewall rules and its zero files | inferred | Factory reset. It also resets GL's settings, so it is the last test to run | 4 |
+
+## Swaps
+
+From design.md, sections 4 and 7.
+
+| Claim | Status | Check | Tier |
+| --- | --- | --- | --- |
+| While step 3 asks about a card, slot 2 is back on the built-in eSIM; after the answer it switches to the tray again and finds the same card, with `+CFUN: 4` throughout | inferred | Step 3 with a new card, answered after a minute | 4 |
+| Canceling at step 3's question leaves slot 2 on the built-in eSIM, so the card stays off at the next power-on | inferred | Cancel, then switch the router on with an RF meter | 4 |
+| A place card swapped back in gets the IMEIs it had at its earlier visits | inferred | Swap a place card out and back in, and compare the IMEIs on the router screen | 4 |
+| Step 4 says to destroy the card taken out, unless it is a place card or still in SIM 2 | inferred | Swap a travel card for a place card and back, and once keep the card | 4 |
 
 ## Beyond the router
 
@@ -251,8 +265,6 @@ Some claims no test on the router can confirm:
   of many units.
 - That a GrapheneOS phone with its eSIM profile disabled transmits
   nothing (rule 7). It is a measurement of the phone, not the router.
-- The IMEI derivation. The unit tests check it against the test vectors in
-  development.md.
 - Whether the VPN server, which is the same on every SIM, links the SIMs
   (design.md, section 10). It depends on what the carrier and the VPN
   provider can match, not on the router.

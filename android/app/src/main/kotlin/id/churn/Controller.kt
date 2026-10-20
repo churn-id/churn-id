@@ -10,6 +10,7 @@ import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.security.SecureRandom
 import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
 
 /** What the screen shows. [MainActivity] draws it. */
 sealed interface Screen {
@@ -18,12 +19,14 @@ sealed interface Screen {
     data class Working(val title: String) : Screen
     data class TrustKey(val key: String, val fingerprint: String, val changed: Boolean) : Screen
     data class SetUp(val factory: ImeiPair, val warnings: List<String>) : Screen
-    data class Home(val status: RouterStatus, val notes: List<String>) : Screen
+    data class Home(val status: RouterStatus, val notes: List<String>, val places: List<PlaceCard>) : Screen
     data class Swapping(
         val step: Step,
         val log: List<String> = emptyList(),
         val running: Boolean = false,
         val error: String? = null,
+        /** Step 3's question, which the running step waits for the user to answer. */
+        val question: Question? = null,
     ) : Screen
 }
 
@@ -60,6 +63,9 @@ class Controller(private val context: Context) {
     private var connection: RouterConnection? = null
     private var typedPassword: String? = null
 
+    /** Holds the user's answer to step 3's question until the step, on the worker thread, takes it. */
+    private val answers = LinkedBlockingQueue<Answer>(1)
+
     var screen: Screen = start()
         private set
 
@@ -78,6 +84,10 @@ class Controller(private val context: Context) {
 
     val address get() = saved.address
     val hasPassword get() = saved.sealedPassword != null
+
+    /** What step 4 says: whether the new card is a place card, and the last digits of the card to destroy. */
+    val placeCardIn get() = saved.placeCardIn
+    val cardToDestroy get() = saved.cardToDestroy
 
     fun acceptIntro() {
         saved.introAccepted = true
@@ -111,11 +121,10 @@ class Controller(private val context: Context) {
         val folder = router.readChurnFolder()
         updateChurnFiles(router)
         router.keepChurnFolder()
+        // Written last: a folder with the factory IMEIs counts as set up.
         if (folder.factory == null) {
             router.writeChurnFile("factory", "${factory.imei1}\n${factory.imei2}\n".toByteArray())
         }
-        // Written last: a folder with the secret and the factory IMEIs counts as set up.
-        if (folder.secret == null) router.writeChurnFile("secret", ByteArray(32).also { SecureRandom().nextBytes(it) })
         // Turns the flash log off and clears the SIM history that built up before Churn.
         router.clearHistory(router.currentCardIccid())
         showRouter()
@@ -126,7 +135,7 @@ class Controller(private val context: Context) {
     fun restore() = job(R.string.restoring) {
         val router = router()
         router.restoreFactoryImeis()
-        saved.written = router.readChurnFolder().factory
+        router.readChurnFolder().factory?.let { saved.wrote(it, factory = it) }
         showRouter(context.getString(R.string.note_restored))
     }
 
@@ -153,6 +162,16 @@ class Controller(private val context: Context) {
         show(Screen.Connect())
     }
 
+    fun namePlaceCard(iccid: String, name: String) = changePlaceCards { saved.placeCards.name(iccid, name) }
+
+    fun forgetPlaceCard(iccid: String) = changePlaceCards { saved.placeCards.forget(iccid) }
+
+    /** Changes the place list, which stays on the phone, and shows the router screen with it. */
+    private fun changePlaceCards(change: () -> Unit) {
+        change()
+        (screen as? Screen.Home)?.let { show(it.copy(places = saved.placeCards.all)) }
+    }
+
     fun beginSwap() = show(Screen.Swapping(Step.PREPARE))
 
     fun cancelSwap() {
@@ -164,18 +183,38 @@ class Controller(private val context: Context) {
     fun advance(step: Step) {
         when (step) {
             Step.PREPARE -> runStep(Step.PREPARE, CONNECT_WAIT_SECONDS) { swap, folder ->
-                saved.written = swap.prepare(folder.factory!!, SecureRandom())
+                // Step 3 replaces the record, and may run more than once.
+                saved.cardBeforeSwap = folder.card?.iccid
+                val factory = folder.factory!!
+                saved.wrote(swap.prepare(factory, SecureRandom()), factory = factory)
                 shutDown(swap, next = Step.SWAP_CARD)
             }
             Step.SWAP_CARD, Step.NEW_IMEIS -> runStep(Step.NEW_IMEIS, BOOT_WAIT_SECONDS) { swap, folder ->
-                saved.written = swap.giveNewImeis(folder.factory!!, folder.secret!!)
-                shutDown(swap, next = Step.GO_ONLINE)
+                val factory = folder.factory!!
+                val card = swap.giveNewImeis(factory, folder.card, saved.placeCards, SecureRandom())
+                if (card == null) {
+                    // Canceled at the question, with slot 2 back on the eSIM: the user puts in another card.
+                    shutDown(swap, next = Step.SWAP_CARD)
+                } else {
+                    saved.wrote(card.imeis, factory = factory)
+                    saved.placeCardIn = saved.placeCards.find(card.iccid) != null
+                    val destroy = saved.placeCards.toDestroy(before = saved.cardBeforeSwap, after = card.iccid)
+                    saved.cardToDestroy = destroy?.takeLast(4)
+                    saved.cardBeforeSwap = null
+                    shutDown(swap, next = Step.GO_ONLINE)
+                }
             }
             Step.GO_ONLINE -> {
                 saved.step = null
+                saved.cardToDestroy = null
                 show(Screen.Connect())
             }
         }
+    }
+
+    /** The user's answer to step 3's question on the screen. */
+    fun answer(answer: Answer) {
+        answers.offer(answer)
     }
 
     /** Ends step 1 or 3: saves [next] as the step reached, shuts the router down, and returns [next]. */
@@ -234,7 +273,8 @@ class Controller(private val context: Context) {
     private fun runStep(step: Step, waitSeconds: Int, body: (Swap, ChurnFolder) -> Step) {
         saved.step = step
         val log = mutableListOf<String>()
-        fun update() = show(Screen.Swapping(step, log.toList(), running = true))
+        fun update(question: Question? = null) =
+            show(Screen.Swapping(step, log.toList(), running = true, question = question))
         update()
         stepRunning = true
         context.startForegroundService(Intent(context, SwapService::class.java))
@@ -247,10 +287,19 @@ class Controller(private val context: Context) {
                 val router = router(waitSeconds)
                 val folder = router.readChurnFolder()
                 if (!folder.complete) throw RouterException(Problem.NOT_SET_UP)
-                val swap = Swap(router, report = {
-                    log += text(it)
-                    update()
-                })
+                val swap = Swap(
+                    router,
+                    report = {
+                        log += text(it)
+                        update()
+                    },
+                    ask = { question ->
+                        // Drops an answer left from an earlier question, such as a second tap.
+                        answers.clear()
+                        update(question)
+                        answers.take().also { update() }
+                    },
+                )
                 Screen.Swapping(body(swap, folder))
             } catch (e: UntrustedHostKey) {
                 Screen.TrustKey(e.key, e.fingerprint, e.changed)
@@ -309,26 +358,30 @@ class Controller(private val context: Context) {
         val step = saved.step
         show(
             when {
-                !folder.complete -> setUpScreen(router, folder)
+                !folder.complete -> setUpScreen(router)
                 step != null -> Screen.Swapping(step)
                 else -> home(router, folder, note)
             },
         )
     }
 
-    private fun setUpScreen(router: Router, folder: ChurnFolder): Screen.SetUp {
-        val factory = folder.factory ?: router.imeis()
+    /** The setup screen, for a router without Churn's folder. */
+    private fun setUpScreen(router: Router): Screen.SetUp {
+        val modem = router.imeis()
+        val written = saved.written
+        val factory = ChurnFolder.factoryAtSetup(modem, written = written, copy = saved.factory)
         val warnings = mutableListOf<Int>()
-        if (folder.factory == null) {
-            if (factory == saved.written) warnings += R.string.setup_warning_written
-            if (listOf(factory.imei1, factory.imei2).any { Imei.tac(it) != Imei.MUDI7_TAC }) {
-                warnings += R.string.setup_warning_tac
-            }
-            if (!Imei.isValid(factory.imei1) || !Imei.isValid(factory.imei2)) {
-                warnings += R.string.setup_warning_check_digit
-            }
-        } else if (folder.secret == null) {
-            warnings += R.string.setup_warning_secret
+        if (factory != modem) {
+            warnings += R.string.setup_warning_copy
+        } else if (modem == written && saved.factory == null) {
+            // Written by an earlier version of the app, which kept no copy.
+            warnings += R.string.setup_warning_written
+        }
+        if (listOf(factory.imei1, factory.imei2).any { Imei.tac(it) != Imei.MUDI7_TAC }) {
+            warnings += R.string.setup_warning_tac
+        }
+        if (!Imei.isValid(factory.imei1) || !Imei.isValid(factory.imei2)) {
+            warnings += R.string.setup_warning_check_digit
         }
         return Screen.SetUp(factory, warnings.map { context.getString(it) })
     }
@@ -337,12 +390,11 @@ class Controller(private val context: Context) {
         val factory = folder.factory!!
         val imeis = router.imeis()
         val notes = listOfNotNull(note).toMutableList()
-        // The card in slot 2 registers with the IMEIs at every power-on, so they must be its own. A card in the tray
-        // while slot 2 is on the built-in eSIM stays off, and reading it would take a switch of the slot.
+        // The card in slot 2 registers with the IMEIs at every power-on, so they must be the pair step 3 recorded for
+        // it. A card in the tray while slot 2 is on the built-in eSIM stays off, and reading it would take a switch of
+        // the slot.
         val card = router.slot2CardIccid()?.let(Imei::iccidDigits)
-        if (card != null && imeis != Imei.derive(folder.secret!!, card, factory)) {
-            notes += context.getString(R.string.note_not_cards_imeis)
-        }
+        if (card != null && !folder.isRecorded(card, imeis)) notes += context.getString(R.string.note_not_cards_imeis)
         if (router.scheduledReboot()) notes += context.getString(R.string.note_scheduled_reboot)
         if (!router.vpnSetUp()) notes += context.getString(R.string.note_no_vpn)
         val status = RouterStatus(
@@ -357,7 +409,7 @@ class Controller(private val context: Context) {
             firewall = runCatching { router.firewallInPlace() }.getOrDefault(false),
             flashLogOff = router.flashLogOff(),
         )
-        return Screen.Home(status, notes)
+        return Screen.Home(status, notes, saved.placeCards.all)
     }
 
     /** The README and restore script in Churn's folder, as this version of the app ships them. */
@@ -410,6 +462,7 @@ class Controller(private val context: Context) {
             Problem.SLOT_NOT_SWITCHED -> R.string.problem_slot_not_switched
             Problem.PROFILE_STILL_ENABLED -> R.string.problem_profile_still_enabled
             Problem.NO_CARD -> R.string.problem_no_card
+            Problem.CARD_CHANGED -> R.string.problem_card_changed
             Problem.NOT_SET_UP -> R.string.problem_not_set_up
             Problem.NOT_STARTED -> R.string.problem_not_started
             Problem.KILL_SWITCH_OFF -> R.string.problem_kill_switch_off

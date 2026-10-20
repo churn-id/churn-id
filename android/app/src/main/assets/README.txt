@@ -4,11 +4,13 @@ Churn
 This folder belongs to Churn, an Android app that gives this router new
 IMEIs with every SIM swap: https://github.com/churn-id/churn-id
 
-  secret      32 random bytes, the key Churn derives the IMEIs with
   factory     IMEI 1 and IMEI 2 as they were when Churn was set up
+  card        the ICCID of the card in SIM 2, and the random IMEIs Churn
+              gave that card
   log_file    the file GL's system log went to before Churn turned that off
-  restore.sh  writes those IMEIs back, puts GL's log setting back, deletes
-              Churn's zero files and removes Churn's firewall rules
+  restore.sh  writes the factory IMEIs back, deletes card, puts GL's log
+              setting back, deletes Churn's zero files and removes Churn's
+              firewall rules
   zeros       a link to /overlay/churn-zeros, where Churn keeps its zero
               files (below)
 

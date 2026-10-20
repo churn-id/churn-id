@@ -1,18 +1,18 @@
-# TAC choice for derived IMEIs
+# TAC choice for Churn's IMEIs
 
 Appendix to [design.md](design.md). The first 8 digits of an IMEI are the
 type allocation code (TAC), which identifies the device model. This document
-explains why Churn's derived IMEIs keep the router's own factory TAC instead
+explains why Churn's IMEIs keep the router's own factory TAC instead
 of using a pool of other devices' TACs. *Verified* means checked in a source
 linked here or on a Mudi 7 we tested; *inferred* means reasoned but not
 tested.
 
 ## Choice
 
-Each derived IMEI keeps the TAC of the factory IMEI it replaces. Only the
-6-digit serial is derived (design.md, section 4), followed by the Luhn check
-digit. The IMEISV software version stays untouched, which only makes sense
-if the TAC stays the router's own.
+Each of Churn's IMEIs keeps the TAC of the factory IMEI it replaces. Only
+the 6-digit serial is drawn at random (design.md, section 4), followed by
+the Luhn check digit. The IMEISV software version stays untouched, which
+only makes sense if the TAC stays the router's own.
 
 On the Mudi 7 we tested, IMEI 1 and IMEI 2 both use TAC `35609021`. fccid.io
 and imei.info list it as the GL.iNet Mudi 7 (verified); Osmocom's TAC
@@ -81,12 +81,12 @@ database:
   in later batches. Not the North American variant, whose bands differ.
 - a TAC Quectel uses for the RG650V-EU module in other products.
 
-None is known yet, so derived IMEIs use the router's own TAC only.
+None is known yet, so Churn's IMEIs use the router's own TAC only.
 
 ## Open questions
 
 - **Serial range:** real Mudi 7 serials may sit in a narrow block if few
-  units shipped. A derived serial far outside that block could stand out to
+  units shipped. A random serial far outside that block could stand out to
   someone who sees many Mudi 7 IMEIs (inferred). Serials stay uniform over
   all 6 digits until IMEIs from more units are known.
 - **Legality:** rewriting an IMEI is a criminal offense in some countries,

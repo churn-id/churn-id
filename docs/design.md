@@ -2,10 +2,10 @@
 
 Churn is an Android phone app for the GL.iNet Mudi 7 (GL-E5800) travel
 router. Every SIM swap done through the app also gives the router new IMEIs,
-derived from the new SIM profile and a random secret stored on the router.
-This document explains why Churn works the way it does. How to build on it
-is in [development.md](development.md); why the derived IMEIs keep the
-router's own TAC is in [tac.md](tac.md).
+drawn at random for the new SIM profile. This document explains why Churn
+works the way it does. How to build on it is in
+[development.md](development.md); why Churn's IMEIs keep the router's own
+TAC is in [tac.md](tac.md).
 
 Status: draft. A first prototype of the app implements sections 3 to 5, 7
 and 8; it hasn't been tested on a router yet. *Verified* means we observed
@@ -33,14 +33,18 @@ after it.
 - **Adversary:** the carrier, and anyone who later reads its records
   (retained data, lawful access), possibly joined with other records such
   as a service's IP address logs or a phone's location data.
-- **Churn handles:** the IMEI as a link between SIMs. Each SIM profile gets
-  its own IMEIs, which nobody without the router's secret can predict.
+- **Churn handles:** the IMEI as a link between SIMs. Each new SIM profile
+  gets random IMEIs of its own, and Churn keeps nothing on the router that
+  links it to earlier ones (section 5). A place card keeps its IMEIs for
+  every visit to its place, and the phone, not the router, keeps them
+  (section 4).
 - **The user handles:** time and place. A swap done where the old SIM was
   last used, or a router that registers at home, links identities without
   any IMEI. Section 8 lists the rules the app teaches for this.
 - **The VPN handles:** the SIM's IP address. Without one, every service
   used through the router logs the current SIM's address with the account,
-  so a single account links all SIMs (rule 5).
+  so a single account links all SIMs (rule 5). All SIMs share one VPN
+  account, so we assume a provider that keeps no logs (section 10).
 - **Out of scope:** the location of a router while it is online; what is
   done online and the accounts used; who bought a SIM; radio fingerprinting
   of the transmitter by specialized equipment nearby; and the modem model,
@@ -98,71 +102,91 @@ instead.
   runs under an exclusive lock, and a failed or unclear answer means the
   step is repeated, never assumed done.
 
-## 4. IMEI derivation
+## 4. IMEI pairs
 
 An IMEI is 15 digits: an 8-digit type allocation code (TAC) identifying the
 device model, a 6-digit serial, and a Luhn check digit. The Mudi 7 has two
 IMEIs, expected to belong to SIM slot 1 and slot 2 (section 10). Churn
-uses only slot 2 (section 7) but derives both IMEIs, so they keep looking
+uses only slot 2 (section 7) but changes both IMEIs, so they keep looking
 like a factory pair.
 
 ### TAC: the router's own
 
-Derived IMEIs keep the router's factory TAC; only the serial changes. On the
+Churn's IMEIs keep the router's factory TAC; only the serial changes. On the
 Mudi 7 we tested, both IMEIs use `35609021`, which public TAC lists show as
 the Mudi 7. A pool of other devices' TACs would not hide the modem, would
 make Churn users recognizable, and would risk collisions with real phones.
 The full reasoning is in [tac.md](tac.md).
 
-### Input: the profile's ICCID
+### A random pair for each new card
 
-The IMEIs are derived from the ICCID of the SIM profile in use, not from its
+At step 3 of a swap (section 7), a new SIM profile gets a pair drawn at
+random:
+
+- `d` = serial of factory IMEI 2 minus serial of factory IMEI 1, read at
+  setup.
+- `n = 1,000,000 − |d|`, and `s` is drawn uniformly from 0 to `n − 1` by a
+  cryptographically secure random generator.
+- Serial 1 = `s + max(0, −d)`, serial 2 = serial 1 + `d`. Both stay within
+  000000 to 999999.
+- IMEI 1 and IMEI 2 = the TAC of the respective factory IMEI + 6-digit
+  serial + Luhn check digit.
+
+A pair derived from the profile and a secret stored on the router would
+give a profile used again its old IMEIs. But whoever got the router could
+then take a network's records, keep the cards seen with the Mudi 7's TAC
+and test each against the secret, one HMAC per card, which lists every card
+the router used on that network. A random pair leaves nothing to test.
+
+### The card's ICCID
+
+Step 3 tells cards apart by the ICCID of the SIM profile in use, not by its
 IMSI.
 
 - The ICCID identifies a profile: a physical SIM has one, and each profile
   on an eSIM has its own. The chip itself is identified by its EID, which
   Churn never uses.
 - Some roaming profiles switch between several IMSIs, depending on the
-  country, while their ICCID stays the same. With the IMSI as input, the
-  same profile could get a new IMEI when inserted again, which would show
-  its issuer that the IMEI was rewritten. With the ICCID, a profile always
-  shows the same IMEI, like a SIM in an ordinary device.
+  country, while their ICCID stays the same. Told apart by its IMSI, the
+  same profile could count as a new card and get new IMEIs, which would
+  show its issuer that the IMEI was rewritten. By its ICCID, a profile keeps
+  its IMEIs while it stays in the router, like a SIM in an ordinary device.
 
-### Keyed and deterministic
+### The record
 
-- **Keyed:** the IMEI is an HMAC of the ICCID under a random secret stored
-  on the router. blue-merle's deterministic mode maps the IMSI to an IMEI
-  without a key; anyone can compute that mapping and recognize its users.
-  Without the secret, Churn's mapping can't be tested.
-- **Deterministic:** the same profile always gets the same IMEIs, so
-  repeating a step after an error or inserting a profile again gives the
-  values it had before.
+Step 3 records the card in `/etc/churn/card` (section 5): its ICCID and its
+pair, written before the IMEIs. When step 3 runs again with the same card,
+because it stopped or because the user kept the old card, it takes the
+recorded pair, so the card keeps its IMEIs. Any other card gets its pair
+after a question (below) and replaces the record.
 
-### Specification
+A travel card used again after other cards therefore gets a new pair. Its
+issuer then sees its IMEI change, which shows that the IMEI was rewritten
+(section 5), but rule 11 already advises against using a travel card again
+(section 8).
 
-- `secret`: 32 bytes from a cryptographically secure random generator,
-  created at setup and stored on the router (section 5).
-- `mac = HMAC-SHA256(secret, "churn-imei-v1:" || ICCID)`, with the ICCID as
-  ASCII digits. The label versions the derivation, so a future change can't
-  silently produce the old values.
-- `d` = serial of factory IMEI 2 minus serial of factory IMEI 1, read at
-  setup.
-- `n = 1,000,000 − |d|`. Read `mac` as eight 32-bit big-endian words and
-  take the first one below the largest multiple of `n` that fits in 32 bits;
-  `s` is that word modulo `n`. Rejecting the other words avoids modulo bias.
-  If all eight are rejected (probability below 10⁻²⁹), continue with the
-  words of `HMAC-SHA256(secret, mac)`.
-- Serial 1 = `s + max(0, −d)`, serial 2 = serial 1 + `d`. Both stay within
-  000000 to 999999.
-- IMEI 1 and IMEI 2 = the TAC of the respective factory IMEI + 6-digit
-  serial + Luhn check digit.
+### Place cards
 
-Test vectors are in [development.md](development.md).
+A place card is a new card for one place the user returns to, other than
+home and work, such as their favorite hotel or their cabin in the woods
+(rule 1). It keeps its pair for every visit, so its network sees the same
+IMEIs there each time, and it links only the visits to its own place. The
+phone keeps the place list: each place card's ICCID, pair and an optional
+name (section 7).
+
+About any card but the recorded one, step 3 asks before it writes the record
+or the IMEIs. A card on the place list shows its name or the last four
+digits of its ICCID: continuing gives it its kept pair, and canceling shuts
+the router down with slot 2 on the built-in eSIM and goes back to step 2.
+Any other card becomes either a new place card, which joins the place list
+with a random pair, or a travel card, which gets a random pair. Only a new
+card should become a place card, since one that has traveled would tie its
+earlier places to this one.
 
 ### Two IMEIs, factory spacing
 
 A factory Mudi 7 has two different IMEIs whose serials are a small distance
-apart: 1 on the unit we tested. Derived pairs keep the router's own distance
+apart: 1 on the unit we tested. Churn's pairs keep the router's own distance
 between the serials, so to anyone who sees both IMEIs they look like a
 factory pair. The full numbers can differ by more or less, since the last
 digit is a check digit computed from all the others. Equal IMEIs would
@@ -172,32 +196,34 @@ between units doesn't matter.
 
 ### Throwaway pair
 
-Built the same way, with `s` drawn uniformly from the random generator
-instead of the HMAC. It is written before every swap, because the first
-boot after it emits the built-in eSIM's short bursts before the final IMEIs
-are known (section 7), and those bursts must not carry the previous
-profile's IMEIs.
+Drawn the same way, and written before every swap, because the first boot
+after it emits the built-in eSIM's short bursts before the new card is
+known (section 7), and those bursts must not carry the previous profile's
+IMEIs. It stays a pair of its own: as the new card's pair, it would already
+have gone out with the bursts at the swap's place.
 
 ## 5. Storage on the router
 
 Churn keeps its files on the router in `/etc/churn/`, readable by root
-only: a README explaining the folder, the secret, the factory IMEIs, a
-restore script and a link to the zero files. The script writes the factory
-IMEIs back, puts back GL's setting for its system log, deletes Churn's zero
-files and removes Churn's firewall rules (all section 7); the app runs it
-on request, and it also works over a plain SSH session if the app is gone.
-Outside the folder are only the firewall rules, in
-`/etc/nftables.d/churn.nft`, and the zero files, in `/overlay/churn-zeros/`
-beside the router's own files. The script and the rules ship inside the
-app and are copied to the router, so the repository has no separate router
-component.
+only: a README explaining the folder, the factory IMEIs, the record of the
+current card (section 4), a restore script and a link to the zero files.
+The script writes the factory IMEIs back, deletes the record, puts back
+GL's setting for its system log, deletes Churn's zero files and removes
+Churn's firewall rules (all section 7); the app runs it on request, and it
+also works over a plain SSH session if the app is gone. Outside the folder
+are only the firewall rules, in `/etc/nftables.d/churn.nft`, and the zero
+files, in `/overlay/churn-zeros/` beside the router's own files. The script
+and the rules ship inside the app and are copied to the router, so the
+repository has no separate router component.
 
 - **Kept across firmware upgrades.** OpenWrt's upgrade with "keep settings"
   keeps only listed paths, so the app adds `/etc/churn/` and the rules file
-  to `/etc/sysupgrade.conf`. Otherwise an upgrade would lose the secret and
-  the factory IMEIs, and setup would run again and could record already
+  to `/etc/sysupgrade.conf`. Otherwise an upgrade would lose the factory
+  IMEIs and the record, and setup would run again and could record already
   rewritten IMEIs as the factory ones. A factory reset still deletes both;
-  the README says to restore the factory IMEIs first.
+  the README says to restore the factory IMEIs first. If the folder is lost
+  anyway, setup can write the factory IMEIs back from the phone's copy
+  (section 7).
 - **Zero files outside the folder.** The zero files (section 7) take about
   2.4 GB, so they stay out of `/etc/churn/`. In it, an upgrade that keeps
   settings would copy them with the folder, and anything that reads all of
@@ -213,28 +239,31 @@ component.
   and the restore script where they differ from its own copies, so a
   router set up by an earlier version gets a script that undoes everything
   the current version changes.
-- **Checked on every connection.** The app checks that the folder exists and
-  that the IMEIs are the pair the card in slot 2 gets (section 4), from the
-  secret, the factory IMEIs and the card's ICCID, all read from the router.
-  At every power-on the card registers with whatever IMEIs are there
-  (section 6), so the router screen warns if they aren't its pair. That is
-  the case before the first swap and after a restore, when the router has
-  its factory IMEIs; after the card was swapped without the app; and maybe
+- **Checked on every connection.** The app checks that the folder exists,
+  that the card in slot 2 is the recorded card and that the IMEIs are its
+  recorded pair (section 4), all read from the router. At every power-on
+  the card registers with whatever IMEIs are there (section 6), so the
+  router screen warns if they aren't its pair. That is the case before the
+  first swap and after a restore, when the router has its factory IMEIs and
+  no record; after the card was swapped without the app; and maybe
   after a firmware upgrade or reset: GL's firmware contains the command
   that writes IMEI 1, so either might restore the factory IMEI (inferred).
   Nothing stored on the phone goes into the check, so it also holds after
   a swap from another phone or a reinstall of the app. A card in the tray
   while slot 2 is on the built-in eSIM stays off and isn't checked, since
   reading it would take a switch of the slot. The warning asks for a new
-  card rather than the card's own pair: the network has already seen the
-  card with the other IMEIs, so its own pair would only join that link,
-  and a card whose IMEI changes shows its issuer that the IMEI was
-  rewritten (section 4).
-- **What the secret reveals.** Anyone with root on the router can recompute
-  the IMEIs for a known ICCID. GL's firmware lists every card it has seen,
-  so the app clears that list (section 7). Apart from what the flash chips
-  may keep beneath the partition (section 7), nothing else on the router
-  links a past SIM to a past IMEI.
+  card rather than new IMEIs for this one: the network has already seen the
+  card with the other IMEIs, so new ones would only join that link, and a
+  card whose IMEI changes shows its issuer that the IMEI was rewritten
+  (section 4).
+- **What the record reveals.** Anyone with root on the router can read the
+  current card's ICCID and IMEIs in the record, which GL's own files and
+  the modem show anyway. It names no earlier card: step 3 replaces it, and
+  the clearing at the end of step 3 overwrites the old record's bytes in
+  the free space (section 7). GL's firmware lists every card it has seen,
+  so the app clears that list too. Apart from what the flash chips may keep
+  beneath the partition (section 7), nothing else on the router links a
+  past SIM to a past IMEI.
 - **Factory capture.** The IMEIs read at first setup may already be
   rewritten, for example by blue-merle. The app warns if their TAC isn't a
   known Mudi 7 TAC.
@@ -321,20 +350,31 @@ every boot:
    near-generic test identity.
 3. Once the radio is off after the boot (section 6), the app turns GL's
    Enhanced Kill Switch on if it is off and adds Churn's firewall rules if
-   they are missing, then switches slot 2 to SIM 2 in airplane mode, reads
-   the ICCID, writes the derived pair, saves and verifies it, clears the
-   router's record of earlier cards (below) and shuts the router down. If
-   it finds no usable card, it switches slot 2 back to the built-in eSIM,
-   so the card stays off at the next power-on, and stops, clearing
-   nothing.
+   they are missing, then switches slot 2 to SIM 2 in airplane mode and
+   reads the ICCID. Unless the card is the recorded one, the app switches
+   slot 2 back to the built-in eSIM while it asks the user about the card
+   (section 4), so that the card stays off if the router is switched off and
+   on before the answer, then switches it to SIM 2 again and checks that the
+   card is the same. It records the card with its pair, writes the pair,
+   saves and verifies it, clears the router's record of earlier cards
+   (below) and shuts the router down. If it finds no usable card, it
+   switches slot 2 back to the built-in eSIM, so the card stays off at the
+   next power-on, and stops, clearing nothing.
 4. The user switches the router on later, at another place and time, and
    turns airplane mode off there. The new card registers at that power-on,
-   whatever airplane mode says (section 6).
+   whatever airplane mode says (section 6). A place card is switched on at
+   its own place only (rule 1). The app also tells the user to destroy the
+   card taken out, unless it is a place card or still in SIM 2 (rule 11).
 
 Step 3 ends with a shutdown, which emits nothing (section 6), rather than
 leaving the router on in airplane mode until the user goes online. The
 router then travels to the next place switched off, as rule 2 asks before
 any place the user returns to.
+
+Step 4, not step 2, says to destroy the card taken out: until step 3 has
+given the new card its IMEIs, the old card is the fallback, as when the user
+keeps it after all. Step 1 notes on the phone which card the record names,
+since step 3 replaces the record and may run more than once.
 
 ### App behavior
 
@@ -364,6 +404,27 @@ any place the user returns to.
   since the Enhanced Kill Switch blocks that traffic too (section 10). The
   router screen also warns while the switch is off, the rules are missing
   or GL's system log goes to the flash, and offers to fix each.
+- The phone, not the router, keeps the place list (section 4), since whoever
+  holds the router can read its files (inferred). Android keeps the app's
+  data encrypted with a key tied to the screen lock, and GrapheneOS's duress
+  PIN wipes the phone, eSIMs included. Losing the phone or the app's data
+  costs the place cards: each would get a new pair, which shows its network
+  an IMEI change, so each must be replaced. The router screen lists the
+  place cards, by the last four digits of their ICCID, which is usually
+  printed on the card, or by a name the user gives one, and can forget one.
+  Names stay on the phone. They should mean something only to the user, and
+  no card should carry one that would mean something to others: a card
+  labeled "cabin" tells whoever finds it where to look.
+- The phone also keeps a copy of the router's factory IMEIs, saved with each
+  pair the app writes, so that the copy belongs to the router that has that
+  pair. If Churn's folder is lost, as after a factory reset without a
+  restore, and the modem has the pair the app last wrote, setup writes the
+  copy back instead of recording that pair as the factory IMEIs. The record
+  is lost with the folder, so the router screen warns until the next swap.
+- The app sets `android:hasFragileUserData`, so from Android 10 on the
+  system's uninstall dialog offers to keep the app's data, the place list
+  and the copy of the factory IMEIs included, though uninstalls from the
+  Play Store don't offer it (inferred).
 
 ### The router's own traffic
 
@@ -437,10 +498,9 @@ record outlasts power-offs and swaps (all verified; development.md,
   log.
 
 Whoever gets hold of the router or its admin password can read this
-record, which links the router's cards to each other, and the secret then
-gives each card's IMEIs (section 5). So the app clears the record at
-setup, at step 3 of every swap once the new card has its IMEIs, and from
-the router screen while the log goes to the flash:
+record, which links the router's cards to each other. So the app clears the
+record at setup, at step 3 of every swap once the new card has its IMEIs,
+and from the router screen while the log goes to the flash:
 
 1. It turns off the system log's file. The log then stays in a 64 KB
    buffer in RAM, which every power-off empties.
@@ -510,10 +570,16 @@ Choices and their effects:
 
 The app shows these rules in this wording:
 
+Churn knows two kinds of cards. A travel card is used on the go and never
+again once you've swapped it out. A place card is a new card for one place
+you return to, other than home and work, and you use it there on every visit
+and nowhere else.
+
 Always follow these rules:
 
 1. At home, at work and anywhere else you return to, keep the router
-   switched off or without a SIM.
+   switched off or without a SIM, unless it holds that place's own place
+   card. Use a place card nowhere else.
 2. Before you get to such a place, unplug everything and switch the router
    off.
 3. Connect to the router by cable only, and keep its Wi-Fi off.
@@ -535,11 +601,12 @@ For maximum privacy, also follow these rules where you can:
 <!-- markdownlint-disable MD029 -->
 9. Use SIM cards that aren't registered to your name. The same goes for
    eSIM profiles.
-10. Get each new SIM card or eSIM profile from a different provider than
-    the last one. If you can't, start using the new one somewhere else and
-    some days after you stopped using the last one.
-11. Don't reuse a card once you've swapped it out. If you run out of new
-    cards, keep using the current one until you get a new one.
+10. Get each new SIM card or eSIM profile from a different provider than the
+    last one and than your place cards. If you can't, start using the new
+    one somewhere else and some days after you stopped using the last one.
+11. Don't reuse a travel card once you've swapped it out, and destroy it
+    away from home. If you run out of new cards, keep using the current one
+    until you get a new one.
 12. Vary when you swap SIMs, and where you switch the radio on and off.
 13. Pay for the VPN in a way that isn't tied to your name.
 14. Block SIM slot 1, for example with a drop of hot glue.
@@ -553,7 +620,11 @@ Why:
 
 1. A router with a SIM registers at every power-on, before airplane mode
    takes effect; a router without one is silent (section 6). Registrations
-   at a recurring place link every identity used there to that place.
+   at a recurring place link every identity used there to that place. A
+   place card links only the visits to its own place, where the user would
+   otherwise go online with their phone, whose SIM ties such places together
+   and to the user. Home and work stay out: they point to the user most
+   directly, and a phone with a SIM is on there, right next to any card.
 2. Switching off before arriving means the router never registers there.
    Unplugging also lets GL's auto power-off step in if someone forgets to
    switch off, because it fires only with nothing connected. The app can
@@ -618,7 +689,9 @@ Why:
 10. A provider that issues two consecutive profiles sees one Mudi 7 IMEI
     stop and another start, both with a rare TAC and possibly in the same
     area. Timing and place could link them (inferred). A different
-    provider sees only one of them. Where the same provider can't be
+    provider sees only one of them. A place card's provider sees it stop at
+    the end of every visit, so a new card from that provider could be
+    matched to it in the same way. Where the same provider can't be
     avoided, a different place and a gap of some days make the stop and
     the start harder to match.
 11. A reused SIM brings back its old IMSI and ICCID. A reused eSIM adapter
@@ -626,7 +699,12 @@ Why:
     Keeping the current card links nothing new, while swapping back to an
     old one links that card's earlier use to today. Done just as the current
     card goes quiet, the swap could also link the two cards by timing
-    (inferred).
+    (inferred). A reused travel card also gets new IMEIs, which shows its
+    issuer that the IMEI was rewritten (section 4). A place card is reused
+    by design, at its own place only (rule 1). A used travel card found with
+    the user ties them to its whole history, so it is destroyed: cut
+    through the chip, and for an eSIM adapter card the adapter goes too,
+    since its EID links its profiles (rule 4).
 12. Regular habits, such as always swapping on the same day or at the same
     station, can link identities without any identifier.
 13. The VPN provider sees each SIM's IP address in turn, all under one VPN
@@ -695,9 +773,14 @@ Design:
   Wi-Fi? Over one, the router's own traffic goes past the VPN (section 7).
   The rules would need the names of those uplinks' interfaces, which we
   haven't seen yet.
-- Do real Mudi 7 serials fall in a narrow range? A derived serial far
+- Do real Mudi 7 serials fall in a narrow range? A random serial far
   outside it could stand out. Serials are uniform over all 6 digits until
   this is known.
+- Should each place card get a VPN account of its own, which the app would
+  switch with the card? All cards share one account, so a provider that
+  keeps logs could join them, and the place cards would lead that history to
+  the user's places. For now we assume a provider that keeps no logs
+  (section 1).
 
 Legal and distribution:
 
@@ -711,7 +794,7 @@ Legal and distribution:
 [blue-merle v2](https://github.com/WSchlesner/blue-merle-v2) rewrite the
 IMEI on GL.iNet routers and were the starting point for Churn. Churn differs
 in ways that follow from the sections above: no package is installed on
-the router, the derivation is keyed, derived IMEIs keep the router's own TAC
-instead of a pool of other devices' TACs, and every swap is a guided
-procedure that teaches the usage rules. blue-merle v2 was also the source
-for the command that writes IMEI 2.
+the router, Churn's IMEIs keep the router's own TAC instead of a pool of
+other devices' TACs, and every swap is a guided procedure that teaches the
+usage rules. blue-merle v2 was also the source for the command that writes
+IMEI 2.
