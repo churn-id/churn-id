@@ -385,6 +385,11 @@ since step 3 replaces the record and may run more than once.
   worked when we kept it on. One way a locked phone breaks a swap:
   GrapheneOS by default blocks new USB connections while the phone is
   locked, and in step 3 the router, just switched on, connects anew.
+- Between jobs the app keeps its connection to the router, and connects
+  anew if that connection has ended. Android ends the TCP connections of
+  an app it freezes in the background, as it may while the phone is
+  locked and no step runs. Step 1 failed when we let the phone lock
+  before starting it.
 - Each step says what to do, where, and why, so the rules don't depend on
   the user's memory.
 - Before each rotation the app checks the slot 2 setting, airplane mode, and
