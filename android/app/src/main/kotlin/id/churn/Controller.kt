@@ -38,6 +38,10 @@ class RouterStatus(
     val radio: Int?,
     val activeSlot: String?,
     val slot2: Slot2?,
+    /** The card answering in slot 2, by its ICCID's digits. */
+    val card: String?,
+    /** The card the record names, by its ICCID's digits. */
+    val recorded: String?,
     val enhancedKillSwitch: Boolean,
     val firewall: Boolean,
     val flashLogOff: Boolean,
@@ -399,11 +403,14 @@ class Controller(private val context: Context) {
         val factory = folder.factory!!
         val imeis = router.imeis()
         val notes = listOfNotNull(note).toMutableList()
+        val slot2 = runCatching { router.slot2() }.getOrNull()
         // The card in slot 2 registers with the IMEIs at every power-on, so they must be the pair step 3 recorded for
         // it. A card in the tray while slot 2 is on the built-in eSIM stays off, and reading it would take a switch of
-        // the slot.
+        // the slot. A profile enabled on the eSIM gets the SIM line's warning instead (rule 4).
         val card = router.slot2CardIccid()?.let(Imei::iccidDigits)
-        if (card != null && !folder.isRecorded(card, imeis)) notes += context.getString(R.string.note_not_cards_imeis)
+        if (card != null && slot2 != Slot2.ESIM && !folder.isRecorded(card, imeis)) {
+            notes += context.getString(R.string.note_not_cards_imeis)
+        }
         if (router.scheduledReboot()) notes += context.getString(R.string.note_scheduled_reboot)
         if (!router.vpnSetUp()) notes += context.getString(R.string.note_no_vpn)
         val status = RouterStatus(
@@ -412,7 +419,9 @@ class Controller(private val context: Context) {
             airplaneMode = router.airplaneMode(),
             radio = runCatching { router.radio() }.getOrNull(),
             activeSlot = router.activeSlot(),
-            slot2 = runCatching { router.slot2() }.getOrNull(),
+            slot2 = slot2,
+            card = card,
+            recorded = folder.card?.iccid,
             enhancedKillSwitch = router.enhancedKillSwitch(),
             // A router whose firewall the app can't read shows the warning, and adding the rules says why.
             firewall = runCatching { router.firewallInPlace() }.getOrDefault(false),
