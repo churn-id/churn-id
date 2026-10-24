@@ -312,6 +312,16 @@ class SwapTest {
     }
 
     @Test
+    fun step3StopsForA9esimCardWithoutAnEnabledProfile() {
+        prepareAndRestart()
+        // As ours showed itself.
+        fake.trayCard = FakeRouter.Card("89111111111111111111", "111111111111111")
+        assertStops(Problem.NO_CARD) { giveNewImeis() }
+        assertNull(record())
+        assertEquals(Slot2.ESIM, fake.slot2)
+    }
+
+    @Test
     fun step3WorksAfterACardWasMissing() {
         prepareAndRestart()
         val card = fake.trayCard

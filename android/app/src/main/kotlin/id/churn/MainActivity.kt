@@ -99,6 +99,7 @@ class MainActivity : Activity() {
                 activeSlot = status.activeSlot,
                 slot2 = status.slot2,
                 card = status.card,
+                noProfile = status.noProfile,
                 recorded = status.recorded,
                 places = screen.places,
             ),
@@ -227,6 +228,7 @@ class MainActivity : Activity() {
         SimStatus.EsimProfile -> warning(getString(R.string.sim_esim_profile))
         SimStatus.Parked -> paragraph(getString(R.string.sim_parked))
         SimStatus.NoCard -> paragraph(getString(R.string.sim_no_card))
+        SimStatus.NoProfile -> paragraph(getString(R.string.sim_no_profile))
         is SimStatus.Place -> paragraph(getString(R.string.sim_place_card, label(sim.place)))
         is SimStatus.Travel -> paragraph(getString(R.string.sim_travel_card, sim.iccid.takeLast(4)))
         is SimStatus.Unknown -> paragraph(getString(R.string.sim_unknown_card, sim.iccid.takeLast(4)))

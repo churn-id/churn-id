@@ -16,8 +16,11 @@ sealed interface SimStatus {
     /** Slot 2 is on the built-in eSIM, with a profile enabled. */
     data object EsimProfile : SimStatus
 
-    /** Slot 2 is on the tray, and no card with a real network's IMSI answered: an empty tray, or a card not ready. */
+    /** Slot 2 is on the tray, and no card answered: an empty tray, or a card not ready. */
     data object NoCard : SimStatus
+
+    /** Slot 2 is on the tray, where the card has no profile enabled: an eSIM adapter card with its profile disabled. */
+    data object NoProfile : SimStatus
 
     /** The card in the tray is [place], from the place list. */
     data class Place(val place: PlaceCard) : SimStatus
@@ -32,18 +35,21 @@ sealed interface SimStatus {
 
         /**
          * The status of a router whose active slot is [activeSlot], with slot 2 set to [slot2] and [card] answering
-         * there, by its ICCID's digits, while the record names [recorded]; null if slot 2's setting wasn't read.
+         * there, by its ICCID's digits, or with [noProfile] if a card without an enabled profile answers there
+         * instead, while the record names [recorded]; null if slot 2's setting wasn't read.
          */
         fun of(
             activeSlot: String?,
             slot2: Slot2?,
             card: String?,
+            noProfile: Boolean,
             recorded: String?,
             places: List<PlaceCard>,
         ): SimStatus? = when {
             activeSlot == "1" -> Slot1Active
             slot2 == Slot2.ESIM -> if (card == null) Parked else EsimProfile
             slot2 == null -> null
+            noProfile -> NoProfile
             card == null -> NoCard
             else -> places.firstOrNull { it.card.iccid == card }?.let(::Place)
                 ?: if (card == recorded) Travel(card) else Unknown(card)

@@ -277,11 +277,18 @@ and `OK`. Like `AT+QCCID`, it pads a 19-digit ICCID with a trailing `F`
 | A profile enabled | the profile's ICCID | the profile's network |
 
 Step 3 of the swap reads the card in the SIM 2 tray the same way, once
-slot 2 is set to it (inferred; verified only for the eSIM). It records a
-pair only for a card with a real network's IMSI, not one on test network
-001/01: an eSIM adapter card without an enabled profile may show a
-placeholder ICCID like the built-in eSIM's, the same on every card
-(inferred).
+slot 2 is set to it (verified with an eSIM adapter card). A 9eSIM adapter
+card with no profile enabled showed the placeholder ICCID
+`89111111111111111111` and the IMSI `111111111111111` (verified). Every
+such card probably shows the same ICCID, and other brands of adapter card
+may show placeholders of their own (inferred). Step 3 records a pair only
+for a card that shows neither placeholder ICCID and has a real network's
+IMSI, since a pair recorded for a placeholder would go to every card that
+shows it. No real network's country code starts with 0, which test
+networks such as 001/01 use, or 1, which no country has (inferred from
+published lists of country codes), so an IMSI starting with either digit
+counts as no real network's. That also covers placeholders of other brands
+that use such an IMSI (inferred).
 
 ### Disabling the enabled profile
 

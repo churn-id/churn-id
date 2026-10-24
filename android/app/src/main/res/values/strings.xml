@@ -79,6 +79,7 @@
     <string name="sim_travel_card">SIM 2: travel card ending in %1$s</string>
     <string name="sim_unknown_card">SIM 2: unknown card ending in %1$s</string>
     <string name="sim_no_card">SIM 2: no card found</string>
+    <string name="sim_no_profile">SIM 2: eSIM adapter card with no profile enabled</string>
     <string name="sim_parked">SIM 2: off, since slot 2 is on the built-in eSIM</string>
     <string name="sim_slot1_active">SIM slot 1 is the active slot, but Churn uses only slot 2 (rule 4). The next swap makes slot 2 the active slot.</string>
     <string name="sim_esim_profile">Slot 2 is on the built-in eSIM, with a profile enabled. Don\'t use the built-in eSIM (rule 4). Step 1 of the next swap disables the profile.</string>

@@ -16,8 +16,16 @@ class SimStatusTest {
         activeSlot: String? = "2",
         slot2: Slot2? = Slot2.SIM2,
         card: String? = travel,
+        noProfile: Boolean = false,
         recorded: String? = travel,
-    ) = SimStatus.of(activeSlot = activeSlot, slot2 = slot2, card = card, recorded = recorded, places = listOf(place))
+    ) = SimStatus.of(
+        activeSlot = activeSlot,
+        slot2 = slot2,
+        card = card,
+        noProfile = noProfile,
+        recorded = recorded,
+        places = listOf(place),
+    )
 
     @Test
     fun namesThePlaceCardInTheTray() {
@@ -43,8 +51,15 @@ class SimStatusTest {
     }
 
     @Test
+    fun saysWhenTheCardInTheTrayHasNoProfileEnabled() {
+        assertEquals(SimStatus.NoProfile, status(card = null, noProfile = true))
+    }
+
+    @Test
     fun saysTheTrayIsOffWhileSlot2IsOnTheEsim() {
         assertEquals(SimStatus.Parked, status(slot2 = Slot2.ESIM, card = null))
+        // The built-in eSIM without an enabled profile.
+        assertEquals(SimStatus.Parked, status(slot2 = Slot2.ESIM, card = null, noProfile = true))
     }
 
     @Test
