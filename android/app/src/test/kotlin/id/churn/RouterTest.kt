@@ -42,16 +42,21 @@ class RouterTest {
 
     @Test
     fun takesOnlySlot2sCardWithARealNetworksImsi() {
-        assertEquals("8941000000000000015F", router.slot2CardIccid())
-        // A card without an enabled profile: an ICCID of its own, but a test network's IMSI.
+        assertEquals(Slot2Card.Subscription("8941000000000000015F"), router.slot2Card())
+        // A card without an enabled profile: an ICCID of its own, but no real network's IMSI.
         fake.trayCard = FakeRouter.Card("89000123456789000001", "001010000000001")
-        assertNull(router.slot2CardIccid())
+        assertEquals(Slot2Card.NoProfile, router.slot2Card())
+        fake.trayCard = FakeRouter.Card("89000123456789000001", "111111111111111")
+        assertEquals(Slot2Card.NoProfile, router.slot2Card())
+        // A 9eSIM adapter card without one: its placeholder ICCID, whatever the IMSI.
+        fake.trayCard = FakeRouter.Card("89111111111111111111", "228010000000002")
+        assertEquals(Slot2Card.NoProfile, router.slot2Card())
         fake.trayCard = null
-        assertNull(router.slot2CardIccid())
+        assertNull(router.slot2Card())
         fake.slot2 = Slot2.ESIM
-        assertEquals("8944000000000000123F", router.slot2CardIccid())
+        assertEquals(Slot2Card.Subscription("8944000000000000123F"), router.slot2Card())
         fake.esimProfile = null
-        assertNull(router.slot2CardIccid())
+        assertEquals(Slot2Card.NoProfile, router.slot2Card())
     }
 
     @Test

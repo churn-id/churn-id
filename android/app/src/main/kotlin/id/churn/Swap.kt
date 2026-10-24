@@ -141,7 +141,7 @@ class Swap(
         // The card answers a moment after the switch.
         var raw: String? = null
         poll(CARD_TIMEOUT_SECONDS) {
-            raw = router.slot2CardIccid()
+            raw = (router.slot2Card() as? Slot2Card.Subscription)?.iccid
             raw != null
         }
         val cardIccid = raw ?: throw RouterException(Problem.NO_CARD)

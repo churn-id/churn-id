@@ -40,6 +40,8 @@ class RouterStatus(
     val slot2: Slot2?,
     /** The card answering in slot 2, by its ICCID's digits. */
     val card: String?,
+    /** Whether a card without an enabled profile answers in slot 2 instead. */
+    val noProfile: Boolean,
     /** The card the record names, by its ICCID's digits. */
     val recorded: String?,
     val enhancedKillSwitch: Boolean,
@@ -406,8 +408,10 @@ class Controller(private val context: Context) {
         val slot2 = runCatching { router.slot2() }.getOrNull()
         // The card in slot 2 registers with the IMEIs at every power-on, so they must be the pair step 3 recorded for
         // it. A card in the tray while slot 2 is on the built-in eSIM stays off, and reading it would take a switch of
-        // the slot. A profile enabled on the eSIM gets the SIM line's warning instead (rule 4).
-        val card = router.slot2CardIccid()?.let(Imei::iccidDigits)
+        // the slot. A profile enabled on the eSIM gets the SIM line's warning instead (rule 4), and a card without an
+        // enabled profile has no pair to check.
+        val slot2Card = router.slot2Card()
+        val card = (slot2Card as? Slot2Card.Subscription)?.iccid?.let(Imei::iccidDigits)
         if (card != null && slot2 != Slot2.ESIM && !folder.isRecorded(card, imeis)) {
             notes += context.getString(R.string.note_not_cards_imeis)
         }
@@ -421,6 +425,7 @@ class Controller(private val context: Context) {
             activeSlot = router.activeSlot(),
             slot2 = slot2,
             card = card,
+            noProfile = slot2Card == Slot2Card.NoProfile,
             recorded = folder.card?.iccid,
             enhancedKillSwitch = router.enhancedKillSwitch(),
             // A router whose firewall the app can't read shows the warning, and adding the rules says why.
