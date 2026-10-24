@@ -16,6 +16,8 @@ with the test planned for each on a real router.
   the USB Ethernet network through `ConnectivityManager` and binds its
   sockets to it. A Pixel 9 Pro XL with GrapheneOS reached the router this way
   with airplane mode on and Wi-Fi off (verified); other phones are untested.
+- The request for that network also reports when the network goes
+  (`onLost`), and the app then ends the connection over it.
 - Every socket needs Android's network permission, the cable's included.
   GrapheneOS lets the user turn it off per app (the Network permission), and
   then opening a socket fails with `EPERM` (verified on a Pixel 8). The app

@@ -443,18 +443,25 @@ class Controller(private val context: Context) {
 
     private fun asset(name: String) = context.assets.open(name).use { it.readBytes() }
 
-    private fun describe(e: Exception): String = when (e) {
-        is RouterException -> text(e.problem) + (e.detail?.let { "\n\n$it" } ?: "")
-        is NoRouterNetwork -> context.getString(R.string.error_no_network)
-        is NoNetworkPermission -> context.getString(R.string.error_network_permission)
-        is MissingPassword -> context.getString(R.string.error_no_password)
-        is WrongPassword -> context.getString(R.string.error_password)
-        is ConnectException, is NoRouteToHostException, is SocketTimeoutException ->
-            context.getString(R.string.error_unreachable, saved.address)
-        is IOException -> context.getString(R.string.error_connection, e.message ?: e.javaClass.simpleName)
-        else -> context.getString(R.string.error_other, e.toString())
-    }.also {
-        if (e is IOException) disconnect()
+    private fun describe(e: Exception): String {
+        // Whatever failed, it failed because the router left the cable.
+        if (connection?.cableLost == true) {
+            disconnect()
+            return context.getString(R.string.error_cable_lost)
+        }
+        return when (e) {
+            is RouterException -> text(e.problem) + (e.detail?.let { "\n\n$it" } ?: "")
+            is NoRouterNetwork -> context.getString(R.string.error_no_network)
+            is NoNetworkPermission -> context.getString(R.string.error_network_permission)
+            is MissingPassword -> context.getString(R.string.error_no_password)
+            is WrongPassword -> context.getString(R.string.error_password)
+            is ConnectException, is NoRouteToHostException, is SocketTimeoutException ->
+                context.getString(R.string.error_unreachable, saved.address)
+            is IOException -> context.getString(R.string.error_connection, e.message ?: e.javaClass.simpleName)
+            else -> context.getString(R.string.error_other, e.toString())
+        }.also {
+            if (e is IOException) disconnect()
+        }
     }
 
     private fun text(progress: Progress) = context.getString(

@@ -48,6 +48,7 @@
     <string name="error_unreachable">The router doesn\'t answer at %1$s.</string>
     <string name="error_password">The router refused the password.</string>
     <string name="error_connection">The connection to the router broke off: %1$s</string>
+    <string name="error_cable_lost">The router left the cable: the cable came out, or the router switched off. Check that the cable is plugged in and the router is on.</string>
     <string name="error_other">Something went wrong: %1$s</string>
 
     <!-- The router's key -->

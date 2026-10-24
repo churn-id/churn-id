@@ -12,6 +12,7 @@ import java.io.Closeable
 import java.security.MessageDigest
 import java.security.PublicKey
 import java.util.Base64
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import net.schmizz.sshj.DefaultConfig
@@ -30,7 +31,16 @@ class RouterNetwork private constructor(
     private val connectivity: ConnectivityManager,
     private val callback: ConnectivityManager.NetworkCallback,
     val network: Network,
+    private val lost: CompletableFuture<Unit>,
 ) : Closeable {
+
+    /** Whether [network] has gone: the cable came out, or the router ended its side, as when it shuts down. */
+    val isLost get() = lost.isDone
+
+    /** Runs [action] on a system thread once [network] has gone, or at once if it has. */
+    fun whenLost(action: () -> Unit) {
+        lost.thenRun(action)
+    }
 
     override fun close() = release(connectivity, callback)
 
@@ -40,9 +50,15 @@ class RouterNetwork private constructor(
         fun connect(context: Context, timeoutMillis: Int): RouterNetwork? {
             val connectivity = context.getSystemService(ConnectivityManager::class.java)
             val found = LinkedBlockingQueue<Network>()
+            val lost = CompletableFuture<Unit>()
             val callback = object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
                     found.offer(network)
+                }
+
+                // A request follows one network at a time, the one it reported available.
+                override fun onLost(network: Network) {
+                    lost.complete(Unit)
                 }
             }
             val request = NetworkRequest.Builder()
@@ -55,7 +71,7 @@ class RouterNetwork private constructor(
                 release(connectivity, callback)
                 return null
             }
-            return RouterNetwork(connectivity, callback, network)
+            return RouterNetwork(connectivity, callback, network, lost)
         }
 
         /**
@@ -109,6 +125,9 @@ class RouterConnection private constructor(
     /** False once the router or the phone ended the connection; [run] then fails at once. */
     val isOpen get() = ssh.isConnected
 
+    /** Whether the router's network has gone: the cable came out, or the router ended its side. */
+    val cableLost get() = usb.isLost
+
     override fun run(command: String, input: ByteArray?, timeoutSeconds: Long): Output =
         ssh.startSession().use { session ->
             val running = session.exec(command)
@@ -141,6 +160,9 @@ class RouterConnection private constructor(
                 ssh.addHostKeyVerifier(verifier)
                 ssh.connect(address, 22)
                 ssh.authPassword("root", password)
+                // A command waits up to its timeout for an answer that can't come once the network has gone, so the
+                // connection ends with the network.
+                usb.whenLost { runCatching { ssh.disconnect() } }
                 return RouterConnection(ssh, usb)
             } catch (e: Exception) {
                 runCatching { ssh.disconnect() }

@@ -392,6 +392,9 @@ since step 3 replaces the record and may run more than once.
   an app it freezes in the background, as it may while the phone is
   locked and no step runs. Step 1 failed when we let the phone lock
   before starting it.
+- If the cable comes out while the app works on the router, the app ends
+  its connection at once and says so. Otherwise a command would wait for
+  an answer until its timeout, minutes for some.
 - Each step says what to do, where, and why, so the rules don't depend on
   the user's memory.
 - Before each rotation the app checks the slot 2 setting, airplane mode, and
