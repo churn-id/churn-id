@@ -255,7 +255,8 @@ repository has no separate router component.
   card rather than new IMEIs for this one: the network has already seen the
   card with the other IMEIs, so new ones would only join that link, and a
   card whose IMEI changes shows its issuer that the IMEI was rewritten
-  (section 4).
+  (section 4). A profile enabled on the built-in eSIM isn't checked either:
+  the router screen warns about the profile instead (section 7).
 - **What the record reveals.** Anyone with root on the router can read the
   current card's ICCID and IMEIs in the record, which GL's own files and
   the modem show anyway. It names no earlier card: step 3 replaces it, and
@@ -420,6 +421,15 @@ since step 3 replaces the record and may run more than once.
   Names stay on the phone. They should mean something only to the user, and
   no card should carry one that would mean something to others: a card
   labeled "cabin" tells whoever finds it where to look.
+- The router screen names the card in use in one line: a card on the place
+  list as a place card, by its name or the last four digits of its ICCID,
+  and any other card by those digits, as a travel card if it is the
+  recorded one and as unknown otherwise. While slot 2 is on the built-in
+  eSIM, the line says the card in the tray is off, since reading it would
+  take a switch of the slot. "No card found" covers an empty tray and a
+  card that doesn't answer yet, which the app can't tell apart. The line
+  turns into a warning if slot 1 is the active slot, which Churn never
+  uses, or if a profile is enabled on the built-in eSIM (rule 4).
 - The phone also keeps a copy of the router's factory IMEIs, saved with each
   pair the app writes, so that the copy belongs to the router that has that
   pair. If Churn's folder is lost, as after a factory reset without a

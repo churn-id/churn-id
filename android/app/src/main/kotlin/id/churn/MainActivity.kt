@@ -93,6 +93,16 @@ class MainActivity : Activity() {
     private fun home(screen: Screen.Home) = page {
         val status = screen.status
         heading(getString(R.string.router_title))
+        // From the place list as it is now, which a rename changes without a new read of the router.
+        sim(
+            SimStatus.of(
+                activeSlot = status.activeSlot,
+                slot2 = status.slot2,
+                card = status.card,
+                recorded = status.recorded,
+                places = screen.places,
+            ),
+        )
         paragraph(getString(R.string.status_imeis, status.imeis.imei1, status.imeis.imei2), monospace = true)
         if (status.imeis == status.factory) paragraph(getString(R.string.status_factory))
         paragraph(
@@ -103,13 +113,7 @@ class MainActivity : Activity() {
                     4 -> getString(R.string.status_radio_off)
                     else -> null
                 },
-                status.activeSlot?.let { getString(R.string.status_slot, it) },
-                when (status.slot2) {
-                    Slot2.SIM2 -> getString(R.string.status_slot2_sim2)
-                    Slot2.ESIM -> getString(R.string.status_slot2_esim)
-                    null -> null
-                },
-            ).joinToString("\n"),
+            ).joinToString(" "),
         )
         screen.notes.forEach { warning(it) }
         if (!status.enhancedKillSwitch) {
@@ -215,6 +219,18 @@ class MainActivity : Activity() {
             }
         }
         button(R.string.cancel) { controller.answer(Answer.CANCEL) }
+    }
+
+    /** The router screen's line about the card in use, as a warning where Churn's rules are broken. */
+    private fun LinearLayout.sim(sim: SimStatus?) = when (sim) {
+        SimStatus.Slot1Active -> warning(getString(R.string.sim_slot1_active))
+        SimStatus.EsimProfile -> warning(getString(R.string.sim_esim_profile))
+        SimStatus.Parked -> paragraph(getString(R.string.sim_parked))
+        SimStatus.NoCard -> paragraph(getString(R.string.sim_no_card))
+        is SimStatus.Place -> paragraph(getString(R.string.sim_place_card, label(sim.place)))
+        is SimStatus.Travel -> paragraph(getString(R.string.sim_travel_card, sim.iccid.takeLast(4)))
+        is SimStatus.Unknown -> paragraph(getString(R.string.sim_unknown_card, sim.iccid.takeLast(4)))
+        null -> Unit
     }
 
     /** A place card's name, or else the last four digits of its ICCID, which are usually printed on the card. */
