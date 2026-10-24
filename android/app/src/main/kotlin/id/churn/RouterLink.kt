@@ -15,6 +15,7 @@ import java.util.Base64
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import net.schmizz.sshj.DefaultConfig
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.common.Buffer
@@ -36,6 +37,14 @@ class RouterNetwork private constructor(
 
     /** Whether [network] has gone: the cable came out, or the router ended its side, as when it shuts down. */
     val isLost get() = lost.isDone
+
+    /** Waits up to [timeoutMillis] for [network] to go, and returns whether it went. */
+    fun awaitLost(timeoutMillis: Long) = try {
+        lost.get(timeoutMillis, TimeUnit.MILLISECONDS)
+        true
+    } catch (_: TimeoutException) {
+        false
+    }
 
     /** Runs [action] on a system thread once [network] has gone, or at once if it has. */
     fun whenLost(action: () -> Unit) {
@@ -127,6 +136,9 @@ class RouterConnection private constructor(
 
     /** Whether the router's network has gone: the cable came out, or the router ended its side. */
     val cableLost get() = usb.isLost
+
+    /** Waits up to [timeoutMillis] for the router's network to go, as when the router shuts down; whether it went. */
+    fun awaitCableLost(timeoutMillis: Long) = usb.awaitLost(timeoutMillis)
 
     override fun run(command: String, input: ByteArray?, timeoutSeconds: Long): Output =
         ssh.startSession().use { session ->

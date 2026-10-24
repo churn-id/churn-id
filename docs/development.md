@@ -75,7 +75,8 @@ the IMEIs written last, not the factory ones (inferred).
 `AT+GSN` and `AT+CGSN` return one of the two IMEIs, switching irregularly,
 so don't use them.
 
-To shut the router down, the app runs `poweroff` over SSH (verified).
+To shut the router down, the app runs `poweroff` over SSH (verified), then
+waits up to 120 s for the router's network to go.
 
 ## uci settings
 
@@ -454,6 +455,8 @@ before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
 
 - Where GL stores "Power On with Charger". Until then the app asks the user
   to confirm that it is off.
+- When during a shutdown the phone loses the router's network: whether
+  only once the router is off, and how long after `poweroff`.
 - Whether `/etc/init.d/network reload` interrupts the cable connection or
   turns the radio on, and whether `fw4 reload` does.
 - Whether the modem can tell that slot 1 holds a card, so the app can warn

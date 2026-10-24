@@ -223,13 +223,17 @@ class Controller(private val context: Context) {
         answers.offer(answer)
     }
 
-    /** Ends step 1 or 3: saves [next] as the step reached, shuts the router down, and returns [next]. */
-    private fun shutDown(swap: Swap, next: Step): Step {
+    /**
+     * Ends step 1 or 3: saves [next] as the step reached, shuts the router down and waits for it to leave the cable.
+     * Returns [next]'s screen, which warns if the router is still on the cable.
+     */
+    private fun shutDown(swap: Swap, next: Step): Screen.Swapping {
         // Saved before the router goes down, which may end the connection before it answers.
         saved.step = next
         swap.shutDown()
+        val left = connection?.awaitCableLost(SHUTDOWN_WAIT_SECONDS * 1_000L) != false
         disconnect()
-        return next
+        return Screen.Swapping(next, error = if (left) null else context.getString(R.string.warning_still_on_cable))
     }
 
     private fun start(): Screen {
@@ -276,7 +280,7 @@ class Controller(private val context: Context) {
     }
 
     /** Runs a swap step on the worker thread, with the foreground service keeping the app alive meanwhile. */
-    private fun runStep(step: Step, waitSeconds: Int, body: (Swap, ChurnFolder) -> Step) {
+    private fun runStep(step: Step, waitSeconds: Int, body: (Swap, ChurnFolder) -> Screen.Swapping) {
         saved.step = step
         val log = mutableListOf<String>()
         fun update(question: Question? = null) =
@@ -306,7 +310,7 @@ class Controller(private val context: Context) {
                         answers.take().also { update() }
                     },
                 )
-                Screen.Swapping(body(swap, folder))
+                body(swap, folder)
             } catch (e: UntrustedHostKey) {
                 Screen.TrustKey(e.key, e.fingerprint, e.changed)
             } catch (e: Exception) {
@@ -480,6 +484,7 @@ class Controller(private val context: Context) {
             Progress.CARD_FOUND -> R.string.progress_card_found
             Progress.NEW_IMEIS -> R.string.progress_new_imeis
             Progress.CLEARING_HISTORY -> R.string.progress_clearing_history
+            Progress.SHUTTING_DOWN -> R.string.progress_shutting_down
         },
     )
 
@@ -507,6 +512,12 @@ class Controller(private val context: Context) {
 
         /** Long enough for the router to start after the user switched it on. */
         const val BOOT_WAIT_SECONDS = 300
+
+        /**
+         * For the router to leave the cable after the shutdown command, as warning_still_on_cable says. Our guess, not a
+         * measurement.
+         */
+        const val SHUTDOWN_WAIT_SECONDS = 120
         const val RETRY_MILLISECONDS = 3_000L
     }
 }

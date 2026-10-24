@@ -82,6 +82,7 @@ class SwapTest {
         )
         swap.shutDown()
         assertTrue(fake.poweredOff)
+        assertEquals(Progress.SHUTTING_DOWN, progress.last())
     }
 
     @Test
