@@ -2,6 +2,7 @@ package id.churn
 
 import android.content.Context
 import android.content.Intent
+import android.net.Network
 import android.os.Handler
 import android.os.Looper
 import java.io.IOException
@@ -72,6 +73,15 @@ class Controller(private val context: Context) {
     /** Holds the user's answer to step 3's question until the step, on the worker thread, takes it. */
     private val answers = LinkedBlockingQueue<Answer>(1)
 
+    // Used on the main thread only.
+    private val cableWatch = CableWatch(context, ::cableChanged)
+
+    /** The router's network on the cable, while the app watches for it; null if it isn't there. */
+    private var cable: Network? = null
+
+    /** The router's network when the last job or step started. The app starts one by itself only once on each. */
+    private var started: Network? = null
+
     var screen: Screen = start()
         private set
 
@@ -88,12 +98,48 @@ class Controller(private val context: Context) {
     /** Called on the main thread when that step or job ends. */
     var onStepEnd: (() -> Unit)? = null
 
+    /** Whether the router is on the cable, as far as the app watches for it. Main thread only. */
+    val routerOnCable get() = cable != null
+
+    /** Called on the main thread when the router shows up on the cable or leaves it. */
+    var onCable: ((Boolean) -> Unit)? = null
+
     val address get() = saved.address
     val hasPassword get() = saved.sealedPassword != null
 
     /** What step 4 says: whether the new card is a place card, and the last digits of the card to destroy. */
     val placeCardIn get() = saved.placeCardIn
     val cardToDestroy get() = saved.cardToDestroy
+
+    /**
+     * Watches for the router on the cable until [stopWatching], while the app is on screen. When the router shows up,
+     * the Connect screen connects to a router it knows, and step 2 goes on to step 3. Neither can happen while the
+     * phone is locked: GrapheneOS lets no new USB connection through then, and Android lets an app in the background
+     * start no foreground service, which a step needs.
+     */
+    fun startWatching() = cableWatch.start()
+
+    fun stopWatching() {
+        cableWatch.stop()
+        cable = null
+    }
+
+    private fun cableChanged(network: Network?) {
+        cable = network
+        onCable?.invoke(network != null)
+        if (network == null || network == started) return
+        val current = screen
+        when {
+            // Only to a router the app knows: the first connection takes the password and the user's trust in the key.
+            current is Screen.Connect && hasPassword && saved.hostKey != null ->
+                job(R.string.connecting) {
+                    disconnect()
+                    showRouter(waitSeconds = STARTING_WAIT_SECONDS)
+                }
+            current is Screen.Swapping && current.step == Step.SWAP_CARD && !current.running ->
+                advance(Step.SWAP_CARD)
+        }
+    }
 
     fun acceptIntro() {
         saved.introAccepted = true
@@ -265,6 +311,7 @@ class Controller(private val context: Context) {
      * the foreground service keeps the app alive meanwhile.
      */
     private fun job(title: Int, keepAlive: Boolean = false, body: () -> Unit) {
+        started = cable
         show(Screen.Working(context.getString(title)))
         if (keepAlive) {
             stepRunning = true
@@ -289,6 +336,7 @@ class Controller(private val context: Context) {
 
     /** Runs a swap step on the worker thread, with the foreground service keeping the app alive meanwhile. */
     private fun runStep(step: Step, waitSeconds: Int, body: (Swap, ChurnFolder) -> Screen.Swapping) {
+        started = cable
         saved.step = step
         val log = mutableListOf<String>()
         fun update(question: Question? = null) =
@@ -375,9 +423,12 @@ class Controller(private val context: Context) {
         connection = null
     }
 
-    /** Shows the router screen, or the setup screen if Churn's folder isn't complete. */
-    private fun showRouter(note: String? = null) {
-        val router = router()
+    /**
+     * Shows the router screen, or the setup screen if Churn's folder isn't complete, connecting first if needed and
+     * waiting up to [waitSeconds] for the router.
+     */
+    private fun showRouter(note: String? = null, waitSeconds: Int = CONNECT_WAIT_SECONDS) {
+        val router = router(waitSeconds)
         val folder = router.readChurnFolder()
         // A router set up by an earlier version of the app keeps that version's restore script, which may not undo
         // everything this version changes.
@@ -517,6 +568,12 @@ class Controller(private val context: Context) {
     private companion object {
         val IPV4 = Regex("""((25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(25[0-5]|2[0-4]\d|1?\d?\d)""")
         const val CONNECT_WAIT_SECONDS = 15
+
+        /**
+         * For a connection the app starts as soon as the router shows up on the cable, which may be before the router
+         * accepts connections. Our guess, not a measurement.
+         */
+        const val STARTING_WAIT_SECONDS = 60
 
         /** Long enough for the router to start after the user switched it on. */
         const val BOOT_WAIT_SECONDS = 300

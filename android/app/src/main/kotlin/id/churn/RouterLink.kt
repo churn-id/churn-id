@@ -5,6 +5,8 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.os.Handler
+import android.os.Looper
 import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
@@ -70,11 +72,7 @@ class RouterNetwork private constructor(
                     lost.complete(Unit)
                 }
             }
-            val request = NetworkRequest.Builder()
-                .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
-                .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .build()
-            connectivity.requestNetwork(request, callback, timeoutMillis)
+            connectivity.requestNetwork(routerRequest(), callback, timeoutMillis)
             val network = found.poll(timeoutMillis.toLong(), TimeUnit.MILLISECONDS)
             if (network == null) {
                 release(connectivity, callback)
@@ -101,6 +99,45 @@ class RouterNetwork private constructor(
         }
     }
 }
+
+/**
+ * Watches for the router's USB Ethernet network from [start] to [stop], and tells [onChange] on the main thread
+ * whenever the network shows up, or goes with null. Android gives the network a new [Network] each time the cable goes
+ * in or the router starts. Like [RouterNetwork], it requests the network rather than only listening for it: Android
+ * may bring up an Ethernet network only while a request needs it.
+ */
+class CableWatch(context: Context, private val onChange: (Network?) -> Unit) {
+
+    private val connectivity = context.getSystemService(ConnectivityManager::class.java)
+    private var callback: ConnectivityManager.NetworkCallback? = null
+
+    fun start() {
+        if (callback != null) return
+        val watching = object : ConnectivityManager.NetworkCallback() {
+            // A callback already on its way when the watch stopped is dropped.
+            override fun onAvailable(network: Network) {
+                if (callback === this) onChange(network)
+            }
+
+            override fun onLost(network: Network) {
+                if (callback === this) onChange(null)
+            }
+        }
+        callback = watching
+        connectivity.requestNetwork(routerRequest(), watching, Handler(Looper.getMainLooper()))
+    }
+
+    fun stop() {
+        callback?.let { connectivity.unregisterNetworkCallback(it) }
+        callback = null
+    }
+}
+
+/** The router's USB Ethernet network, which has no internet. */
+private fun routerRequest() = NetworkRequest.Builder()
+    .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
+    .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    .build()
 
 /** The router presented [key], which the user hasn't trusted; [changed] if another key was trusted before. */
 class UntrustedHostKey(val key: String, val changed: Boolean) : Exception() {

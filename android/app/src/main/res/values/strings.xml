@@ -34,7 +34,9 @@
 
     <!-- Connecting -->
     <string name="connect_title">Connect to the router</string>
-    <string name="connect_text">Switch the router on and connect your phone to its USB-C port with a cable.</string>
+    <string name="connect_text">Switch the router on and connect your phone to its USB-C port with a cable. Once you\'ve connected with the password, Churn connects by itself when the router shows up on the cable.</string>
+    <string name="cable_on">The router is on the cable.</string>
+    <string name="cable_off">Your phone doesn\'t see the router on the cable yet.</string>
     <string name="address">Router address</string>
     <string name="password">Router admin password</string>
     <string name="password_saved">Admin password (saved, leave empty to use it)</string>
@@ -127,7 +129,7 @@
     <string name="step1_charger">\"Power On with Charger\" is off in GL\'s settings. Otherwise plugging in a charger switches the router on, wherever you are.</string>
     <string name="step1_start">Start</string>
     <string name="step2_title">Swap the card</string>
-    <string name="step2_text">1. Wait until the router is off, then unplug the cable.\n2. Take out the battery and replace the card in the SIM 2 tray with the new one. Leave the SIM 1 tray empty.\n3. Put the battery back.\n4. Go to a place you don\'t return to, away from where you used the old card.\n5. Switch the router on, connect the cable and tap Continue.\n\nWhy: at power-on only the built-in eSIM\'s short bursts go out, with the throwaway IMEIs and a test identity that is likely the same on every Mudi 7.\n\nIf you keep the old card after all, Continue gives it back its own IMEIs.</string>
+    <string name="step2_text">1. Wait until the router is off, then unplug the cable.\n2. Take out the battery and replace the card in the SIM 2 tray with the new one. Leave the SIM 1 tray empty.\n3. Put the battery back.\n4. Go to a place you don\'t return to, away from where you used the old card.\n5. Switch the router on and connect the cable with Churn open. Churn goes on as soon as the router shows up on the cable, or when you tap Continue.\n\nWhy: at power-on only the built-in eSIM\'s short bursts go out, with the throwaway IMEIs and a test identity that is likely the same on every Mudi 7.\n\nIf you keep the old card after all, step 3 gives it back its own IMEIs.</string>
     <string name="step2_continue">Continue</string>
     <string name="error_not_restarted">The router hasn\'t been off since Churn shut it down, so the card can\'t have been swapped yet. If the router is still on, switch it off by hand, then follow the steps above.</string>
     <string name="warning_still_on_cable">The router is still on the cable, two minutes after Churn shut it down. If it is still on, switch it off by hand before you go on.</string>
