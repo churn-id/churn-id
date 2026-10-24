@@ -50,7 +50,7 @@ android {
 }
 
 dependencies {
-    implementation("com.hierynomus:sshj:0.41.1")
+    implementation("com.hierynomus:sshj:0.41.2")
     // Comes with sshj; ChurnApp registers its provider.
     implementation("org.bouncycastle:bcprov-jdk18on:1.84")
 
