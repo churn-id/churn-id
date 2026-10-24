@@ -392,6 +392,13 @@ since step 3 replaces the record and may run more than once.
   an app it freezes in the background, as it may while the phone is
   locked and no step runs. Step 1 failed when we let the phone lock
   before starting it.
+- Step 3 starts only on a router that has been switched off and on since
+  the shutdown before it. Before each shutdown the app notes the boot ID,
+  which Linux makes new at every power-on. Right after step 1 the router
+  stays on the cable for a while as it shuts down, and step 3 must not
+  start on it then: with the old card still in the tray, it would give
+  that card back its IMEIs, as if the user had kept it. The check also
+  catches a shutdown that didn't happen.
 - After the shutdown that ends steps 1 and 3, the app waits for the router
   to leave the cable, and warns if it is still there after two minutes.
   Leaving the cable only means that the router's network went: the router

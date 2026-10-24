@@ -63,6 +63,15 @@ class Swap(
         report(Progress.SHUTTING_DOWN)
     }
 
+    /** The ID of the router's current run, from power-on to shutdown, for [restartedSince]. */
+    fun bootId() = router.bootId()
+
+    /**
+     * Whether the router has been switched off and on since the run with [bootId], which the last shutdown ended;
+     * true without one. Until then the user can't have swapped the card.
+     */
+    fun restartedSince(bootId: String?) = bootId == null || router.bootId() != bootId
+
     /**
      * Step 3: slot 2 on the new card, which gets a pair of its own. The card in [record] keeps its pair. Any other
      * card brings a question: a card in [places] gets its kept pair, and a new card a random one. The pair is

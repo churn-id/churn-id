@@ -196,6 +196,13 @@ class Controller(private val context: Context) {
                 shutDown(swap, next = Step.SWAP_CARD)
             }
             Step.SWAP_CARD, Step.NEW_IMEIS -> runStep(Step.NEW_IMEIS, BOOT_WAIT_SECONDS) { swap, folder ->
+                // A router still on since the last shutdown, such as one still shutting down after step 1, has had no
+                // card swapped.
+                if (!swap.restartedSince(saved.bootId)) {
+                    saved.step = Step.SWAP_CARD
+                    val error = context.getString(R.string.error_not_restarted)
+                    return@runStep Screen.Swapping(Step.SWAP_CARD, error = error)
+                }
                 val factory = folder.factory!!
                 val card = swap.giveNewImeis(factory, folder.card, saved.placeCards, SecureRandom())
                 if (card == null) {
@@ -228,6 +235,7 @@ class Controller(private val context: Context) {
      * Returns [next]'s screen, which warns if the router is still on the cable.
      */
     private fun shutDown(swap: Swap, next: Step): Screen.Swapping {
+        saved.bootId = swap.bootId()
         // Saved before the router goes down, which may end the connection before it answers.
         saved.step = next
         swap.shutDown()

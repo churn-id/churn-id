@@ -76,7 +76,10 @@ the IMEIs written last, not the factory ones (inferred).
 so don't use them.
 
 To shut the router down, the app runs `poweroff` over SSH (verified), then
-waits up to 120 s for the router's network to go.
+waits up to 120 s for the router's network to go. Before that it reads
+`/proc/sys/kernel/random/boot_id`, a UUID that Linux makes new at every
+boot (inferred for GL's firmware), and step 3 starts only once the router
+shows another one.
 
 ## uci settings
 

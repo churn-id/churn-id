@@ -1,5 +1,6 @@
 package id.churn
 
+import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -15,6 +16,9 @@ class FakeRouter : Shell {
     var clock = 0L
     private var bootedAt = -600_000L
     val uptime get() = (clock - bootedAt) / 1000.0
+
+    /** The ID Linux gives the current run, a new one at every power-on, in Linux's format. */
+    var bootId = UUID.randomUUID().toString()
 
     var airplaneMode = false
 
@@ -144,6 +148,7 @@ class FakeRouter : Shell {
         }
         savedImeis = null
         bootedAt = clock
+        bootId = UUID.randomUUID().toString()
         poweredOff = false
     }
 
@@ -183,6 +188,7 @@ class FakeRouter : Shell {
             return ok("")
         }
         if (command == "cat /proc/uptime") return ok(if (uptimeBroken) "" else "%.2f 100.00\n".format(uptime))
+        if (command == "cat /proc/sys/kernel/random/boot_id") return ok("$bootId\n")
         if (command == "poweroff") {
             poweredOff = true
             return ok("")

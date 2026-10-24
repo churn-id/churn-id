@@ -86,6 +86,19 @@ class SwapTest {
     }
 
     @Test
+    fun step3StartsOnlyOnceTheRouterHasRestarted() {
+        swap.prepare(factory, SecureRandom())
+        val bootId = swap.bootId()
+        // Still shutting down after step 1, or not shut down at all.
+        assertFalse(swap.restartedSince(bootId))
+        swap.shutDown()
+        fake.boot()
+        assertTrue(swap.restartedSince(bootId))
+        // A swap that an earlier version of the app began, which kept no boot ID.
+        assertTrue(swap.restartedSince(null))
+    }
+
+    @Test
     fun step1sThrowawayImeisOutlastTheShutdown() {
         val throwaway = swap.prepare(factory, SecureRandom())
         swap.shutDown()
