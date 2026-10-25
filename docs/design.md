@@ -284,9 +284,9 @@ and AT commands sent over SSH.
   with slot 2 on the built-in eSIM and its profiles disabled, 38 to 51 s
   with an eSIM profile enabled. The modem didn't answer earlier, so the
   radio may have been on before that. A switched-on radio emits only what
-  the card makes it send: the RF meter showed only the eSIM's two short
-  bursts with its profiles disabled, and more than 8 s of RF with a profile
-  enabled (below).
+  the card makes it send: the RF meter showed only the eSIM's one or two
+  short bursts with its profiles disabled, and more than 8 s of RF with a
+  profile enabled (below).
 - **No SIM, no emission.** With slot 2 set to the physical SIM 2 and both
   trays empty, the meter showed no RF at boot, with airplane mode on or off.
 - **A SIM registers at every boot.** With an eSIM profile enabled, the meter
@@ -298,10 +298,11 @@ and AT commands sent over SSH.
   (inferred). Airplane mode therefore can't keep a router with a SIM silent
   at power-on.
 - **The built-in eSIM emits even without a profile.** With slot 2 set to
-  the eSIM and its profiles disabled, the meter showed two short bursts at
-  boot. Without a profile the chip presents a test-network identity:
-  IMSI `001010123456` plus three digits, and a placeholder ICCID. That
-  identity is likely the same or nearly the same on every unit (inferred).
+  the eSIM and its profiles disabled, the meter showed one or two short
+  bursts at boot. Without a profile the chip presents a test-network
+  identity: IMSI `001010123456` plus three digits, and a placeholder ICCID.
+  That identity is likely the same or nearly the same on every unit
+  (inferred).
 - **Slot selection doesn't keep a card off at boot.** With slot 1 selected
   in GL's interface and slot 2 on an enabled eSIM profile, the router still
   emitted at boot. The modem rejects Quectel's usual slot command, and GL
@@ -314,7 +315,7 @@ and AT commands sent over SSH.
 - **A card in slot 2 stays off while slot 2 is on the eSIM.** With slot 2
   set to the built-in eSIM with its profiles disabled and airplane mode on,
   we switched the router off, put an eSIM adapter card into slot 2's tray
-  and switched it on. The meter showed only the eSIM's two short bursts.
+  and switched it on. The meter showed only the eSIM's short bursts.
   Switching slot 2 to SIM 2 afterwards, still in airplane mode, emitted
   nothing, and the modem then reported the card's ICCID. A normal SIM card
   should behave the same (inferred).
