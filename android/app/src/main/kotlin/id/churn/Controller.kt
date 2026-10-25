@@ -168,7 +168,7 @@ class Controller(private val context: Context) {
 
     fun cancel() = show(Screen.Connect())
 
-    fun setUp(factory: ImeiPair) = job(R.string.setting_up, keepAlive = true) {
+    fun setUp(factory: ImeiPair) = job(R.string.setting_up) {
         val router = router()
         val folder = router.readChurnFolder()
         updateChurnFiles(router)
@@ -177,8 +177,9 @@ class Controller(private val context: Context) {
         if (folder.factory == null) {
             router.writeChurnFile("factory", "${factory.imei1}\n${factory.imei2}\n".toByteArray())
         }
-        // Turns the flash log off and clears the SIM history that built up before Churn.
-        router.clearHistory(router.currentCardIccid())
+        // Turns the flash log off and clears the SIM history that built up before Churn. The first overwrite of the
+        // free space takes minutes, so it waits for the first swap's step 3, and setup takes seconds.
+        router.clearHistory(router.currentCardIccid(), overwrite = false)
         showRouter()
     }
 

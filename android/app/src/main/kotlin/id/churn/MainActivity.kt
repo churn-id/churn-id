@@ -125,16 +125,19 @@ class MainActivity : Activity() {
             ).joinToString(" "),
         )
         screen.notes.forEach { warning(it) }
-        if (!status.enhancedKillSwitch) {
-            warning(getString(R.string.note_kill_switch))
-            button(R.string.kill_switch_on) {
-                confirm(getString(R.string.kill_switch_on_text)) { controller.turnKillSwitchOn() }
+        // Step 3 puts both in place before it records a card, so until the first swap they're missing as expected.
+        if (status.recorded != null) {
+            if (!status.enhancedKillSwitch) {
+                warning(getString(R.string.note_kill_switch))
+                button(R.string.kill_switch_on) {
+                    confirm(getString(R.string.kill_switch_on_text)) { controller.turnKillSwitchOn() }
+                }
             }
-        }
-        if (!status.firewall) {
-            warning(getString(R.string.note_firewall))
-            button(R.string.firewall_on) {
-                confirm(getString(R.string.firewall_on_text)) { controller.installFirewall() }
+            if (!status.firewall) {
+                warning(getString(R.string.note_firewall))
+                button(R.string.firewall_on) {
+                    confirm(getString(R.string.firewall_on_text)) { controller.installFirewall() }
+                }
             }
         }
         if (!status.flashLogOff) {

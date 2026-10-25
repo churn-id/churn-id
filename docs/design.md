@@ -435,17 +435,25 @@ since step 3 replaces the record and may run more than once.
   checks that a VPN is set up (rule 5): with the Enhanced Kill Switch on, a
   router without one has no internet at all, which invites turning the
   switch off. Step 1 is where this check stops a swap, since the old card
-  is still there to reach the internet while the user sets one up. The
-  app accepts only WireGuard tunnels, the only type we have tested.
+  is still there to reach the internet while the user sets one up. While
+  none is set up, the router screen says that a swap needs one, so the
+  user learns it right after setup rather than at step 1. The app accepts
+  only WireGuard tunnels, the only type we have tested.
 - Step 3 is the last step before the router goes online, so that is where
   the app makes sure the Enhanced Kill Switch is on and Churn's firewall
   rules are in place (rule 5). Both take a reload, of the network or of
   the firewall, whose effect on the modem is untested, so the app does
   them while slot 2 is still on the built-in eSIM and then checks that the
   radio is still off. It leaves each tunnel's own Kill Switch as it is,
-  since the Enhanced Kill Switch blocks that traffic too (section 10). The
-  router screen also warns while the switch is off, the rules are missing
-  or GL's system log goes to the flash, and offers to fix each.
+  since the Enhanced Kill Switch blocks that traffic too (section 10).
+  Setup leaves both alone: until the first swap the router still uses the
+  card it had before Churn, with its factory IMEIs, so there is nothing
+  for them to keep apart yet, and the router reaches the internet as
+  before while the user tries the app. The router screen warns while GL's
+  system log goes to the flash and, once step 3 has recorded a card,
+  while the switch is off or the rules are missing, and offers to fix
+  each. Step 3 puts both in place before it records a card, so until then
+  the warnings would only announce what step 3 does anyway.
 - The phone, not the router, keeps the place list (section 4), since whoever
   holds the router can read its files (inferred). Android keeps the app's
   data encrypted with a key tied to the screen lock, and GrapheneOS's duress
@@ -561,12 +569,12 @@ and from the router screen while the log goes to the flash:
 3. It removes every card but the current one, at step 3 the new one, from
    GL's card files and the eSIM manager's records, and empties the eSIM
    manager's log.
-4. It overwrites the flash's free space with zeros. A deleted file stays
-   readable on the raw partition until something overwrites it: before the
-   clearing, the partition held 460 copies of an old card's ICCID, of
-   which only 270 were in files. The zeros stay, as files, apart from
-   512 MB of free space, so deleted data can only be in those 512 MB, and
-   the next overwrite fills only them.
+4. Except at setup, it overwrites the flash's free space with zeros. A
+   deleted file stays readable on the raw partition until something
+   overwrites it: before the clearing, the partition held 460 copies of an
+   old card's ICCID, of which only 270 were in files. The zeros stay, as
+   files, apart from 512 MB of free space, so deleted data can only be in
+   those 512 MB, and the next overwrite fills only them.
 
 Choices and their effects:
 
@@ -584,22 +592,31 @@ Choices and their effects:
   router's last write to `/etc`, and GL writes other files there every
   minute (verified with the SIM online; see "The router's own traffic"
   above).
-- Overwriting all 2.9 GB of free space took about 3 minutes on our
-  router, while the app keeps itself alive as during a swap step. Only the
-  first clearing, at setup, does that. Later ones fill the 512 MB that the
-  zero files leave free, which should take about half a minute (inferred
-  from the first one's speed). For the last seconds of an overwrite the
-  partition is full and GL can't save anything; GL's files stayed intact
-  in our test.
+- Overwriting all 2.9 GB of free space took about 3 minutes with our
+  script on our router, and close to 5 minutes in the app, which keeps
+  itself alive meanwhile as during a swap step. Only the first overwrite
+  does that. Later ones fill the 512 MB that the zero files leave free,
+  which should take under a minute (inferred from the first one's speed).
+  For the last seconds of an overwrite the partition is full and GL can't
+  save anything; GL's files stayed intact in our test.
+- Setup leaves the overwrite to the first swap's step 3, so that trying
+  the app doesn't begin with a wait of minutes. Step 3 waits for the
+  router to start anyway, and the router goes online only at step 4, at
+  another place and time, so the longer wait keeps nobody offline. Until
+  then, what setup deleted stays readable to whoever gets hold of the
+  router and reads its raw partition. Nothing is added to it while the
+  log is off, though, and until the first swap the router keeps its
+  factory IMEIs, which the networks have already seen with the cards it
+  used before Churn.
 - The zero files count as used storage, so `df` shows the partition about
   88% used (verified on a disk image), and 512 MB are left for GL and
   anything installed on the router. The restore script deletes them. If
-  they are gone, as after a factory reset, the next clearing fills all the
-  free space again.
+  they are gone, as after a factory reset, the next overwrite fills all
+  the free space again.
 - Our router's 7.8 GB flash rates its own wear in steps of 10%, and after
-  our tests it still reported under 10% used (verified). A clearing after
-  the first writes about 0.5 GB, so if each block takes 1,000 writes, a
-  step is about 1,400 clearings (inferred).
+  our tests it still reported under 10% used (verified). An overwrite
+  after the first writes about 0.5 GB, so if each block takes 1,000
+  writes, a step is about 1,400 overwrites (inferred).
 - The overwrite reaches what the flash's controller shows as the
   partition. The flash chips underneath may keep old data for a while
   beyond that, as flash memory does (inferred).

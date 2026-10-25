@@ -386,8 +386,8 @@ so the app compares ICCIDs without the `F`. The current card is the one
    goes on writing to (verified). It also deletes `/etc/churn/secret`,
    which routers set up by earlier versions of the app still hold: those
    versions derived each card's IMEIs from it.
-4. It fills the free space of the overlay, ext4 on the eMMC partition
-   `mmcblk0p59` (2.9 GB). It sets
+4. Except at setup, it fills the free space of the overlay, ext4 on the
+   eMMC partition `mmcblk0p59` (2.9 GB). It sets
    `/sys/fs/ext4/mmcblk0p59/reserved_clusters`, the 4096 blocks that ext4
    keeps free even from root, to 0, and makes the directory
    `/overlay/churn-zeros`, the link `/etc/churn/zeros` to it, and 16
