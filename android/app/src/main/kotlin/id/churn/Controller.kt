@@ -45,6 +45,8 @@ class RouterStatus(
     val noProfile: Boolean,
     /** The card the record names, by its ICCID's digits. */
     val recorded: String?,
+    val scheduledReboot: Boolean,
+    val vpnSetUp: Boolean,
     val enhancedKillSwitch: Boolean,
     val firewall: Boolean,
     val flashLogOff: Boolean,
@@ -479,8 +481,10 @@ class Controller(private val context: Context) {
         if (card != null && slot2 != Slot2.ESIM && !folder.isRecorded(card, imeis)) {
             notes += context.getString(R.string.note_not_cards_imeis)
         }
-        if (router.scheduledReboot()) notes += context.getString(R.string.note_scheduled_reboot)
-        if (!router.vpnSetUp()) notes += context.getString(R.string.note_no_vpn)
+        val scheduledReboot = router.scheduledReboot()
+        if (scheduledReboot) notes += context.getString(R.string.note_scheduled_reboot)
+        val vpnSetUp = router.vpnSetUp()
+        if (!vpnSetUp) notes += context.getString(R.string.note_no_vpn)
         val status = RouterStatus(
             imeis = imeis,
             factory = factory,
@@ -491,6 +495,8 @@ class Controller(private val context: Context) {
             card = card,
             noProfile = slot2Card == Slot2Card.NoProfile,
             recorded = folder.card?.iccid,
+            scheduledReboot = scheduledReboot,
+            vpnSetUp = vpnSetUp,
             enhancedKillSwitch = router.enhancedKillSwitch(),
             // A router whose firewall the app can't read shows the warning, and adding the rules says why.
             firewall = runCatching { router.firewallInPlace() }.getOrDefault(false),

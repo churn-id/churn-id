@@ -152,7 +152,9 @@ class MainActivity : Activity() {
                 button(getString(R.string.place_card_button, label(place))) { showPlaceCard(place) }
             }
         }
-        button(R.string.swap) { controller.beginSwap() }
+        // Off while step 1 would refuse to start, as the notes above say. Step 1 checks again, since this screen may be
+        // minutes old.
+        button(R.string.swap) { controller.beginSwap() }.isEnabled = status.vpnSetUp && !status.scheduledReboot
         button(R.string.refresh) { controller.refresh() }
         button(R.string.show_rules) { showRules() }
         button(R.string.restore) {
