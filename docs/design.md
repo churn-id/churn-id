@@ -443,9 +443,15 @@ since step 3 replaces the record and may run more than once.
   the firewall, whose effect on the modem is untested, so the app does
   them while slot 2 is still on the built-in eSIM and then checks that the
   radio is still off. It leaves each tunnel's own Kill Switch as it is,
-  since the Enhanced Kill Switch blocks that traffic too (section 10). The
-  router screen also warns while the switch is off, the rules are missing
-  or GL's system log goes to the flash, and offers to fix each.
+  since the Enhanced Kill Switch blocks that traffic too (section 10).
+  Setup leaves both alone: until the first swap the router still uses the
+  card it had before Churn, with its factory IMEIs, so there is nothing
+  for them to keep apart yet, and the router reaches the internet as
+  before while the user tries the app. The router screen warns while GL's
+  system log goes to the flash and, once step 3 has recorded a card,
+  while the switch is off or the rules are missing, and offers to fix
+  each. Step 3 puts both in place before it records a card, so until then
+  the warnings would only announce what step 3 does anyway.
 - The phone, not the router, keeps the place list (section 4), since whoever
   holds the router can read its files (inferred). Android keeps the app's
   data encrypted with a key tied to the screen lock, and GrapheneOS's duress
