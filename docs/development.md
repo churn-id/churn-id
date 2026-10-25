@@ -456,10 +456,12 @@ file system clean (verified on the images).
 At every power-on the modem reports its radio on (`+CFUN: 1`) for about
 12 s, whatever airplane mode says, ending 58 s after power-on at the latest
 in our measurements (design.md, section 6). What the router emits then
-depends on the card: with slot 2 on the built-in eSIM, only the eSIM's two
-short bursts. The modem doesn't answer AT commands for a while after
-power-on, so the app keeps asking. Step 3 of the swap changes nothing before
-`/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
+depends on slot 2: only the eSIM's two short bursts while slot 2 is on the
+built-in eSIM with no profile enabled, but RF for roughly 12 s while it is
+on an enabled eSIM profile or on a card in the SIM 2 tray. The modem doesn't
+answer AT commands for a while after power-on, so the app keeps asking.
+Step 3 of the swap changes nothing before `/proc/uptime` shows 120 s and the
+modem answers `+CFUN: 4`.
 
 ## Still to find out
 
