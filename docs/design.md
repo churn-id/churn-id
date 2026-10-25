@@ -278,23 +278,31 @@ SDX75). Methods: a script on the router polling the modem's radio state once
 a second from boot; a broadband RF meter next to the router during boots;
 and AT commands sent over SSH.
 
-- **Radio on at boot, despite airplane mode.** With airplane mode on, the
-  modem reported its radio fully on for about 12 s before GL switched it to
-  airplane mode: 46 to 58 s after power-on with no SIM, 38 to 51 s with an
-  eSIM profile enabled. The modem didn't answer earlier, so the radio may
-  have been on before that.
+- **Airplane mode applies only after boot.** With airplane mode on, the
+  modem reported its radio switched on (`+CFUN: 1`) for about 12 s before
+  GL switched it to airplane mode (`+CFUN: 4`): 46 to 58 s after power-on
+  with slot 2 on the built-in eSIM and its profiles disabled, 38 to 51 s
+  with an eSIM profile enabled. The modem didn't answer earlier, so the
+  radio may have been on before that. A switched-on radio emits only what
+  the card makes it send: the RF meter showed only the eSIM's one or two
+  short bursts with its profiles disabled, and more than 8 s of RF with a
+  profile enabled (below).
 - **No SIM, no emission.** With slot 2 set to the physical SIM 2 and both
   trays empty, the meter showed no RF at boot, with airplane mode on or off.
 - **A SIM registers at every boot.** With an eSIM profile enabled, the meter
-  showed RF for several seconds on every boot, whatever GL's airplane mode
-  and cellular switches said. Several seconds fit a network registration
+  showed RF for more than 8 s on every boot, whatever GL's airplane mode
+  and cellular switches said. On some boots it lasted more than twice as
+  long, and another burst of about 2 s followed more than 90 s after
+  power-on, with airplane mode on, later than the probes saw the modem
+  switch to airplane mode. RF for that long fits a network registration
   (inferred). Airplane mode therefore can't keep a router with a SIM silent
   at power-on.
 - **The built-in eSIM emits even without a profile.** With slot 2 set to
-  the eSIM and its profiles disabled, the meter showed two short bursts at
-  boot. Without a profile the chip presents a test-network identity:
-  IMSI `001010123456` plus three digits, and a placeholder ICCID. That
-  identity is likely the same or nearly the same on every unit (inferred).
+  the eSIM and its profiles disabled, the meter showed one or two short
+  bursts at boot. Without a profile the chip presents a test-network
+  identity: IMSI `001010123456` plus three digits, and a placeholder ICCID.
+  That identity is likely the same or nearly the same on every unit
+  (inferred).
 - **Slot selection doesn't keep a card off at boot.** With slot 1 selected
   in GL's interface and slot 2 on an enabled eSIM profile, the router still
   emitted at boot. The modem rejects Quectel's usual slot command, and GL
@@ -307,13 +315,13 @@ and AT commands sent over SSH.
 - **A card in slot 2 stays off while slot 2 is on the eSIM.** With slot 2
   set to the built-in eSIM with its profiles disabled and airplane mode on,
   we switched the router off, put an eSIM adapter card into slot 2's tray
-  and switched it on. The meter showed only the eSIM's two short bursts.
+  and switched it on. The meter showed only the eSIM's short bursts.
   Switching slot 2 to SIM 2 afterwards, still in airplane mode, emitted
   nothing, and the modem then reported the card's ICCID. A normal SIM card
   should behave the same (inferred).
 - **A card in slot 1 always emits.** With a card in slot 1, every boot
-  showed RF for about 10 s or longer, whatever the settings, airplane mode
-  and GL's cellular switch included.
+  showed RF for more than 8 s, whatever the settings, airplane mode and
+  GL's cellular switch included.
 - **No setting starts the radio off.** None of the modem's configuration
   commands offers a power-up radio state, so nothing saved can make a boot
   with an enabled SIM profile silent.
@@ -685,7 +693,7 @@ Why:
    server on every profile download, which links all its profiles. It also
    emits at boot whenever slot 2 is set to it. An eSIM adapter card has an
    EID too, so a second profile on it would be linked to the first. A card
-   in slot 1 emits for about 10 s at every boot, whatever the settings,
+   in slot 1 emits for more than 8 s at every boot, whatever the settings,
    while a card in slot 2 stays off until the app has written its IMEIs
    (sections 6 and 7).
 5. Without a VPN, every service a device behind the router uses sees the
