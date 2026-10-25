@@ -92,6 +92,7 @@ class MainActivity : Activity() {
 
     private fun setUp(screen: Screen.SetUp) = page {
         heading(getString(R.string.setup_title))
+        screen.note?.let { warning(it) }
         paragraph(getString(R.string.setup_text, screen.factory.imei1, screen.factory.imei2))
         screen.warnings.forEach { warning(it) }
         button(R.string.setup_start) { controller.setUp(screen.factory) }

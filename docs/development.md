@@ -487,7 +487,7 @@ asking. Step 3 of the swap changes nothing before `/proc/uptime` shows
 | `/etc/churn/factory` | 600 | Factory IMEI 1 and IMEI 2, one per line |
 | `/etc/churn/card` | 600 | The card step 3 last gave IMEIs: its ICCID's digits, IMEI 1 and IMEI 2, one per line. Written before the IMEIs |
 | `/etc/churn/log_file` | 600 | GL's `system.@system[0].log_file` as it was before the app first deleted it. Only there after the app has deleted it |
-| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, deletes `card`, sets `log_file` back from Churn's copy and deletes the copy, deletes `/overlay/churn-zeros`, the link to it and any fill files, then removes Churn's firewall rules |
+| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, deletes `card`, sets `log_file` back from Churn's copy and deletes the copy, deletes `/overlay/churn-zeros`, the link to it and any fill files, then removes Churn's firewall rules and, last, deletes `/etc/churn/` itself |
 | `/etc/churn/zeros` | – | Link to `/overlay/churn-zeros`, made by the free-space overwrite |
 | `/etc/nftables.d/churn.nft` | 644 | Churn's firewall rules, from `Router.firewallRules` |
 | `/overlay/churn-zeros/` | – | Files of zeros from the free-space overwrite, up to 64 MB each and numbered, that take all but 512 MB of the free space. Beside the router's own files, so that upgrades and tools reading `/etc` skip them (design.md, section 5) |
@@ -495,7 +495,8 @@ asking. Step 3 of the swap changes nothing before `/proc/uptime` shows
 At setup the app also adds the line `/etc/churn/` to `/etc/sysupgrade.conf`,
 and with its firewall rules the line `/etc/nftables.d/churn.nft`. At every
 connection it rewrites `README.txt` and `restore.sh` where they differ from
-its assets.
+its assets. `restore.sh` takes both lines out again, the folder's just
+before it deletes the folder.
 
 ## IMEI pairs
 

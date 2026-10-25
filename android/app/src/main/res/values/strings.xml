@@ -90,7 +90,7 @@
     <string name="note_scheduled_reboot">A swap needs GL\'s scheduled reboot off, and it is on. Turn it off in GL\'s web interface, then tap Refresh. A reboot is a power-on, so with a SIM inside it registers wherever it happens.</string>
     <string name="note_no_vpn">A swap needs a WireGuard VPN on the router, and none is set up. Set one up in GL\'s web interface (rule 5), then tap Refresh. Churn doesn\'t support other VPN types yet.</string>
     <string name="note_kill_switch">The Enhanced Kill Switch is off, so traffic can bypass the VPN (rule 5).</string>
-    <string name="note_restored">The factory IMEIs are back, Churn\'s firewall rules and zero files are removed, GL\'s setting for saving the system log is as before, and airplane mode is on.</string>
+    <string name="note_restored">The factory IMEIs are back, Churn\'s firewall rules, zero files and folder are removed, GL\'s setting for saving the system log is as before, and airplane mode is on. To use Churn on this router again, set it up.</string>
     <string name="kill_switch_on">Turn the Enhanced Kill Switch on</string>
     <string name="kill_switch_on_text">Churn turns GL\'s Enhanced Kill Switch on. Devices behind the router then reach the internet only through the VPN, and not at all while it is down.</string>
     <string name="note_firewall">Churn\'s firewall rules aren\'t on the router, so the router\'s own traffic can bypass the VPN (rule 5).</string>
@@ -112,7 +112,7 @@
     <string name="show_rules">Rules</string>
     <string name="refresh">Refresh</string>
     <string name="restore">Restore factory IMEIs</string>
-    <string name="restore_text">Churn turns airplane mode on, writes the factory IMEIs back, removes its firewall rules and zero files and puts back GL\'s setting for saving the system log:\n\nIMEI 1: %1$s\nIMEI 2: %2$s</string>
+    <string name="restore_text">Churn turns airplane mode on and writes the factory IMEIs back:\n\nIMEI 1: %1$s\nIMEI 2: %2$s\n\nIt also removes its firewall rules and zero files, puts back GL\'s setting for saving the system log and deletes its folder on the router. Afterwards the app treats the router as new, and setting it up again takes a few seconds.</string>
     <string name="forget">Forget this router</string>
     <string name="forget_text">Churn forgets the router\'s key and password. Its folder on the router stays.</string>
     <string name="restoring">Restoring the factory IMEIs</string>

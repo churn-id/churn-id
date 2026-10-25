@@ -208,9 +208,10 @@ Churn keeps its files on the router in `/etc/churn/`, readable by root
 only: a README explaining the folder, the factory IMEIs, the record of the
 current card (section 4), a restore script and a link to the zero files.
 The script writes the factory IMEIs back, deletes the record, puts back
-GL's setting for its system log, deletes Churn's zero files and removes
-Churn's firewall rules (all section 7); the app runs it on request, and it
-also works over a plain SSH session if the app is gone. Outside the folder
+GL's setting for its system log, deletes Churn's zero files, removes
+Churn's firewall rules (all section 7) and last deletes the folder itself;
+the app runs it on request, and it also works over a plain SSH session if
+the app is gone. Outside the folder
 are only the firewall rules, in `/etc/nftables.d/churn.nft`, and the zero
 files, in `/overlay/churn-zeros/` beside the router's own files. The script
 and the rules ship inside the app and are copied to the router, so the
@@ -224,6 +225,16 @@ repository has no separate router component.
   the README says to restore the factory IMEIs first. If the folder is lost
   anyway, setup can write the factory IMEIs back from the phone's copy
   (section 7).
+- **Deleted by a restore.** Once the restore script has undone everything
+  else, it deletes the folder, itself included, and the folder's line in
+  `/etc/sysupgrade.conf`. It still runs to its end, since the shell reads
+  it from the file it opened (verified with BusyBox 1.36.1 on a PC). The
+  flash then keeps none of Churn's files, which matters when the router
+  goes to someone else, and the app treats it as a new router: it offers
+  setup, which turns GL's log off again, rather than a router screen that
+  warns about the log the restore turned back on. Setup reads the factory
+  IMEIs from the modem, which has them back. A restore that stops earlier
+  keeps the folder, so it can run again.
 - **Zero files outside the folder.** The zero files (section 7) take about
   2.4 GB, so they stay out of `/etc/churn/`. In it, an upgrade that keeps
   settings would copy them with the folder, and anything that reads all of
@@ -244,8 +255,8 @@ repository has no separate router component.
   recorded pair (section 4), all read from the router. At every power-on
   the card registers with whatever IMEIs are there (section 6), so the
   router screen warns if they aren't its pair. That is the case before the
-  first swap and after a restore, when the router has its factory IMEIs and
-  no record; after the card was swapped without the app; and maybe
+  first swap, when the router has its factory IMEIs and no record; after
+  the card was swapped without the app; and maybe
   after a firmware upgrade or reset: GL's firmware contains the command
   that writes IMEI 1, so either might restore the factory IMEI (inferred).
   Nothing stored on the phone goes into the check, so it also holds after

@@ -19,7 +19,7 @@ sealed interface Screen {
     data class Connect(val error: String? = null) : Screen
     data class Working(val title: String) : Screen
     data class TrustKey(val key: String, val fingerprint: String, val changed: Boolean) : Screen
-    data class SetUp(val factory: ImeiPair, val warnings: List<String>) : Screen
+    data class SetUp(val factory: ImeiPair, val warnings: List<String>, val note: String?) : Screen
     data class Home(val status: RouterStatus, val notes: List<String>, val places: List<PlaceCard>) : Screen
     data class Swapping(
         val step: Step,
@@ -189,8 +189,10 @@ class Controller(private val context: Context) {
 
     fun restore() = job(R.string.restoring) {
         val router = router()
+        // Read first: the script deletes Churn's folder, so the setup screen comes next.
+        val factory = router.readChurnFolder().factory
         router.restoreFactoryImeis()
-        router.readChurnFolder().factory?.let { saved.wrote(it, factory = it) }
+        factory?.let { saved.wrote(it, factory = it) }
         showRouter(context.getString(R.string.note_restored))
     }
 
@@ -439,15 +441,15 @@ class Controller(private val context: Context) {
         val step = saved.step
         show(
             when {
-                !folder.complete -> setUpScreen(router)
+                !folder.complete -> setUpScreen(router, note)
                 step != null -> Screen.Swapping(step)
                 else -> home(router, folder, note)
             },
         )
     }
 
-    /** The setup screen, for a router without Churn's folder. */
-    private fun setUpScreen(router: Router): Screen.SetUp {
+    /** The setup screen, for a router without Churn's folder, such as a new or a restored one. */
+    private fun setUpScreen(router: Router, note: String?): Screen.SetUp {
         val modem = router.imeis()
         val written = saved.written
         val factory = ChurnFolder.factoryAtSetup(modem, written = written, copy = saved.factory)
@@ -464,7 +466,7 @@ class Controller(private val context: Context) {
         if (!Imei.isValid(factory.imei1) || !Imei.isValid(factory.imei2)) {
             warnings += R.string.setup_warning_check_digit
         }
-        return Screen.SetUp(factory, warnings.map { context.getString(it) })
+        return Screen.SetUp(factory, warnings.map { context.getString(it) }, note)
     }
 
     private fun home(router: Router, folder: ChurnFolder, note: String?): Screen.Home {
