@@ -49,6 +49,14 @@ class Saved(context: Context) {
         putString(FACTORY_1, factory.imei1).putString(FACTORY_2, factory.imei2)
     }
 
+    /**
+     * The ID of the router's run that the last shutdown of a swap ended. Step 3 starts only on a router that has been
+     * switched off and on since.
+     */
+    var bootId: String?
+        get() = preferences.getString(BOOT_ID, null)
+        set(value) = save { putString(BOOT_ID, value) }
+
     /** The ICCID of the card recorded when step 1 ran: the card the user takes out, unless they keep it. */
     var cardBeforeSwap: String?
         get() = preferences.getString(CARD_BEFORE_SWAP, null)
@@ -95,5 +103,6 @@ class Saved(context: Context) {
         const val CARD_BEFORE_SWAP = "card_before_swap"
         const val PLACE_CARD_IN = "place_card_in"
         const val CARD_TO_DESTROY = "card_to_destroy"
+        const val BOOT_ID = "boot_id"
     }
 }

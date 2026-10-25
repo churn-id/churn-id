@@ -26,14 +26,21 @@ class MainActivity : Activity() {
     /** Whether the user confirmed in step 1 that "Power On with Charger" is off. */
     private var chargerChecked = false
 
+    /** The Connect screen's line saying whether the router is on the cable, while that screen shows. */
+    private var cableLine: TextView? = null
+
     override fun onStart() {
         super.onStart()
         controller.onScreen = ::render
+        controller.onCable = ::showCable
         render(controller.screen)
+        controller.startWatching()
     }
 
     override fun onStop() {
+        controller.stopWatching()
         controller.onScreen = null
+        controller.onCable = null
         super.onStop()
     }
 
@@ -64,6 +71,7 @@ class MainActivity : Activity() {
             getString(if (controller.hasPassword) R.string.password_saved else R.string.password),
             InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
         )
+        cableLine = paragraph(cableText(controller.routerOnCable))
         screen.error?.let { warning(it) }
         button(R.string.connect) { controller.connect(address.text.toString().trim(), password.text.toString()) }
         button(R.string.show_rules) { showRules() }
@@ -204,6 +212,13 @@ class MainActivity : Activity() {
         if (screen.step != Step.GO_ONLINE) button(R.string.cancel_swap) { controller.cancelSwap() }
     }
 
+    /** Updates the Connect screen's line alone, so that what the user is typing stays. */
+    private fun showCable(onCable: Boolean) {
+        cableLine?.text = cableText(onCable)
+    }
+
+    private fun cableText(onCable: Boolean) = getString(if (onCable) R.string.cable_on else R.string.cable_off)
+
     /** Step 3's question, which the step waits for with slot 2 on the built-in eSIM. */
     private fun LinearLayout.question(question: Question) {
         when (question) {
@@ -314,6 +329,7 @@ class MainActivity : Activity() {
     }
 
     private fun page(keepScreenOn: Boolean = false, build: LinearLayout.() -> Unit) {
+        cableLine = null
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             val padding = dp(20)
@@ -347,15 +363,13 @@ class MainActivity : Activity() {
         },
     )
 
-    private fun LinearLayout.paragraph(text: String, monospace: Boolean = false) = addView(
-        textView().apply {
-            this.text = text
-            textSize = 16f
-            if (monospace) typeface = Typeface.MONOSPACE
-            setTextIsSelectable(true)
-            setPadding(0, 0, 0, dp(12))
-        },
-    )
+    private fun LinearLayout.paragraph(text: String, monospace: Boolean = false) = textView().apply {
+        this.text = text
+        textSize = 16f
+        if (monospace) typeface = Typeface.MONOSPACE
+        setTextIsSelectable(true)
+        setPadding(0, 0, 0, dp(12))
+    }.also { addView(it) }
 
     private fun LinearLayout.warning(text: String) = addView(
         textView().apply {

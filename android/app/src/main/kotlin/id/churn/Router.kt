@@ -153,6 +153,9 @@ class Router(private val shell: Shell) {
     fun uptimeSeconds() = run("cat /proc/uptime").text.substringBefore(' ').toDoubleOrNull()
         ?: throw unexpected("/proc/uptime")
 
+    /** The ID Linux gives the router's current run at power-on, a new one each time. */
+    fun bootId() = run("cat $BOOT_ID").text.trim().takeIf { it.matches(UUID) } ?: throw unexpected(BOOT_ID)
+
     fun scheduledReboot() = uci("gl_timer.reboot.enable") == "1"
 
     /**
@@ -479,6 +482,8 @@ class Router(private val shell: Shell) {
         const val CHURN = "/etc/churn"
 
         private val IMEI = Regex("[0-9]{15}")
+        private const val BOOT_ID = "/proc/sys/kernel/random/boot_id"
+        private val UUID = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
         private val ICCID = Regex("[0-9]{18,20}")
 
         /** Churn's firewall rules. GL's firewall, fw4, loads the files in this folder into its own table. */

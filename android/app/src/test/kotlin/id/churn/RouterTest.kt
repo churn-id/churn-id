@@ -38,6 +38,18 @@ class RouterTest {
         assertEquals("228010000000001", router.slot2Imsi())
         assertEquals("8941000000000000015F", router.currentCardIccid())
         assertFalse(router.flashLogOff())
+        assertEquals(fake.bootId, router.bootId())
+    }
+
+    @Test
+    fun refusesAnEmptyBootId() {
+        fake.bootId = ""
+        try {
+            router.bootId()
+            throw AssertionError("An empty boot ID was accepted")
+        } catch (e: RouterException) {
+            assertEquals(Problem.UNEXPECTED_ANSWER, e.problem)
+        }
     }
 
     @Test

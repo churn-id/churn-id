@@ -2,6 +2,7 @@ package id.churn
 
 import android.content.Context
 import android.content.Intent
+import android.net.Network
 import android.os.Handler
 import android.os.Looper
 import java.io.IOException
@@ -72,6 +73,15 @@ class Controller(private val context: Context) {
     /** Holds the user's answer to step 3's question until the step, on the worker thread, takes it. */
     private val answers = LinkedBlockingQueue<Answer>(1)
 
+    // Used on the main thread only.
+    private val cableWatch = CableWatch(context, ::cableChanged)
+
+    /** The router's network on the cable, while the app watches for it; null if it isn't there. */
+    private var cable: Network? = null
+
+    /** The router's network when the last job or step started. The app starts one by itself only once on each. */
+    private var started: Network? = null
+
     var screen: Screen = start()
         private set
 
@@ -88,12 +98,48 @@ class Controller(private val context: Context) {
     /** Called on the main thread when that step or job ends. */
     var onStepEnd: (() -> Unit)? = null
 
+    /** Whether the router is on the cable, as far as the app watches for it. Main thread only. */
+    val routerOnCable get() = cable != null
+
+    /** Called on the main thread when the router shows up on the cable or leaves it. */
+    var onCable: ((Boolean) -> Unit)? = null
+
     val address get() = saved.address
     val hasPassword get() = saved.sealedPassword != null
 
     /** What step 4 says: whether the new card is a place card, and the last digits of the card to destroy. */
     val placeCardIn get() = saved.placeCardIn
     val cardToDestroy get() = saved.cardToDestroy
+
+    /**
+     * Watches for the router on the cable until [stopWatching], while the app is on screen. When the router shows up,
+     * the Connect screen connects to a router it knows, and step 2 goes on to step 3. Neither can happen while the
+     * phone is locked: GrapheneOS lets no new USB connection through then, and Android lets an app in the background
+     * start no foreground service, which a step needs.
+     */
+    fun startWatching() = cableWatch.start()
+
+    fun stopWatching() {
+        cableWatch.stop()
+        cable = null
+    }
+
+    private fun cableChanged(network: Network?) {
+        cable = network
+        onCable?.invoke(network != null)
+        if (network == null || network == started) return
+        val current = screen
+        when {
+            // Only to a router the app knows: the first connection takes the password and the user's trust in the key.
+            current is Screen.Connect && hasPassword && saved.hostKey != null ->
+                job(R.string.connecting) {
+                    disconnect()
+                    showRouter(waitSeconds = STARTING_WAIT_SECONDS)
+                }
+            current is Screen.Swapping && current.step == Step.SWAP_CARD && !current.running ->
+                advance(Step.SWAP_CARD)
+        }
+    }
 
     fun acceptIntro() {
         saved.introAccepted = true
@@ -196,6 +242,13 @@ class Controller(private val context: Context) {
                 shutDown(swap, next = Step.SWAP_CARD)
             }
             Step.SWAP_CARD, Step.NEW_IMEIS -> runStep(Step.NEW_IMEIS, BOOT_WAIT_SECONDS) { swap, folder ->
+                // A router still on since the last shutdown, such as one still shutting down after step 1, has had no
+                // card swapped.
+                if (!swap.restartedSince(saved.bootId)) {
+                    saved.step = Step.SWAP_CARD
+                    val error = context.getString(R.string.error_not_restarted)
+                    return@runStep Screen.Swapping(Step.SWAP_CARD, error = error)
+                }
                 val factory = folder.factory!!
                 val card = swap.giveNewImeis(factory, folder.card, saved.placeCards, SecureRandom())
                 if (card == null) {
@@ -223,13 +276,18 @@ class Controller(private val context: Context) {
         answers.offer(answer)
     }
 
-    /** Ends step 1 or 3: saves [next] as the step reached, shuts the router down, and returns [next]. */
-    private fun shutDown(swap: Swap, next: Step): Step {
+    /**
+     * Ends step 1 or 3: saves [next] as the step reached, shuts the router down and waits for it to leave the cable.
+     * Returns [next]'s screen, which warns if the router is still on the cable.
+     */
+    private fun shutDown(swap: Swap, next: Step): Screen.Swapping {
+        saved.bootId = swap.bootId()
         // Saved before the router goes down, which may end the connection before it answers.
         saved.step = next
         swap.shutDown()
+        val left = connection?.awaitCableLost(SHUTDOWN_WAIT_SECONDS * 1_000L) != false
         disconnect()
-        return next
+        return Screen.Swapping(next, error = if (left) null else context.getString(R.string.warning_still_on_cable))
     }
 
     private fun start(): Screen {
@@ -253,6 +311,7 @@ class Controller(private val context: Context) {
      * the foreground service keeps the app alive meanwhile.
      */
     private fun job(title: Int, keepAlive: Boolean = false, body: () -> Unit) {
+        started = cable
         show(Screen.Working(context.getString(title)))
         if (keepAlive) {
             stepRunning = true
@@ -276,7 +335,8 @@ class Controller(private val context: Context) {
     }
 
     /** Runs a swap step on the worker thread, with the foreground service keeping the app alive meanwhile. */
-    private fun runStep(step: Step, waitSeconds: Int, body: (Swap, ChurnFolder) -> Step) {
+    private fun runStep(step: Step, waitSeconds: Int, body: (Swap, ChurnFolder) -> Screen.Swapping) {
+        started = cable
         saved.step = step
         val log = mutableListOf<String>()
         fun update(question: Question? = null) =
@@ -306,7 +366,7 @@ class Controller(private val context: Context) {
                         answers.take().also { update() }
                     },
                 )
-                Screen.Swapping(body(swap, folder))
+                body(swap, folder)
             } catch (e: UntrustedHostKey) {
                 Screen.TrustKey(e.key, e.fingerprint, e.changed)
             } catch (e: Exception) {
@@ -363,9 +423,12 @@ class Controller(private val context: Context) {
         connection = null
     }
 
-    /** Shows the router screen, or the setup screen if Churn's folder isn't complete. */
-    private fun showRouter(note: String? = null) {
-        val router = router()
+    /**
+     * Shows the router screen, or the setup screen if Churn's folder isn't complete, connecting first if needed and
+     * waiting up to [waitSeconds] for the router.
+     */
+    private fun showRouter(note: String? = null, waitSeconds: Int = CONNECT_WAIT_SECONDS) {
+        val router = router(waitSeconds)
         val folder = router.readChurnFolder()
         // A router set up by an earlier version of the app keeps that version's restore script, which may not undo
         // everything this version changes.
@@ -443,18 +506,24 @@ class Controller(private val context: Context) {
 
     private fun asset(name: String) = context.assets.open(name).use { it.readBytes() }
 
-    private fun describe(e: Exception): String = when (e) {
-        is RouterException -> text(e.problem) + (e.detail?.let { "\n\n$it" } ?: "")
-        is NoRouterNetwork -> context.getString(R.string.error_no_network)
-        is NoNetworkPermission -> context.getString(R.string.error_network_permission)
-        is MissingPassword -> context.getString(R.string.error_no_password)
-        is WrongPassword -> context.getString(R.string.error_password)
-        is ConnectException, is NoRouteToHostException, is SocketTimeoutException ->
-            context.getString(R.string.error_unreachable, saved.address)
-        is IOException -> context.getString(R.string.error_connection, e.message ?: e.javaClass.simpleName)
-        else -> context.getString(R.string.error_other, e.toString())
-    }.also {
+    private fun describe(e: Exception): String {
+        // Whatever failed, it failed because the router left the cable.
+        if (connection?.cableLost == true) {
+            disconnect()
+            return context.getString(R.string.error_cable_lost)
+        }
         if (e is IOException) disconnect()
+        return when (e) {
+            is RouterException -> text(e.problem) + (e.detail?.let { "\n\n$it" } ?: "")
+            is NoRouterNetwork -> context.getString(R.string.error_no_network)
+            is NoNetworkPermission -> context.getString(R.string.error_network_permission)
+            is MissingPassword -> context.getString(R.string.error_no_password)
+            is WrongPassword -> context.getString(R.string.error_password)
+            is ConnectException, is NoRouteToHostException, is SocketTimeoutException ->
+                context.getString(R.string.error_unreachable, saved.address)
+            is IOException -> context.getString(R.string.error_connection, e.message ?: e.javaClass.simpleName)
+            else -> context.getString(R.string.error_other, e.toString())
+        }
     }
 
     private fun text(progress: Progress) = context.getString(
@@ -473,6 +542,7 @@ class Controller(private val context: Context) {
             Progress.CARD_FOUND -> R.string.progress_card_found
             Progress.NEW_IMEIS -> R.string.progress_new_imeis
             Progress.CLEARING_HISTORY -> R.string.progress_clearing_history
+            Progress.SHUTTING_DOWN -> R.string.progress_shutting_down
         },
     )
 
@@ -498,8 +568,20 @@ class Controller(private val context: Context) {
         val IPV4 = Regex("""((25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(25[0-5]|2[0-4]\d|1?\d?\d)""")
         const val CONNECT_WAIT_SECONDS = 15
 
+        /**
+         * For a connection the app starts as soon as the router shows up on the cable, which may be before the router
+         * accepts connections. Our guess, not a measurement.
+         */
+        const val STARTING_WAIT_SECONDS = 60
+
         /** Long enough for the router to start after the user switched it on. */
         const val BOOT_WAIT_SECONDS = 300
+
+        /**
+         * For the router to leave the cable after the shutdown command, as warning_still_on_cable says. Our guess, not a
+         * measurement.
+         */
+        const val SHUTDOWN_WAIT_SECONDS = 120
         const val RETRY_MILLISECONDS = 3_000L
     }
 }

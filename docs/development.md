@@ -16,6 +16,13 @@ with the test planned for each on a real router.
   the USB Ethernet network through `ConnectivityManager` and binds its
   sockets to it. A Pixel 9 Pro XL with GrapheneOS reached the router this way
   with airplane mode on and Wi-Fi off (verified); other phones are untested.
+- The app requests that network (`requestNetwork` for Ethernet without
+  internet) rather than only listening for it, since Android may bring up
+  an Ethernet network only while a request needs it (inferred). The same
+  request reports when the network goes (`onLost`), and the app then ends
+  the connection over it. While the app is on screen, a request without a
+  timeout watches for the router. Android reports the network as a new
+  `Network` each time the cable goes in or the router starts (inferred).
 - Every socket needs Android's network permission, the cable's included.
   GrapheneOS lets the user turn it off per app (the Network permission), and
   then opening a socket fails with `EPERM` (verified on a Pixel 8). The app
@@ -73,7 +80,11 @@ the IMEIs written last, not the factory ones (inferred).
 `AT+GSN` and `AT+CGSN` return one of the two IMEIs, switching irregularly,
 so don't use them.
 
-To shut the router down, the app runs `poweroff` over SSH (verified).
+To shut the router down, the app runs `poweroff` over SSH (verified), then
+waits up to 120 s for the router's network to go. Before that it reads
+`/proc/sys/kernel/random/boot_id`, a UUID that Linux makes new at every
+boot (inferred for GL's firmware), and step 3 starts only once the router
+shows another one.
 
 ## uci settings
 
@@ -452,6 +463,8 @@ before `/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
 
 - Where GL stores "Power On with Charger". Until then the app asks the user
   to confirm that it is off.
+- When during a shutdown the phone loses the router's network: whether
+  only once the router is off, and how long after `poweroff`.
 - Whether `/etc/init.d/network reload` interrupts the cable connection or
   turns the radio on, and whether `fw4 reload` does.
 - Whether the modem can tell that slot 1 holds a card, so the app can warn

@@ -392,6 +392,33 @@ since step 3 replaces the record and may run more than once.
   an app it freezes in the background, as it may while the phone is
   locked and no step runs. Step 1 failed when we let the phone lock
   before starting it.
+- While it is on screen, the app watches for the router's network on the
+  cable. The Connect screen says whether the router is there and, once the
+  user has connected with the password and trusted the router's key,
+  connects by itself when the router shows up. In step 2 the app goes on
+  to step 3 by itself when the router shows up. Each starts once each time
+  the router shows up, and only while the app is on screen: GrapheneOS
+  lets no new USB connection through while the phone is locked, and
+  Android lets an app in the background start no foreground service,
+  which a step needs. Any USB Ethernet device looks the same to Android,
+  but the app checks the router's key before it sends the password. The
+  app doesn't open by itself when the router is plugged in, since every
+  swap is a procedure the user goes through in the app (section 2).
+- Step 3 starts only on a router that has been switched off and on since
+  the shutdown before it. Before each shutdown the app notes the boot ID,
+  which Linux makes new at every power-on. Right after step 1 the router
+  stays on the cable for a while as it shuts down, and step 3 must not
+  start on it then: with the old card still in the tray, it would give
+  that card back its IMEIs, as if the user had kept it. The check also
+  catches a shutdown that didn't happen.
+- After the shutdown that ends steps 1 and 3, the app waits for the router
+  to leave the cable, and warns if it is still there after two minutes.
+  Leaving the cable only means that the router's network went: the router
+  shut down, or the cable came out, which the app can't tell apart. When
+  the phone loses the network during a shutdown is still to be measured.
+- If the cable comes out while the app works on the router, the app ends
+  its connection at once and says so. Otherwise a command would wait for
+  an answer until its timeout, minutes for some.
 - Each step says what to do, where, and why, so the rules don't depend on
   the user's memory.
 - Before each rotation the app checks the slot 2 setting, airplane mode, and

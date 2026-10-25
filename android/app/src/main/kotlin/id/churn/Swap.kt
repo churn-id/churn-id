@@ -20,7 +20,7 @@ enum class Step {
 /** What a step reports as it goes. */
 enum class Progress {
     AIRPLANE_MODE_ON, RADIO_OFF, THROWAWAY_IMEIS, SLOT2_ON_ESIM, NO_PROFILE, PROFILE_DISABLED, WAITING_FOR_START,
-    KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, NEW_IMEIS, CLEARING_HISTORY,
+    KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN,
 }
 
 /**
@@ -58,7 +58,19 @@ class Swap(
     }
 
     /** Ends steps 1 and 3. */
-    fun shutDown() = router.powerOff()
+    fun shutDown() {
+        router.powerOff()
+        report(Progress.SHUTTING_DOWN)
+    }
+
+    /** The ID of the router's current run, from power-on to shutdown, for [restartedSince]. */
+    fun bootId() = router.bootId()
+
+    /**
+     * Whether the router has been switched off and on since the run with [bootId], which the last shutdown ended;
+     * true without one. Until then the user can't have swapped the card.
+     */
+    fun restartedSince(bootId: String?) = bootId == null || router.bootId() != bootId
 
     /**
      * Step 3: slot 2 on the new card, which gets a pair of its own. The card in [record] keeps its pair. Any other
