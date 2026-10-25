@@ -561,12 +561,12 @@ and from the router screen while the log goes to the flash:
 3. It removes every card but the current one, at step 3 the new one, from
    GL's card files and the eSIM manager's records, and empties the eSIM
    manager's log.
-4. It overwrites the flash's free space with zeros. A deleted file stays
-   readable on the raw partition until something overwrites it: before the
-   clearing, the partition held 460 copies of an old card's ICCID, of
-   which only 270 were in files. The zeros stay, as files, apart from
-   512 MB of free space, so deleted data can only be in those 512 MB, and
-   the next overwrite fills only them.
+4. Except at setup, it overwrites the flash's free space with zeros. A
+   deleted file stays readable on the raw partition until something
+   overwrites it: before the clearing, the partition held 460 copies of an
+   old card's ICCID, of which only 270 were in files. The zeros stay, as
+   files, apart from 512 MB of free space, so deleted data can only be in
+   those 512 MB, and the next overwrite fills only them.
 
 Choices and their effects:
 
@@ -584,22 +584,31 @@ Choices and their effects:
   router's last write to `/etc`, and GL writes other files there every
   minute (verified with the SIM online; see "The router's own traffic"
   above).
-- Overwriting all 2.9 GB of free space took about 3 minutes on our
-  router, while the app keeps itself alive as during a swap step. Only the
-  first clearing, at setup, does that. Later ones fill the 512 MB that the
-  zero files leave free, which should take about half a minute (inferred
-  from the first one's speed). For the last seconds of an overwrite the
-  partition is full and GL can't save anything; GL's files stayed intact
-  in our test.
+- Overwriting all 2.9 GB of free space took about 3 minutes with our
+  script on our router, and close to 5 minutes in the app, which keeps
+  itself alive meanwhile as during a swap step. Only the first overwrite
+  does that. Later ones fill the 512 MB that the zero files leave free,
+  which should take under a minute (inferred from the first one's speed).
+  For the last seconds of an overwrite the partition is full and GL can't
+  save anything; GL's files stayed intact in our test.
+- Setup leaves the overwrite to the first swap's step 3, so that trying
+  the app doesn't begin with a wait of minutes. Step 3 waits for the
+  router to start anyway, and the router goes online only at step 4, at
+  another place and time, so the longer wait keeps nobody offline. Until
+  then, what setup deleted stays readable to whoever gets hold of the
+  router and reads its raw partition. Nothing is added to it while the
+  log is off, though, and until the first swap the router keeps its
+  factory IMEIs, which the networks have already seen with the cards it
+  used before Churn.
 - The zero files count as used storage, so `df` shows the partition about
   88% used (verified on a disk image), and 512 MB are left for GL and
   anything installed on the router. The restore script deletes them. If
-  they are gone, as after a factory reset, the next clearing fills all the
-  free space again.
+  they are gone, as after a factory reset, the next overwrite fills all
+  the free space again.
 - Our router's 7.8 GB flash rates its own wear in steps of 10%, and after
-  our tests it still reported under 10% used (verified). A clearing after
-  the first writes about 0.5 GB, so if each block takes 1,000 writes, a
-  step is about 1,400 clearings (inferred).
+  our tests it still reported under 10% used (verified). An overwrite
+  after the first writes about 0.5 GB, so if each block takes 1,000
+  writes, a step is about 1,400 overwrites (inferred).
 - The overwrite reaches what the flash's controller shows as the
   partition. The flash chips underneath may keep old data for a while
   beyond that, as flash memory does (inferred).

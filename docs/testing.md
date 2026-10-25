@@ -227,7 +227,7 @@ and 10.
 | The overwrite puts ext4's reserve back at its end, and a trap does when a signal stops it | verified; the trap on a disk image | Read `reserved_clusters` after a clearing | 2 |
 | GL's files stay valid while the overwrite fills the partition | verified once | GL's JSON files parse after a clearing | 2 |
 | The overwrite leaves all but 512 MB of the free space in `/overlay/churn-zeros`, so the next one fills only those 512 MB | verified on disk images | The free space and the folder after a clearing; `lifetime_write_kbytes` in `/sys/fs/ext4/mmcblk0p59/` before and after the next | 2 |
-| With the zero files in place, an overwrite takes about half a minute | inferred from the first overwrite's speed | Time a clearing from the router screen | 2 |
+| With the zero files in place, an overwrite takes under a minute | inferred from the first overwrite's speed | Time a clearing from the router screen | 2 |
 | The SSH connection stays open through the overwrite, which prints nothing for minutes | inferred | Clear the history from the router screen | 2 |
 | The flash rates its own wear, and reported under 10% used on our router after our tests | verified | `life_time` and `pre_eol_info` in `/sys/block/mmcblk0/device/`, recorded at every connection | 1 |
 | GL writes files in `/etc` every minute, so with the log's file off, the clock after a power-on still resumes from about the time of the power-off | verified with the SIM online | The files written in `/etc` within a minute, in airplane mode too | 1 |

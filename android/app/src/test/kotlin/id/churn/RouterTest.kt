@@ -125,6 +125,15 @@ class RouterTest {
     }
 
     @Test
+    fun clearsTheSimHistoryWithoutTheOverwriteIfAsked() {
+        fake.recordCards(OLD_CARD, CURRENT_CARD)
+        router.clearHistory(CURRENT_CARD, overwrite = false)
+        assertTrue(router.flashLogOff())
+        assertEquals(setOf(CURRENT_CARD), fake.cardsInSimMap)
+        assertFalse(fake.freeSpaceOverwritten)
+    }
+
+    @Test
     fun matchesTheCurrentCardWithOrWithoutItsTrailingF() {
         fake.recordCards(OLD_CARD, CURRENT_CARD)
         router.clearHistory(CURRENT_CARD.removeSuffix("F"))

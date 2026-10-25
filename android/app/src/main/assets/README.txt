@@ -22,12 +22,12 @@ Ethernet port.
 GL's system log records every SIM card's ICCID and IMSI and the cells it
 used. Churn turns off GL's copy of it in /etc/sys_log, so the log stays in
 memory and is gone at power-off. At setup and at every swap Churn also
-removes all but the current card from GL's records and overwrites the free
-space on the flash. It keeps the zeros it wrote as files in
-/overlay/churn-zeros, apart from 512 MB of free space, so that the next
-overwrite only has to fill those 512 MB. That folder is outside /etc, so
-firmware upgrades don't copy the zero files, and du or grep over /etc
-don't read them.
+removes all but the current card from GL's records, and at every swap it
+overwrites the free space on the flash. It keeps the zeros it wrote as
+files in /overlay/churn-zeros, apart from 512 MB of free space, so that
+the next overwrite only has to fill those 512 MB. That folder is outside
+/etc, so firmware upgrades don't copy the zero files, and du or grep over
+/etc don't read them.
 
 A factory reset deletes this folder, the rules and the zero files. Before
 one, and if you stop using Churn, write the factory IMEIs back over SSH:
