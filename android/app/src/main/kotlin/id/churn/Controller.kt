@@ -567,6 +567,7 @@ class Controller(private val context: Context) {
             Problem.NOT_STARTED -> R.string.problem_not_started
             Problem.KILL_SWITCH_OFF -> R.string.problem_kill_switch_off
             Problem.NO_VPN -> R.string.problem_no_vpn
+            Problem.VPN_GONE -> R.string.problem_vpn_gone
             Problem.FIREWALL_NOT_LOADED -> R.string.problem_firewall_not_loaded
         },
     )

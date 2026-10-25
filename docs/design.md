@@ -358,7 +358,8 @@ every boot:
    the new one, goes to a place that doesn't matter, and switches the router
    on. Only the eSIM's short bursts go out, with the throwaway IMEI and the
    near-generic test identity.
-3. Once the radio is off after the boot (section 6), the app turns GL's
+3. The app checks that a VPN is still set up (below). Once the radio is
+   off after the boot (section 6), it turns GL's
    Enhanced Kill Switch on if it is off and adds Churn's firewall rules if
    they are missing, then switches slot 2 to SIM 2 in airplane mode and
    reads the ICCID. Unless the card is the recorded one, the app switches
@@ -442,6 +443,15 @@ since step 3 replaces the record and may run more than once.
   checks both before it changes anything, since the screen may be minutes
   old. The app accepts only WireGuard tunnels, the only type we have
   tested.
+- Step 3 checks the VPN again, in case it was deleted since step 1, right
+  after it turns airplane mode on. Slot 2 is still on the built-in eSIM
+  then, so the step can stop and run again once a VPN is set up, without
+  another step 1 and another trip. With the old card out and the new one
+  off, the router has no internet over a SIM, so that VPN has to come from a
+  WireGuard configuration file. Step 3 is the swap's last look at the
+  router. A VPN deleted after it leaves the router without internet, not
+  with traffic past the VPN (inferred): Churn's firewall rules let only
+  WireGuard's packets out over the SIM and name no tunnel (below).
 - Step 3 is the last step before the router goes online, so that is where
   the app makes sure the Enhanced Kill Switch is on and Churn's firewall
   rules are in place (rule 5). Both take a reload, of the network or of

@@ -81,6 +81,9 @@ class Swap(
     fun giveNewImeis(factory: ImeiPair, record: Card?, places: PlaceCards, random: SecureRandom): Card? {
         // Before the wait, in case the user turned it off, so that the radio goes off after its burst at power-on.
         turnAirplaneModeOn()
+        // Rule 5, checked again in case the VPN was deleted since step 1. Slot 2 is still on the eSIM, so the step can
+        // stop here and run again once one is set up, and the user learns it before the wait.
+        if (!router.vpnSetUp()) throw RouterException(Problem.VPN_GONE)
         report(Progress.WAITING_FOR_START)
         // At every power-on the radio is on for some 12 s, ending 51 to 58 s after power-on in our measurements,
         // whatever airplane mode says (design.md, section 6). Slot 2 stays on the eSIM until well after that.

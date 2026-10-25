@@ -480,6 +480,25 @@ class SwapTest {
     }
 
     @Test
+    fun step3StopsWhileTheCardIsOffIfTheVpnIsGone() {
+        val throwaway = prepareAndRestart()
+        fake.vpnTunnel = null
+        progress.clear()
+        val changes = fake.changes.size
+        assertStops(Problem.VPN_GONE) { giveNewImeis() }
+        // Before the wait for the router to finish starting.
+        assertEquals(listOf(Progress.AIRPLANE_MODE_ON), progress)
+        assertEquals(changes, fake.changes.size)
+        assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
+        assertEquals(Slot2.ESIM, fake.slot2)
+        // Run again once a VPN is set up.
+        fake.vpnTunnel = "wgclient1"
+        val card = giveNewImeis()!!
+        assertEquals(card.imeis, ImeiPair(fake.imei1, fake.imei2))
+        assertSafe()
+    }
+
+    @Test
     fun step3ChangesNothingIfTheRouterDoesNotFinishStarting() {
         prepareAndRestart()
         fake.uptimeBroken = true
