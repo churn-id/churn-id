@@ -192,7 +192,7 @@ From development.md, "After power-on", and design.md, section 6.
 | Claim | Status | Check | Tier |
 | --- | --- | --- | --- |
 | The modem doesn't answer AT commands for a while after power-on | verified | Poll `/proc/uptime` and `AT+CFUN?` from the moment the app reconnects | 3 |
-| At every power-on the radio is on for about 12 s whatever airplane mode says, ending 58 s after power-on at the latest | verified | The end: when the polling above first sees `+CFUN: 4` (tier 3); the start and the length: RF meter (tier 4) | 3, 4 |
+| At every power-on the modem reports its radio on (`+CFUN: 1`) for about 12 s whatever airplane mode says, ending 58 s after power-on at the latest | verified | The polling above: `+CFUN: 1` while the modem answers that early, then the first `+CFUN: 4` | 3 |
 | 120 s after power-on, with `+CFUN: 4`, is a safe point for step 3 to change slot 2 | inferred | The end of the window above, on each firmware | 3 |
 | `poweroff` over SSH shuts the router down | verified | Steps 1 and 3 of a swap, or a tier 3 test that ends with it | 3 |
 | After `poweroff` the phone loses the router's network within 120 s, and only once the router is off | open | Steps 1 and 3 of a swap, watching the router's screen: the app shows the next step about when the screen goes dark | 3 |

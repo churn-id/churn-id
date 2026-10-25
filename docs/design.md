@@ -278,11 +278,15 @@ SDX75). Methods: a script on the router polling the modem's radio state once
 a second from boot; a broadband RF meter next to the router during boots;
 and AT commands sent over SSH.
 
-- **Radio on at boot, despite airplane mode.** With airplane mode on, the
-  modem reported its radio fully on for about 12 s before GL switched it to
-  airplane mode: 46 to 58 s after power-on with no SIM, 38 to 51 s with an
-  eSIM profile enabled. The modem didn't answer earlier, so the radio may
-  have been on before that.
+- **Airplane mode applies only after boot.** With airplane mode on, the
+  modem reported its radio switched on (`+CFUN: 1`) for about 12 s before
+  GL switched it to airplane mode (`+CFUN: 4`): 46 to 58 s after power-on
+  with slot 2 on the built-in eSIM and its profiles disabled, 38 to 51 s
+  with an eSIM profile enabled. The modem didn't answer earlier, so the
+  radio may have been on before that. A switched-on radio emits only what
+  the card makes it send: the RF meter showed only the eSIM's two short
+  bursts with its profiles disabled, and several seconds of RF with a
+  profile enabled (below).
 - **No SIM, no emission.** With slot 2 set to the physical SIM 2 and both
   trays empty, the meter showed no RF at boot, with airplane mode on or off.
 - **A SIM registers at every boot.** With an eSIM profile enabled, the meter
