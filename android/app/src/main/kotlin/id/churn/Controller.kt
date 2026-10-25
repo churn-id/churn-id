@@ -512,6 +512,7 @@ class Controller(private val context: Context) {
             disconnect()
             return context.getString(R.string.error_cable_lost)
         }
+        if (e is IOException) disconnect()
         return when (e) {
             is RouterException -> text(e.problem) + (e.detail?.let { "\n\n$it" } ?: "")
             is NoRouterNetwork -> context.getString(R.string.error_no_network)
@@ -522,8 +523,6 @@ class Controller(private val context: Context) {
                 context.getString(R.string.error_unreachable, saved.address)
             is IOException -> context.getString(R.string.error_connection, e.message ?: e.javaClass.simpleName)
             else -> context.getString(R.string.error_other, e.toString())
-        }.also {
-            if (e is IOException) disconnect()
         }
     }
 
