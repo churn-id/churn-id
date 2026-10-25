@@ -48,7 +48,10 @@ class RouterNetwork private constructor(
         false
     }
 
-    /** Runs [action] on a system thread once [network] has gone, or at once if it has. */
+    /**
+     * Has [action] run once [network] goes: on the thread on which Android reports network changes, or, if [network]
+     * has gone already, right away on the calling thread.
+     */
     fun whenLost(action: () -> Unit) {
         lost.thenRun(action)
     }
