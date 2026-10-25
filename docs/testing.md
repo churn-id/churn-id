@@ -199,11 +199,11 @@ From development.md, "After power-on", and design.md, section 6.
 | `/proc/sys/kernel/random/boot_id` holds a UUID that is new at every power-on | inferred | Read it (tier 1); read it again after a reboot (tier 3) | 1, blocks; 3 |
 | The router emits nothing while it shuts down in airplane mode, with slot 2 on the eSIM or on a card in the tray | verified | RF meter | 4 |
 | With both trays empty and slot 2 on the SIM 2 tray, a power-on emits nothing, with airplane mode on or off | verified | RF meter | 4 |
-| A card in slot 2 emits for several seconds at every power-on while slot 2 is set to it, whatever airplane mode and GL's switches say, slot 1 selected included | verified with an eSIM profile | RF meter | 4 |
+| A card in slot 2 emits for more than 8 s at every power-on while slot 2 is set to it, whatever airplane mode and GL's switches say, slot 1 selected included | verified with an eSIM profile | RF meter | 4 |
 | The built-in eSIM emits two short bursts at power-on even with no profile enabled | verified | RF meter | 4 |
 | An eSIM adapter card in the tray stays off at power-on while slot 2 is on the eSIM, and switching slot 2 to it afterwards in airplane mode emits nothing | verified | RF meter | 4 |
 | A normal SIM card does the same | open | RF meter | 4 |
-| A card in slot 1 emits for about 10 s at every power-on | verified | RF meter | 4 |
+| A card in slot 1 emits for more than 8 s at every power-on | verified | RF meter | 4 |
 | The modem can tell whether slot 1 holds a card | open | Read the modem's SIM status with a card in slot 1 | 4 |
 | The eSIM's test-network identity is the same, or nearly, on every unit | inferred | None: it needs a second router | – |
 
