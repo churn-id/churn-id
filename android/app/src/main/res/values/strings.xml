@@ -88,7 +88,7 @@
     <string name="sim_esim_profile">Slot 2 is on the built-in eSIM, with a profile enabled. Don\'t use the built-in eSIM (rule 4). Step 1 of the next swap disables the profile.</string>
     <string name="note_not_cards_imeis">These aren\'t IMEIs Churn gave the card in slot 2. The card registers with them at every power-on, probably at this one too, so the network can link it to whatever used them before: an earlier card, or the router itself if they\'re the factory IMEIs. Giving this card its own IMEIs now wouldn\'t undo that link, and the network would see its IMEI change, so swap it for a new card.</string>
     <string name="note_scheduled_reboot">GL\'s scheduled reboot is on. Turn it off in GL\'s web interface: a reboot is a power-on, so with a SIM inside it registers wherever it happens.</string>
-    <string name="note_no_vpn">No WireGuard VPN is set up on the router. Set one up in GL\'s web interface before you swap a SIM (rule 5). Churn doesn\'t support other VPN types yet.</string>
+    <string name="note_no_vpn">A swap needs a WireGuard VPN on the router, and none is set up. Set one up in GL\'s web interface (rule 5). Churn doesn\'t support other VPN types yet.</string>
     <string name="note_kill_switch">The Enhanced Kill Switch is off, so traffic can bypass the VPN (rule 5).</string>
     <string name="note_restored">The factory IMEIs are back, Churn\'s firewall rules and zero files are removed, GL\'s setting for saving the system log is as before, and airplane mode is on.</string>
     <string name="kill_switch_on">Turn the Enhanced Kill Switch on</string>

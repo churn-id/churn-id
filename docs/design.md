@@ -435,8 +435,10 @@ since step 3 replaces the record and may run more than once.
   checks that a VPN is set up (rule 5): with the Enhanced Kill Switch on, a
   router without one has no internet at all, which invites turning the
   switch off. Step 1 is where this check stops a swap, since the old card
-  is still there to reach the internet while the user sets one up. The
-  app accepts only WireGuard tunnels, the only type we have tested.
+  is still there to reach the internet while the user sets one up. While
+  none is set up, the router screen says that a swap needs one, so the
+  user learns it right after setup rather than at step 1. The app accepts
+  only WireGuard tunnels, the only type we have tested.
 - Step 3 is the last step before the router goes online, so that is where
   the app makes sure the Enhanced Kill Switch is on and Churn's firewall
   rules are in place (rule 5). Both take a reload, of the network or of
