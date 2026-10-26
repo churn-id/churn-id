@@ -724,12 +724,20 @@ Choices and their effects:
 
 ## 8. Usage rules
 
-The app shows these rules in this wording:
+The app and the README show these rules in this wording. Here, each is
+followed by its reason.
 
 Churn knows two kinds of cards. A travel card is used on the go and never
 again once you've swapped it out. A place card is a new card for one place
 you return to, other than home and work, and you use it there on every visit
 and nowhere else.
+
+Most rules close a way to tie SIMs together, or to the user, that new IMEIs
+leave open: a place, a device, account or identifier that goes along from
+one SIM to the next, a name, or the timing of a swap (section 1). Rules 1
+to 8 allow no compromise: breaking one undoes what Churn does or risks the
+router. Rules 9 to 14 make that harder still, and some say what to do when
+one can't be followed.
 
 Always follow these rules:
 
@@ -737,146 +745,175 @@ Always follow these rules:
    switched off or without a SIM, unless it holds that place's own place
    card or you're swapping out the card you used there. Use a place card
    nowhere else.
+
+   Why: a router with a SIM registers wherever it is switched on, even in
+   airplane mode, while one without a SIM stays silent (section 6). A place
+   the user returns to points to them, so a SIM that registers there is
+   tied to the user and to every other SIM used there.
+
+   Home and work point to the user most directly, and a phone with a SIM is
+   usually on there, right next to any card, so no card is used there. At
+   other places the user returns to, a place card is allowed: it ties only
+   the visits to its own place, where the user would otherwise go online
+   with their phone, whose SIM would tie those visits to the user and to
+   everywhere else they go.
+
+   Swapping out the card used at a place is safe there: until step 3 the
+   router keeps that card's IMEIs and the new card stays off (sections 4
+   and 7), so the swap shows that place nothing new. That covers a place
+   card at its own place, and home or work at the first swap if the router
+   was used there before Churn.
+
 2. Before you get to such a place, unplug everything and switch the router
    off.
+
+   Why: switching off before arriving keeps the router from ever
+   registering there. Unplugging also lets GL's auto power-off, if it is
+   set, switch off a router that someone forgot, since it fires only with
+   nothing connected (section 6). It is a safety net, not a replacement for
+   the rule.
+
 3. Connect to the router by cable only, and keep its Wi-Fi off.
+
+   Why: Wi-Fi broadcasts the router's network name and hardware address
+   wherever it goes. Anyone nearby can record them, and Wi-Fi location
+   databases learn them from the phones and laptops that see them, those
+   connected to the router included. The same name and address then tie
+   each SIM's places to the next SIM's. A cable broadcasts nothing.
+
 4. Use normal SIM cards, or eSIM adapter cards with one profile each, and
    put them only into SIM slot 2. Don't use the router's built-in eSIM.
+
+   Why: each part keeps an identifier from going out with more than one
+   SIM, or a SIM from registering before it has its IMEIs.
+
+   - The built-in eSIM's EID never changes and goes to the provider's
+     server with every profile download, which ties all its profiles
+     together. With a profile enabled, it also emits for more than 8 s at
+     every boot while slot 2 is set to it (section 6).
+   - An eSIM adapter card has an EID too, so a second profile on it would
+     be tied to the first.
+   - A card in slot 1 emits for more than 8 s at every boot, whatever the
+     settings. A card in slot 2 stays off until the app has written its
+     IMEIs (sections 6 and 7).
+
 5. Send all traffic through the router's VPN, and don't use the router
    without it.
+
+   Why: without a VPN, every service used through the router sees the
+   current SIM's IP address and logs it with the account, so one account
+   ties all SIMs together, as the IMEI would. The carrier also sees the
+   traffic, whose pattern can probably recognize the same devices across
+   SIMs (inferred). A VPN on the router covers every device behind it. The
+   app keeps traffic from going around it: it swaps only with a WireGuard
+   VPN set up, turns on GL's Enhanced Kill Switch, and adds firewall rules
+   that let nothing but the VPN use the SIM, the router's own traffic
+   included (section 7). Whether that also holds while the router boots is
+   open (section 10).
+
 6. Do not run the router without the battery installed.
+
+   Why: without the battery, unplugging the cable or a power cut switches
+   the router off at once, which risks file-system corruption.
+
 7. Before you leave a place you return to with the router, remove the SIM
    card or disable the eSIM profile in every phone, tablet, watch or laptop
    you carry, and keep it that way until you're back.
+
+   Why: a phone, or any other device with an active SIM, that travels with
+   the router is seen at the same cells as each of the router's SIMs.
+   Matching the two timelines ties every router SIM to the device, and
+   usually to its owner. Airplane mode only while the router is on isn't
+   enough: the device's last cell before it goes quiet and its first after
+   it comes back frame each of the router's sessions. Removing the SIM card
+   or disabling the eSIM profile is also safer than airplane mode, which
+   one tap undoes. We measured that a GrapheneOS phone transmits nothing
+   with its eSIM profile disabled, even with airplane mode off.
+
 8. Use the router only with devices that run Linux, or an Android system
    built for privacy, such as GrapheneOS. That rules out Windows, macOS,
    iPhones, iPads, Chromebooks and the Android that most phones and
    tablets come with.
+
+   Why: a device used with the router travels with it, and its accounts, or
+   the SIM it usually holds, tie it to its owner. If it tells its maker
+   where it is, that timeline matched against a carrier's records ties
+   every SIM the router used along the way (inferred). A closed-source
+   system can do so whatever its settings say, and nobody outside can check
+   what it sends. Linux, and Android systems built for privacy such as
+   GrapheneOS, are open source, so what they send can be checked. What is
+   known about the others:
+
+   - In 2017, Android phones sent the cells around them to Google with
+     location services off, even without a SIM and after a factory reset;
+     Google said it had discarded the data and would stop
+     ([Quartz](https://qz.com/1131515/google-collects-android-users-locations-even-when-location-services-are-disabled)).
+   - In 2021, an idle Pixel and an idle iPhone contacted Google and Apple
+     every 4.5 minutes on average and sent the IMEI, the hardware serial
+     number and the SIM's IMSI, even after the user opted out of telemetry
+     ([study](https://www.scss.tcd.ie/Doug.Leith/pubs/apple_google2.pdf)).
+   - With location services on, Windows sends the Wi-Fi networks and cells
+     around it to Microsoft, which says it removes what identifies the
+     device ([Microsoft](https://support.microsoft.com/help/4468240)), and
+     Windows Home and Pro can't turn off the diagnostic data they send
+     ([Microsoft](https://learn.microsoft.com/en-us/windows/privacy/configure-windows-diagnostic-data-in-your-organization)).
 
 For maximum privacy, also follow these rules where you can:
 
 <!-- markdownlint-disable MD029 -->
 9. Use SIM cards that aren't registered to your name. The same goes for
    eSIM profiles.
+
+   Why: a SIM or profile registered to a name ties every IMEI it is used
+   with, and every place, to that name. Churn can't undo that.
+
 10. Get each new SIM card or eSIM profile from a different provider than the
     last one and than your place cards. If you can't, start using the new
     one somewhere else and some days after you stopped using the last one.
+
+    Why: a provider that issues two consecutive profiles sees one Mudi 7
+    IMEI stop and another start, both with a rare TAC and possibly in the
+    same area, so timing and place could tie them together (inferred). A
+    different provider sees only one of them. A place card's provider sees
+    it stop at the end of every visit, so a new card from that provider
+    could be matched to it in the same way. Where the same provider can't
+    be avoided, a different place and a gap of some days make the stop and
+    the start harder to match.
+
 11. Don't reuse a travel card once you've swapped it out, and destroy it
     away from home. If you run out of new cards, keep using the current one
     until you get a new one.
+
+    Why: a travel card put back in brings back its IMSI and ICCID, which
+    ties its earlier use to today, and an eSIM adapter card brings back its
+    EID as well (rule 4). The router records only the current card, so the
+    old card also gets new IMEIs, which shows its issuer that the IMEI was
+    rewritten (section 4). Keeping the current card ties nothing new. A
+    used travel card found with the user ties them to its whole history, so
+    it is destroyed: cut through the chip, and for an eSIM adapter card the
+    adapter goes too, since its EID ties its profiles together (rule 4). A
+    place card is the one card that goes back in, at its own place only
+    (rule 1).
+
 12. Vary when you swap SIMs, and where you switch the radio on and off.
+
+    Why: regular habits, such as always swapping on the same day or at the
+    same station, can tie SIMs together without any identifier.
+
 13. Pay for the VPN in a way that isn't tied to your name.
+
+    Why: the VPN provider sees each SIM's IP address in turn, all under one
+    VPN account. If that account is tied to a name, so are all the SIMs.
+
 14. Block SIM slot 1, for example with a drop of hot glue.
+
+    Why: a card put into slot 1 by mistake emits at the next boot, wherever
+    that happens (rule 4). Step 3 stops if it finds a card there, but only
+    after that boot. A new card put there in a swap has then registered
+    where and when the old one went quiet, which ties the two, and at home,
+    at work or a place card's place it ties the new card to that place too.
+    A blocked slot rules the mistake out.
 <!-- markdownlint-enable MD029 -->
-
-Rules 1 to 8 allow no compromise: breaking one undoes what Churn does or
-risks the router. Rules 9 to 14 make linking harder still, and some say
-what to do when one can't be followed.
-
-Why:
-
-1. A router with a SIM registers at every power-on, before airplane mode
-   takes effect; a router without one is silent (section 6). Registrations
-   at a recurring place link every identity used there to that place. A
-   place card links only the visits to its own place, where the user would
-   otherwise go online with their phone, whose SIM ties such places together
-   and to the user. Home and work stay out: they point to the user most
-   directly, and a phone with a SIM is on there, right next to any card.
-   Swapping out the card used there is the exception: until step 3 the
-   router keeps that card's IMEIs and the new card stays off (sections 4
-   and 7), so the swap ties nothing new to that place. That covers a place
-   card at its own place, and home or work at the first swap if the router
-   was used there before Churn.
-2. Switching off before arriving means the router never registers there.
-   Unplugging also lets GL's auto power-off step in if someone forgets to
-   switch off, because it fires only with nothing connected. The app can
-   offer to set it to a few minutes at setup; it is a safety net, not a
-   replacement for the rule.
-3. Wi-Fi broadcasts the router's network name and hardware address wherever
-   it goes, which anyone nearby, and Wi-Fi location databases, can record
-   across SIM swaps. Phones and laptops connected to it report it to those
-   databases too. If the app could change both at every swap (section 10),
-   Wi-Fi after a swap would link nothing across swaps, and this rule could
-   allow it away from places the user returns to.
-4. The built-in eSIM's EID never changes and is reported to the provider's
-   server on every profile download, which links all its profiles. It also
-   emits at boot whenever slot 2 is set to it. An eSIM adapter card has an
-   EID too, so a second profile on it would be linked to the first. A card
-   in slot 1 emits for more than 8 s at every boot, whatever the settings,
-   while a card in slot 2 stays off until the app has written its IMEIs
-   (sections 6 and 7).
-5. Without a VPN, every service a device behind the router uses sees the
-   current SIM's IP address and logs it with the account, so one account
-   links all SIMs, as the IMEI would. The carrier also sees the traffic,
-   whose pattern can probably recognize the same devices across SIMs
-   (inferred). A VPN on the router covers every device behind it, and
-   Churn's firewall rules send the router's own traffic through it too. It
-   must block traffic while it is down, or a boot or a dropped tunnel leaks
-   (sections 7 and 10).
-6. Running without the battery risks file-system corruption on power loss.
-7. A phone, or any other device with an active SIM, that travels with the
-   router is seen at the same cells as each router SIM. Matching the two
-   timelines links every router SIM to the device, and usually to its
-   owner. Airplane mode only while the router is on isn't enough: the
-   device's last cell before it goes quiet and its first after it comes
-   back frame each router session. Removing the SIM card or disabling the
-   eSIM profile is also safer than airplane mode, which one tap undoes. We
-   measured that a GrapheneOS phone transmits nothing with its eSIM profile
-   disabled, even with airplane mode off.
-8. A phone, tablet or laptop used with the router travels with it, and an
-   account or the SIM it usually holds ties it to its owner. With location
-   services on, it gives Google, Apple or Microsoft a continuous timeline
-   of that account, built from GPS and the Wi-Fi networks and cells it
-   sees. Matched against the carrier's records, the timeline links every
-   SIM the router used along the way (inferred). Turning location services
-   off doesn't settle this, because the systems that talk to these
-   companies are closed source, so nobody outside can check what they
-   send. In 2017, Android phones sent the cells around them to Google with
-   location services off, even without a SIM and after a factory reset;
-   Google said it had discarded the data and would stop
-   ([Quartz](https://qz.com/1131515/google-collects-android-users-locations-even-when-location-services-are-disabled)).
-   In 2021, an idle Pixel and an idle iPhone contacted Google and Apple
-   every 4.5 minutes on average and sent the IMEI, the hardware serial
-   number and the SIM's IMSI, even after the user opted out of telemetry
-   ([study](https://www.scss.tcd.ie/Doug.Leith/pubs/apple_google2.pdf)).
-   With location services on, Windows sends the Wi-Fi networks and cells
-   around it to Microsoft, which says it removes what identifies the device
-   ([Microsoft](https://support.microsoft.com/help/4468240)), and Windows
-   Home and Pro can't turn off the diagnostic data they send
-   ([Microsoft](https://learn.microsoft.com/en-us/windows/privacy/configure-windows-diagnostic-data-in-your-organization)).
-   Linux, and Android systems built for privacy such as GrapheneOS, are
-   open source, so what they send can be checked.
-9. A SIM or profile registered to a name ties every IMEI it is used with to
-   that name. Churn can't undo that.
-10. A provider that issues two consecutive profiles sees one Mudi 7 IMEI
-    stop and another start, both with a rare TAC and possibly in the same
-    area. Timing and place could link them (inferred). A different
-    provider sees only one of them. A place card's provider sees it stop at
-    the end of every visit, so a new card from that provider could be
-    matched to it in the same way. Where the same provider can't be
-    avoided, a different place and a gap of some days make the stop and
-    the start harder to match.
-11. A reused SIM brings back its old IMSI and ICCID. A reused eSIM adapter
-    card brings back its EID, which links its profiles as in rule 4.
-    Keeping the current card links nothing new, while swapping back to an
-    old one links that card's earlier use to today. Done just as the current
-    card goes quiet, the swap could also link the two cards by timing
-    (inferred). A reused travel card also gets new IMEIs, which shows its
-    issuer that the IMEI was rewritten (section 4). A place card is reused
-    by design, at its own place only (rule 1). A used travel card found with
-    the user ties them to its whole history, so it is destroyed: cut
-    through the chip, and for an eSIM adapter card the adapter goes too,
-    since its EID links its profiles (rule 4).
-12. Regular habits, such as always swapping on the same day or at the same
-    station, can link identities without any identifier.
-13. The VPN provider sees each SIM's IP address in turn, all under one VPN
-    account. If that account is tied to a name, so are all the SIMs.
-14. A card put into slot 1 by mistake emits at the next boot, wherever
-    that happens (rule 4). A blocked slot rules that mistake out. Step 3
-    stops if it finds a card there, but only after that boot. A new card
-    put there in a swap has then registered where the old one went quiet,
-    which links the two, and at home, at work or a place card's place it
-    ties the new card to that place too.
 
 The app also tells the user, before first use, that rewriting an IMEI is a
 criminal offense in some countries, for example under the UK's Mobile
@@ -928,7 +965,9 @@ Hardware, other:
   the SIM the router sends nothing else (section 7).
 - Can the app give the router's Wi-Fi a new network name and hardware
   address at every swap? OpenWrt has a setting for each; GL's firmware
-  may override them.
+  may override them. If it can, Wi-Fi would tie nothing across swaps, and
+  rule 3 could allow it after a swap, away from places the user returns
+  to.
 - Does GL's firmware write its log file again once the restore script has
   put the setting back? The app turns it off the same way, which worked
   (section 7).
