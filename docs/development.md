@@ -354,6 +354,31 @@ Not used:
   interleave with its own (inferred). They stay a fallback if the API
   changes.
 
+## The SIM 1 tray
+
+Churn never uses slot 1, but a card in the SIM 1 tray registers at every
+power-on (design.md, section 6), so step 3 of the swap stops if the tray
+holds one. While slot 2 is the active slot, the modem still answers
+`AT+CPIN?` for the SIM 1 tray, sent the way the app reads slot 2's card
+but with `sub_id` 1 (verified, with airplane mode on and off):
+
+```sh
+ubus call modem.CPU.AT get_result_AT \
+  '{"cmd":"AT+CPIN?","sub_id":1,"source_flag":0,"timeout":30}'
+```
+
+| SIM 1 tray | `AT+CPIN?` | `AT+ICCID` |
+| --- | --- | --- |
+| Empty | `+CME ERROR: 10` (SIM not inserted) | `+CME ERROR: 13` |
+| A card | `+CPIN: READY` and `OK` | the card's ICCID |
+
+A card locked with a PIN answers `+CPIN: SIM PIN` instead
+(3GPP TS 27.007; untested), so the app counts any `+CPIN:` answer as a
+card. GL's `ubus call cellular.sim status` agreed, with an empty `iccid`
+and `status` 0 for slot 1 while the tray was empty, and the card's ICCID
+and `status` 5 while it held a card. `AT+QSIMSTAT?` answered `0,1` in
+every case, so it can't tell (all verified).
+
 ## Clearing the SIM history
 
 design.md, section 7, explains why the app clears what GL records of
@@ -471,8 +496,6 @@ asking. Step 3 of the swap changes nothing before `/proc/uptime` shows
   only once the router is off, and how long after `poweroff`.
 - Whether `/etc/init.d/network reload` interrupts the cable connection or
   turns the radio on, and whether `fw4 reload` does.
-- Whether the modem can tell that slot 1 holds a card, so the app can warn
-  the user.
 - Whether `logread` writes the log's file again once `restore.sh` has set
   `log_file` back and reloaded the log service.
 - Whether GL copes with card files that name no card, as they can after a

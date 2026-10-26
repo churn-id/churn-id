@@ -17,7 +17,7 @@ class Output(val status: Int?, val stdout: ByteArray, val stderr: String) {
 /** Why a step stopped. Nothing it did after the last confirmed answer is assumed done. */
 enum class Problem {
     UNEXPECTED_ANSWER, RADIO_ON, SCHEDULED_REBOOT, IMEIS_NOT_KEPT, SLOT_NOT_SWITCHED, PROFILE_STILL_ENABLED,
-    NO_CARD, CARD_CHANGED, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN, VPN_GONE, FIREWALL_NOT_LOADED,
+    NO_CARD, SIM1_CARD, CARD_CHANGED, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN, VPN_GONE, FIREWALL_NOT_LOADED,
 }
 
 /** [detail] is what the router said, for the log; it never holds a password. */
@@ -138,6 +138,17 @@ class Router(private val shell: Shell) {
         if (iccid in PLACEHOLDERS) return Slot2Card.NoProfile
         val imsi = slot2Imsi() ?: return null
         return if (imsi[0] in NO_NETWORK) Slot2Card.NoProfile else Slot2Card.Subscription(iccid)
+    }
+
+    /**
+     * Whether a card is in the SIM 1 tray, which Churn never uses. The modem answers for it while slot 2 is the
+     * active slot, in airplane mode too.
+     */
+    fun cardInSim1Tray(): Boolean {
+        val answer = atCard(slot = 1, "AT+CPIN?") ?: return false
+        // Any PIN state counts: a card locked with a PIN is in the tray all the same.
+        if (answer.after("+CPIN:") == null) throw unexpected("AT+CPIN?")
+        return true
     }
 
     /** Asks GL's eSIM manager to disable the profile with [iccid], given as [slot2Iccid] returns it. */
@@ -390,18 +401,24 @@ class Router(private val shell: Shell) {
         return AtAnswer.parse(output.text) ?: throw unexpected(command, output)
     }
 
-    /** An AT command to slot 2's card, sent the way GL's eSIM manager sends it. */
-    private fun atSlot2(command: String): AtAnswer {
-        require(command.matches(Regex("AT\\+[A-Z]+")))
-        val request = """{"cmd":"$command","sub_id":2,"source_flag":0,"timeout":30}"""
+    /**
+     * An AT command to the card in [slot], sent the way GL's eSIM manager sends it to slot 2's card; null if the modem
+     * reports no card there.
+     */
+    private fun atCard(slot: Int, command: String): AtAnswer? {
+        require(command.matches(Regex("AT\\+[A-Z]+\\??")))
+        val request = """{"cmd":"$command","sub_id":$slot,"source_flag":0,"timeout":30}"""
         val output = run(locked("ubus -t 35 call modem.CPU.AT get_result_AT ${quote(request)}"), timeoutSeconds = 45)
         val data = runCatching { JSONObject(output.text).getString("data") }.getOrNull()
-        return data?.let { AtAnswer.parse(it) } ?: throw unexpected(command, output)
+            ?: throw unexpected(command, output)
+        // 3GPP TS 27.007's error 10: SIM not inserted.
+        if (data.lines().any { it.trim() == "+CME ERROR: 10" }) return null
+        return AtAnswer.parse(data) ?: throw unexpected(command, output)
     }
 
     /** Null if slot 2's card doesn't answer [command]. A broken connection still throws. */
     private fun slot2Answer(command: String) = try {
-        atSlot2(command)
+        atCard(slot = 2, command)
     } catch (_: RouterException) {
         null
     }

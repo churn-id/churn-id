@@ -20,7 +20,8 @@ enum class Step {
 /** What a step reports as it goes. */
 enum class Progress {
     AIRPLANE_MODE_ON, RADIO_OFF, THROWAWAY_IMEIS, SLOT2_ON_ESIM, NO_PROFILE, PROFILE_DISABLED, WAITING_FOR_START,
-    KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN,
+    SIM1_EMPTY, KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, NEW_IMEIS, CLEARING_HISTORY,
+    SHUTTING_DOWN,
 }
 
 /**
@@ -91,6 +92,11 @@ class Swap(
             throw RouterException(Problem.NOT_STARTED)
         }
         waitForRadioOff()
+        // A card in the SIM 1 tray registers at every power-on, whatever airplane mode says (design.md, section 6), so
+        // at step 4 it would go out with the new card and link the two. Slot 2 is still on the eSIM, so the step can
+        // stop here and run again once the user has taken the card out.
+        if (router.cardInSim1Tray()) throw RouterException(Problem.SIM1_CARD)
+        report(Progress.SIM1_EMPTY)
         // Step 4 lets the router go online, so the Enhanced Kill Switch and Churn's firewall rules must be in place
         // by then (rule 5). Turning the switch on takes a network reload, and adding the rules a firewall reload.
         // Either might turn the radio on, so both come while slot 2 is still on the eSIM.

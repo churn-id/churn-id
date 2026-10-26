@@ -204,7 +204,7 @@ From development.md, "After power-on", and design.md, section 6.
 | An eSIM adapter card in the tray stays off at power-on while slot 2 is on the eSIM, and switching slot 2 to it afterwards in airplane mode emits nothing | verified | RF meter | 4 |
 | A normal SIM card does the same | open | RF meter | 4 |
 | A card in slot 1 emits for more than 8 s at every power-on | verified | RF meter | 4 |
-| The modem can tell whether slot 1 holds a card | open | Read the modem's SIM status with a card in slot 1 | 4 |
+| The modem tells whether the SIM 1 tray holds a card while slot 2 is the active slot, also in airplane mode | verified | Step 3 with a card in the SIM 1 tray stops before anything changes, and goes on once the card is out | 4 |
 | The eSIM's test-network identity is the same, or nearly, on every unit | inferred | None: it needs a second router | – |
 
 ## SIM history
