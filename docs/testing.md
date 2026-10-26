@@ -266,6 +266,7 @@ From design.md, sections 4 and 7.
 | A place card swapped back in gets the IMEIs it had at its earlier visits | inferred | Swap a place card out and back in, and compare the IMEIs on the router screen | 4 |
 | Step 4 says to destroy the card taken out, unless it is a place card or still in SIM 2 | inferred | Swap a travel card for a place card and back, and once keep the card | 4 |
 | Step 1 says that steps 1 to 3 can run at home or at work only while the router has its factory IMEIs | inferred | Begin a swap before the first swap and after it, and cancel it before Start | 4 |
+| A swap runs as usual when it starts with the SIM 2 tray empty, as rule 7 asks once the router has been switched off | inferred | Take the card out with the router off, switch it on and swap in a new card | 4 |
 | The router screen names the card in SIM 2: a place card by its name or digits, the recorded travel card by its digits, and with slot 2 on the built-in eSIM says the card is off | inferred | Open the router screen after step 4 with a place card and with a travel card, and after canceling at step 3's question | 4 |
 
 ## Beyond the router

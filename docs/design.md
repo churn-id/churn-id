@@ -38,9 +38,10 @@ after it.
   links it to earlier ones (section 5). A place card keeps its IMEIs for
   every visit to its place, and the phone, not the router, keeps them
   (section 4).
-- **The user handles:** time and place. A swap done where the old SIM was
-  last used, or a router that registers at home, links identities without
-  any IMEI. Section 8 lists the rules the app teaches for this.
+- **The user handles:** time and place. A new SIM that starts where and when
+  the old one went quiet, or a router that registers at home, links
+  identities without any IMEI. Section 8 lists the rules the app teaches for
+  this.
 - **The VPN handles:** the SIM's IP address. Without one, every service
   used through the router logs the current SIM's address with the account,
   so a single account links all SIMs (rule 5). All SIMs share one VPN
@@ -162,7 +163,7 @@ after a question (below) and replaces the record.
 
 A travel card used again after other cards therefore gets a new pair. Its
 issuer then sees its IMEI change, which shows that the IMEI was rewritten
-(section 5), but rule 7 already rules that out (section 8).
+(section 5), but rule 8 already rules that out (section 8).
 
 ### Place cards
 
@@ -406,11 +407,12 @@ every boot:
    that the radio is off, sets slot 2 to the built-in eSIM with no profile
    enabled and shuts the router down. The IMEIs stay the old card's until
    step 3 (section 4).
-2. With the router off, the user replaces the old SIM in slot 2's tray with
-   the new one and switches the router on where step 1 ran. Only the eSIM's
-   short bursts go out, with the generic test identity and likely without
-   the IMEIs. If they carry the IMEIs, those are the old card's, which show
-   nothing new where that card was in use until step 1 (section 4).
+2. With the router off, the user takes the old SIM out of slot 2's tray if
+   it is still there, puts the new one in and switches the router on where
+   step 1 ran. Only the eSIM's short bursts go out, with the generic test
+   identity and likely without the IMEIs. If they carry the IMEIs, those are
+   the old card's, which show nothing new where that card was in use until
+   step 1 (section 4).
 3. The app checks that a VPN is still set up (below). Once the radio is
    off after the boot (section 6), it checks that the SIM 1 tray is empty
    (below), turns GL's
@@ -429,7 +431,7 @@ every boot:
    turns airplane mode off there. The new card registers at that power-on,
    whatever airplane mode says (section 6). A place card is switched on at
    its own place only (rule 1). The app also tells the user to destroy the
-   card taken out, unless it is a place card or still in SIM 2 (rule 7).
+   card taken out, unless it is a place card or still in SIM 2 (rule 8).
 
 Step 3 ends with a shutdown, which emits nothing (section 6), rather than
 leaving the router on in airplane mode until the user goes online. The
@@ -487,7 +489,7 @@ since step 3 replaces the record and may run more than once.
 - When a swap starts on a router with its factory IMEIs, as the first one
   does, step 1 adds that steps 1 to 3 can run at home or at work if the
   router was used there before Churn: until step 3 the router keeps its
-  IMEIs, so the swap ties nothing new to that place (rule 1). The app goes
+  IMEIs, so the swap ties nothing new to that place (rule 7). The app goes
   by the IMEIs, not by a missing record, since a router whose folder was
   lost has no record but may still have a card's pair.
 - Before each rotation the app checks the slot 2 setting, airplane mode, and
@@ -669,7 +671,7 @@ Choices and their effects:
   it as new. It searches for a working APN once, trying the APNs it knows
   for the card's network until one works, and saves that one again
   (verified with the built-in eSIM's profile). An APN or PIN typed in by
-  hand has to be typed in again. Rule 7 makes this rare.
+  hand has to be typed in again. Rule 8 makes this rare.
 - At step 3 the card files may name no card at all until GL records the
   new card when it goes online. GL treats a card it hasn't seen as new
   anyway, so this changes nothing for it (inferred).
@@ -739,16 +741,15 @@ else.
 Each rule closes a way to tie cards together, or to the user, that new
 IMEIs leave open: a place, a device, account or identifier that goes along
 from one card to the next, a name, or the timing of a swap (section 1).
-Rules 1 to 7 allow no compromise: breaking one ties cards together or to
-the user, whatever the others do. Rules 8 to 12 make that harder still,
+Rules 1 to 8 allow no compromise: breaking one ties cards together or to
+the user, whatever the others do. Rules 9 to 13 make that harder still,
 and some say what to do when one can't be followed.
 
 Always follow these rules:
 
 1. Switch the router off before you get home, to work or to any other place
-   you return to, and keep it switched off or without a card there, unless
-   it holds that place's own place card or you're swapping out the card you
-   used there.
+   you return to, and keep it switched off or without a card there. The only
+   exception is a place card at its own place.
 
    Why: a router with a card registers wherever it is switched on, even in
    airplane mode, while one without a card stays silent (section 6). A
@@ -762,12 +763,6 @@ Always follow these rules:
    the visits to its own place, where the user would otherwise go online
    with their phone, whose SIM would tie those visits to the user and to
    everywhere else they go.
-
-   Swapping out the card used at a place is safe there: until step 3 the
-   router keeps that card's IMEIs and the new card stays off (sections 4
-   and 7), so the swap shows that place nothing new. That covers a place
-   card at its own place, and home or work at the first swap if the router
-   was used there before Churn.
 
 2. Before you leave home or work with the router, remove the SIM card or
    disable the eSIM profile in every phone, tablet, watch or laptop you
@@ -855,7 +850,42 @@ Always follow these rules:
      whatever the settings. A card in the SIM 2 tray stays off until the
      app has written its IMEIs (sections 6 and 7).
 
-7. Once you've swapped out a travel card, destroy it away from home. If you
+7. Start each swap right after you're done with the old card, before you
+   switch the router off. If you've switched it off already, take the old
+   card out before you switch it on again, and start the swap well away from
+   home, work and any other place you return to. Switch the new card on
+   later, and somewhere else.
+
+   Why: steps 1 to 3 never show the new card: it stays off until step 3 has
+   written its IMEIs, and first registers at step 4's power-on (sections 4
+   and 7). What they can show is the old card. Right after the user is done
+   with it, step 1 needs no power-on, and step 2's power-on, where step 1
+   ran, sends only the built-in eSIM's short bursts. These likely carry no
+   IMEI; if they do, which only 3G would allow, they carry the old card's,
+   which show nothing new where that card was just in use (section 4). So
+   steps 1 to 3 may run wherever the user was using the old card, a place
+   card's own place included. At the first swap, that can be home or work,
+   if the router was used there before Churn.
+
+   Once the router has been switched off, step 1 needs a power-on, and a
+   card in the router registers at every power-on, on any network
+   (section 6). The swap's place and time would then be the old card's last
+   sighting, and the new card's start would have to keep away from that as
+   well. Without the card, that power-on emits nothing (section 6), which
+   leaves only step 2's bursts. Those could carry the old card's IMEIs only
+   if a 3G network asks for them, and even then they show only the old card.
+   Away from the places that point to the user, that only adds a sighting to
+   the old card's history, and the new card's later start elsewhere keeps
+   the two apart. Sending users back to where the old card may be used would
+   be safer still, but few would go.
+
+   Step 4's power-on is the new card's first sighting. Where and when the
+   old card went quiet, one Mudi 7 IMEI stopping and another starting would
+   be easy to match, even across two carriers' records (section 1). Later
+   and somewhere else, the new card's start doesn't line up with the old
+   card's end.
+
+8. Once you've swapped out a travel card, destroy it away from home. If you
    run out of new cards, keep using the current one until you get a new
    one.
 
@@ -873,36 +903,36 @@ Always follow these rules:
 For maximum privacy, also follow these rules where you can:
 
 <!-- markdownlint-disable MD029 -->
-8. Use cards that aren't registered to your name.
+9. Use cards that aren't registered to your name.
 
    Why: a card registered to a name ties every IMEI it is used with, and
    every place, to that name. Churn can't undo that.
 
-9. Get each new card from a different provider than the last one and than
-   your place cards. If you can't, start using it somewhere else and some
-   days after you stopped using the last one.
+10. Get each new card from a different provider than the last one and than
+    your place cards. If you can't, start using it somewhere else and some
+    days after you stopped using the last one.
 
-   Why: a provider that issues two consecutive cards sees one Mudi 7 IMEI
-   stop and another start, both with a rare TAC and possibly in the same
-   area, so timing and place could tie them together (inferred). A
-   different provider sees only one of them. A place card's provider sees
-   it stop at the end of every visit, so a new card from that provider
-   could be matched to it in the same way. Where the same provider can't be
-   avoided, a different place and a gap of some days make the stop and the
-   start harder to match.
+    Why: a provider that issues two consecutive cards sees one Mudi 7 IMEI
+    stop and another start, both with a rare TAC and possibly in the same
+    area, so timing and place could tie them together (inferred). A
+    different provider sees only one of them. A place card's provider sees
+    it stop at the end of every visit, so a new card from that provider
+    could be matched to it in the same way. Where the same provider can't be
+    avoided, a different place and a gap of some days make the stop and the
+    start harder to match.
 
-10. Vary when you swap cards, and where you switch the radio on and off.
+11. Vary when you swap cards, and where you switch the radio on and off.
 
     Why: regular habits, such as always swapping on the same day or at the
     same station, can tie cards together without any identifier.
 
-11. Pay for the VPN in a way that isn't tied to your name.
+12. Pay for the VPN in a way that isn't tied to your name.
 
     Why: the VPN provider sees each card's IP address in turn, all under
     one VPN account. If that account is tied to a name, so are all the
     cards.
 
-12. Block the SIM 1 tray, for example with a drop of hot glue.
+13. Block the SIM 1 tray, for example with a drop of hot glue.
 
     Why: a card put into the SIM 1 tray by mistake emits at the next boot,
     wherever that happens (rule 6). Step 3 stops if it finds one, but only

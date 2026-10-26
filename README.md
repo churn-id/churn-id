@@ -117,9 +117,8 @@ else.
 Always follow these rules:
 
 1. Switch the router off before you get home, to work or to any other place
-   you return to, and keep it switched off or without a card there, unless
-   it holds that place's own place card or you're swapping out the card you
-   used there.
+   you return to, and keep it switched off or without a card there. The only
+   exception is a place card at its own place.
 2. Before you leave home or work with the router, remove the SIM card or
    disable the eSIM profile in every phone, tablet, watch or laptop you
    carry, and keep it that way until you're back home or at work.
@@ -132,20 +131,25 @@ Always follow these rules:
    without it.
 6. Put cards only into the SIM 2 tray, never put a second profile on an
    eSIM adapter card, and don't use the router's built-in eSIM.
-7. Once you've swapped out a travel card, destroy it away from home. If you
+7. Start each swap right after you're done with the old card, before you
+   switch the router off. If you've switched it off already, take the old
+   card out before you switch it on again, and start the swap well away from
+   home, work and any other place you return to. Switch the new card on
+   later, and somewhere else.
+8. Once you've swapped out a travel card, destroy it away from home. If you
    run out of new cards, keep using the current one until you get a new
    one.
 
 For maximum privacy, also follow these rules where you can:
 
 <!-- markdownlint-disable MD029 -->
-8. Use cards that aren't registered to your name.
-9. Get each new card from a different provider than the last one and than
-   your place cards. If you can't, start using it somewhere else and some
-   days after you stopped using the last one.
-10. Vary when you swap cards, and where you switch the radio on and off.
-11. Pay for the VPN in a way that isn't tied to your name.
-12. Block the SIM 1 tray, for example with a drop of hot glue.
+9. Use cards that aren't registered to your name.
+10. Get each new card from a different provider than the last one and than
+    your place cards. If you can't, start using it somewhere else and some
+    days after you stopped using the last one.
+11. Vary when you swap cards, and where you switch the radio on and off.
+12. Pay for the VPN in a way that isn't tied to your name.
+13. Block the SIM 1 tray, for example with a drop of hot glue.
 <!-- markdownlint-enable MD029 -->
 
 The reasons for each rule are in the
