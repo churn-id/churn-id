@@ -43,7 +43,7 @@ object Imei {
         return digits.takeIf { it.length in 18..20 && it.all { c -> c in '0'..'9' } }
     }
 
-    /** A random pair with the TACs and the spacing of the [factory] IMEIs: a new card's pair, or a throwaway pair. */
+    /** A random pair with the TACs and the spacing of the [factory] IMEIs: a new card's pair. */
     fun random(random: SecureRandom, factory: ImeiPair) = pair(factory, random.nextInt(range(factory)))
 
     /** `n`: how many values `s` can take so that both serials stay within 6 digits. */

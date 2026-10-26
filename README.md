@@ -113,7 +113,8 @@ Always follow these rules:
 
 1. At home, at work and anywhere else you return to, keep the router
    switched off or without a SIM, unless it holds that place's own place
-   card. Use a place card nowhere else.
+   card or you're swapping out the card you used there. Use a place card
+   nowhere else.
 2. Before you get to such a place, unplug everything and switch the router
    off.
 3. Connect to the router by cable only, and keep its Wi-Fi off.

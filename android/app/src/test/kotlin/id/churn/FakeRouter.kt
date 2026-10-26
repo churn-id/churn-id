@@ -25,9 +25,6 @@ class FakeRouter : Shell {
     /** For the radio that never turns off. */
     var radioStuckOn = false
 
-    /** For a radio that comes on again when the modem gets this AT command. */
-    var radioOnAfter: String? = null
-
     /** For a `/proc/uptime` that doesn't parse. */
     var uptimeBroken = false
 
@@ -274,7 +271,6 @@ class FakeRouter : Shell {
 
     private fun at(command: String): Output {
         if (!modemAnswers) return Output(1, ByteArray(0), "modem not ready")
-        if (command == radioOnAfter) radioStuckOn = true
         val imeiWrite = Regex("""AT\+EGMR=1,(7|11),"(\d{15})"""").matchEntire(command)
         return when {
             command == "AT+CFUN?" -> atOk("+CFUN: $radio")

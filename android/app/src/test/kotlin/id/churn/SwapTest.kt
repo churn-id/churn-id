@@ -35,12 +35,13 @@ class SwapTest {
     )
     private val factory = ImeiPair(fake.imei1, fake.imei2)
 
-    /** Step 1, the shutdown and the next power-on. Returns the throwaway pair. */
+    /** Step 1, the shutdown and the next power-on. Returns the IMEIs the router had, which stay until step 3. */
     private fun prepareAndRestart(): ImeiPair {
-        val throwaway = swap.prepare(factory, SecureRandom())
+        val oldImeis = ImeiPair(fake.imei1, fake.imei2)
+        swap.prepare()
         swap.shutDown()
         fake.boot()
-        return throwaway
+        return oldImeis
     }
 
     /** Step 3, with the record that the app reads first. Null if the user canceled. */
@@ -64,20 +65,14 @@ class SwapTest {
 
     @Test
     fun step1ParksSlot2OnTheEsimWithTheRadioOff() {
-        val throwaway = swap.prepare(factory, SecureRandom())
-        assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
-        assertNotEquals(factory, throwaway)
-        assertEquals(Imei.offset(factory), Imei.offset(throwaway))
+        swap.prepare()
         assertTrue(fake.airplaneMode)
         assertEquals(4, fake.radio)
         assertEquals(Slot2.ESIM, fake.slot2)
         assertNull(fake.esimProfile)
         assertSafe()
         assertEquals(
-            listOf(
-                Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.THROWAWAY_IMEIS, Progress.SLOT2_ON_ESIM,
-                Progress.PROFILE_DISABLED,
-            ),
+            listOf(Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.PROFILE_DISABLED),
             progress,
         )
         swap.shutDown()
@@ -87,7 +82,7 @@ class SwapTest {
 
     @Test
     fun step3StartsOnlyOnceTheRouterHasRestarted() {
-        swap.prepare(factory, SecureRandom())
+        swap.prepare()
         val bootId = swap.bootId()
         // Still shutting down after step 1, or not shut down at all.
         assertFalse(swap.restartedSince(bootId))
@@ -99,17 +94,16 @@ class SwapTest {
     }
 
     @Test
-    fun step1sThrowawayImeisOutlastTheShutdown() {
-        val throwaway = swap.prepare(factory, SecureRandom())
-        swap.shutDown()
-        fake.boot()
-        assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
+    fun step1LeavesTheImeisAsTheyAre() {
+        val oldImeis = prepareAndRestart()
+        assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
+        assertTrue(fake.commands.none { "AT+EGMR=1," in it })
     }
 
     @Test
     fun step1LeavesAnEsimWithoutProfileAsItIs() {
         fake.esimProfile = null
-        swap.prepare(factory, SecureRandom())
+        swap.prepare()
         assertTrue(Progress.NO_PROFILE in progress)
         assertTrue(fake.commands.none { "curl" in it })
         assertSafe()
@@ -118,7 +112,7 @@ class SwapTest {
     @Test
     fun step1ChangesNothingWhileTheScheduledRebootIsOn() {
         fake.scheduledReboot = true
-        assertStops(Problem.SCHEDULED_REBOOT) { swap.prepare(factory, SecureRandom()) }
+        assertStops(Problem.SCHEDULED_REBOOT) { swap.prepare() }
         assertEquals(emptyList<String>(), fake.changes)
         assertFalse(fake.airplaneMode)
     }
@@ -126,7 +120,7 @@ class SwapTest {
     @Test
     fun step1ChangesNothingWithoutAVpn() {
         fake.vpnTunnel = null
-        assertStops(Problem.NO_VPN) { swap.prepare(factory, SecureRandom()) }
+        assertStops(Problem.NO_VPN) { swap.prepare() }
         assertEquals(emptyList<String>(), fake.changes)
         assertFalse(fake.airplaneMode)
     }
@@ -134,28 +128,19 @@ class SwapTest {
     @Test
     fun step1ChangesNothingWhileTheRadioStaysOn() {
         fake.radioStuckOn = true
-        assertStops(Problem.RADIO_ON) { swap.prepare(factory, SecureRandom()) }
+        assertStops(Problem.RADIO_ON) { swap.prepare() }
         assertEquals(emptyList<String>(), fake.changes)
     }
 
     @Test
-    fun step1StopsIfTheRadioComesOnAfterTheThrowawayImeis() {
-        // Reading IMEI 2 back is the last command of the write.
-        fake.radioOnAfter = "AT+EGMR=0,11"
-        assertStops(Problem.RADIO_ON) { swap.prepare(factory, SecureRandom()) }
-        assertEquals(Slot2.SIM2, fake.slot2)
-        assertSafe()
-    }
-
-    @Test
     fun step3WritesTheNewCardsImeisOnceTheRadioIsOff() {
-        val throwaway = prepareAndRestart()
+        val oldImeis = prepareAndRestart()
         progress.clear()
         val card = giveNewImeis()!!
         assertEquals("8941000000000000015", card.iccid)
         assertTrue(Imei.isValid(card.imeis.imei1) && Imei.isValid(card.imeis.imei2))
         assertEquals(Imei.offset(factory), Imei.offset(card.imeis))
-        assertNotEquals(throwaway, card.imeis)
+        assertNotEquals(oldImeis, card.imeis)
         assertEquals(card.imeis, ImeiPair(fake.imei1, fake.imei2))
         assertEquals(card, record())
         assertEquals(Slot2.SIM2, fake.slot2)
@@ -394,11 +379,11 @@ class SwapTest {
     fun step3WritesNothingBeforeTheAnswer() {
         prepareAndRestart()
         val first = giveNewImeis()
-        val throwaway = prepareAndRestart()
+        val oldImeis = prepareAndRestart()
         fake.trayCard = OTHER_CARD
         whileAsked = {
             assertEquals(first, record())
-            assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
+            assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
             // So that the card stays off if the router is switched off and on before the answer.
             assertEquals(Slot2.ESIM, fake.slot2)
             assertSafe()
@@ -412,11 +397,11 @@ class SwapTest {
 
     @Test
     fun aNewPlaceCardJoinsThePlaceListBeforeItsImeisAreWritten() {
-        val throwaway = prepareAndRestart()
+        val oldImeis = prepareAndRestart()
         answer = Answer.PLACE_CARD
         fake.imeiWritesRefused = true
         assertStops(Problem.UNEXPECTED_ANSWER) { giveNewImeis() }
-        assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
+        assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
         assertEquals(listOf(PlaceCard(record()!!)), places.all)
     }
 
@@ -441,12 +426,12 @@ class SwapTest {
 
     @Test
     fun cancelingLeavesSlot2OnTheEsimAndWritesNothing() {
-        val throwaway = prepareAndRestart()
+        val oldImeis = prepareAndRestart()
         answer = Answer.CANCEL
         assertNull(giveNewImeis())
         // Before the shutdown, so that the card stays off at the next power-on.
         assertEquals(Slot2.ESIM, fake.slot2)
-        assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
+        assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
         assertNull(record())
         assertEquals(emptyList<PlaceCard>(), places.all)
         assertFalse(fake.freeSpaceOverwritten)
@@ -461,10 +446,10 @@ class SwapTest {
 
     @Test
     fun step3StopsIfTheCardChangesWhileItAsks() {
-        val throwaway = prepareAndRestart()
+        val oldImeis = prepareAndRestart()
         whileAsked = { fake.trayCard = OTHER_CARD }
         assertStops(Problem.CARD_CHANGED) { giveNewImeis() }
-        assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
+        assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
         assertNull(record())
         assertEquals(Slot2.ESIM, fake.slot2)
         assertSafe()
@@ -482,7 +467,7 @@ class SwapTest {
 
     @Test
     fun step3StopsWhileTheCardIsOffIfTheVpnIsGone() {
-        val throwaway = prepareAndRestart()
+        val oldImeis = prepareAndRestart()
         fake.vpnTunnel = null
         progress.clear()
         val changes = fake.changes.size
@@ -490,7 +475,7 @@ class SwapTest {
         // Before the wait for the router to finish starting.
         assertEquals(listOf(Progress.AIRPLANE_MODE_ON), progress)
         assertEquals(changes, fake.changes.size)
-        assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
+        assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
         assertEquals(Slot2.ESIM, fake.slot2)
         // Run again once a VPN is set up.
         fake.vpnTunnel = "wgclient1"
@@ -501,7 +486,7 @@ class SwapTest {
 
     @Test
     fun step3StopsWhileTheCardIsOffIfTheSim1TrayHoldsACard() {
-        val throwaway = prepareAndRestart()
+        val oldImeis = prepareAndRestart()
         fake.tray1Card = OTHER_CARD
         progress.clear()
         val changes = fake.changes.size
@@ -509,7 +494,7 @@ class SwapTest {
         // Once the router has finished starting, before anything changes.
         assertEquals(listOf(Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF), progress)
         assertEquals(changes, fake.changes.size)
-        assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
+        assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
         assertEquals(Slot2.ESIM, fake.slot2)
         assertNull(record())
         // Run again once the user has switched the router off, taken the card out and switched it on.
@@ -532,8 +517,8 @@ class SwapTest {
 
     @Test
     fun stepsCanRunAgain() {
-        swap.prepare(factory, SecureRandom())
-        swap.prepare(factory, SecureRandom())
+        swap.prepare()
+        swap.prepare()
         swap.shutDown()
         fake.boot()
         val card = giveNewImeis()
@@ -542,7 +527,7 @@ class SwapTest {
     }
 
     @Test
-    fun keepingTheOldCardGivesItsImeisBack() {
+    fun keepingTheOldCardKeepsItsImeis() {
         prepareAndRestart()
         val first = giveNewImeis()
         prepareAndRestart()

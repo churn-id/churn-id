@@ -7,7 +7,7 @@ enum class Step {
     /** 1: the app parks slot 2 on the built-in eSIM and shuts the router down. */
     PREPARE,
 
-    /** 2: the user swaps the card, goes elsewhere and switches the router on. */
+    /** 2: the user swaps the card and switches the router on where step 1 ran. */
     SWAP_CARD,
 
     /** 3: the app gives the new card its IMEIs and shuts the router down. */
@@ -19,9 +19,8 @@ enum class Step {
 
 /** What a step reports as it goes. */
 enum class Progress {
-    AIRPLANE_MODE_ON, RADIO_OFF, THROWAWAY_IMEIS, SLOT2_ON_ESIM, NO_PROFILE, PROFILE_DISABLED, WAITING_FOR_START,
-    SIM1_EMPTY, KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, NEW_IMEIS, CLEARING_HISTORY,
-    SHUTTING_DOWN,
+    AIRPLANE_MODE_ON, RADIO_OFF, SLOT2_ON_ESIM, NO_PROFILE, PROFILE_DISABLED, WAITING_FOR_START, SIM1_EMPTY,
+    KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN,
 }
 
 /**
@@ -37,25 +36,20 @@ class Swap(
 ) {
 
     /**
-     * Step 1, up to the shutdown: radio off, a throwaway pair, slot 2 on the built-in eSIM with no profile
-     * enabled. Returns the throwaway pair.
+     * Step 1, up to the shutdown: radio off, slot 2 on the built-in eSIM with no profile enabled. The IMEIs stay the
+     * old card's until step 3 (design.md, section 4).
      */
-    fun prepare(factory: ImeiPair, random: SecureRandom): ImeiPair {
+    fun prepare() {
         // A reboot is a power-on, so with a SIM inside it registers wherever it happens.
         if (router.scheduledReboot()) throw RouterException(Problem.SCHEDULED_REBOOT)
         // Rule 5. Checked before anything changes, while the old card can still reach the internet to set one up.
         if (!router.vpnSetUp()) throw RouterException(Problem.NO_VPN)
         turnAirplaneModeOn()
         waitForRadioOff()
-        val throwaway = Imei.random(random, factory)
-        router.writeImeis(throwaway)
-        checkRadioOff()
-        report(Progress.THROWAWAY_IMEIS)
         setSlot2(Slot2.ESIM)
         report(Progress.SLOT2_ON_ESIM)
         disableEsimProfile()
         checkRadioOff()
-        return throwaway
     }
 
     /** Ends steps 1 and 3. */

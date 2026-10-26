@@ -202,10 +202,13 @@ From development.md, "After power-on", and design.md, section 6.
 | A card in slot 2 emits for more than 8 s at every power-on while slot 2 is set to it, whatever airplane mode and GL's switches say, slot 1 selected included | verified with an eSIM profile | RF meter | 4 |
 | The built-in eSIM emits one or two short bursts at power-on even with no profile enabled | verified | RF meter | 4 |
 | An eSIM adapter card in the tray stays off at power-on while slot 2 is on the eSIM, and switching slot 2 to it afterwards in airplane mode emits nothing | verified | RF meter | 4 |
-| A normal SIM card does the same | open | RF meter | 4 |
+| A normal SIM card in the tray stays off at power-on the same way | verified | RF meter | 4 |
+| Switching slot 2 to a normal SIM card afterwards in airplane mode emits nothing | inferred | RF meter during step 3 | 4 |
 | A card in slot 1 emits for more than 8 s at every power-on | verified | RF meter | 4 |
 | The modem tells whether the SIM 1 tray holds a card while slot 2 is the active slot, also in airplane mode | verified | Step 3 with a card in the SIM 1 tray stops before anything changes, and goes on once the card is out | 4 |
-| The eSIM's test-network identity is the same, or nearly, on every unit | inferred | None: it needs a second router | – |
+| With no profile enabled, the eSIM shows GSMA TS.48's generic test profile, IMSI `001010123456063` | verified | Read the IMSI after step 1 | 1 |
+| Every unit shows that test profile | inferred | None: it needs a second router | – |
+| The eSIM's short bursts carry no IMEI over LTE and 5G, where a device gives it only once the network has authenticated it, which no network can do for the test profile | inferred | None known: it needs the network's side | – |
 
 ## SIM history
 
