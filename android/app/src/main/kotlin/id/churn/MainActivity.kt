@@ -302,6 +302,7 @@ class MainActivity : Activity() {
         val always = resources.getStringArray(R.array.rules_always)
         val whereYouCan = resources.getStringArray(R.array.rules_where_you_can)
         return buildString {
+            append(getString(R.string.rules_intro)).append("\n\n")
             append(getString(R.string.rules_card_kinds)).append("\n\n")
             append(getString(R.string.rules_always_heading))
             always.forEachIndexed { i, rule -> append("\n\n${i + 1}. $rule") }
