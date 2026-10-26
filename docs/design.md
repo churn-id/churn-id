@@ -236,7 +236,8 @@ We rejected a throwaway pair, drawn like a card's pair and written in step
   card that was in use until step 1 registers as before.
 - A new card put into the SIM 1 tray by mistake registers at that power-on
   either way, where and when the old card went quiet, which links the two.
-  A throwaway pair doesn't prevent that.
+  A throwaway pair doesn't prevent that, so step 3 tells the user to use
+  another new card (section 7).
 
 ## 5. Storage on the router
 
@@ -515,7 +516,9 @@ since step 3 replaces the record and may run more than once.
   still on the built-in eSIM, so the step runs again once the user has
   switched the router off and taken the card out. The check also catches a
   new card put into the wrong tray, with a clearer message than the one for
-  an empty SIM 2 tray.
+  an empty SIM 2 tray. Such a card has registered where and when the old
+  one went quiet, which links the two, so the message also says to use
+  another new card in that case.
 - Step 3 is the last step before the router goes online, so that is where
   the app makes sure the Enhanced Kill Switch is on and Churn's firewall
   rules are in place (rule 5). Both take a reload, of the network or of
