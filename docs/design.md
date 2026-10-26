@@ -869,17 +869,18 @@ Always follow these rules:
    first swap, that can be home or work, if the router was used there before
    Churn.
 
-   Once the router has been switched off, step 1 needs a power-on, and a
-   card in the router registers at every power-on, on any network
-   (section 6). The swap's place and time would then be the old card's last
+   If the user switched the router off without starting the swap, for
+   example because they forgot, step 1 needs a power-on, and a card in the
+   router registers at every power-on, on any network (section 6). With the
+   old card still in, the swap's place and time would be that card's last
    sighting, and the new card's start would have to keep away from that as
-   well. Without the card, that power-on emits nothing (section 6), which
-   leaves only step 2's bursts. Those could carry the old card's IMEIs only
-   if a 3G network asks for them, and even then they show only the old card.
-   Away from the places that point to the user, that only adds a sighting to
-   the old card's history, and the new card's later start elsewhere keeps
-   the two apart. Sending users back to where the old card may be used would
-   be safer still, but few would go.
+   well. With the old card out, that power-on emits nothing (section 6),
+   which leaves only step 2's bursts. Those could carry the old card's IMEIs
+   only if a 3G network asks for them, and even then they show only the old
+   card. Away from the places that point to the user, that only adds a
+   sighting to the old card's history, and the new card's later start
+   elsewhere keeps the two apart. Sending users back to where the old card
+   may be used would be safer still, but few would go.
 
    Step 4's power-on is the new card's first sighting. Where and when the
    old card went quiet, one Mudi 7 IMEI stopping and another starting would
