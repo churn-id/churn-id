@@ -9,8 +9,8 @@ IMEIs with every SIM swap: https://github.com/churn-id/churn-id
               gave that card
   log_file    the file GL's system log went to before Churn turned that off
   restore.sh  writes the factory IMEIs back, deletes card, puts GL's log
-              setting back, deletes Churn's zero files and removes Churn's
-              firewall rules
+              setting back, deletes Churn's zero files, removes Churn's
+              firewall rules and, last, deletes this folder
   zeros       a link to /overlay/churn-zeros, where Churn keeps its zero
               files (below)
 
@@ -34,7 +34,9 @@ one, and if you stop using Churn, write the factory IMEIs back over SSH:
 
   sh /etc/churn/restore.sh
 
-The script turns airplane mode on first and works without the app.
+The script turns airplane mode on first and works without the app. Once
+it has undone everything else, it deletes this folder and its line in
+/etc/sysupgrade.conf, so the app treats the router as new.
 
 Firmware upgrades that keep settings keep this folder and the rules,
 because Churn lists both in /etc/sysupgrade.conf.
