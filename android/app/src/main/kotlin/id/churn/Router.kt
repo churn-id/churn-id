@@ -390,10 +390,10 @@ class Router(private val shell: Shell) {
         return AtAnswer.parse(output.text) ?: throw unexpected(command, output)
     }
 
-    /** An AT command to slot 2's card, sent the way GL's eSIM manager sends it. */
-    private fun atSlot2(command: String): AtAnswer {
+    /** An AT command to the card in [slot], sent the way GL's eSIM manager sends it to slot 2's card. */
+    private fun atCard(slot: Int, command: String): AtAnswer {
         require(command.matches(Regex("AT\\+[A-Z]+")))
-        val request = """{"cmd":"$command","sub_id":2,"source_flag":0,"timeout":30}"""
+        val request = """{"cmd":"$command","sub_id":$slot,"source_flag":0,"timeout":30}"""
         val output = run(locked("ubus -t 35 call modem.CPU.AT get_result_AT ${quote(request)}"), timeoutSeconds = 45)
         val data = runCatching { JSONObject(output.text).getString("data") }.getOrNull()
         return data?.let { AtAnswer.parse(it) } ?: throw unexpected(command, output)
@@ -401,7 +401,7 @@ class Router(private val shell: Shell) {
 
     /** Null if slot 2's card doesn't answer [command]. A broken connection still throws. */
     private fun slot2Answer(command: String) = try {
-        atSlot2(command)
+        atCard(slot = 2, command)
     } catch (_: RouterException) {
         null
     }
