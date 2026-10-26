@@ -62,6 +62,14 @@ class Saved(context: Context) {
         get() = preferences.getString(CARD_BEFORE_SWAP, null)
         set(value) = save { putString(CARD_BEFORE_SWAP, value) }
 
+    /**
+     * Whether the swap began on a router with its factory IMEIs, as the first swap does. Step 1 then says that steps 1
+     * to 3 can run at home or at work if the router was used there before Churn (design.md, section 7).
+     */
+    var firstSwap: Boolean
+        get() = preferences.getBoolean(FIRST_SWAP, false)
+        set(value) = save { putBoolean(FIRST_SWAP, value) }
+
     /** Whether step 3 gave a place card its IMEIs, which step 4 tells the user to use only at its place. */
     var placeCardIn: Boolean
         get() = preferences.getBoolean(PLACE_CARD_IN, false)
@@ -101,6 +109,7 @@ class Saved(context: Context) {
         const val FACTORY_2 = "factory_imei2"
         const val PLACE_CARDS = "place_cards"
         const val CARD_BEFORE_SWAP = "card_before_swap"
+        const val FIRST_SWAP = "first_swap"
         const val PLACE_CARD_IN = "place_card_in"
         const val CARD_TO_DESTROY = "card_to_destroy"
         const val BOOT_ID = "boot_id"

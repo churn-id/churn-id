@@ -126,6 +126,7 @@
     <string name="step_number">Step %1$d of 4</string>
     <string name="step1_title">Prepare the router</string>
     <string name="step1_text">Churn turns airplane mode on, sets slot 2 to the built-in eSIM with no profile enabled, and shuts the router down. Keep the cable connected until the router is off. Have the new card with you: in step 2 you switch the router on again here.\n\nWhy: a card in slot 2 registers at every power-on, whatever airplane mode says, so the new card must stay off until it has its own IMEIs. While slot 2 is on the built-in eSIM, the card in the SIM 2 tray stays off.</string>
+    <string name="step1_first_swap">The router still has its factory IMEIs, as at your first swap. If you used it at home or at work before Churn, you can run steps 1 to 3 there: the router keeps those IMEIs until step 3, and the new card stays off. Step 4 still happens at another place.</string>
     <string name="step1_charger">\"Power On with Charger\" is off in GL\'s settings. Otherwise plugging in a charger switches the router on, wherever you are.</string>
     <string name="step1_start">Start</string>
     <string name="step2_title">Swap the card</string>

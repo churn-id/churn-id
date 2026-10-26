@@ -485,6 +485,12 @@ since step 3 replaces the record and may run more than once.
   an answer until its timeout, minutes for some.
 - Each step says what to do, where, and why, so the rules don't depend on
   the user's memory.
+- When a swap starts on a router with its factory IMEIs, as the first one
+  does, step 1 adds that steps 1 to 3 can run at home or at work if the
+  router was used there before Churn: until step 3 the router keeps its
+  IMEIs, so the swap ties nothing new to that place (rule 1). The app goes
+  by the IMEIs, not by a missing record, since a router whose folder was
+  lost has no record but may still have a card's pair.
 - Before each rotation the app checks the slot 2 setting, airplane mode, and
   that "Power On with Charger" and GL's scheduled reboot are off. A reboot
   is a power-on, so wherever it happens, the SIM registers there. It also

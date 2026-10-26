@@ -109,6 +109,9 @@ class Controller(private val context: Context) {
     val address get() = saved.address
     val hasPassword get() = saved.sealedPassword != null
 
+    /** Whether step 1 says that a first swap can run at home or at work. */
+    val firstSwap get() = saved.firstSwap
+
     /** What step 4 says: whether the new card is a place card, and the last digits of the card to destroy. */
     val placeCardIn get() = saved.placeCardIn
     val cardToDestroy get() = saved.cardToDestroy
@@ -229,7 +232,11 @@ class Controller(private val context: Context) {
         (screen as? Screen.Home)?.let { show(it.copy(places = saved.placeCards.all)) }
     }
 
-    fun beginSwap() = show(Screen.Swapping(Step.PREPARE))
+    /** Starts a swap from the router screen, whose [status] tells whether the router still has its factory IMEIs. */
+    fun beginSwap(status: RouterStatus) {
+        saved.firstSwap = status.imeis == status.factory
+        show(Screen.Swapping(Step.PREPARE))
+    }
 
     fun cancelSwap() {
         saved.step = null

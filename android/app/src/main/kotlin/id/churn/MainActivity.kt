@@ -155,7 +155,7 @@ class MainActivity : Activity() {
         }
         // Off while step 1 would refuse to start, as the notes above say. Step 1 checks again, since this screen may be
         // minutes old.
-        button(R.string.swap) { controller.beginSwap() }.isEnabled = status.vpnSetUp && !status.scheduledReboot
+        button(R.string.swap) { controller.beginSwap(status) }.isEnabled = status.vpnSetUp && !status.scheduledReboot
         button(R.string.refresh) { controller.refresh() }
         button(R.string.show_rules) { showRules() }
         button(R.string.restore) {
@@ -183,6 +183,7 @@ class MainActivity : Activity() {
             return@page
         }
         paragraph(getString(text))
+        if (screen.step == Step.PREPARE && controller.firstSwap) paragraph(getString(R.string.step1_first_swap))
         val destroy = controller.cardToDestroy
         if (screen.step == Step.GO_ONLINE && destroy != null) paragraph(getString(R.string.step4_destroy, destroy))
         screen.log.forEach { paragraph("✓ $it") }
