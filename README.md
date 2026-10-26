@@ -120,9 +120,9 @@ Always follow these rules:
    you return to, and keep it switched off or without a card there, unless
    it holds that place's own place card or you're swapping out the card you
    used there.
-2. Before you leave such a place with the router, remove the SIM card or
+2. Before you leave home or work with the router, remove the SIM card or
    disable the eSIM profile in every phone, tablet, watch or laptop you
-   carry, and keep it that way until you're back.
+   carry, and keep it that way until you're back home or at work.
 3. Use the router only with devices that run Linux, or an Android system
    built for privacy, such as GrapheneOS. That rules out Windows, macOS,
    iPhones, iPads, Chromebooks and the Android that most phones and

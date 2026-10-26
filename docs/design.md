@@ -769,9 +769,9 @@ Always follow these rules:
    card at its own place, and home or work at the first swap if the router
    was used there before Churn.
 
-2. Before you leave such a place with the router, remove the SIM card or
+2. Before you leave home or work with the router, remove the SIM card or
    disable the eSIM profile in every phone, tablet, watch or laptop you
-   carry, and keep it that way until you're back.
+   carry, and keep it that way until you're back home or at work.
 
    Why: a phone, or any other device with an active SIM, that travels with
    the router is seen at the same cells as each of the router's cards.
@@ -782,6 +782,12 @@ Always follow these rules:
    disabling the eSIM profile is also safer than airplane mode, which one
    tap undoes. We measured that a GrapheneOS phone transmits nothing with
    its eSIM profile disabled, even with airplane mode off.
+
+   Only getting back home or to work ends this. At a place card's place, a
+   device with its SIM on would be seen at the same cells and times as the
+   place card, which ties the card to the device and so to its owner.
+   Anywhere else, each time the device comes back on during a trip frames
+   the router's sessions more tightly.
 
 3. Use the router only with devices that run Linux, or an Android system
    built for privacy, such as GrapheneOS. That rules out Windows, macOS,
