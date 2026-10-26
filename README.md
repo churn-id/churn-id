@@ -104,47 +104,48 @@ work on its own.
 
 ## Rules
 
-Churn knows two kinds of cards. A travel card is used on the go and never
-again once you've swapped it out. A place card is a new card for one place
-you return to, other than home and work, and you use it there on every visit
-and nowhere else.
+Each card's network records where and when the card was used. Churn's new
+IMEIs keep these records apart, and the rules keep everything else from
+tying them to each other or to you.
+
+A card here is a normal SIM card or an eSIM adapter card, and Churn knows
+two kinds. A travel card is used on the go and never again once you've
+swapped it out. A place card is a new card for one place you return to,
+other than home and work, and you use it there on every visit and nowhere
+else.
 
 Always follow these rules:
 
-1. At home, at work and anywhere else you return to, keep the router
-   switched off or without a SIM, unless it holds that place's own place
-   card or you're swapping out the card you used there. Use a place card
-   nowhere else.
-2. Before you get to such a place, unplug everything and switch the router
-   off.
-3. Connect to the router by cable only, and keep its Wi-Fi off.
-4. Use normal SIM cards, or eSIM adapter cards with one profile each, and
-   put them only into SIM slot 2. Don't use the router's built-in eSIM.
-5. Send all traffic through the router's VPN, and don't use the router
-   without it.
-6. Do not run the router without the battery installed.
-7. Before you leave a place you return to with the router, remove the SIM
-   card or disable the eSIM profile in every phone, tablet, watch or laptop
-   you carry, and keep it that way until you're back.
-8. Use the router only with devices that run Linux, or an Android system
+1. Switch the router off before you get home, to work or to any other place
+   you return to, and keep it switched off or without a card there, unless
+   it holds that place's own place card or you're swapping out the card you
+   used there.
+2. Before you leave such a place with the router, remove the SIM card or
+   disable the eSIM profile in every phone, tablet, watch or laptop you
+   carry, and keep it that way until you're back.
+3. Use the router only with devices that run Linux, or an Android system
    built for privacy, such as GrapheneOS. That rules out Windows, macOS,
    iPhones, iPads, Chromebooks and the Android that most phones and
    tablets come with.
+4. Connect to the router by cable only, and keep its Wi-Fi off.
+5. Send all traffic through the router's VPN, and don't use the router
+   without it.
+6. Put cards only into the SIM 2 tray, never put a second profile on an
+   eSIM adapter card, and don't use the router's built-in eSIM.
+7. Once you've swapped out a travel card, destroy it away from home. If you
+   run out of new cards, keep using the current one until you get a new
+   one.
 
 For maximum privacy, also follow these rules where you can:
 
 <!-- markdownlint-disable MD029 -->
-9. Use SIM cards that aren't registered to your name. The same goes for
-   eSIM profiles.
-10. Get each new SIM card or eSIM profile from a different provider than the
-    last one and than your place cards. If you can't, start using the new
-    one somewhere else and some days after you stopped using the last one.
-11. Don't reuse a travel card once you've swapped it out, and destroy it
-    away from home. If you run out of new cards, keep using the current one
-    until you get a new one.
-12. Vary when you swap SIMs, and where you switch the radio on and off.
-13. Pay for the VPN in a way that isn't tied to your name.
-14. Block SIM slot 1, for example with a drop of hot glue.
+8. Use cards that aren't registered to your name.
+9. Get each new card from a different provider than the last one and than
+   your place cards. If you can't, start using it somewhere else and some
+   days after you stopped using the last one.
+10. Vary when you swap cards, and where you switch the radio on and off.
+11. Pay for the VPN in a way that isn't tied to your name.
+12. Block the SIM 1 tray, for example with a drop of hot glue.
 <!-- markdownlint-enable MD029 -->
 
 The reasons for each rule are in the

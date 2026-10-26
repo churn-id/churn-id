@@ -10,26 +10,25 @@
 
     <!-- The rules, in the wording of design.md, section 8 -->
     <string name="rules_title">Rules</string>
-    <string name="rules_card_kinds">Churn knows two kinds of cards. A travel card is used on the go and never again once you\'ve swapped it out. A place card is a new card for one place you return to, other than home and work, and you use it there on every visit and nowhere else.</string>
+    <string name="rules_intro">Each card\'s network records where and when the card was used. Churn\'s new IMEIs keep these records apart, and the rules keep everything else from tying them to each other or to you.</string>
+    <string name="rules_card_kinds">A card here is a normal SIM card or an eSIM adapter card, and Churn knows two kinds. A travel card is used on the go and never again once you\'ve swapped it out. A place card is a new card for one place you return to, other than home and work, and you use it there on every visit and nowhere else.</string>
     <string name="rules_always_heading">Always follow these rules:</string>
     <string-array name="rules_always">
-        <item>At home, at work and anywhere else you return to, keep the router switched off or without a SIM, unless it holds that place\'s own place card or you\'re swapping out the card you used there. Use a place card nowhere else.</item>
-        <item>Before you get to such a place, unplug everything and switch the router off.</item>
-        <item>Connect to the router by cable only, and keep its Wi-Fi off.</item>
-        <item>Use normal SIM cards, or eSIM adapter cards with one profile each, and put them only into SIM slot 2. Don\'t use the router\'s built-in eSIM.</item>
-        <item>Send all traffic through the router\'s VPN, and don\'t use the router without it.</item>
-        <item>Do not run the router without the battery installed.</item>
-        <item>Before you leave a place you return to with the router, remove the SIM card or disable the eSIM profile in every phone, tablet, watch or laptop you carry, and keep it that way until you\'re back.</item>
+        <item>Switch the router off before you get home, to work or to any other place you return to, and keep it switched off or without a card there, unless it holds that place\'s own place card or you\'re swapping out the card you used there.</item>
+        <item>Before you leave such a place with the router, remove the SIM card or disable the eSIM profile in every phone, tablet, watch or laptop you carry, and keep it that way until you\'re back.</item>
         <item>Use the router only with devices that run Linux, or an Android system built for privacy, such as GrapheneOS. That rules out Windows, macOS, iPhones, iPads, Chromebooks and the Android that most phones and tablets come with.</item>
+        <item>Connect to the router by cable only, and keep its Wi-Fi off.</item>
+        <item>Send all traffic through the router\'s VPN, and don\'t use the router without it.</item>
+        <item>Put cards only into the SIM 2 tray, never put a second profile on an eSIM adapter card, and don\'t use the router\'s built-in eSIM.</item>
+        <item>Once you\'ve swapped out a travel card, destroy it away from home. If you run out of new cards, keep using the current one until you get a new one.</item>
     </string-array>
     <string name="rules_where_you_can_heading">For maximum privacy, also follow these rules where you can:</string>
     <string-array name="rules_where_you_can">
-        <item>Use SIM cards that aren\'t registered to your name. The same goes for eSIM profiles.</item>
-        <item>Get each new SIM card or eSIM profile from a different provider than the last one and than your place cards. If you can\'t, start using the new one somewhere else and some days after you stopped using the last one.</item>
-        <item>Don\'t reuse a travel card once you\'ve swapped it out, and destroy it away from home. If you run out of new cards, keep using the current one until you get a new one.</item>
-        <item>Vary when you swap SIMs, and where you switch the radio on and off.</item>
+        <item>Use cards that aren\'t registered to your name.</item>
+        <item>Get each new card from a different provider than the last one and than your place cards. If you can\'t, start using it somewhere else and some days after you stopped using the last one.</item>
+        <item>Vary when you swap cards, and where you switch the radio on and off.</item>
         <item>Pay for the VPN in a way that isn\'t tied to your name.</item>
-        <item>Block SIM slot 1, for example with a drop of hot glue.</item>
+        <item>Block the SIM 1 tray, for example with a drop of hot glue.</item>
     </string-array>
 
     <!-- Connecting -->
@@ -84,8 +83,8 @@
     <string name="sim_no_card">SIM 2: no card found</string>
     <string name="sim_no_profile">SIM 2: eSIM adapter card with no profile enabled</string>
     <string name="sim_parked">SIM 2: off, since slot 2 is on the built-in eSIM</string>
-    <string name="sim_slot1_active">SIM slot 1 is the active slot, but Churn uses only slot 2 (rule 4). The next swap makes slot 2 the active slot.</string>
-    <string name="sim_esim_profile">Slot 2 is on the built-in eSIM, with a profile enabled. Don\'t use the built-in eSIM (rule 4). Step 1 of the next swap disables the profile.</string>
+    <string name="sim_slot1_active">SIM slot 1 is the active slot, but Churn uses only slot 2 (rule 6). The next swap makes slot 2 the active slot.</string>
+    <string name="sim_esim_profile">Slot 2 is on the built-in eSIM, with a profile enabled. Don\'t use the built-in eSIM (rule 6). Step 1 of the next swap disables the profile.</string>
     <string name="note_not_cards_imeis">These aren\'t IMEIs Churn gave the card in slot 2. The card registers with them at every power-on, probably at this one too, so the network can link it to whatever used them before: an earlier card, or the router itself if they\'re the factory IMEIs. Giving this card its own IMEIs now wouldn\'t undo that link, and the network would see its IMEI change, so swap it for a new card.</string>
     <string name="note_scheduled_reboot">A swap needs GL\'s scheduled reboot off, and it is on. Turn it off in GL\'s web interface, then tap Refresh. A reboot is a power-on, so with a SIM inside it registers wherever it happens.</string>
     <string name="note_no_vpn">A swap needs a WireGuard VPN on the router, and none is set up. Set one up in GL\'s web interface (rule 5), then tap Refresh. Churn doesn\'t support other VPN types yet.</string>
@@ -145,7 +144,7 @@
     <string name="step4_title">Go online later</string>
     <string name="step4_text">The router has the new card\'s IMEIs and is shutting down. Wait until it is off, then unplug the cable.\n\nSwitch it on again later, at another place and time, and never at home, at work or another place you return to. At power-on the new card registers with the network, whatever airplane mode says. The radio then stays off until you turn airplane mode off, on the router\'s screen or in GL\'s web interface.\n\nWhy: the old card went quiet where you started the swap. If the new one starts where and when the old one stopped, the two are easy to match.</string>
     <string name="step4_text_place_card">The router has the place card\'s IMEIs and is shutting down. Wait until it is off, then unplug the cable.\n\nSwitch it on again later, at the card\'s own place, and never anywhere else. At power-on the card registers with the network, whatever airplane mode says. The radio then stays off until you turn airplane mode off, on the router\'s screen or in GL\'s web interface.\n\nWhy: used only at its place, the card links nothing but your visits there (rule 1). The old card went quiet where you started the swap. If the new one starts when the old one stopped, the two are easy to match.</string>
-    <string name="step4_destroy">Destroy the card you took out, ending in %1$s: cut through its chip and get rid of the pieces away from home. If it\'s an eSIM adapter card, the adapter goes too (rule 4).\n\nWhy: a used travel card found with you ties you to its whole history (rule 11).</string>
+    <string name="step4_destroy">Destroy the card you took out, ending in %1$s: cut through its chip and get rid of the pieces away from home. If it\'s an eSIM adapter card, the adapter goes too (rule 6).\n\nWhy: a used travel card found with you ties you to its whole history (rule 7).</string>
     <string name="step4_done">Done</string>
     <string name="try_again">Try again</string>
     <string name="cancel_swap">Cancel the swap</string>
@@ -175,7 +174,7 @@
     <string name="problem_slot_not_switched">Slot 2 didn\'t switch.</string>
     <string name="problem_profile_still_enabled">The built-in eSIM\'s profile is still enabled.</string>
     <string name="problem_no_card">Churn found no usable card in the SIM 2 tray: no card at all, or an eSIM adapter card without an enabled profile. Slot 2 is back on the built-in eSIM, so you can switch the router off, check the card, switch the router on again and tap Try again.</string>
-    <string name="problem_sim1_card">Churn found a card in the SIM 1 tray, which Churn doesn\'t use (rule 4). A card there registers at every power-on, whatever airplane mode says, so at step 4 it would go out with the new card and link the two. Slot 2 is still on the built-in eSIM, so switch the router off, take the card out of the SIM 1 tray and put the new card into the SIM 2 tray if it isn\'t there. Then switch the router on again and tap Try again.\n\nIf the card in the SIM 1 tray is the new one, it has already registered where and when the old card went quiet, which links the two. Don\'t use it: put another new card into the SIM 2 tray instead.</string>
+    <string name="problem_sim1_card">Churn found a card in the SIM 1 tray, which Churn doesn\'t use (rule 6). A card there registers at every power-on, whatever airplane mode says, so at step 4 it would go out with the new card and link the two. Slot 2 is still on the built-in eSIM, so switch the router off, take the card out of the SIM 1 tray and put the new card into the SIM 2 tray if it isn\'t there. Then switch the router on again and tap Try again.\n\nIf the card in the SIM 1 tray is the new one, it has already registered where and when the old card went quiet, which links the two. Don\'t use it: put another new card into the SIM 2 tray instead.</string>
     <string name="problem_card_changed">The card in the SIM 2 tray changed while Churn waited for your answer, so Churn stopped. Slot 2 is back on the built-in eSIM. Tap Try again to start over with the card that is there now.</string>
     <string name="problem_not_set_up">Churn\'s folder on the router is missing or damaged. Connect from the start to set the router up again.</string>
     <string name="problem_not_started">The router didn\'t finish starting, so Churn stopped. Slot 2 is still on the built-in eSIM, so you can switch the router off and on again and tap Try again.</string>

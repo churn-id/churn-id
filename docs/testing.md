@@ -277,7 +277,7 @@ Some claims no test on the router can confirm:
 - Whether real Mudi 7 serials fall in a narrow range. It needs the IMEIs
   of many units.
 - That a GrapheneOS phone with its eSIM profile disabled transmits
-  nothing (rule 7). It is a measurement of the phone, not the router.
+  nothing (rule 2). It is a measurement of the phone, not the router.
 - Whether the VPN server, which is the same on every SIM, links the SIMs
   (design.md, section 10). It depends on what the carrier and the VPN
   provider can match, not on the router.

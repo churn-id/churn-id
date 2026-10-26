@@ -3,7 +3,7 @@ package id.churn
 /**
  * The card in use, as the router screen shows it in one line. Everything but a place card's name is read from the
  * router. Slot 1 as the active slot and an enabled profile on the built-in eSIM show as warnings: Churn never uses
- * slot 1 (design.md, section 7), and rule 4 rules out the built-in eSIM.
+ * slot 1 (design.md, section 7), and rule 6 rules out the built-in eSIM.
  */
 sealed interface SimStatus {
 

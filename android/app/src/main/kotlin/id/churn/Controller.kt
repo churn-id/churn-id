@@ -482,7 +482,7 @@ class Controller(private val context: Context) {
         val slot2 = runCatching { router.slot2() }.getOrNull()
         // The card in slot 2 registers with the IMEIs at every power-on, so they must be the pair step 3 recorded for
         // it. A card in the tray while slot 2 is on the built-in eSIM stays off, and reading it would take a switch of
-        // the slot. A profile enabled on the eSIM gets the SIM line's warning instead (rule 4), and a card without an
+        // the slot. A profile enabled on the eSIM gets the SIM line's warning instead (rule 6), and a card without an
         // enabled profile has no pair to check.
         val slot2Card = router.slot2Card()
         val card = (slot2Card as? Slot2Card.Subscription)?.iccid?.let(Imei::iccidDigits)
