@@ -109,6 +109,9 @@ class Controller(private val context: Context) {
     val address get() = saved.address
     val hasPassword get() = saved.sealedPassword != null
 
+    /** Whether step 1 says that a first swap can run at home or at work. */
+    val firstSwap get() = saved.firstSwap
+
     /** What step 4 says: whether the new card is a place card, and the last digits of the card to destroy. */
     val placeCardIn get() = saved.placeCardIn
     val cardToDestroy get() = saved.cardToDestroy
@@ -229,7 +232,11 @@ class Controller(private val context: Context) {
         (screen as? Screen.Home)?.let { show(it.copy(places = saved.placeCards.all)) }
     }
 
-    fun beginSwap() = show(Screen.Swapping(Step.PREPARE))
+    /** Starts a swap from the router screen, whose [status] tells whether the router still has its factory IMEIs. */
+    fun beginSwap(status: RouterStatus) {
+        saved.firstSwap = status.imeis == status.factory
+        show(Screen.Swapping(Step.PREPARE))
+    }
 
     fun cancelSwap() {
         saved.step = null
@@ -242,8 +249,7 @@ class Controller(private val context: Context) {
             Step.PREPARE -> runStep(Step.PREPARE, CONNECT_WAIT_SECONDS) { swap, folder ->
                 // Step 3 replaces the record, and may run more than once.
                 saved.cardBeforeSwap = folder.card?.iccid
-                val factory = folder.factory!!
-                saved.wrote(swap.prepare(factory, SecureRandom()), factory = factory)
+                swap.prepare()
                 shutDown(swap, next = Step.SWAP_CARD)
             }
             Step.SWAP_CARD, Step.NEW_IMEIS -> runStep(Step.NEW_IMEIS, BOOT_WAIT_SECONDS) { swap, folder ->
@@ -539,7 +545,6 @@ class Controller(private val context: Context) {
         when (progress) {
             Progress.AIRPLANE_MODE_ON -> R.string.progress_airplane_mode_on
             Progress.RADIO_OFF -> R.string.progress_radio_off
-            Progress.THROWAWAY_IMEIS -> R.string.progress_throwaway_imeis
             Progress.SLOT2_ON_ESIM -> R.string.progress_slot2_on_esim
             Progress.NO_PROFILE -> R.string.progress_no_profile
             Progress.PROFILE_DISABLED -> R.string.progress_profile_disabled

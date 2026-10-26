@@ -194,13 +194,50 @@ never occur on a factory unit. Since Churn uses only slot 2, the
 network should see only IMEI 2 (section 10), so whether the distance varies
 between units doesn't matter.
 
-### Throwaway pair
+### The old card's pair until step 3
 
-Drawn the same way, and written before every swap, because the first boot
-after it emits the built-in eSIM's short bursts before the new card is
-known (section 7), and those bursts must not carry the previous profile's
-IMEIs. It stays a pair of its own: as the new card's pair, it would already
-have gone out with the bursts at the swap's place.
+Step 1 leaves the IMEIs as they are, so the router keeps the old card's
+pair until step 3 writes the new card's (section 7).
+
+Step 2's power-on comes before the new card has its pair. Slot 2 is then
+parked on the built-in eSIM with no profile enabled, so the card in the
+tray stays off and only the eSIM's short bursts go out (section 6). With
+no profile enabled, the eSIM presents its test profile, whose identity
+belongs to the test network 001/01. No real network serves that network,
+so none can authenticate the profile. To a network in range, the power-on
+likely looks like a device with that test identity trying to register and
+being turned away at once (inferred). Every Mudi 7 likely shows the same
+test identity (section 6), so it says nothing about which router it is.
+
+The bursts likely carry no IMEI (inferred). Over LTE and 5G, a device
+gives its IMEI only once the network has authenticated it and secured the
+connection. Before that, the only identity it gives on request is its
+subscriber identity (3GPP TS 24.301 and TS 24.501, subclause 4.4.4.2).
+Over 3G, which the router's modem also supports, a network may ask for the
+IMEI before that (3GPP TS 24.008, subclause 4.1.1.1.1), so we can't rule
+it out (section 10). If the IMEIs do go out, the old card's pair shows
+that card's router where the card was in use until step 1, which tells the
+network nothing new. That is why step 2's power-on happens where step 1
+ran (section 7).
+
+We rejected a throwaway pair, drawn like a card's pair and written in step
+1 to keep the old card's IMEIs out of the bursts:
+
+- If the bursts carry the IMEI, a throwaway pair shows a Mudi 7 IMEI that
+  no network has seen before, minutes after the old card went quiet at the
+  same place, since users rarely move between steps 1 and 2. A new IMEI
+  with a rare TAC, right where and when another stopped, hints at a
+  rewritten IMEI.
+- If they don't, a throwaway pair protects nothing, and it adds an IMEI
+  write, saved to the modem's flash, to every swap.
+- A card left in the SIM 1 tray registers at step 2's power-on (section
+  6). With a throwaway pair, its network would see it with a new IMEI,
+  which shows that the IMEI was rewritten. With the old card's pair, a
+  card that was in use until step 1 registers as before.
+- A new card put into the SIM 1 tray by mistake registers at that power-on
+  either way, where and when the old card went quiet, which links the two.
+  A throwaway pair doesn't prevent that, so step 3 tells the user to use
+  another new card (section 7).
 
 ## 5. Storage on the router
 
@@ -310,10 +347,12 @@ and AT commands sent over SSH.
   at power-on.
 - **The built-in eSIM emits even without a profile.** With slot 2 set to
   the eSIM and its profiles disabled, the meter showed one or two short
-  bursts at boot. Without a profile the chip presents a test-network
-  identity: IMSI `001010123456` plus three digits, and a placeholder ICCID.
-  That identity is likely the same or nearly the same on every unit
-  (inferred).
+  bursts at boot. Without a profile the chip presents the generic test
+  profile that GSMA TS.48 defines for testing devices: IMSI
+  `001010123456063` on the test network 001/01 and ICCID
+  `89000123456789012341`, the profile's published values. The GSMA meant
+  it to come on every eSIM chip, so it is likely the same on every unit
+  (inferred). What the bursts likely tell a network is in section 4.
 - **Slot selection doesn't keep a card off at boot.** With slot 1 selected
   in GL's interface and slot 2 on an enabled eSIM profile, the router still
   emitted at boot. The modem rejects Quectel's usual slot command, and GL
@@ -329,7 +368,7 @@ and AT commands sent over SSH.
   and switched it on. The meter showed only the eSIM's short bursts.
   Switching slot 2 to SIM 2 afterwards, still in airplane mode, emitted
   nothing, and the modem then reported the card's ICCID. A normal SIM card
-  should behave the same (inferred).
+  in the tray also left only the eSIM's short bursts at power-on.
 - **A card in slot 1 always emits.** With a card in slot 1, every boot
   showed RF for more than 8 s, whatever the settings, airplane mode and
   GL's cellular switch included.
@@ -354,10 +393,10 @@ and AT commands sent over SSH.
 
 The measurements set two constraints. A power-on with a SIM inside registers
 where it happens, so the new SIM must not be powered until its own IMEIs are
-written, and every power-on with a SIM inside must happen at a place that
-doesn't matter. Swapping a SIM while the router runs would mean running
-without the battery, which risks file-system corruption, so it isn't
-offered.
+written, and every power-on that powers a SIM must happen where that SIM
+may be used (rule 1). Swapping a SIM while the router runs would mean
+running without the battery, which risks file-system corruption, so it
+isn't offered.
 
 The app therefore parks slot 2 on the built-in eSIM while the user swaps
 the card, because a card in slot 2 stays off as long as slot 2 is set to
@@ -365,13 +404,14 @@ the eSIM (section 6). Slot 1 is never used, because a card there emits at
 every boot:
 
 1. With the cable connected, the app turns airplane mode on and verifies
-   that the radio is off, writes a throwaway pair (section 4), saves and
-   verifies it, sets slot 2 to the built-in eSIM with no profile enabled
-   and shuts the router down.
+   that the radio is off, sets slot 2 to the built-in eSIM with no profile
+   enabled and shuts the router down. The IMEIs stay the old card's until
+   step 3 (section 4).
 2. With the router off, the user replaces the old SIM in slot 2's tray with
-   the new one, goes to a place that doesn't matter, and switches the router
-   on. Only the eSIM's short bursts go out, with the throwaway IMEI and the
-   near-generic test identity.
+   the new one and switches the router on where step 1 ran. Only the eSIM's
+   short bursts go out, with the generic test identity and likely without
+   the IMEIs. If they carry the IMEIs, those are the old card's, which show
+   nothing new where that card was in use until step 1 (section 4).
 3. The app checks that a VPN is still set up (below). Once the radio is
    off after the boot (section 6), it checks that the SIM 1 tray is empty
    (below), turns GL's
@@ -432,9 +472,9 @@ since step 3 replaces the record and may run more than once.
   the shutdown before it. Before each shutdown the app notes the boot ID,
   which Linux makes new at every power-on. Right after step 1 the router
   stays on the cable for a while as it shuts down, and step 3 must not
-  start on it then: with the old card still in the tray, it would give
-  that card back its IMEIs, as if the user had kept it. The check also
-  catches a shutdown that didn't happen.
+  start on it then: with the old card still in the tray, it would end the
+  swap as if the user had kept that card. The check also catches a
+  shutdown that didn't happen.
 - After the shutdown that ends steps 1 and 3, the app waits for the router
   to leave the cable, and warns if it is still there after two minutes.
   Leaving the cable only means that the router's network went: the router
@@ -445,6 +485,12 @@ since step 3 replaces the record and may run more than once.
   an answer until its timeout, minutes for some.
 - Each step says what to do, where, and why, so the rules don't depend on
   the user's memory.
+- When a swap starts on a router with its factory IMEIs, as the first one
+  does, step 1 adds that steps 1 to 3 can run at home or at work if the
+  router was used there before Churn: until step 3 the router keeps its
+  IMEIs, so the swap ties nothing new to that place (rule 1). The app goes
+  by the IMEIs, not by a missing record, since a router whose folder was
+  lost has no record but may still have a card's pair.
 - Before each rotation the app checks the slot 2 setting, airplane mode, and
   that "Power On with Charger" and GL's scheduled reboot are off. A reboot
   is a power-on, so wherever it happens, the SIM registers there. It also
@@ -461,7 +507,7 @@ since step 3 replaces the record and may run more than once.
 - Step 3 checks the VPN again, in case it was deleted since step 1, right
   after it turns airplane mode on. Slot 2 is still on the built-in eSIM
   then, so the step can stop and run again once a VPN is set up, without
-  another step 1 and another trip. With the old card out and the new one
+  another step 1. With the old card out and the new one
   off, the router has no internet over a SIM, so that VPN has to come from a
   WireGuard configuration file. Step 3 is the swap's last look at the
   router. A VPN deleted after it leaves the router without internet, not
@@ -476,7 +522,9 @@ since step 3 replaces the record and may run more than once.
   still on the built-in eSIM, so the step runs again once the user has
   switched the router off and taken the card out. The check also catches a
   new card put into the wrong tray, with a clearer message than the one for
-  an empty SIM 2 tray.
+  an empty SIM 2 tray. Such a card has registered where and when the old
+  one went quiet, which links the two, so the message also says to use
+  another new card in that case.
 - Step 3 is the last step before the router goes online, so that is where
   the app makes sure the Enhanced Kill Switch is on and Churn's firewall
   rules are in place (rule 5). Both take a reload, of the network or of
@@ -687,7 +735,8 @@ Always follow these rules:
 
 1. At home, at work and anywhere else you return to, keep the router
    switched off or without a SIM, unless it holds that place's own place
-   card. Use a place card nowhere else.
+   card or you're swapping out the card you used there. Use a place card
+   nowhere else.
 2. Before you get to such a place, unplug everything and switch the router
    off.
 3. Connect to the router by cable only, and keep its Wi-Fi off.
@@ -733,6 +782,11 @@ Why:
    otherwise go online with their phone, whose SIM ties such places together
    and to the user. Home and work stay out: they point to the user most
    directly, and a phone with a SIM is on there, right next to any card.
+   Swapping out the card used there is the exception: until step 3 the
+   router keeps that card's IMEIs and the new card stays off (sections 4
+   and 7), so the swap ties nothing new to that place. That covers a place
+   card at its own place, and home or work at the first swap if the router
+   was used there before Churn.
 2. Switching off before arriving means the router never registers there.
    Unplugging also lets GL's auto power-off step in if someone forgets to
    switch off, because it fires only with nothing connected. The app can
@@ -819,7 +873,10 @@ Why:
     account. If that account is tied to a name, so are all the SIMs.
 14. A card put into slot 1 by mistake emits at the next boot, wherever
     that happens (rule 4). A blocked slot rules that mistake out. Step 3
-    stops if it finds a card there, but only after that boot.
+    stops if it finds a card there, but only after that boot. A new card
+    put there in a swap has then registered where the old one went quiet,
+    which links the two, and at home, at work or a place card's place it
+    ties the new card to that place too.
 
 The app also tells the user, before first use, that rewriting an IMEI is a
 criminal offense in some countries, for example under the UK's Mobile
@@ -843,11 +900,11 @@ blue-merle's license.
 Hardware, needing real SIMs:
 
 - Does the network see IMEI 2 for a card in slot 2, as expected?
-- Does a normal SIM card in slot 2 stay off while slot 2 is on the eSIM,
-  like the eSIM adapter card did?
 
 Hardware, other:
 
+- Do the built-in eSIM's short bursts at power-on carry the IMEI? Over LTE
+  and 5G they shouldn't, but over 3G a network may ask for it (section 4).
 - Does GL's firmware ever write the IMEIs itself, for example after an
   upgrade or a factory reset?
 - Does GL's upgrade page keep the paths listed in `/etc/sysupgrade.conf`?

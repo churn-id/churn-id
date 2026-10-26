@@ -284,7 +284,7 @@ and `OK`. Like `AT+QCCID`, it pads a 19-digit ICCID with a trailing `F`
 
 | Slot 2 | ICCID | IMSI |
 | --- | --- | --- |
-| No profile enabled | placeholder `89000123456789012341` | `001010123456` plus three digits (test network 001/01) |
+| No profile enabled | placeholder `89000123456789012341` | `001010123456063` (GSMA TS.48's test profile, test network 001/01) |
 | A profile enabled | the profile's ICCID | the profile's network |
 
 Step 3 of the swap reads the card in the SIM 2 tray the same way, once

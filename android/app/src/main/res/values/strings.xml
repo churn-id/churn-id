@@ -13,7 +13,7 @@
     <string name="rules_card_kinds">Churn knows two kinds of cards. A travel card is used on the go and never again once you\'ve swapped it out. A place card is a new card for one place you return to, other than home and work, and you use it there on every visit and nowhere else.</string>
     <string name="rules_always_heading">Always follow these rules:</string>
     <string-array name="rules_always">
-        <item>At home, at work and anywhere else you return to, keep the router switched off or without a SIM, unless it holds that place\'s own place card. Use a place card nowhere else.</item>
+        <item>At home, at work and anywhere else you return to, keep the router switched off or without a SIM, unless it holds that place\'s own place card or you\'re swapping out the card you used there. Use a place card nowhere else.</item>
         <item>Before you get to such a place, unplug everything and switch the router off.</item>
         <item>Connect to the router by cable only, and keep its Wi-Fi off.</item>
         <item>Use normal SIM cards, or eSIM adapter cards with one profile each, and put them only into SIM slot 2. Don\'t use the router\'s built-in eSIM.</item>
@@ -125,11 +125,12 @@
     <!-- The swap -->
     <string name="step_number">Step %1$d of 4</string>
     <string name="step1_title">Prepare the router</string>
-    <string name="step1_text">Churn turns airplane mode on, gives the router random throwaway IMEIs, sets slot 2 to the built-in eSIM with no profile enabled, and shuts the router down. Keep the cable connected until the router is off.\n\nWhy: a card in slot 2 registers at every power-on, whatever airplane mode says, so the new card must stay off until it has its own IMEIs. While slot 2 is on the built-in eSIM, the card in the SIM 2 tray stays off. The eSIM\'s short bursts at the next power-on then carry the throwaway IMEIs, not the old card\'s.</string>
+    <string name="step1_text">Churn turns airplane mode on, sets slot 2 to the built-in eSIM with no profile enabled, and shuts the router down. Keep the cable connected until the router is off. Have the new card with you: in step 2 you switch the router on again here.\n\nWhy: a card in slot 2 registers at every power-on, whatever airplane mode says, so the new card must stay off until it has its own IMEIs. While slot 2 is on the built-in eSIM, the card in the SIM 2 tray stays off.</string>
+    <string name="step1_first_swap">The router still has its factory IMEIs, as at your first swap. If you used it at home or at work before Churn, you can run steps 1 to 3 there: the router keeps those IMEIs until step 3, and the new card stays off. Step 4 still happens at another place.</string>
     <string name="step1_charger">\"Power On with Charger\" is off in GL\'s settings. Otherwise plugging in a charger switches the router on, wherever you are.</string>
     <string name="step1_start">Start</string>
     <string name="step2_title">Swap the card</string>
-    <string name="step2_text">1. Wait until the router is off, then unplug the cable.\n2. Take out the battery and replace the card in the SIM 2 tray with the new one. Leave the SIM 1 tray empty.\n3. Put the battery back.\n4. Go to a place you don\'t return to, away from where you used the old card.\n5. Switch the router on and connect the cable with Churn open. Churn goes on as soon as the router shows up on the cable, or when you tap Continue.\n\nWhy: at power-on only the built-in eSIM\'s short bursts go out, with the throwaway IMEIs and a test identity that is likely the same on every Mudi 7.\n\nIf you keep the old card after all, step 3 gives it back its own IMEIs.</string>
+    <string name="step2_text">1. Wait until the router is off, then unplug the cable.\n2. Take out the battery and replace the card in the SIM 2 tray with the new one. Leave the SIM 1 tray empty.\n3. Put the battery back.\n4. Switch the router on where you ran step 1, and connect the cable with Churn open. Churn goes on as soon as the router shows up on the cable, or when you tap Continue.\n\nWhy: at power-on only the built-in eSIM\'s short bursts go out, with a test identity that is likely the same on every Mudi 7. They likely don\'t carry the router\'s IMEIs. If they do, those are still the old card\'s, which show nothing new where that card was just in use.\n\nIf you\'ve had to leave, switch the router on only where you could still use the old card (rule 1). If you keep the old card after all, it keeps the IMEIs Churn gave it.</string>
     <string name="step2_continue">Continue</string>
     <string name="error_not_restarted">The router hasn\'t been off since Churn shut it down, so the card can\'t have been swapped yet. If the router is still on, switch it off by hand, then follow the steps above.</string>
     <string name="warning_still_on_cable">The router is still on the cable, two minutes after Churn shut it down. If it is still on, switch it off by hand before you go on.</string>
@@ -152,7 +153,6 @@
     <!-- What a step reports -->
     <string name="progress_airplane_mode_on">Airplane mode is on.</string>
     <string name="progress_radio_off">The radio is off.</string>
-    <string name="progress_throwaway_imeis">Throwaway IMEIs written and read back.</string>
     <string name="progress_slot2_on_esim">Slot 2 is on the built-in eSIM.</string>
     <string name="progress_no_profile">No eSIM profile is enabled.</string>
     <string name="progress_profile_disabled">The eSIM profile is disabled.</string>
@@ -175,7 +175,7 @@
     <string name="problem_slot_not_switched">Slot 2 didn\'t switch.</string>
     <string name="problem_profile_still_enabled">The built-in eSIM\'s profile is still enabled.</string>
     <string name="problem_no_card">Churn found no usable card in the SIM 2 tray: no card at all, or an eSIM adapter card without an enabled profile. Slot 2 is back on the built-in eSIM, so you can switch the router off, check the card, switch the router on again and tap Try again.</string>
-    <string name="problem_sim1_card">Churn found a card in the SIM 1 tray, which Churn doesn\'t use (rule 4). A card there registers at every power-on, whatever airplane mode says, so at step 4 it would go out with the new card and link the two. Slot 2 is still on the built-in eSIM, so switch the router off, take the card out of the SIM 1 tray and put the new card into the SIM 2 tray if it isn\'t there. Then switch the router on again and tap Try again.</string>
+    <string name="problem_sim1_card">Churn found a card in the SIM 1 tray, which Churn doesn\'t use (rule 4). A card there registers at every power-on, whatever airplane mode says, so at step 4 it would go out with the new card and link the two. Slot 2 is still on the built-in eSIM, so switch the router off, take the card out of the SIM 1 tray and put the new card into the SIM 2 tray if it isn\'t there. Then switch the router on again and tap Try again.\n\nIf the card in the SIM 1 tray is the new one, it has already registered where and when the old card went quiet, which links the two. Don\'t use it: put another new card into the SIM 2 tray instead.</string>
     <string name="problem_card_changed">The card in the SIM 2 tray changed while Churn waited for your answer, so Churn stopped. Slot 2 is back on the built-in eSIM. Tap Try again to start over with the card that is there now.</string>
     <string name="problem_not_set_up">Churn\'s folder on the router is missing or damaged. Connect from the start to set the router up again.</string>
     <string name="problem_not_started">The router didn\'t finish starting, so Churn stopped. Slot 2 is still on the built-in eSIM, so you can switch the router off and on again and tap Try again.</string>
