@@ -10,7 +10,7 @@ import org.json.JSONObject
  */
 class FakeRouter : Shell {
 
-    class Card(val iccid: String, val imsi: String)
+    class Card(val iccid: String, val imsi: String, val pinLocked: Boolean = false)
 
     /** Milliseconds, advanced by the tests' sleep. */
     var clock = 0L
@@ -54,6 +54,9 @@ class FakeRouter : Shell {
     var esimProfile: String? = "8944000000000000123F"
     private var esimReloadsUntil = 0L
     var trayCard: Card? = Card("8941000000000000015F", "228010000000001")
+
+    /** The card in the SIM 1 tray, which Churn never uses. */
+    var tray1Card: Card? = null
     var scheduledReboot = false
 
     /** GL's Enhanced Kill Switch in GL's settings, and in the routing rules in use, which follow at a reload. */
@@ -163,7 +166,8 @@ class FakeRouter : Shell {
     private fun answer(command: String, input: ByteArray?): Output {
         Regex("""gl_modem -B cpu AT '(.*)' </dev/null""").matchEntire(command)?.let { return at(it.groupValues[1]) }
         Regex("""ubus -t 35 call modem.CPU.AT get_result_AT '(.*)'""").matchEntire(command)?.let {
-            return slot2At(JSONObject(it.groupValues[1]).getString("cmd"))
+            val request = JSONObject(it.groupValues[1])
+            return cardAt(request.getInt("sub_id"), request.getString("cmd"))
         }
         Regex("""curl .* -d '(.*)' http://127.0.0.1:3456/sdk/v1""").matchEntire(command)?.let {
             return disable(JSONObject(it.groupValues[1]))
@@ -293,9 +297,12 @@ class FakeRouter : Shell {
         }
     }
 
-    private fun slot2At(command: String): Output {
+    private fun cardAt(slot: Int, command: String): Output {
         val card = when {
+            // As if no card were in. For the SIM 1 tray that is the worst a swap that asks too early could get, and
+            // step3StopsWhileTheCardIsOffIfTheSim1TrayHoldsACard then fails.
             !modemAnswers -> null
+            slot == 1 -> tray1Card
             slot2 == Slot2.SIM2 -> trayCard
             clock < esimReloadsUntil -> null
             else -> esimProfile?.let { Card(it, "260010000000001") }
@@ -303,6 +310,7 @@ class FakeRouter : Shell {
         }
         val data = when {
             card == null -> "\r\n+CME ERROR: 10\r\n"
+            command == "AT+CPIN?" -> "\r\n+CPIN: ${if (card.pinLocked) "SIM PIN" else "READY"}\r\n\r\nOK\r\n"
             command == "AT+ICCID" -> "\r\n+ICCID: ${card.iccid}\r\n\r\nOK\r\n"
             command == "AT+CIMI" -> "\r\n${card.imsi}\r\n\r\nOK\r\n"
             else -> "\r\nERROR\r\n"

@@ -167,8 +167,9 @@ class SwapTest {
         assertTrue(firstChange, firstChange.substringAfter(" at ").substringBefore(" s").toInt() >= 120)
         assertEquals(
             listOf(
-                Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.KILL_SWITCH_ON,
-                Progress.FIREWALL, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE, Progress.CARD_FOUND,
+                Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
+                Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE,
+                Progress.CARD_FOUND,
                 // The question, with slot 2 on the eSIM until the answer.
                 Progress.SLOT2_ON_ESIM, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE, Progress.CARD_FOUND,
                 Progress.NEW_IMEIS, Progress.CLEARING_HISTORY,
@@ -493,6 +494,27 @@ class SwapTest {
         assertEquals(Slot2.ESIM, fake.slot2)
         // Run again once a VPN is set up.
         fake.vpnTunnel = "wgclient1"
+        val card = giveNewImeis()!!
+        assertEquals(card.imeis, ImeiPair(fake.imei1, fake.imei2))
+        assertSafe()
+    }
+
+    @Test
+    fun step3StopsWhileTheCardIsOffIfTheSim1TrayHoldsACard() {
+        val throwaway = prepareAndRestart()
+        fake.tray1Card = OTHER_CARD
+        progress.clear()
+        val changes = fake.changes.size
+        assertStops(Problem.SIM1_CARD) { giveNewImeis() }
+        // Once the router has finished starting, before anything changes.
+        assertEquals(listOf(Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF), progress)
+        assertEquals(changes, fake.changes.size)
+        assertEquals(throwaway, ImeiPair(fake.imei1, fake.imei2))
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertNull(record())
+        // Run again once the user has switched the router off, taken the card out and switched it on.
+        fake.tray1Card = null
+        fake.boot()
         val card = giveNewImeis()!!
         assertEquals(card.imeis, ImeiPair(fake.imei1, fake.imei2))
         assertSafe()

@@ -544,6 +544,7 @@ class Controller(private val context: Context) {
             Progress.NO_PROFILE -> R.string.progress_no_profile
             Progress.PROFILE_DISABLED -> R.string.progress_profile_disabled
             Progress.WAITING_FOR_START -> R.string.progress_waiting_for_start
+            Progress.SIM1_EMPTY -> R.string.progress_sim1_empty
             Progress.KILL_SWITCH_ON -> R.string.progress_kill_switch_on
             Progress.FIREWALL -> R.string.progress_firewall
             Progress.SLOT2_ON_SIM2 -> R.string.progress_slot2_on_sim2
@@ -564,6 +565,7 @@ class Controller(private val context: Context) {
             Problem.SLOT_NOT_SWITCHED -> R.string.problem_slot_not_switched
             Problem.PROFILE_STILL_ENABLED -> R.string.problem_profile_still_enabled
             Problem.NO_CARD -> R.string.problem_no_card
+            Problem.SIM1_CARD -> R.string.problem_sim1_card
             Problem.CARD_CHANGED -> R.string.problem_card_changed
             Problem.NOT_SET_UP -> R.string.problem_not_set_up
             Problem.NOT_STARTED -> R.string.problem_not_started

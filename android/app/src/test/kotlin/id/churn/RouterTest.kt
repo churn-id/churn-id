@@ -72,6 +72,16 @@ class RouterTest {
     }
 
     @Test
+    fun seesACardInTheSim1Tray() {
+        assertFalse(router.cardInSim1Tray())
+        fake.tray1Card = FakeRouter.Card("8949000077777777777F", "228010000000002")
+        assertTrue(router.cardInSim1Tray())
+        // A card locked with a PIN is in the tray all the same.
+        fake.tray1Card = FakeRouter.Card("8949000077777777777F", "228010000000002", pinLocked = true)
+        assertTrue(router.cardInSim1Tray())
+    }
+
+    @Test
     fun takesOnlyAnIccidForTheCurrentCard() {
         fake.modemCpuIccid = "unknown"
         assertNull(router.currentCardIccid())

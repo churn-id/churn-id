@@ -333,6 +333,9 @@ and AT commands sent over SSH.
 - **A card in slot 1 always emits.** With a card in slot 1, every boot
   showed RF for more than 8 s, whatever the settings, airplane mode and
   GL's cellular switch included.
+- **The SIM 1 tray can be checked while slot 2 is in use.** With slot 2
+  as the active slot, the modem still reported whether the SIM 1 tray held
+  a card, with airplane mode on and off.
 - **No setting starts the radio off.** None of the modem's configuration
   commands offers a power-up radio state, so nothing saved can make a boot
   with an enabled SIM profile silent.
@@ -370,7 +373,8 @@ every boot:
    on. Only the eSIM's short bursts go out, with the throwaway IMEI and the
    near-generic test identity.
 3. The app checks that a VPN is still set up (below). Once the radio is
-   off after the boot (section 6), it turns GL's
+   off after the boot (section 6), it checks that the SIM 1 tray is empty
+   (below), turns GL's
    Enhanced Kill Switch on if it is off and adds Churn's firewall rules if
    they are missing, then switches slot 2 to SIM 2 in airplane mode and
    reads the ICCID. Unless the card is the recorded one, the app switches
@@ -463,6 +467,16 @@ since step 3 replaces the record and may run more than once.
   router. A VPN deleted after it leaves the router without internet, not
   with traffic past the VPN (inferred): Churn's firewall rules let only
   WireGuard's packets out over the SIM and name no tunnel (below).
+- Step 3 also stops if a card is in the SIM 1 tray, once the router has
+  finished starting and before it changes anything. A card there registers
+  at every power-on (section 6), so at step 4 it would go out with the new
+  card and link the two, and nothing else in the app would notice it, since
+  the app otherwise reads only the active slot. The check comes too late for
+  step 2's power-on, where that card has already registered. Slot 2 is
+  still on the built-in eSIM, so the step runs again once the user has
+  switched the router off and taken the card out. The check also catches a
+  new card put into the wrong tray, with a clearer message than the one for
+  an empty SIM 2 tray.
 - Step 3 is the last step before the router goes online, so that is where
   the app makes sure the Enhanced Kill Switch is on and Churn's firewall
   rules are in place (rule 5). Both take a reload, of the network or of
@@ -804,7 +818,8 @@ Why:
 13. The VPN provider sees each SIM's IP address in turn, all under one VPN
     account. If that account is tied to a name, so are all the SIMs.
 14. A card put into slot 1 by mistake emits at the next boot, wherever
-    that happens (rule 4). A blocked slot rules that mistake out.
+    that happens (rule 4). A blocked slot rules that mistake out. Step 3
+    stops if it finds a card there, but only after that boot.
 
 The app also tells the user, before first use, that rewriting an IMEI is a
 criminal offense in some countries, for example under the UK's Mobile
