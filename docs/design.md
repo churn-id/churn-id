@@ -858,14 +858,16 @@ Always follow these rules:
 
    Why: steps 1 to 3 never show the new card: it stays off until step 3 has
    written its IMEIs, and first registers at step 4's power-on (sections 4
-   and 7). What they can show is the old card. Right after the user is done
-   with it, step 1 needs no power-on, and step 2's power-on, where step 1
-   ran, sends only the built-in eSIM's short bursts. These likely carry no
-   IMEI; if they do, which only 3G would allow, they carry the old card's,
-   which show nothing new where that card was just in use (section 4). So
-   steps 1 to 3 may run wherever the user was using the old card, a place
-   card's own place included. At the first swap, that can be home or work,
-   if the router was used there before Churn.
+   and 7). What they can show is the old card. When the swap starts right
+   after the user is done with that card, the router is still on, so step 1
+   needs no power-on. In step 2, the user switches the router on again where
+   step 1 ran. Slot 2 is then on the built-in eSIM, so only the eSIM's short
+   bursts go out. These likely carry no IMEI; if they do, which only 3G
+   would allow, they carry the old card's, which show nothing new where that
+   card was just in use (section 4). So steps 1 to 3 may run wherever the
+   user was using the old card, a place card's own place included. At the
+   first swap, that can be home or work, if the router was used there before
+   Churn.
 
    Once the router has been switched off, step 1 needs a power-on, and a
    card in the router registers at every power-on, on any network
