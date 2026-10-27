@@ -555,6 +555,8 @@ class Controller(private val context: Context) {
             Progress.SLOT2_ON_SIM2 -> R.string.progress_slot2_on_sim2
             Progress.SLOT2_ACTIVE -> R.string.progress_slot2_active
             Progress.CARD_FOUND -> R.string.progress_card_found
+            Progress.SLOT2_BACK_ON_SIM2 -> R.string.progress_slot2_back_on_sim2
+            Progress.SAME_CARD -> R.string.progress_same_card
             Progress.NEW_IMEIS -> R.string.progress_new_imeis
             Progress.CLEARING_HISTORY -> R.string.progress_clearing_history
             Progress.SHUTTING_DOWN -> R.string.progress_shutting_down
