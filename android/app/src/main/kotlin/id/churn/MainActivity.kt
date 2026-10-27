@@ -16,6 +16,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
+import android.widget.Space
 import android.widget.TextView
 
 /** The app's only screen, which draws whatever [Controller] shows. */
@@ -130,33 +131,35 @@ class MainActivity : Activity() {
         if (status.recorded != null) {
             if (!status.enhancedKillSwitch) {
                 warning(getString(R.string.note_kill_switch))
-                button(R.string.kill_switch_on) {
+                fixButton(R.string.kill_switch_on) {
                     confirm(getString(R.string.kill_switch_on_text)) { controller.turnKillSwitchOn() }
                 }
             }
             if (!status.firewall) {
                 warning(getString(R.string.note_firewall))
-                button(R.string.firewall_on) {
+                fixButton(R.string.firewall_on) {
                     confirm(getString(R.string.firewall_on_text)) { controller.installFirewall() }
                 }
             }
         }
         if (!status.flashLogOff) {
             warning(getString(R.string.note_flash_log))
-            button(R.string.clear_history) {
+            fixButton(R.string.clear_history) {
                 confirm(getString(R.string.clear_history_text)) { controller.clearHistory() }
-            }
-        }
-        if (screen.places.isNotEmpty()) {
-            paragraph(getString(R.string.place_cards_text))
-            screen.places.forEach { place ->
-                button(getString(R.string.place_card_button, label(place))) { showPlaceCard(place) }
             }
         }
         // Off while step 1 would refuse to start, as the notes above say. Step 1 checks again, since this screen may be
         // minutes old.
         button(R.string.swap) { controller.beginSwap(status) }.isEnabled = status.vpnSetUp && !status.scheduledReboot
         button(R.string.refresh) { controller.refresh() }
+        gap()
+        if (screen.places.isNotEmpty()) {
+            paragraph(getString(R.string.place_cards_text))
+            screen.places.forEach { place ->
+                button(getString(R.string.place_card_button, label(place))) { showPlaceCard(place) }
+            }
+            gap()
+        }
         button(R.string.show_rules) { showRules() }
         button(R.string.restore) {
             val factory = status.factory
@@ -348,6 +351,8 @@ class MainActivity : Activity() {
             ScrollView(this).apply {
                 // Keeps the content clear of the status and navigation bars, which the app draws behind.
                 fitsSystemWindows = true
+                // Makes a page shorter than the screen as tall as the screen, so that its gaps can share out the rest.
+                isFillViewport = true
                 // While the app works on the router, the screen stays on, as it does while a video plays, so that the
                 // phone doesn't lock. GrapheneOS by default blocks new USB connections on a locked phone, and in
                 // step 3 the router, just switched on, connects anew.
@@ -401,6 +406,24 @@ class MainActivity : Activity() {
         this.text = text
         setOnClickListener { onClick() }
     }.also { addView(it) }
+
+    /**
+     * A button that fixes what the warning above it says, with a paragraph's space after it, so that it stays with the
+     * warning rather than joining the buttons below.
+     */
+    private fun LinearLayout.fixButton(text: Int, onClick: () -> Unit) {
+        button(text, onClick)
+        addView(Space(context), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(12)))
+    }
+
+    /**
+     * Space between groups of buttons. On a page shorter than the screen, the gaps share out the height left over, so
+     * that the last group sits at the bottom of the screen.
+     */
+    private fun LinearLayout.gap() = addView(
+        Space(context).apply { minimumHeight = dp(24) },
+        LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
+    )
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 }
