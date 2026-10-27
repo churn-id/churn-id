@@ -156,7 +156,7 @@ class SwapTest {
                 Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE,
                 Progress.CARD_FOUND,
                 // The question, with slot 2 on the eSIM until the answer.
-                Progress.SLOT2_ON_ESIM, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE, Progress.CARD_FOUND,
+                Progress.SLOT2_ON_ESIM, Progress.SLOT2_BACK_ON_SIM2, Progress.SAME_CARD,
                 Progress.NEW_IMEIS, Progress.CLEARING_HISTORY,
             ),
             progress,
@@ -449,6 +449,7 @@ class SwapTest {
         val oldImeis = prepareAndRestart()
         whileAsked = { fake.trayCard = OTHER_CARD }
         assertStops(Problem.CARD_CHANGED) { giveNewImeis() }
+        assertFalse(Progress.SAME_CARD in progress)
         assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
         assertNull(record())
         assertEquals(Slot2.ESIM, fake.slot2)

@@ -20,7 +20,8 @@ enum class Step {
 /** What a step reports as it goes. */
 enum class Progress {
     AIRPLANE_MODE_ON, RADIO_OFF, SLOT2_ON_ESIM, NO_PROFILE, PROFILE_DISABLED, WAITING_FOR_START, SIM1_EMPTY,
-    KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN,
+    KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, SLOT2_BACK_ON_SIM2, SAME_CARD, NEW_IMEIS,
+    CLEARING_HISTORY, SHUTTING_DOWN,
 }
 
 /**
@@ -116,6 +117,7 @@ class Swap(
     /** Switches slot 2 to the SIM 2 tray and gives the card there its pair; null if the user cancels. */
     private fun writeCardsImeis(factory: ImeiPair, record: Card?, places: PlaceCards, random: SecureRandom): Card? {
         val iccid = cardInTray()
+        report(Progress.CARD_FOUND)
         val card = record?.takeIf { it.iccid == iccid }
             ?: askAbout(Card(iccid, Imei.random(random, factory)), places)
             ?: return null
@@ -137,14 +139,18 @@ class Swap(
         report(Progress.SLOT2_ON_ESIM)
         val chosen = places.choose(card, ask) ?: return null
         // The pair was chosen for this card, so it mustn't go to another.
-        if (cardInTray() != card.iccid) throw RouterException(Problem.CARD_CHANGED)
+        if (cardInTray(again = true) != card.iccid) throw RouterException(Problem.CARD_CHANGED)
+        report(Progress.SAME_CARD)
         return chosen
     }
 
-    /** Switches slot 2 to the SIM 2 tray and returns the ICCID of the card there, digits only. */
-    private fun cardInTray(): String {
+    /**
+     * Switches slot 2 to the SIM 2 tray and returns the ICCID of the card there, digits only. With [again], for the
+     * switch back after step 3's question, the log says only that slot 2 is back on the tray.
+     */
+    private fun cardInTray(again: Boolean = false): String {
         setSlot2(Slot2.SIM2)
-        report(Progress.SLOT2_ON_SIM2)
+        report(if (again) Progress.SLOT2_BACK_ON_SIM2 else Progress.SLOT2_ON_SIM2)
         if (router.activeSlot() != "2") {
             router.activateSlot2(Slot2.SIM2)
             if (!poll(SWITCH_TIMEOUT_SECONDS) { router.activeSlot() == "2" }) {
@@ -152,7 +158,7 @@ class Swap(
             }
             checkRadioOff()
         }
-        report(Progress.SLOT2_ACTIVE)
+        if (!again) report(Progress.SLOT2_ACTIVE)
         // The card answers a moment after the switch.
         var raw: String? = null
         poll(CARD_TIMEOUT_SECONDS) {
@@ -160,9 +166,7 @@ class Swap(
             raw != null
         }
         val cardIccid = raw ?: throw RouterException(Problem.NO_CARD)
-        val iccid = Imei.iccidDigits(cardIccid) ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+ICCID")
-        report(Progress.CARD_FOUND)
-        return iccid
+        return Imei.iccidDigits(cardIccid) ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+ICCID")
     }
 
     private fun turnAirplaneModeOn() {

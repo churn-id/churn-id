@@ -164,6 +164,8 @@
     <string name="progress_slot2_on_sim2">Slot 2 is on the SIM 2 tray.</string>
     <string name="progress_slot2_active">Slot 2 is the active slot.</string>
     <string name="progress_card_found">Found the new card.</string>
+    <string name="progress_slot2_back_on_sim2">Slot 2 is back on the SIM 2 tray.</string>
+    <string name="progress_same_card">The card is still the same.</string>
     <string name="progress_new_imeis">The card\'s IMEIs are written and read back.</string>
     <string name="progress_clearing_history">Clearing the router\'s SIM history. This can take a few minutes.</string>
 
