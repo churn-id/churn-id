@@ -216,9 +216,13 @@ The app writes the file under a temporary name and renames it, adds it to
 place only if the file is what the app would write now and
 `nft list chain inet fw4 <chain>` finds all three chains. If the reload
 fails or a chain is missing, it deletes the file and reloads again.
-`restore.sh` deletes the file and reloads if the file or the chain
-`churn_sim` is still there, then deletes the line in
-`/etc/sysupgrade.conf`.
+`restore.sh` deletes the file, then Churn's three chains with
+`nft delete chain`, then the line in `/etc/sysupgrade.conf`. A reload
+wouldn't remove the chains: fw4 starts it with `flush table inet fw4`,
+which empties every chain of the table but deletes none, so the chains of
+a file that is gone stay, empty, until the firewall or the router restarts
+(verified with OpenWrt's fw4 template and nftables 1.0.9 in a network
+namespace; GL's template on our Mudi 7 starts with the same flush).
 
 ## Switching SIM slots
 
