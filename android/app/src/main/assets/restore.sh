@@ -71,12 +71,15 @@ rm -rf /overlay/churn-zeros /overlay/churn-fill.* "$DIR/zeros" ||
 # The firewall rules go after everything but the folder, so that a restore
 # that stops earlier keeps them.
 # Airplane mode is on, so nothing goes out over the SIM once they are gone.
-# The chain test covers a reload that failed after the file was gone.
-if [ -e "$FIREWALL" ] || nft list chain inet fw4 churn_sim >/dev/null 2>&1; then
-	# fw4 warns about GL's own options at every reload, so only its exit status counts.
-	rm -f "$FIREWALL" && fw4 reload >/dev/null 2>&1 ||
-		fail "The factory IMEIs are back, but removing Churn's firewall rules failed."
-fi
+# Without the file, GL's firewall no longer loads them. A reload of it would
+# empty Churn's chains but keep them, so they are deleted here instead.
+rm -f "$FIREWALL" || fail "The factory IMEIs are back, but removing Churn's firewall rules failed."
+for chain in churn_sim churn_route churn_dns; do
+	if nft list chain inet fw4 "$chain" >/dev/null 2>&1; then
+		nft delete chain inet fw4 "$chain" ||
+			fail "The factory IMEIs are back, but removing Churn's firewall rules failed."
+	fi
+done
 sed -i '/^\/etc\/nftables\.d\/churn\.nft$/d' /etc/sysupgrade.conf ||
 	fail "The factory IMEIs are back, but /etc/sysupgrade.conf still lists $FIREWALL."
 
