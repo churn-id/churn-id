@@ -227,14 +227,14 @@ class Swap(
             return
         }
         // The answer doesn't tell whether it worked, so only the ICCID and IMSI read afterwards count.
-        router.disableProfile(enabled)
+        val answer = router.disableProfile(enabled)
         // GL's eSIM manager waits about 5 s for the modem to reload the card.
         sleep(5_000)
         val disabled = poll(PROFILE_TIMEOUT_SECONDS) {
             router.slot2Iccid() == Router.PLACEHOLDER_ICCID &&
                 router.slot2Imsi()?.startsWith(Router.TEST_NETWORK) == true
         }
-        if (!disabled) throw RouterException(Problem.PROFILE_STILL_ENABLED)
+        if (!disabled) throw RouterException(Problem.PROFILE_STILL_ENABLED, answer)
         report(Progress.PROFILE_DISABLED)
     }
 

@@ -408,6 +408,22 @@ class RouterTest {
         assertEquals(pair, ImeiPair(fake.imei1, fake.imei2))
     }
 
+    @Test
+    fun keepsTheEsimManagersAnswerWithoutTheIccid() {
+        val iccid = "8944000000000000123F"
+        // We never saw an answer that named the ICCID, but a step's log may end up in a screenshot.
+        val answer = """{"tx_id":"","code":404,"message":"no profile $iccid"}"""
+        val named = Router { _, _, _ -> Output(0, answer.toByteArray(), "") }
+        assertEquals(
+            """http://127.0.0.1:3456/sdk/v1: {"tx_id":"","code":404,"message":"no profile …"}""",
+            named.disableProfile(iccid),
+        )
+        // curl's own errors are on its error output.
+        val error = "curl: (7) Failed to connect to 127.0.0.1 port 3456 after 0 ms: Couldn't connect to server\n"
+        val refused = Router { _, _, _ -> Output(7, ByteArray(0), error) }
+        assertEquals("http://127.0.0.1:3456/sdk/v1: ${error.trim()}", refused.disableProfile(iccid))
+    }
+
     @Test(expected = java.io.IOException::class)
     fun reportsABrokenConnectionAsSuch() {
         Router { _, _, _ -> throw java.io.IOException("broken") }.slot2Iccid()

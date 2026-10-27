@@ -50,6 +50,9 @@ class FakeRouter : Shell {
     /** The enabled profile's ICCID as `AT+ICCID` gives it, or null for none. */
     var esimProfile: String? = "8944000000000000123F"
     private var esimReloadsUntil = 0L
+
+    /** For GL's eSIM manager leaving the profile enabled at this many requests, as it did once at our step 1. */
+    var esimRequestsIgnored = 0
     var trayCard: Card? = Card("8941000000000000015F", "228010000000001")
 
     /** The card in the SIM 1 tray, which Churn never uses. */
@@ -317,10 +320,13 @@ class FakeRouter : Shell {
     /**
      * GL's eSIM manager disables only the enabled profile the request names, and only while slot 2 is on the eSIM
      * (inferred). The swap always meets both, so only a broken swap sends another request. That still gets `code` 200,
-     * as GL answered even when it logged an error, and the swap notices only that the profile stays enabled.
+     * as GL answered even when it logged an error, and the swap notices only that the profile stays enabled. So does a
+     * request GL's eSIM manager ignores.
      */
     private fun disable(request: JSONObject): Output {
-        if (slot2 == Slot2.ESIM && request.getString("iccid") == esimProfile) {
+        if (esimRequestsIgnored > 0) {
+            esimRequestsIgnored--
+        } else if (slot2 == Slot2.ESIM && request.getString("iccid") == esimProfile) {
             change("eSIM profile")
             esimProfile = null
             esimReloadsUntil = clock + 5_000

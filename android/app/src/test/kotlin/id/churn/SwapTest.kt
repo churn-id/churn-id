@@ -6,7 +6,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Test
 
 class SwapTest {
@@ -49,13 +48,14 @@ class SwapTest {
 
     private fun record() = Router(fake).readChurnFolder().card
 
-    private fun assertStops(problem: Problem, step: () -> Unit) {
+    private fun assertStops(problem: Problem, step: () -> Unit): RouterException {
         try {
             step()
-            fail("The step didn't stop")
         } catch (e: RouterException) {
             assertEquals(problem, e.problem)
+            return e
         }
+        throw AssertionError("The step didn't stop")
     }
 
     private fun assertSafe() {
@@ -106,6 +106,18 @@ class SwapTest {
         swap.prepare()
         assertTrue(Progress.NO_PROFILE in progress)
         assertTrue(fake.commands.none { "curl" in it })
+        assertSafe()
+    }
+
+    @Test
+    fun step1StopsWithTheEsimManagersAnswerIfTheProfileStaysEnabled() {
+        fake.esimRequestsIgnored = 1
+        val stop = assertStops(Problem.PROFILE_STILL_ENABLED) { swap.prepare() }
+        assertEquals("""http://127.0.0.1:3456/sdk/v1: {"tx_id":"","code":200,"message":"ok"}""", stop.detail)
+        assertEquals("8944000000000000123F", fake.esimProfile)
+        // So that the user can disable the profile in GL's web interface and run the step again.
+        assertTrue(fake.airplaneMode)
+        assertEquals(Slot2.ESIM, fake.slot2)
         assertSafe()
     }
 

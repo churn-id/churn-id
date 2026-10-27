@@ -344,6 +344,12 @@ after the answer. Airplane mode stayed on and the modem answered `+CFUN: 4`
 throughout the recorded disable and enable, and after the disable from the
 shell (all verified).
 
+If they don't show within 60 s, step 1 stops with the eSIM manager's answer
+in its message, leaving out long numbers such as ICCIDs. Once, step 1 left
+a profile we had added enabled after its request, and disabling it in GL's
+web interface afterwards worked. Why is still open: the app kept no answer
+then.
+
 Not used:
 
 - Quectel's `AT+QESIM` commands. The modem lists them, but
