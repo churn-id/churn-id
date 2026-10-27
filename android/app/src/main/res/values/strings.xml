@@ -95,10 +95,10 @@
     <string name="kill_switch_on_text">Churn turns GL\'s Enhanced Kill Switch on. Devices behind the router then reach the internet only through the VPN, and not at all while it is down.</string>
     <string name="note_firewall">Churn\'s firewall rules aren\'t on the router, so the router\'s own traffic can bypass the VPN (rule 5).</string>
     <string name="firewall_on">Add Churn\'s firewall rules</string>
-    <string name="firewall_on_text">Churn adds firewall rules to the router. Over the SIM, only the VPN\'s own traffic then goes out. Everything else that would use the SIM, the router\'s own traffic included, goes through the VPN, and nowhere while it is down. The router also looks up names at the VPN\'s DNS server. The rules cover only the SIM, not an internet connection over Wi-Fi or the Ethernet port.\n\nRestoring the factory IMEIs removes the rules.</string>
+    <string name="firewall_on_text">Churn adds firewall rules to the router. Over the SIM, only the VPN\'s own traffic then goes out. Everything else that would use the SIM, the router\'s own traffic included, goes through the VPN, and nowhere while it is down. The router also looks up names at the VPN\'s DNS server. The rules cover only the SIM, not an internet connection over Wi-Fi or the Ethernet port.\n\nRemoving Churn from this router removes the rules.</string>
     <string name="note_flash_log">GL saves its system log on the router, with each SIM card\'s ICCID and IMSI and the cells it used. The log links your cards to each other and to places.</string>
     <string name="clear_history">Clear the SIM history</string>
-    <string name="clear_history_text">Churn keeps GL\'s system log in memory only, deletes the saved log, removes all but the current card from GL\'s records and overwrites the router\'s free storage, so that what it deleted can\'t be read back. It keeps the zeros as files, apart from 512 MB of free storage, so that later overwrites only need to fill those 512 MB. This can take a few minutes.\n\nRestoring the factory IMEIs puts back GL\'s setting for saving the system log and deletes the zero files.</string>
+    <string name="clear_history_text">Churn keeps GL\'s system log in memory only, deletes the saved log, removes all but the current card from GL\'s records and overwrites the router\'s free storage, so that what it deleted can\'t be read back. It keeps the zeros as files, apart from 512 MB of free storage, so that later overwrites only need to fill those 512 MB. This can take a few minutes.\n\nRemoving Churn from this router puts back GL\'s setting for saving the system log and deletes the zero files.</string>
     <string name="place_cards_text">Place cards on this phone, each kept for one place you return to:</string>
     <string name="place_card_button">Place card %1$s</string>
     <string name="place_card_name">\u201c%1$s\u201d</string>
@@ -111,11 +111,11 @@
     <string name="swap">Swap the SIM card</string>
     <string name="show_rules">Rules</string>
     <string name="refresh">Refresh</string>
-    <string name="restore">Restore factory IMEIs</string>
+    <string name="restore">Remove Churn from this router</string>
     <string name="restore_text">Churn turns airplane mode on and writes the factory IMEIs back:\n\nIMEI 1: %1$s\nIMEI 2: %2$s\n\nIt also removes its firewall rules and zero files, puts back GL\'s setting for saving the system log and deletes its folder on the router. Afterwards the app treats the router as new, and setting it up again takes a few seconds.</string>
     <string name="forget">Forget this router</string>
     <string name="forget_text">Churn forgets the router\'s key and password. Its folder on the router stays.</string>
-    <string name="restoring">Restoring the factory IMEIs</string>
+    <string name="restoring">Removing Churn from the router</string>
     <string name="turning_kill_switch_on">Turning the Enhanced Kill Switch on</string>
     <string name="installing_firewall">Adding Churn\'s firewall rules</string>
     <string name="clearing_history">Clearing the SIM history</string>
