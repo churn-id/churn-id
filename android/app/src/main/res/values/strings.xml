@@ -155,6 +155,7 @@
     <string name="progress_radio_off">The radio is off.</string>
     <string name="progress_slot2_on_esim">Slot 2 is on the built-in eSIM.</string>
     <string name="progress_no_profile">No eSIM profile is enabled.</string>
+    <string name="progress_disabling_again">The eSIM profile is still enabled, so Churn asks GL\'s eSIM manager again.</string>
     <string name="progress_profile_disabled">The eSIM profile is disabled.</string>
     <string name="progress_shutting_down">The router is shutting down.</string>
     <string name="progress_waiting_for_start">Waiting until the router has finished starting. This takes about two minutes after power-on.</string>
@@ -175,7 +176,7 @@
     <string name="problem_scheduled_reboot">GL\'s scheduled reboot is on. Turn it off in GL\'s web interface first: a reboot is a power-on, so with a SIM inside it registers wherever it happens.</string>
     <string name="problem_imeis_not_kept">The router didn\'t keep the IMEIs Churn wrote.</string>
     <string name="problem_slot_not_switched">Slot 2 didn\'t switch.</string>
-    <string name="problem_profile_still_enabled">The built-in eSIM\'s profile is still enabled.</string>
+    <string name="problem_profile_still_enabled">The built-in eSIM\'s profile is still enabled, although Churn asked GL\'s eSIM manager three times to disable it. Airplane mode is still on, so you can disable the profile in GL\'s web interface and tap Try again.</string>
     <string name="problem_no_card">Churn found no usable card in the SIM 2 tray: no card at all, or an eSIM adapter card without an enabled profile. Slot 2 is back on the built-in eSIM, so you can switch the router off, check the card, switch the router on again and tap Try again.</string>
     <string name="problem_sim1_card">Churn found a card in the SIM 1 tray, which Churn doesn\'t use (rule 6). A card there registers at every power-on, whatever airplane mode says, so at step 4 it would go out with the new card and link the two. Slot 2 is still on the built-in eSIM, so switch the router off, take the card out of the SIM 1 tray and put the new card into the SIM 2 tray if it isn\'t there. Then switch the router on again and tap Try again.\n\nIf the card in the SIM 1 tray is the new one, it has already registered where and when the old card went quiet, which links the two. Don\'t use it: put another new card into the SIM 2 tray instead.</string>
     <string name="problem_card_changed">The card in the SIM 2 tray changed while Churn waited for your answer, so Churn stopped. Slot 2 is back on the built-in eSIM. Tap Try again to start over with the card that is there now.</string>

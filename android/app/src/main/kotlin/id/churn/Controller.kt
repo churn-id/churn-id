@@ -547,6 +547,7 @@ class Controller(private val context: Context) {
             Progress.RADIO_OFF -> R.string.progress_radio_off
             Progress.SLOT2_ON_ESIM -> R.string.progress_slot2_on_esim
             Progress.NO_PROFILE -> R.string.progress_no_profile
+            Progress.DISABLING_AGAIN -> R.string.progress_disabling_again
             Progress.PROFILE_DISABLED -> R.string.progress_profile_disabled
             Progress.WAITING_FOR_START -> R.string.progress_waiting_for_start
             Progress.SIM1_EMPTY -> R.string.progress_sim1_empty

@@ -110,9 +110,37 @@ class SwapTest {
     }
 
     @Test
+    fun step1AsksAgainWhileTheProfileStaysEnabled() {
+        fake.esimRequestsIgnored = 2
+        swap.prepare()
+        assertNull(fake.esimProfile)
+        assertEquals(3, fake.commands.count { "curl" in it })
+        assertEquals(
+            listOf(
+                Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.DISABLING_AGAIN,
+                Progress.DISABLING_AGAIN, Progress.PROFILE_DISABLED,
+            ),
+            progress,
+        )
+        assertSafe()
+    }
+
+    @Test
+    fun step1WaitsForASlowReloadWithoutAskingAgain() {
+        // Longer than the wait after each request.
+        fake.esimReloadMillis = 40_000
+        swap.prepare()
+        assertNull(fake.esimProfile)
+        assertEquals(1, fake.commands.count { "curl" in it })
+        assertEquals(Progress.PROFILE_DISABLED, progress.last())
+        assertSafe()
+    }
+
+    @Test
     fun step1StopsWithTheEsimManagersAnswerIfTheProfileStaysEnabled() {
-        fake.esimRequestsIgnored = 1
+        fake.esimRequestsIgnored = 3
         val stop = assertStops(Problem.PROFILE_STILL_ENABLED) { swap.prepare() }
+        assertEquals(3, fake.commands.count { "curl" in it })
         assertEquals("""http://127.0.0.1:3456/sdk/v1: {"tx_id":"","code":200,"message":"ok"}""", stop.detail)
         assertEquals("8944000000000000123F", fake.esimProfile)
         // So that the user can disable the profile in GL's web interface and run the step again.

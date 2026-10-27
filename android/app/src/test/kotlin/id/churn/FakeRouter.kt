@@ -49,6 +49,9 @@ class FakeRouter : Shell {
 
     /** The enabled profile's ICCID as `AT+ICCID` gives it, or null for none. */
     var esimProfile: String? = "8944000000000000123F"
+
+    /** How long the chip doesn't answer after a disable, while the modem reloads it; GL's eSIM manager waits 5 s. */
+    var esimReloadMillis = 5_000L
     private var esimReloadsUntil = 0L
 
     /** For GL's eSIM manager leaving the profile enabled at this many requests, as it did once at our step 1. */
@@ -329,7 +332,7 @@ class FakeRouter : Shell {
         } else if (slot2 == Slot2.ESIM && request.getString("iccid") == esimProfile) {
             change("eSIM profile")
             esimProfile = null
-            esimReloadsUntil = clock + 5_000
+            esimReloadsUntil = clock + esimReloadMillis
         }
         return ok("""{"tx_id":"","code":200,"message":"ok"}""")
     }
