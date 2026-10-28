@@ -489,6 +489,18 @@ since step 3 replaces the record and may run more than once.
 - Steps 1 and 3 list what they did as they go. The next step's screen
   keeps the list: the screen changes as soon as the router has shut down,
   too soon to read it.
+- The user can have the app keep a debug log, so that a problem can be
+  looked into afterwards. It is off by default and stays on the phone
+  until the user shares it. It holds every command the app sends to the
+  router with the router's answer, what each step reports, why a job or
+  step stopped, and what GL's eSIM manager logged during steps 1 and 3,
+  which step 3's clearing deletes on the router (below). So that the log
+  doesn't become another record of the user's cards, it leaves out
+  numbers of 12 digits or more, such as ICCIDs, IMSIs and IMEIs, the
+  contents of files, which can hold a SIM's PIN, GL's VPN settings, which
+  can name devices or websites (inferred), and the time of day: its times
+  count in seconds from the start of each job or step. It keeps the last
+  three swaps.
 - When a swap starts on a router with its factory IMEIs, as the first one
   does, step 1 adds that steps 1 to 3 can run at home or at work if the
   router was used there before Churn: until step 3 the router keeps its

@@ -29,6 +29,12 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
+        <provider
+            android:name=".DebugLogProvider"
+            android:authorities="id.churn.log"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
     </application>
 
 </manifest>

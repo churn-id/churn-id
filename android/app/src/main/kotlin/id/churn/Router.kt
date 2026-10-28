@@ -7,12 +7,24 @@ import org.json.JSONObject
 fun interface Shell {
     /** Runs [command] with [input] as its standard input and waits up to [timeoutSeconds] for it to end. */
     fun run(command: String, input: ByteArray?, timeoutSeconds: Long): Output
+
+    /**
+     * Like [run], for a command whose output the debug log leaves out: one that may hold a SIM's PIN, the user's VPN
+     * settings or the time of day.
+     */
+    fun runPrivately(command: String, input: ByteArray?, timeoutSeconds: Long) = run(command, input, timeoutSeconds)
 }
 
 /** What a command printed, and its exit status (null if it reported none). */
 class Output(val status: Int?, val stdout: ByteArray, val stderr: String) {
     val text get() = stdout.toString(Charsets.UTF_8)
 }
+
+/**
+ * A part of GL's eSIM manager's log, [text], read when the log was [size] bytes long, its first bytes, up to 64, had
+ * the MD5 sum [head], and the router's clock showed [clock], in seconds since 1970.
+ */
+class EsimLog(val clock: Long, val size: Long, val head: String, val text: String)
 
 /** Why a step stopped. Nothing it did after the last confirmed answer is assumed done. */
 enum class Problem {
@@ -166,6 +178,39 @@ class Router(private val shell: Shell) {
         return "$ESIM_API: $answer"
     }
 
+    /**
+     * What GL's eSIM manager's log gained since a read found it [from] bytes long and its first bytes, up to 64, of
+     * the MD5 sum [head], or all of it if it was emptied since; if that is more than [max] bytes, only the lines in
+     * its last [max] bytes. The debug log copies these lines (development.md, "The debug log"), but not the command's
+     * output, which names profiles by ICCID and holds the time of day.
+     */
+    fun esimLog(from: Long, head: String, max: Int): EsimLog {
+        require(head.matches(MD5) || head.isEmpty())
+        val log = "$ESIM/log.txt"
+        // The log only grows until it is emptied, so a log that begins as before still holds what was read before.
+        val output = runPrivately(
+            "date +%s; s=$(wc -c < $log) || s=0; h=$(dd if=$log bs=1 count=${minOf(from, 64)} 2>/dev/null | md5sum); " +
+                "g=$(dd if=$log bs=64 count=1 2>/dev/null | md5sum); o=$from; " +
+                "[ \${h%% *} = ${quote(head)} ] && [ \$s -ge \$o ] || o=0; echo \$s \${g%% *} \$o; n=$((s - o)); " +
+                "[ \$n -le $max ] || n=$max; [ \$n -eq 0 ] || tail -c \$n $log",
+        )
+        val lines = output.text.split('\n', limit = 3)
+        val clock = lines[0].trim().toLongOrNull()
+        val numbers = lines.getOrElse(1) { "" }.split(' ')
+        val size = numbers[0].toLongOrNull()
+        val start = numbers.getOrNull(2)?.toLongOrNull()
+        val md5 = numbers.getOrNull(1)?.takeIf { it.matches(MD5) }
+        if (clock == null || size == null || start == null || md5 == null) throw unexpected("GL's eSIM manager's log")
+        val text = lines.getOrElse(2) { "" }
+        return EsimLog(
+            clock = clock,
+            size = size,
+            head = md5,
+            // The cut leaves a part of a line, which could hold a part of an ICCID.
+            text = if (size - start > max) text.substringAfter('\n', missingDelimiterValue = "") else text,
+        )
+    }
+
     fun uptimeSeconds() = run("cat /proc/uptime").text.substringBefore(' ').toDoubleOrNull()
         ?: throw unexpected("/proc/uptime")
 
@@ -180,7 +225,8 @@ class Router(private val shell: Shell) {
      * don't count. Whether the tunnel is on or up doesn't count either.
      */
     fun vpnSetUp(): Boolean {
-        val settings = run("uci -q show route_policy").text.lines()
+        // The debug log leaves the settings out: GL's policies can name the user's devices or the sites they visit.
+        val settings = runPrivately("uci -q show route_policy").text.lines()
             .associate { it.substringBefore('=') to it.substringAfter('=').removeSurrounding("'") }
         return settings.filterValues { it == "rule" }.keys
             .filter { settings["$it.via_type"] == "wireguard" }
@@ -457,7 +503,7 @@ class Router(private val shell: Shell) {
     }
 
     private fun readFile(path: String): ByteArray? {
-        val output = run("if [ -e $path ]; then cat $path; else exit 3; fi")
+        val output = runPrivately("if [ -e $path ]; then cat $path; else exit 3; fi")
         return when (output.status) {
             0 -> output.stdout
             3 -> null
@@ -468,6 +514,9 @@ class Router(private val shell: Shell) {
 
     private fun run(command: String, input: ByteArray? = null, timeoutSeconds: Long = 30) =
         shell.run(command, input, timeoutSeconds)
+
+    private fun runPrivately(command: String, timeoutSeconds: Long = 30) =
+        shell.runPrivately(command, input = null, timeoutSeconds)
 
     private fun Output.check(what: String) {
         if (status != 0) throw unexpected(what, this)
@@ -489,7 +538,7 @@ class Router(private val shell: Shell) {
         const val PLACEHOLDER_ICCID = "89000123456789012341"
 
         /** The ICCIDs of cards without an enabled profile: the built-in eSIM's, and a 9eSIM adapter card's. */
-        private val PLACEHOLDERS = setOf(PLACEHOLDER_ICCID, "89111111111111111111")
+        val PLACEHOLDERS = setOf(PLACEHOLDER_ICCID, "89111111111111111111")
 
         /** The start of a test network's IMSI, which the built-in eSIM shows with no profile enabled. */
         const val TEST_NETWORK = "00101"
@@ -504,6 +553,7 @@ class Router(private val shell: Shell) {
         const val CHURN = "/etc/churn"
 
         private val IMEI = Regex("[0-9]{15}")
+        private val MD5 = Regex("[0-9a-f]{32}")
         private const val BOOT_ID = "/proc/sys/kernel/random/boot_id"
         private val UUID = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
         private val ICCID = Regex("[0-9]{18,20}")
