@@ -24,6 +24,8 @@ sealed interface Screen {
     data class Swapping(
         val step: Step,
         val log: List<String> = emptyList(),
+        /** The step whose lines [log] holds: [step], or the step that ended before it. */
+        val logStep: Step = step,
         val running: Boolean = false,
         val error: String? = null,
         /** Step 3's question, which the running step waits for the user to answer. */
@@ -377,7 +379,8 @@ class Controller(private val context: Context) {
                         answers.take().also { update() }
                     },
                 )
-                body(swap, folder)
+                // The next step's screen keeps the step's lines, so that the user can still read them.
+                body(swap, folder).copy(log = log.toList(), logStep = step)
             } catch (e: UntrustedHostKey) {
                 Screen.TrustKey(e.key, e.fingerprint, e.changed)
             } catch (e: Exception) {

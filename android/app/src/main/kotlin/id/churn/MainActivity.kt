@@ -189,6 +189,9 @@ class MainActivity : Activity() {
         if (screen.step == Step.PREPARE && controller.firstSwap) paragraph(getString(R.string.step1_first_swap))
         val destroy = controller.cardToDestroy
         if (screen.step == Step.GO_ONLINE && destroy != null) paragraph(getString(R.string.step4_destroy, destroy))
+        if (screen.logStep != screen.step && screen.log.isNotEmpty()) {
+            paragraph(getString(R.string.step_lines, screen.logStep.ordinal + 1))
+        }
         screen.log.forEach { paragraph("✓ $it") }
         if (screen.running) {
             addView(ProgressBar(context))

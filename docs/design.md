@@ -486,6 +486,9 @@ since step 3 replaces the record and may run more than once.
   an answer until its timeout, minutes for some.
 - Each step says what to do, where, and why, so the rules don't depend on
   the user's memory.
+- Steps 1 and 3 list what they did as they go. The next step's screen
+  keeps the list: the screen changes as soon as the router has shut down,
+  too soon to read it.
 - When a swap starts on a router with its factory IMEIs, as the first one
   does, step 1 adds that steps 1 to 3 can run at home or at work if the
   router was used there before Churn: until step 3 the router keeps its
