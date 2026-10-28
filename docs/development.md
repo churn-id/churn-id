@@ -346,15 +346,20 @@ shell (all verified).
 
 If they don't show within 30 s, the app asks again, up to three requests in
 all, and then stops step 1 with the eSIM manager's last answer in its
-message, leaving out long numbers such as ICCIDs. Once, step 1 left a
-profile we had added enabled after its one request, and disabling it in
-GL's web interface afterwards worked. Why is still open: the app kept no
-answer then. Each request comes at least 35 s after the last, so that the
-eSIM manager opens a new channel to the chip for it (inferred). It reused a
-channel it had opened up to 12 s before (`reopen.ignore` in its log), and
-right after an enable, listing the profiles failed twice on a channel it
-had opened 11 s after the enable (`empty list, maybe bad esim channel`;
-both verified).
+message, leaving out long numbers such as ICCIDs. Before the app asked
+again, we saw step 1 leave the profile enabled after its one request only
+when the profile had been online as step 1 began, and disabling it in GL's
+web interface afterwards worked (verified). Step 1 sends the request as soon
+as the modem reports the radio off, so most likely it came before the router
+had finished taking the profile offline (inferred; the app kept no answer
+then). The disables we recorded began with airplane mode already on. Since
+the app asks again, several swaps have passed (verified), though we don't
+know whether any of them needed a second request. Each request comes at
+least 35 s after the last, which also lets the eSIM manager open a new
+channel to the chip for it (inferred). It reused a channel it had opened up
+to 12 s before (`reopen.ignore` in its log), and right after an enable,
+listing the profiles failed twice on a channel it had opened 11 s after the
+enable (`empty list, maybe bad esim channel`; both verified).
 
 Not used:
 
