@@ -19,9 +19,9 @@ enum class Step {
 
 /** What a step reports as it goes. */
 enum class Progress {
-    AIRPLANE_MODE_ON, RADIO_OFF, SLOT2_ON_ESIM, NO_PROFILE, PROFILE_DISABLED, WAITING_FOR_START, SIM1_EMPTY,
-    KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, SLOT2_BACK_ON_SIM2, SAME_CARD, NEW_IMEIS,
-    CLEARING_HISTORY, SHUTTING_DOWN,
+    AIRPLANE_MODE_ON, RADIO_OFF, SLOT2_ON_ESIM, NO_PROFILE, DISABLING_AGAIN, PROFILE_DISABLED, WAITING_FOR_START,
+    SIM1_EMPTY, KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, SLOT2_BACK_ON_SIM2, SAME_CARD,
+    NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN,
 }
 
 /**
@@ -213,8 +213,37 @@ class Swap(
         checkRadioOff()
     }
 
-    /** Leaves the built-in eSIM, which slot 2 must be set to, with no profile enabled. */
+    /**
+     * Leaves the built-in eSIM, which slot 2 must be set to, with no profile enabled, asking GL's eSIM manager up to
+     * [PROFILE_REQUESTS] times while a profile stays enabled.
+     */
     private fun disableEsimProfile() {
+        var answer: String? = null
+        repeat(PROFILE_REQUESTS) { sent ->
+            val enabled = enabledProfile()
+            if (enabled == null) {
+                report(if (sent == 0) Progress.NO_PROFILE else Progress.PROFILE_DISABLED)
+                return
+            }
+            if (sent > 0) report(Progress.DISABLING_AGAIN)
+            // The answer doesn't tell whether it worked, so only the ICCID and IMSI read afterwards count.
+            answer = router.disableProfile(enabled)
+            // GL's eSIM manager waits about 5 s for the modem to reload the card.
+            sleep(5_000)
+            val disabled = poll(PROFILE_TIMEOUT_SECONDS) {
+                router.slot2Iccid() == Router.PLACEHOLDER_ICCID &&
+                    router.slot2Imsi()?.startsWith(Router.TEST_NETWORK) == true
+            }
+            if (disabled) {
+                report(Progress.PROFILE_DISABLED)
+                return
+            }
+        }
+        throw RouterException(Problem.PROFILE_STILL_ENABLED, answer)
+    }
+
+    /** The ICCID of the profile enabled on the built-in eSIM, as [Router.slot2Iccid] gives it; null if none is. */
+    private fun enabledProfile(): String? {
         var iccid: String? = null
         // The chip answers a moment after slot 2 is switched to it.
         poll(CARD_TIMEOUT_SECONDS) {
@@ -222,20 +251,7 @@ class Swap(
             iccid != null
         }
         val enabled = iccid ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+ICCID")
-        if (enabled == Router.PLACEHOLDER_ICCID) {
-            report(Progress.NO_PROFILE)
-            return
-        }
-        // The answer doesn't tell whether it worked, so only the ICCID and IMSI read afterwards count.
-        router.disableProfile(enabled)
-        // GL's eSIM manager waits about 5 s for the modem to reload the card.
-        sleep(5_000)
-        val disabled = poll(PROFILE_TIMEOUT_SECONDS) {
-            router.slot2Iccid() == Router.PLACEHOLDER_ICCID &&
-                router.slot2Imsi()?.startsWith(Router.TEST_NETWORK) == true
-        }
-        if (!disabled) throw RouterException(Problem.PROFILE_STILL_ENABLED)
-        report(Progress.PROFILE_DISABLED)
+        return enabled.takeIf { it != Router.PLACEHOLDER_ICCID }
     }
 
     /**
@@ -260,7 +276,16 @@ class Swap(
         const val RADIO_TIMEOUT_SECONDS = 30
         const val SWITCH_TIMEOUT_SECONDS = 30
         const val CARD_TIMEOUT_SECONDS = 60
-        const val PROFILE_TIMEOUT_SECONDS = 60
+
+        /** For the placeholder after a disable request, which showed 5 s after the answer in our recordings. */
+        const val PROFILE_TIMEOUT_SECONDS = 30
+
+        /**
+         * Disable requests sent before step 1 stops; problem_profile_still_enabled says how many. Each comes at least
+         * 35 s after the last, later than GL's eSIM manager reused its channel to the chip in our recordings
+         * (development.md, "Disabling the enabled profile"). Our guess, not a measurement.
+         */
+        const val PROFILE_REQUESTS = 3
         const val BOOT_TIMEOUT_SECONDS = 600
 
         /** About twice the latest end of the radio-on window we measured after power-on, 58 s. */

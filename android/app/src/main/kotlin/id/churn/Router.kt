@@ -151,14 +151,19 @@ class Router(private val shell: Shell) {
         return true
     }
 
-    /** Asks GL's eSIM manager to disable the profile with [iccid], given as [slot2Iccid] returns it. */
+    /**
+     * Asks GL's eSIM manager to disable the profile with [iccid], given as [slot2Iccid] returns it. Returns its answer,
+     * or curl's error, for the log, with long numbers such as ICCIDs left out.
+     */
     fun disableProfile(iccid: String): String {
         require(iccid.matches(Regex("[0-9A-Fa-f]{18,20}")))
         val request = """{"txId":"1","method":"disable","iccid":"$iccid"}"""
-        return run(
+        val output = run(
             locked("curl -sS -m 60 -H 'Content-Type: application/json' -d ${quote(request)} $ESIM_API"),
             timeoutSeconds = 70,
-        ).text.trim()
+        )
+        val answer = (output.text + " " + output.stderr).trim().replace(Regex("[0-9A-Fa-f]{15,}"), "…").take(300)
+        return "$ESIM_API: $answer"
     }
 
     fun uptimeSeconds() = run("cat /proc/uptime").text.substringBefore(' ').toDoubleOrNull()

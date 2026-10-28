@@ -344,6 +344,18 @@ after the answer. Airplane mode stayed on and the modem answered `+CFUN: 4`
 throughout the recorded disable and enable, and after the disable from the
 shell (all verified).
 
+If they don't show within 30 s, the app asks again, up to three requests in
+all, and then stops step 1 with the eSIM manager's last answer in its
+message, leaving out long numbers such as ICCIDs. Once, step 1 left a
+profile we had added enabled after its one request, and disabling it in
+GL's web interface afterwards worked. Why is still open: the app kept no
+answer then. Each request comes at least 35 s after the last, so that the
+eSIM manager opens a new channel to the chip for it (inferred). It reused a
+channel it had opened up to 12 s before (`reopen.ignore` in its log), and
+right after an enable, listing the profiles failed twice on a channel it
+had opened 11 s after the enable (`empty list, maybe bad esim channel`;
+both verified).
+
 Not used:
 
 - Quectel's `AT+QESIM` commands. The modem lists them, but
