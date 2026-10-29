@@ -180,7 +180,7 @@ From development.md, "eSIM profiles", and design.md, section 6.
 | GL's eSIM manager listens on port 3456, and its firewall rule `block_lpa_port` keeps devices from reaching it, which would otherwise let them change profiles without a login | verified | The listening port and the rule | 1 |
 | Posting `disable` to GL's eSIM manager from the router's shell disables the enabled profile without a login, answers `code` 200, and the placeholder shows within about 5 s, with airplane mode and `+CFUN: 4` holding | verified | Enable GL's pre-installed profile in airplane mode, then run step 1. Tier 4, because a power-on with a profile enabled registers wherever it happens | 4 |
 | A request sent as soon as the radio is off can leave a profile that was online enabled | verified | Start step 1 several times with slot 2 on the eSIM and its profile online, and count the "still enabled" lines | 4 |
-| A request at least 35 s after one that left the profile enabled disables it | inferred | In those runs, step 1 passes after a "still enabled" line | 4 |
+| A request at least 35 s after one that left the profile enabled disables it | verified | In those runs, step 1 passes after a "still enabled" line | 4 |
 | The chip enables at most one profile at a time | inferred | Enable a second profile and check that the first one is disabled | 4 |
 | A card in the SIM 2 tray answers `AT+ICCID` and `AT+CIMI` like the eSIM | verified with an eSIM adapter card | Step 3 with a card in the tray | 4 |
 | A 9eSIM adapter card with no profile enabled shows the ICCID `89111111111111111111` and the IMSI `111111111111111` | verified | Read both with such a card in the tray and slot 2 on it | 4 |

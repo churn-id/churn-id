@@ -353,13 +353,14 @@ web interface afterwards worked (verified). Step 1 sends the request as soon
 as the modem reports the radio off, so most likely it came before the router
 had finished taking the profile offline (inferred; the app kept no answer
 then). The disables we recorded began with airplane mode already on. Since
-the app asks again, several swaps have passed (verified), though we don't
-know whether any of them needed a second request. Each request comes at
-least 35 s after the last, which also lets the eSIM manager open a new
-channel to the chip for it (inferred). It reused a channel it had opened up
-to 12 s before (`reopen.ignore` in its log), and right after an enable,
-listing the profiles failed twice on a channel it had opened 11 s after the
-enable (`empty list, maybe bad esim channel`; both verified).
+the app asks again, several swaps have passed, and in one of them, begun
+with the profile online, the first request again left the profile enabled
+and the second disabled it (verified). Each request comes at least 35 s
+after the last, which also lets the eSIM manager open a new channel to the
+chip for it (inferred). It reused a channel it had opened up to 12 s before
+(`reopen.ignore` in its log), and right after an enable, listing the
+profiles failed twice on a channel it had opened 11 s after the enable
+(`empty list, maybe bad esim channel`; both verified).
 
 Not used:
 
