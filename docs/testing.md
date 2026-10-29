@@ -22,7 +22,7 @@ to the router:
 | Tier | What a test may do | Where it runs |
 | --- | --- | --- |
 | 1 | Read only | Whenever the app is connected: at every connection and before steps 1 and 3 of a swap |
-| 2 | Change settings and put them back, with the radio off and no reboot | At home, with no SIM in the router and airplane mode on |
+| 2 | Change settings and put them back, with the radio off and no reboot | At home, with no SIM in the router, airplane mode on and a WireGuard VPN set up, which steps 1 and 3 ask for |
 | 3 | Also turn the radio on and reboot the router | At home, with both trays empty and slot 2 on the empty SIM 2 tray |
 | 4 | Anything that needs a person: an RF meter, a real SIM, or a SIM online | At a place that doesn't matter (rule 1) |
 
@@ -43,9 +43,11 @@ to the router:
   may later be offered to users. Tiers 3 and 4 are for the maintainer.
 - A test that clears the SIM history writes about 0.5 GB to the flash,
   or 2.9 GB without the zero files (development.md, "Clearing the SIM
-  history"), so it runs once for each firmware, not with every dry run.
-  The dry run itself clears nothing: step 3 with an empty tray stops
-  before the clearing.
+  history"), and a test that runs `restore.sh` deletes the zero files and
+  Churn's record of the card. So both run once for each firmware, not with
+  every dry run, and the clearing comes after `restore.sh`. The dry run
+  itself clears nothing and doesn't run `restore.sh`: step 3 with an empty
+  tray stops before the clearing.
 
 ## Platform
 
@@ -84,8 +86,8 @@ From development.md, "AT commands (RG650V-EU)", and design.md, section 6.
 | `AT+QSIMTYPE="slot2"` answers `0` for the SIM 2 tray and `1` for the eSIM | verified | The answer parses | 1, blocks |
 | `AT+QUIMSUB?` answers `2,"SUB2"` for slot 2's card | verified | The answer parses | 1 |
 | No modem setting starts the radio off at power-on | verified | The test commands `AT+CFUN=?`, `AT+QCFG=?` and `AT+QNWCFG=?` list the same settings as when we searched | 1 |
-| Both IMEIs can be written and read back at once | verified | Write a throwaway pair and read it back, then write the earlier pair back | 2 |
-| `AT+QPRTPARA=1` saves the written IMEIs; without it, a reboot 5 s after a write brought the earlier IMEIs back | verified | Write and save a throwaway pair, reboot and read it; then the earlier pair the same way | 3 |
+| Both IMEIs can be written and read back at once | verified | Write a test pair and read it back, then write the earlier pair back | 2 |
+| `AT+QPRTPARA=1` saves the written IMEIs; without it, a reboot 5 s after a write brought the earlier IMEIs back | verified | Write and save a test pair, reboot and read it; then the earlier pair the same way | 3 |
 | `AT+QPRTPARA=1` also overwrites the modem's backup of its settings | inferred | None known: we know no command that reads the backup | – |
 
 The app doesn't send `AT+CFUN=1`, `AT+CFUN=4`, `AT+CPIN?`, `AT+QCCID`,
@@ -221,7 +223,7 @@ and 10.
 | --- | --- | --- | --- |
 | GL writes its system log to the file `system.@system[0].log_file` names, and the log pairs cards' ICCIDs with their IMSIs and names the cells they used | verified | The setting and a running `logread -f -F` (tier 1); the log's lines (tier 4) | 1, 4 |
 | Deleting `log_file`, committing and reloading the log service ends the `logread` that writes the file | verified | No `logread -f` process afterwards | 1 |
-| Setting `log_file` back and reloading the log service makes `logread` write the file again | open | Run `restore.sh`, check the process and the file; the clearing test that follows turns the file off again | 2 |
+| Setting `log_file` back and reloading the log service makes `logread` write the file again | open | Run `restore.sh`, check the process and the file; setting the router up again turns the file off | 2 |
 | GL's card files and the eSIM manager's records have the formats development.md lists | verified | Both card files parse, and every member name and `iccid` in them is an ICCID | 1 |
 | GL doesn't add back pruned cards, also not when airplane mode goes off and on | verified | The card files after airplane mode off and on | 4 |
 | GL copes with card files that name no card until it records the new one | inferred | Step 3 with a new card, then a power-on and airplane mode off | 4 |
