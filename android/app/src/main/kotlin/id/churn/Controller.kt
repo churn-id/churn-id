@@ -308,7 +308,7 @@ class Controller(private val context: Context) {
         saved.bootId = swap.bootId()
         // Saved before the router goes down, which may end the connection before it answers.
         saved.step = next
-        debugLog.copyEsim()
+        debugLog.stopWatchingEsim()
         swap.shutDown()
         val left = connection?.awaitCableLost(SHUTDOWN_WAIT_SECONDS * 1_000L) != false
         disconnect()
@@ -406,8 +406,10 @@ class Controller(private val context: Context) {
             } catch (e: UntrustedHostKey) {
                 trustKey(e)
             } catch (e: Exception) {
-                debugLog.copyEsim()
                 Screen.Swapping(step, log.toList(), error = stopped(e))
+            } finally {
+                // The last copy, unless the step made it before shutting the router down.
+                debugLog.stopWatchingEsim()
             }
             // Before the next screen, which may start the next step.
             main.post {

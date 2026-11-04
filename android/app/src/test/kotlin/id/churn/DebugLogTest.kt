@@ -28,6 +28,7 @@ class DebugLogTest {
         router.radio()
         log.add("The router's network is there.")
         log.copyEsim()
+        log.stopWatchingEsim()
         assertFalse(file.exists())
         assertTrue(log.isEmpty)
     }
@@ -139,6 +140,21 @@ class DebugLogTest {
         assertTrue(copied.all { it.matches(Regex(" +0\\.0 · Debug esim: \\(ipa:130\\) IpaReopen \\d{4}")) })
         assertEquals("0413", copied.first().takeLast(4))
         assertEquals("1999", copied.last().takeLast(4))
+    }
+
+    @Test
+    fun stopsWatchingGlsEsimManagerLogAfterALastCopy() {
+        log.start("Step 1")
+        log.watchEsim(router)
+        fake.esimLogs("Debug esim: (ipa:419) disable.ret: 0")
+        log.stopWatchingEsim()
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen after the step")
+        log.copyEsim()
+        log.stopWatchingEsim()
+        val text = file.readText()
+        assertTrue(text, "· Debug esim: (ipa:419) disable.ret: 0\n" in text)
+        assertEquals(text, 1, Regex("GL's eSIM manager logged").findAll(text).count())
+        assertFalse(text, "after the step" in text)
     }
 
     @Test

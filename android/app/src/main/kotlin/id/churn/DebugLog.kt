@@ -13,7 +13,7 @@ import java.util.Locale
  * IMSIs and IMEIs, stay out, and so do the answers to [Shell.runPrivately], such as files' contents and the time of
  * day, so that the log ties no cards to each other or to times. It keeps the last [SWAPS] swaps.
  *
- * [start], [watchEsim] and [copyEsim] run on the thread that runs the router's jobs.
+ * [watchEsim], [copyEsim] and [stopWatchingEsim] run on the thread that runs the router's jobs.
  */
 class DebugLog(
     private val file: File,
@@ -24,7 +24,7 @@ class DebugLog(
     /** When the current section started, in milliseconds of [now]. */
     private var started = now()
 
-    /** GL's eSIM manager's log, while a step watches it. */
+    /** GL's eSIM manager's log, while a step watches it: from [watchEsim] to [stopWatchingEsim]. */
     private var esim: EsimWatch? = null
 
     /**
@@ -45,7 +45,6 @@ class DebugLog(
     @Synchronized
     fun start(title: String) {
         started = now()
-        esim = null
         if (!on()) return
         trim()
         file.appendText("\n== $title\n")
@@ -146,6 +145,12 @@ class DebugLog(
             }
             add("· " + (time?.groupValues?.last() ?: line), at)
         }
+    }
+
+    /** Makes a last copy, as [copyEsim] does, and stops watching GL's eSIM manager's log. */
+    fun stopWatchingEsim() {
+        copyEsim()
+        esim = null
     }
 
     @Synchronized
