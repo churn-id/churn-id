@@ -24,14 +24,66 @@ class DebugLog(
     /** When the current section started, in milliseconds of [now]. */
     private var started = now()
 
-    /** GL's eSIM manager's log, while a step watches it: from [watchEsim] to [stopWatchingEsim]. */
+    /**
+     * The stretch of GL's eSIM manager's log that the next copy takes, while a step watches the log: from [watchEsim]
+     * to [stopWatchingEsim].
+     */
     private var esim: EsimWatch? = null
 
     /**
-     * The router whose eSIM manager's log is watched, where the next copy starts, how the log began then, and the
-     * router's clock at [at] seconds into the section.
+     * A stretch of GL's eSIM manager's log on [router], from the read where it begins to the copy that takes it: where
+     * it starts and how the log began then, and, the same for the whole step, the router's clock at [at] seconds into
+     * the section.
      */
-    private class EsimWatch(val router: Router, var from: Long, var head: String, val clock: Long, val at: Double)
+    private data class EsimWatch(
+        val router: Router,
+        val from: Long,
+        val head: String,
+        val clock: Long,
+        val at: Double,
+    ) {
+
+        /**
+         * Reads the stretch, at most its last [MAX] bytes from the start of a line: its lines, each with its time in
+         * seconds into the section, and the watch for the stretch that follows. GL's eSIM manager logs its times in UTC
+         * (inferred).
+         */
+        fun read(): Pair<List<Pair<Double, String>>, EsimWatch> {
+            val log = router.esimLog(from, head, MAX)
+            var time = at
+            val lines = log.text.lines().map { it.trim() }.filter { it.isNotEmpty() }.map { line ->
+                val match = LINE.matchEntire(line)
+                if (match != null) time = at + (clockOf(match) - clock)
+                time to (match?.groupValues?.last() ?: line)
+            }
+            return lines to copy(from = log.size, head = log.head)
+        }
+
+        companion object {
+            private const val MAX = 100_000
+
+            private val MONTHS =
+                listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+            /** A line of GL's eSIM manager's log, which starts with its time, such as `Sun Oct 11 11:17:08 2026`. */
+            private val LINE = Regex(
+                """[A-Z][a-z]{2} (${MONTHS.joinToString("|")}) +(\d{1,2}) (\d{2}):(\d{2}):(\d{2}) (\d{4}) (.*)""",
+            )
+
+            /** The time that [line] starts with, in seconds since 1970. */
+            private fun clockOf(line: MatchResult): Long {
+                val (month, day, hour, minute, second, year) = line.destructured
+                return LocalDateTime.of(
+                    year.toInt(),
+                    MONTHS.indexOf(month) + 1,
+                    day.toInt(),
+                    hour.toInt(),
+                    minute.toInt(),
+                    second.toInt(),
+                ).toEpochSecond(ZoneOffset.UTC)
+            }
+        }
+    }
 
     val isEmpty get() = file.length() == 0L
 
@@ -113,38 +165,20 @@ class DebugLog(
 
     /**
      * Adds the lines GL's eSIM manager has logged since the watch started or since the last copy, each at its time in
-     * the section. GL's eSIM manager logs its times in UTC (inferred).
+     * the section.
      */
     fun copyEsim() {
         val watch = esim ?: return
         if (!on()) return
-        val log = try {
-            watch.router.esimLog(watch.from, watch.head, MAX_ESIM)
+        val (lines, next) = try {
+            watch.read()
         } catch (e: Exception) {
             add("  can't read GL's eSIM manager's log: $e")
             return
         }
-        watch.from = log.size
-        watch.head = log.head
-        val lines = log.text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        esim = next
         add(if (lines.isEmpty()) "GL's eSIM manager logged nothing new." else "GL's eSIM manager logged:")
-        var at = watch.at
-        for (line in lines) {
-            val time = ESIM_LINE.matchEntire(line)
-            if (time != null) {
-                val (month, day, hour, minute, second, year) = time.destructured
-                val clock = LocalDateTime.of(
-                    year.toInt(),
-                    MONTHS.indexOf(month) + 1,
-                    day.toInt(),
-                    hour.toInt(),
-                    minute.toInt(),
-                    second.toInt(),
-                ).toEpochSecond(ZoneOffset.UTC)
-                at = watch.at + (clock - watch.clock)
-            }
-            add("· " + (time?.groupValues?.last() ?: line), at)
-        }
+        for ((at, line) in lines) add("· $line", at)
     }
 
     /** Makes a last copy, as [copyEsim] does, and stops watching GL's eSIM manager's log. */
@@ -185,14 +219,6 @@ class DebugLog(
         private const val MAX_CHARS = 1_000_000
         private const val MAX_COMMAND = 300
         private const val MAX_ANSWER = 2_000
-        private const val MAX_ESIM = 100_000
-
-        private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
-        /** A line of GL's eSIM manager's log, which starts with its time, such as `Sun Oct 11 11:17:08 2026`. */
-        private val ESIM_LINE = Regex(
-            """[A-Z][a-z]{2} (${MONTHS.joinToString("|")}) +(\d{1,2}) (\d{2}):(\d{2}):(\d{2}) (\d{4}) (.*)""",
-        )
 
         private val LONG_NUMBER = Regex("[0-9A-Fa-f]{12,}")
 
