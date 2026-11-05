@@ -144,12 +144,14 @@
     <string name="check_scheduled_reboot">GL keeps its scheduled reboot where Churn reads it</string>
     <string name="check_modem_iccid">GL records the active card by its ICCID</string>
     <string name="check_active_slot">GL reports the active slot as 1 or 2</string>
+    <string name="check_vpn_policy">GL keeps a WireGuard tunnel as a rule of its route policy, beside its default policy</string>
     <string name="check_firewall_loaded">GL\'s firewall has loaded Churn\'s firewall rules</string>
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>
     <string name="reason_not_set_up">Churn hasn\'t set up this router yet.</string>
     <string name="reason_starting">The router started less than 2 minutes ago, so the radio may still be on.</string>
     <string name="reason_no_active_card">GL records no active card at the moment.</string>
+    <string name="reason_no_vpn">No WireGuard VPN is set up on the router.</string>
     <string name="reason_no_firewall">Churn\'s firewall rules aren\'t on the router.</string>
     <string name="reason_no_record">No swap has recorded a card on this router yet.</string>
     <string name="reason_slot2_on_esim">Slot 2 is on the built-in eSIM, so the card in the SIM 2 tray is off.</string>

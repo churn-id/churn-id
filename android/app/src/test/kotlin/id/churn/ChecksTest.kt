@@ -269,6 +269,23 @@ class ChecksTest {
     }
 
     @Test
+    fun vpnPolicyCheckPassesWithAWireGuardTunnel() {
+        assertEquals(CheckResult.Passed, run("K1"))
+    }
+
+    @Test
+    fun vpnPolicyCheckFailsWithoutTheDefaultPolicy() {
+        fake.uciAnswers["route_policy.@default[0]"] = null
+        assertEquals(CheckResult.Failed("GL's route policy has no default section."), run("K1"))
+    }
+
+    @Test
+    fun vpnPolicyCheckDoesNotApplyWithoutATunnel() {
+        fake.vpnTunnel = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_vpn), run("K1"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

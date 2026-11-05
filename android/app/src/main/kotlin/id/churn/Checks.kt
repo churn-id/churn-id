@@ -58,6 +58,7 @@ val CHECKS = listOf(
     Check("U6", blocks = true, title = R.string.check_active_slot) { router, _ ->
         settingIn(router.activeSlot(), "1", "2")
     },
+    Check("K1", blocks = true, title = R.string.check_vpn_policy) { router, _ -> vpnPolicy(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -177,6 +178,17 @@ private fun activeCardIccid(router: Router): CheckResult {
     if (Imei.iccidDigits(value) != null) return CheckResult.Passed
     // Not the value itself, which may hold a card's number all the same.
     return CheckResult.Failed("The setting holds ${value.length} characters that aren't an ICCID.")
+}
+
+/**
+ * Whether GL's route policy has its default section, which holds the Enhanced Kill Switch's setting, and a WireGuard
+ * tunnel in the form [Router.vpnSetUp] looks for.
+ */
+private fun vpnPolicy(router: Router) = when {
+    router.setting("route_policy.@default[0]") != "default" ->
+        CheckResult.Failed("GL's route policy has no default section.")
+    router.vpnSetUp() -> CheckResult.Passed
+    else -> CheckResult.NotApplicable(R.string.reason_no_vpn)
 }
 
 /** Whether a uci setting holds one of [expected], given its [value], or null if it isn't set. */

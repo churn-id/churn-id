@@ -416,6 +416,7 @@ class FakeRouter : Shell {
         "network.modem_cpu.dds_id" -> ok("$activeSlot\n")
         "system.@system[0].log_file" -> logFile?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
         "network.modem_cpu.iccid" -> modemCpuIccid?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
+        "route_policy.@default[0]" -> ok("default\n")
         "route_policy.@default[0].enabled" -> ok(if (killSwitchSet) "0\n" else "1\n")
         "network.vpn_to_main" -> if (killSwitchSet) Output(1, ByteArray(0), "") else ok("rule\n")
         "network.wgclient1" -> ok("interface\n")
