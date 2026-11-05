@@ -188,9 +188,12 @@ class Controller(private val context: Context) {
         job(R.string.connecting) { showRouter() }
     }
 
-    /** Cancel on the key or setup screen. At the key question, it ends the connection attempt. */
+    /** Cancel on the key or setup screen: ends the attempt at the key question, or the connection behind setup. */
     fun cancel() {
-        worker.execute { typedPassword = null }
+        worker.execute {
+            typedPassword = null
+            disconnect()
+        }
         show(Screen.Connect())
     }
 
@@ -361,6 +364,8 @@ class Controller(private val context: Context) {
             } catch (e: Exception) {
                 typedPassword = null
                 show(Screen.Connect(stopped(e)))
+                // Every way on from the Connect screen connects anew.
+                disconnect()
             }
             if (keepAlive) {
                 main.post {

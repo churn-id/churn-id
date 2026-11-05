@@ -457,7 +457,8 @@ goes once step 3 has used it, or when the user cancels the swap.
   anew if that connection has ended. Android ends the TCP connections of
   an app it freezes in the background, as it may while the phone is
   locked and no step runs. Step 1 failed when we let the phone lock
-  before starting it.
+  before starting it. Back on the Connect screen, the app drops its
+  connection, since every way on from there connects anew.
 - While it is on screen, the app watches for the router's network on the
   cable. The Connect screen says whether the router is there and, once the
   user has connected with the password and trusted the router's key,
