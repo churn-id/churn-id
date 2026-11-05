@@ -111,6 +111,8 @@ commits every change, so it survives a reboot (inferred from OpenWrt's
 | `route_policy.@rule[0].killswitch` | `'1'` | Kill switch of the first VPN rule. Writing it turns it on and off | verified |
 | `route_policy.@default[0].enabled` | `'0'` with Enhanced Kill Switch on, `'1'` off | GL's fallback policy, which sends traffic that matches no VPN rule past the VPN (`via='novpn'`, mark `0x8000`) | values verified, meaning inferred |
 | `network.vpn_to_main` | absent with Enhanced Kill Switch on, present off | Routing rule that sends marked traffic (`mark='0x0/0xf000'`, `invert='1'`) to the main table, outside the VPN. `ip rule` lists it at priority 9000 only while the switch is off | values and `ip rule` verified, meaning inferred |
+| `network.wgclient1.config` | `'peer_2010'` | The tunnel's WireGuard peer, a section of `/etc/config/wireguard` | value verified, meaning inferred |
+| `wireguard.<peer>.masq` | `'1'` | The tunnel's IP Masquerading, on | value verified, meaning inferred from its name |
 
 The app needs the Enhanced Kill Switch on. To turn it on, it sets
 `route_policy.@default[0].enabled='0'`, deletes `network.vpn_to_main`,

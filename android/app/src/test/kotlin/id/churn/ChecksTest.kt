@@ -580,6 +580,35 @@ class ChecksTest {
     }
 
     @Test
+    fun masqueradingCheckPassesWithMasqueradingOn() {
+        assertEquals(CheckResult.Passed, run("D13"))
+    }
+
+    @Test
+    fun masqueradingCheckFailsWithMasqueradingOff() {
+        fake.uciAnswers["wireguard.peer_2010.masq"] = "0"
+        assertEquals(CheckResult.Failed("wireguard.peer_2010.masq is \"0\"."), run("D13"))
+    }
+
+    @Test
+    fun masqueradingCheckFailsWithoutTheSetting() {
+        fake.uciAnswers["wireguard.peer_2010.masq"] = null
+        assertEquals(CheckResult.Failed("wireguard.peer_2010.masq is missing."), run("D13"))
+    }
+
+    @Test
+    fun masqueradingCheckFailsWithoutTheTunnelsPeer() {
+        fake.uciAnswers["network.wgclient1.config"] = null
+        assertEquals(CheckResult.Failed("network.wgclient1.config is missing."), run("D13"))
+    }
+
+    @Test
+    fun masqueradingCheckDoesNotApplyWithoutATunnel() {
+        fake.vpnTunnel = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_vpn), run("D13"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2

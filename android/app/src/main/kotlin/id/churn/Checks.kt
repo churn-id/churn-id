@@ -70,6 +70,7 @@ val CHECKS = listOf(
     Check("D8", blocks = true, title = R.string.check_sim_interfaces) { router, _ -> simInterfaces(router) },
     Check("D9", blocks = false, title = R.string.check_wireguard_mark) { router, _ -> wireguardMark(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
+    Check("D13", blocks = false, title = R.string.check_masquerading) { router, _ -> tunnelMasquerading(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
 
@@ -398,6 +399,26 @@ private fun dnsmasqUser(router: Router): CheckResult {
         null -> CheckResult.Failed("Churn's rules name no user ID.")
         else -> CheckResult.Failed("Churn's rules name user ID $named, but the user dnsmasq has $uid.")
     }
+}
+
+/**
+ * Whether the IP Masquerading of each WireGuard tunnel is on, which translates the router's own packets to the
+ * tunnel's address: the setting `masq` of the peer that the tunnel's network interface names, by its name the one
+ * that GL's web interface calls IP Masquerading.
+ */
+private fun tunnelMasquerading(router: Router): CheckResult {
+    val tunnels = router.vpnInterfaces()
+    if (tunnels.isEmpty()) return CheckResult.NotApplicable(R.string.reason_no_vpn)
+    val problems = tunnels.mapNotNull { tunnel ->
+        val peer = router.setting("network.$tunnel.config") ?: return@mapNotNull "network.$tunnel.config is missing."
+        val key = "wireguard.$peer.masq"
+        when (val masq = router.setting(key)) {
+            "1" -> null
+            null -> "${key.take(60)} is missing."
+            else -> "${key.take(60)} is \"${masq.take(20)}\"."
+        }
+    }
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
 }
 
 /**

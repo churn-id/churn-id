@@ -494,6 +494,9 @@ class FakeRouter : Shell {
         "route_policy.@default[0].enabled" -> ok(if (killSwitchSet) "0\n" else "1\n")
         "network.vpn_to_main" -> if (killSwitchSet) Output(1, ByteArray(0), "") else ok("rule\n")
         "network.wgclient1" -> ok("interface\n")
+        // The tunnel's WireGuard peer and its IP Masquerading, as our Mudi 7 listed them.
+        "network.wgclient1.config" -> ok("peer_2010\n")
+        "wireguard.peer_2010.masq" -> ok("1\n")
         // Only for ignoresATunnelThatIsNotWireGuard: with the interface present, only the WireGuard check can reject
         // that tunnel.
         "network.ovpnclient1" -> ok("interface\n")

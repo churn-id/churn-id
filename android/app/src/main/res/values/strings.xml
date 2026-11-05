@@ -156,6 +156,7 @@
     <string name="check_sim_interfaces">The SIM\'s data interfaces have the names that Churn\'s firewall rules match</string>
     <string name="check_wireguard_mark">WireGuard sends with the mark that Churn\'s firewall rules let out over the SIM</string>
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
+    <string name="check_masquerading">The WireGuard tunnel\'s IP Masquerading is on, which the router\'s own traffic through it needs</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>
     <string name="reason_not_set_up">Churn hasn\'t set up this router yet.</string>
     <string name="reason_starting">The router started less than 2 minutes ago, so the radio may still be on.</string>
