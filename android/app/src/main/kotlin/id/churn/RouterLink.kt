@@ -27,8 +27,8 @@ import net.schmizz.sshj.transport.verification.HostKeyVerifier
 import net.schmizz.sshj.userauth.UserAuthException
 
 /**
- * The router's USB Ethernet network, requested from Android until [close]. It has no internet, so Android doesn't
- * send anything through it by default; the app binds its sockets to [network].
+ * The router's USB Ethernet network, requested from Android until it goes or until [close]. It has no internet, so
+ * Android doesn't send anything through it by default; the app binds its sockets to [network].
  */
 class RouterNetwork private constructor(
     private val connectivity: ConnectivityManager,
@@ -70,8 +70,10 @@ class RouterNetwork private constructor(
                     found.offer(network)
                 }
 
-                // A request follows one network at a time, the one it reported available.
+                // A request follows one network at a time, the one it reported available. Released, it doesn't stay
+                // for the router's next network, which a later connection requests anew.
                 override fun onLost(network: Network) {
+                    release(connectivity, this)
                     lost.complete(Unit)
                 }
             }
@@ -97,7 +99,8 @@ class RouterNetwork private constructor(
         }
 
         private fun release(connectivity: ConnectivityManager, callback: ConnectivityManager.NetworkCallback) {
-            // A request that timed out or was released before is already gone, and unregistering it again throws.
+            // A request that timed out, or was released before, as when its network went, is already gone, and
+            // unregistering it again throws.
             runCatching { connectivity.unregisterNetworkCallback(callback) }
         }
     }

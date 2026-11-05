@@ -20,7 +20,8 @@ with the test planned for each on a real router.
   internet) rather than only listening for it, since Android may bring up
   an Ethernet network only while a request needs it (inferred). The same
   request reports when the network goes (`onLost`), and the app then ends
-  the connection over it. While the app is on screen, a request without a
+  the connection over it and releases the request. A later connection
+  makes a new request. While the app is on screen, a request without a
   timeout watches for the router. Android reports the network as a new
   `Network` each time the cable goes in or the router starts (inferred).
 - Every socket needs Android's network permission, the cable's included.
