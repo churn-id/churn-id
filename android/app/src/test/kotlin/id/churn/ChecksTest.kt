@@ -352,6 +352,29 @@ class ChecksTest {
     }
 
     @Test
+    fun usbPortCheckPassesWithTheUsbPortInTheLan() {
+        assertEquals(CheckResult.Passed, run("K7"))
+    }
+
+    @Test
+    fun usbPortCheckFailsWithTheUsbPortOutsideTheLan() {
+        fake.usbBridge = null
+        assertEquals(CheckResult.Failed("ecm0 is in no bridge."), run("K7"))
+    }
+
+    @Test
+    fun usbPortCheckFailsWithTheUsbPortInAnotherBridge() {
+        fake.usbBridge = "br-guest"
+        assertEquals(CheckResult.Failed("ecm0 is in br-guest, not br-lan."), run("K7"))
+    }
+
+    @Test
+    fun usbPortCheckFailsWithoutTheUsbPortsDevice() {
+        fake.failing += "ip link show ecm0"
+        assertEquals(CheckResult.Failed("The router has no network device ecm0."), run("K7"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

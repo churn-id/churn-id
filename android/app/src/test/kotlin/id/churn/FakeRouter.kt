@@ -43,6 +43,9 @@ class FakeRouter : Shell {
      */
     val answers = mutableMapOf<String, String>()
 
+    /** Commands that fail, such as on a firmware without what they read. Only the router checks' tests use them. */
+    val failing = mutableSetOf<String>()
+
     /** Milliseconds, advanced by the tests' sleep. */
     var clock = 0L
 
@@ -114,6 +117,9 @@ class FakeRouter : Shell {
 
     /** Whether the tunnel's interface is up, as while GL's VPN client has the tunnel connected. */
     var tunnelUp = true
+
+    /** The bridge the USB-C port's network device `ecm0` is in, or null for none. */
+    var usbBridge: String? = "br-lan"
     var poweredOff = false
     val files = mutableMapOf<String, ByteArray>()
     var sysupgrade = "/etc/config/\n/etc/profile"
@@ -207,6 +213,7 @@ class FakeRouter : Shell {
         val body = command.removePrefix(LOCK)
         if (body == command && MODEM.any { it in command }) unlocked += command
         answers[body]?.let { return ok(it) }
+        if (body in failing) return Output(1, ByteArray(0), "")
         return answer(body, input)
     }
 
@@ -231,6 +238,14 @@ class FakeRouter : Shell {
         }
         if (command == "ip rule show") return ok(ipRules())
         Regex("""ifstatus (\w+)""").matchEntire(command)?.let { return interfaceStatus(it.groupValues[1]) }
+        // As our Mudi 7 showed it, with another hardware address.
+        if (command == "ip link show ecm0") {
+            val master = usbBridge?.let { " master $it" } ?: ""
+            return ok(
+                "26: ecm0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast$master state UP mode DEFAULT " +
+                    "group default qlen 1000\n    link/ether 02:00:00:00:00:01 brd ff:ff:ff:ff:ff:ff\n",
+            )
+        }
         if (command == "uci -q show route_policy") return ok(routePolicy())
         if (command == KILL_SWITCH_ON) {
             change("Enhanced Kill Switch")

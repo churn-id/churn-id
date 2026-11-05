@@ -61,6 +61,7 @@ val CHECKS = listOf(
     Check("K1", blocks = true, title = R.string.check_vpn_policy) { router, _ -> vpnPolicy(router) },
     Check("K5", blocks = false, title = R.string.check_kill_switch_settings) { router, _ -> killSwitchAgrees(router) },
     Check("K6", blocks = true, title = R.string.check_kill_switch_rules) { router, _ -> killSwitchRules(router) },
+    Check("K7", blocks = false, title = R.string.check_usb_port) { router, _ -> usbPortInLan(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -232,6 +233,16 @@ private fun killSwitchRules(router: Router): CheckResult {
     val tunnelUp = tunnels.any { router.interfaceStatus(it)?.optBoolean("up") == true }
     val missing = (KILL_SWITCH_RULES + listOfNotNull(TUNNEL_RULE.takeIf { tunnelUp })).filter { it !in rules }
     return if (missing.isEmpty()) CheckResult.Passed else CheckResult.Failed("Missing: ${missing.joinToString(", ")}.")
+}
+
+/** Whether the USB-C port's network device is in `br-lan`, whose unmarked traffic the blackhole at 9920 stops. */
+private fun usbPortInLan(router: Router): CheckResult {
+    val link = router.link("ecm0") ?: return CheckResult.Failed("The router has no network device ecm0.")
+    return when (val bridge = Regex(""" master (\S+) """).find(link.lineSequence().first())?.groupValues?.get(1)) {
+        "br-lan" -> CheckResult.Passed
+        null -> CheckResult.Failed("ecm0 is in no bridge.")
+        else -> CheckResult.Failed("ecm0 is in ${bridge.take(20)}, not br-lan.")
+    }
 }
 
 /** Whether a uci setting holds one of [expected], given its [value], or null if it isn't set. */

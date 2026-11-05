@@ -265,6 +265,13 @@ class Router(private val shell: Shell) {
             .filter { uci("network.$it") == "interface" }
     }
 
+    /** The network device [name] as `ip link show` lists it; null if there is no such one. */
+    fun link(name: String): String? {
+        require(name.matches(Regex("[A-Za-z0-9_.-]+")))
+        val output = run("ip link show $name")
+        return if (output.status == 0) output.text else null
+    }
+
     /** The state of the network interface [name] as `ifstatus` gives it, such as `up`; null if there is no such one. */
     fun interfaceStatus(name: String): JSONObject? {
         require(name.matches(Regex("[A-Za-z0-9_]+")))
