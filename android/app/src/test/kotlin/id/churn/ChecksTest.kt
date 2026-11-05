@@ -135,6 +135,23 @@ class ChecksTest {
     }
 
     @Test
+    fun slot2CheckPassesOnTheTray() {
+        assertEquals(CheckResult.Passed, run("M3"))
+    }
+
+    @Test
+    fun slot2CheckPassesOnTheEsim() {
+        fake.slot2 = Slot2.ESIM
+        assertEquals(CheckResult.Passed, run("M3"))
+    }
+
+    @Test
+    fun slot2CheckFailsAtAnotherAnswer() {
+        fake.atAnswers["AT+QSIMTYPE=\"slot2\""] = "+QSIMTYPE: \"slot2\",2"
+        assertEquals(CheckResult.Failed("Unexpected answer: AT+QSIMTYPE"), run("M3"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

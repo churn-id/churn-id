@@ -43,6 +43,11 @@ val CHECKS = listOf(
     Check("P3", blocks = false, title = R.string.check_md5sum) { router, _ -> commandsFound(router, listOf("md5sum")) },
     Check("P4", "M1", blocks = true, title = R.string.check_radio_answer) { router, _ -> radioAnswered(router) },
     Check("M2", blocks = true, title = R.string.check_imeis_read, confirm = ::imeisRead),
+    Check("M3", blocks = true, title = R.string.check_slot2_answer) { router, _ ->
+        // An answer other than the SIM 2 tray or the eSIM fails it.
+        router.slot2()
+        CheckResult.Passed
+    },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
