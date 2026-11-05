@@ -33,6 +33,9 @@ class MainActivity : Activity() {
     private var drawn: Screen? = null
     private var scrollView: ScrollView? = null
 
+    /** The Router checks dialog while it is open, which follows the router screen behind it. */
+    private var checksDialog: AlertDialog? = null
+
     override fun onStart() {
         super.onStart()
         controller.onScreen = ::render
@@ -66,7 +69,11 @@ class MainActivity : Activity() {
             is Screen.Working -> working(screen)
             is Screen.TrustKey -> trustKey(screen)
             is Screen.SetUp -> setUp(screen)
-            is Screen.Home -> home(screen, keepScroll = again)
+            is Screen.Home -> {
+                home(screen, keepScroll = again)
+                // An open Router checks dialog shows the checks' results as soon as they come.
+                checksDialog?.setMessage(checksText(screen.checks))
+            }
             is Screen.Swapping -> swapping(screen)
         }
     }
@@ -343,15 +350,20 @@ class MainActivity : Activity() {
             .show()
     }
 
-    /** The router checks' results, or that they are still running. */
     private fun showChecks(checks: CheckReport?) {
-        val results = checks?.lines?.joinToString("\n\n") ?: getString(R.string.checks_running)
-        AlertDialog.Builder(this)
+        checksDialog = AlertDialog.Builder(this)
             .setTitle(R.string.router_checks)
-            .setMessage(getString(R.string.router_checks_text, results))
+            .setMessage(checksText(checks))
             .setPositiveButton(android.R.string.ok, null)
+            .setOnDismissListener { checksDialog = null }
             .show()
     }
+
+    /** What the Router checks dialog says: the results of [checks], or that they are still running. */
+    private fun checksText(checks: CheckReport?) = getString(
+        R.string.router_checks_text,
+        checks?.lines?.joinToString("\n\n") ?: getString(R.string.checks_running),
+    )
 
     /** The debug log's switch, with Share and Delete while the log holds something. */
     private fun showDebugLog() {
