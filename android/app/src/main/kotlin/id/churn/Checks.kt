@@ -35,6 +35,7 @@ sealed interface CheckResult {
 val CHECKS = listOf(
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
+    Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
 
 /** Whether GL's firewall has loaded Churn's rules file, if it is there. */
@@ -53,5 +54,21 @@ private fun dnsmasqUser(router: Router): CheckResult {
         uid -> CheckResult.Passed
         null -> CheckResult.Failed("Churn's rules name no user ID.")
         else -> CheckResult.Failed("Churn's rules name user ID $named, but the user dnsmasq has $uid.")
+    }
+}
+
+/**
+ * Whether the card that [folder] records, while it answers in slot 2, still has the IMEIs Churn gave it. The router
+ * screen warns about any other card, which has no pair from Churn.
+ */
+private fun imeisKept(router: Router, folder: ChurnFolder): CheckResult {
+    val record = folder.card ?: return CheckResult.NotApplicable(R.string.reason_no_record)
+    if (router.slot2() == Slot2.ESIM) return CheckResult.NotApplicable(R.string.reason_slot2_on_esim)
+    val card = (router.slot2Card() as? Slot2Card.Subscription)?.iccid?.let(Imei::iccidDigits)
+    if (card != record.iccid) return CheckResult.NotApplicable(R.string.reason_record_not_in_slot2)
+    return when (router.imeis()) {
+        record.imeis -> CheckResult.Passed
+        folder.factory -> CheckResult.Failed("The router has its factory IMEIs again.")
+        else -> CheckResult.Failed("The IMEIs aren't the pair Churn recorded for the card.")
     }
 }

@@ -84,11 +84,54 @@ class ChecksTest {
         assertEquals(CheckResult.NotApplicable(R.string.reason_no_firewall), run("D10"))
     }
 
+    @Test
+    fun imeiCheckPassesWithTheRecordedCardsPair() {
+        fake.imei1 = CARD_IMEIS.imei1
+        fake.imei2 = CARD_IMEIS.imei2
+        assertEquals(CheckResult.Passed, run("F5", SWAPPED))
+    }
+
+    @Test
+    fun imeiCheckFailsIfTheRecordedCardsPairChanged() {
+        fake.imei1 = CARD_IMEIS.imei1
+        assertEquals(CheckResult.Failed("The IMEIs aren't the pair Churn recorded for the card."), run("F5", SWAPPED))
+    }
+
+    @Test
+    fun imeiCheckFailsIfTheFactoryImeisAreBack() {
+        assertEquals(CheckResult.Failed("The router has its factory IMEIs again."), run("F5", SWAPPED))
+    }
+
+    @Test
+    fun imeiCheckDoesNotApplyBeforeTheFirstSwap() {
+        val folder = ChurnFolder(FACTORY, card = null)
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_record), run("F5", folder))
+    }
+
+    @Test
+    fun imeiCheckDoesNotApplyWhileSlot2IsOnTheEsim() {
+        fake.slot2 = Slot2.ESIM
+        assertEquals(CheckResult.NotApplicable(R.string.reason_slot2_on_esim), run("F5", SWAPPED))
+    }
+
+    @Test
+    fun imeiCheckDoesNotApplyToAnotherCard() {
+        fake.trayCard = FakeRouter.Card("8949000077777777777F", "228010000000002")
+        assertEquals(CheckResult.NotApplicable(R.string.reason_record_not_in_slot2), run("F5", SWAPPED))
+    }
+
     /** Runs the check of the claim with [id] on the router, whose Churn folder is [folder]. */
     private fun run(id: String, folder: ChurnFolder = NO_FOLDER) = CHECKS.single { id in it.ids }.run(router, folder)
 
     private companion object {
         val NO_FOLDER = ChurnFolder(factory = null, card = null)
+
+        /** The fake router's IMEIs, as setup records them. */
+        val FACTORY = ImeiPair("356090215000002", "356090215000077")
+        val CARD_IMEIS = ImeiPair("356090211234563", "356090211235313")
+
+        /** Churn's folder once a swap has given the card in the fake router's tray [CARD_IMEIS]. */
+        val SWAPPED = ChurnFolder(FACTORY, Card("8941000000000000015", CARD_IMEIS))
 
         /**
          * The tiers of each claim in docs/testing.md, by its ID, with `blocks` for a blocking tier 1 check: `1`,

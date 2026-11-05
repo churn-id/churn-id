@@ -133,7 +133,11 @@
     <string name="check_not_applicable">– %1$s (%2$s)\nNot applicable: %3$s</string>
     <string name="check_firewall_loaded">GL\'s firewall has loaded Churn\'s firewall rules</string>
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
+    <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>
     <string name="reason_no_firewall">Churn\'s firewall rules aren\'t on the router.</string>
+    <string name="reason_no_record">No swap has recorded a card on this router yet.</string>
+    <string name="reason_slot2_on_esim">Slot 2 is on the built-in eSIM, so the card in the SIM 2 tray is off.</string>
+    <string name="reason_record_not_in_slot2">The card Churn recorded doesn\'t answer in slot 2.</string>
 
     <!-- The swap -->
     <string name="step_number">Step %1$d of 4</string>
