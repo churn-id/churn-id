@@ -641,6 +641,38 @@ class ChecksTest {
     }
 
     @Test
+    fun esimAnswerCheckPassesWithAProfileEnabled() {
+        fake.slot2 = Slot2.ESIM
+        assertEquals(CheckResult.Passed, run("E1"))
+    }
+
+    @Test
+    fun esimAnswerCheckPassesWithNoProfileEnabled() {
+        fake.slot2 = Slot2.ESIM
+        fake.esimProfile = null
+        assertEquals(CheckResult.Passed, run("E1"))
+    }
+
+    @Test
+    fun esimAnswerCheckFailsWithoutAnIccid() {
+        fake.slot2 = Slot2.ESIM
+        fake.answers[cardCommand("AT+ICCID")] = cardAnswer("\r\nERROR\r\n")
+        assertEquals(CheckResult.Failed("AT+ICCID gave no ICCID."), run("E1"))
+    }
+
+    @Test
+    fun esimAnswerCheckFailsWithoutAnImsi() {
+        fake.slot2 = Slot2.ESIM
+        fake.answers[cardCommand("AT+CIMI")] = cardAnswer("\r\n+CME ERROR: 10\r\n")
+        assertEquals(CheckResult.Failed("AT+CIMI gave no IMSI."), run("E1"))
+    }
+
+    @Test
+    fun esimAnswerCheckDoesNotApplyOnTheTray() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_slot2_on_tray), run("E1"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2
@@ -677,6 +709,13 @@ class ChecksTest {
 
     /** Runs the check of the claim with [id] on the router, whose Churn folder is [folder]. */
     private fun run(id: String, folder: ChurnFolder = NO_FOLDER) = CHECKS.single { id in it.ids }.run(router, folder)
+
+    /** How the router sends the AT [command] to slot 2's card. */
+    private fun cardCommand(command: String) = "ubus -t 35 call modem.CPU.AT get_result_AT " +
+        "'{\"cmd\":\"$command\",\"sub_id\":2,\"source_flag\":0,\"timeout\":30}'"
+
+    /** GL's answer to [cardCommand], with the card's answer [data]. */
+    private fun cardAnswer(data: String) = JSONObject().put("data", data).put("channel_status", true).toString()
 
     private companion object {
         val NO_FOLDER = ChurnFolder(factory = null, card = null)

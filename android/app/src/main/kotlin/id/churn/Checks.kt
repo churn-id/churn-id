@@ -72,6 +72,7 @@ val CHECKS = listOf(
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("D13", blocks = false, title = R.string.check_masquerading) { router, _ -> tunnelMasquerading(router) },
     Check("S1", blocks = true, title = R.string.check_location_id) { router, _ -> locationId(router) },
+    Check("E1", blocks = true, title = R.string.check_esim_answers) { router, _ -> esimAnswers(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
 
@@ -433,6 +434,19 @@ private fun locationId(router: Router): CheckResult {
         keys[0].matches(Router.LOCATION_ID) -> CheckResult.Passed
         else -> CheckResult.Failed("The key that holds failover has characters other than letters, digits and _.")
     }
+}
+
+/**
+ * Whether slot 2's card gives its ICCID and IMSI the way Churn reads them, while slot 2 is on the built-in eSIM, whose
+ * chip answers with or without a profile. A card in the SIM 2 tray may be missing or locked with a PIN.
+ */
+private fun esimAnswers(router: Router): CheckResult {
+    if (router.slot2() != Slot2.ESIM) return CheckResult.NotApplicable(R.string.reason_slot2_on_tray)
+    val problems = listOfNotNull(
+        "AT+ICCID gave no ICCID.".takeIf { router.slot2Iccid() == null },
+        "AT+CIMI gave no IMSI.".takeIf { router.slot2Imsi() == null },
+    )
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
 }
 
 /**

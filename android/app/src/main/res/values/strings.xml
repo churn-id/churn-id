@@ -158,6 +158,7 @@
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
     <string name="check_masquerading">The WireGuard tunnel\'s IP Masquerading is on, which the router\'s own traffic through it needs</string>
     <string name="check_location_id">GL\'s modem settings have exactly one location_id, which Churn\'s slot switches name</string>
+    <string name="check_esim_answers">On the built-in eSIM, slot 2\'s card gives its ICCID and IMSI the way Churn reads them</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>
     <string name="reason_not_set_up">Churn hasn\'t set up this router yet.</string>
     <string name="reason_starting">The router started less than 2 minutes ago, so the radio may still be on.</string>
@@ -169,6 +170,7 @@
     <string name="reason_no_firewall">Churn\'s firewall rules aren\'t on the router.</string>
     <string name="reason_no_record">No swap has recorded a card on this router yet.</string>
     <string name="reason_slot2_on_esim">Slot 2 is on the built-in eSIM, so the card in the SIM 2 tray is off.</string>
+    <string name="reason_slot2_on_tray">Slot 2 is on the SIM 2 tray, not the built-in eSIM.</string>
     <string name="reason_record_not_in_slot2">The card Churn recorded doesn\'t answer in slot 2.</string>
 
     <!-- The swap -->
