@@ -154,6 +154,7 @@
     <string name="check_own_traffic_targets">The router reaches the same time servers and connection check addresses as when we watched it</string>
     <string name="check_firewall_loaded">GL\'s firewall has loaded Churn\'s firewall rules</string>
     <string name="check_sim_interfaces">The SIM\'s data interfaces have the names that Churn\'s firewall rules match</string>
+    <string name="check_wireguard_mark">WireGuard sends with the mark that Churn\'s firewall rules let out over the SIM</string>
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>
     <string name="reason_not_set_up">Churn hasn\'t set up this router yet.</string>
@@ -162,6 +163,7 @@
     <string name="reason_no_vpn">No WireGuard VPN is set up on the router.</string>
     <string name="reason_kill_switch_off">The Enhanced Kill Switch is off.</string>
     <string name="reason_other_uplink">The router is online over another uplink than the SIM.</string>
+    <string name="reason_no_tunnel_up">No WireGuard tunnel is up.</string>
     <string name="reason_no_firewall">Churn\'s firewall rules aren\'t on the router.</string>
     <string name="reason_no_record">No swap has recorded a card on this router yet.</string>
     <string name="reason_slot2_on_esim">Slot 2 is on the built-in eSIM, so the card in the SIM 2 tray is off.</string>

@@ -534,6 +534,23 @@ class ChecksTest {
     }
 
     @Test
+    fun wireguardMarkCheckPassesWithTheMarkOfGlsFallbackPolicy() {
+        assertEquals(CheckResult.Passed, run("D9"))
+    }
+
+    @Test
+    fun wireguardMarkCheckFailsWithAnotherMark() {
+        fake.wireguardMark = "off"
+        assertEquals(CheckResult.Failed("wgclient1 sends with off."), run("D9"))
+    }
+
+    @Test
+    fun wireguardMarkCheckDoesNotApplyWithTheTunnelDown() {
+        fake.tunnelUp = false
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_tunnel_up), run("D9"))
+    }
+
+    @Test
     fun dnsmasqCheckPassesWithItsUserIdInChurnsRules() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D10"))

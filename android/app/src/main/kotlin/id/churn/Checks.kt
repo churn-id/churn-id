@@ -68,6 +68,7 @@ val CHECKS = listOf(
     Check("D6", blocks = false, title = R.string.check_own_traffic_targets) { router, _ -> ownTrafficTargets(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D8", blocks = true, title = R.string.check_sim_interfaces) { router, _ -> simInterfaces(router) },
+    Check("D9", blocks = false, title = R.string.check_wireguard_mark) { router, _ -> wireguardMark(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
@@ -374,6 +375,17 @@ private fun simInterfaces(router: Router): CheckResult {
     val device = status.optString("l3_device")
     if (device.matches(SIM_INTERFACE)) return CheckResult.Passed
     return CheckResult.Failed("GL's cellular interface uses ${device.take(20).ifEmpty { "no device" }}.")
+}
+
+/** Whether WireGuard sends with the mark `0x8000`, the only traffic that Churn's rules let out over the SIM. */
+private fun wireguardMark(router: Router): CheckResult {
+    val marks = router.wireguardMarks()
+    if (marks.isEmpty()) return CheckResult.NotApplicable(R.string.reason_no_tunnel_up)
+    val others = marks.filterValues { it != "0x8000" }
+    if (others.isEmpty()) return CheckResult.Passed
+    return CheckResult.Failed(
+        others.entries.joinToString(", ") { "${it.key.take(20)} sends with ${it.value.take(20)}" } + ".",
+    )
 }
 
 /** Whether Churn's rules file, if it is there, names the user ID of GL's main DNS server, as [Router.firewallRules]. */

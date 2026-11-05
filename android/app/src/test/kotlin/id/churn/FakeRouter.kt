@@ -118,6 +118,9 @@ class FakeRouter : Shell {
     /** Whether the tunnel's interface is up, as while GL's VPN client has the tunnel connected. */
     var tunnelUp = true
 
+    /** The mark the tunnel's WireGuard interface sends with, as `wg show` gives it. */
+    var wireguardMark = "0x8000"
+
     /** The network device GL's cellular interface uses while it is up. */
     var simDevice = "rmnet_data0"
 
@@ -265,6 +268,9 @@ class FakeRouter : Shell {
         // As our Mudi 7 listed them, with other addresses on the cellular network.
         if (command == "ip route show table 16800") return Output(2, ByteArray(0), "Dump terminated\n")
         if (command == "ip route show table main") return ok(mainRoutes())
+        if (command == "wg show all fwmark") {
+            return ok(vpnTunnel?.takeIf { tunnelUp }?.let { "$it\t$wireguardMark\n" } ?: "")
+        }
         if (command == "ls /sys/class/net") {
             return ok((NETWORK_DEVICES + listOfNotNull(vpnTunnel?.takeIf { tunnelUp })).joinToString("") { "$it\n" })
         }

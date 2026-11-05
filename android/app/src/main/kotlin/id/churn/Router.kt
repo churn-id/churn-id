@@ -278,6 +278,17 @@ class Router(private val shell: Shell) {
         return run("ip route show table $table").text.lines().filter { it.isNotBlank() && it != "Dump terminated" }
     }
 
+    /** The mark that each WireGuard interface sends with, by interface, as `wg show` gives it, such as `0x8000`. */
+    fun wireguardMarks(): Map<String, String> {
+        val output = run("wg show all fwmark")
+        output.check("wg")
+        return output.text.lines().filter(String::isNotBlank).associate {
+            val fields = it.trim().split(Regex("\\s+"))
+            if (fields.size != 2) throw unexpected("wg", output)
+            fields[0] to fields[1]
+        }
+    }
+
     /** The names of the router's network devices, as `/sys/class/net` lists them. */
     fun networkDevices(): List<String> {
         val output = run("ls /sys/class/net")
