@@ -81,6 +81,9 @@ class FakeRouter : Shell {
     /** For a log service that doesn't start the `logread` that writes [logFile]. */
     var logreadMissing = false
 
+    /** For a `logread` that goes on writing `/etc/sys_log` once the setting is deleted and the log service reloaded. */
+    var logreadStuck = false
+
     /** The ICCID GL recorded for the active card (`network.modem_cpu.iccid`), as GL stores it, or null for none. */
     var modemCpuIccid: String? = "8941000000000000015F"
 
@@ -357,7 +360,7 @@ class FakeRouter : Shell {
         }
         if (LOG_FOLLOWERS.matches(command)) {
             // As OpenWrt's log service starts it (inferred).
-            val logread = logFile?.takeIf { !logreadMissing }
+            val logread = (logFile ?: "/etc/sys_log".takeIf { logreadStuck })?.takeIf { !logreadMissing }
                 ?.let { "/sbin/logread -f -F $it -p /var/run/logread.0.pid" }
             return Output(if (logread == null) 1 else 0, (logread?.let { "$it\n" } ?: "").toByteArray(), "")
         }

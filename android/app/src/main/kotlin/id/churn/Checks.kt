@@ -83,6 +83,7 @@ val CHECKS = listOf(
     },
     Check("B16", blocks = false, title = R.string.check_test_profile) { router, _ -> testProfile(router) },
     Check("H1", blocks = false, title = R.string.check_flash_log) { router, _ -> flashLogWritten(router) },
+    Check("H2", blocks = false, title = R.string.check_flash_log_stopped) { router, _ -> flashLogStopped(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
 
@@ -540,6 +541,16 @@ private fun flashLogWritten(router: Router): CheckResult {
     val file = router.setting(Router.LOG_FILE) ?: return CheckResult.NotApplicable(R.string.reason_flash_log_off)
     val writes = router.logFollowers().any { line -> "-F" to file in line.split(' ').zipWithNext() }
     return if (writes) CheckResult.Passed else CheckResult.Failed("No logread -f -F writes ${file.take(60)}.")
+}
+
+/** Whether, with `log_file` deleted, as Churn leaves it, no `logread -f -F` writes a file any more. */
+private fun flashLogStopped(router: Router): CheckResult {
+    if (!router.flashLogOff()) return CheckResult.NotApplicable(R.string.reason_flash_log_on)
+    val files = router.logFollowers().mapNotNull { line ->
+        line.split(' ').zipWithNext().firstOrNull { it.first == "-F" }?.second
+    }
+    if (files.isEmpty()) return CheckResult.Passed
+    return CheckResult.Failed("logread still writes ${files.joinToString(", ") { it.take(60) }}.")
 }
 
 /**
