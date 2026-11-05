@@ -228,7 +228,7 @@ From development.md, "After power-on", and design.md, section 6.
 | B13 | Switching slot 2 to a normal SIM card afterwards in airplane mode emits nothing | inferred | RF meter during step 3 | 4 |
 | B14 | A card in slot 1 emits for more than 8 s at every power-on | verified | RF meter | 4 |
 | B15 | The modem tells whether the SIM 1 tray holds a card while slot 2 is the active slot, also in airplane mode | verified | Step 3 with a card in the SIM 1 tray stops before anything changes, and goes on once the card is out | 4 |
-| B16 | With no profile enabled, the eSIM shows GSMA TS.48's generic test profile, IMSI `001010123456063` | verified | Read the IMSI after step 1 | 1 |
+| B16 | With no profile enabled, the eSIM shows GSMA TS.48's generic test profile, IMSI `001010123456063` | verified | Read the IMSI while slot 2 is on the eSIM with the placeholder ICCID, as after step 1 | 1 |
 | B17 | Every unit shows that test profile | inferred | None: it needs a second router | – |
 | B18 | The eSIM's short bursts carry no IMEI over LTE and 5G, where a device gives it only once the network has authenticated it, which no network can do for the test profile | inferred | None known: it needs the network's side | – |
 

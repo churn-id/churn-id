@@ -679,6 +679,9 @@ class Router(private val shell: Shell) {
         /** The start of a test network's IMSI, which the built-in eSIM shows with no profile enabled. */
         const val TEST_NETWORK = "00101"
 
+        /** The IMSI of GSMA TS.48's generic test profile, which the built-in eSIM shows with no profile enabled. */
+        const val TEST_IMSI = "001010123456063"
+
         /**
          * The first digits of a country code that no real network's IMSI starts with: 0, which test networks such as
          * 001/01 use, and 1, which no country has. A 9eSIM adapter card shows 111111111111111.

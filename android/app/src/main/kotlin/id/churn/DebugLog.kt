@@ -228,7 +228,7 @@ class DebugLog(
          */
         private val NO_CARD = mapOf(
             Router.PLACEHOLDER_ICCID to "[built-in eSIM placeholder ICCID]",
-            "001010123456063" to "[built-in eSIM test IMSI]",
+            Router.TEST_IMSI to "[built-in eSIM test IMSI]",
         )
 
         /**

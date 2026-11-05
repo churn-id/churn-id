@@ -81,6 +81,7 @@ val CHECKS = listOf(
         router.bootId()
         CheckResult.Passed
     },
+    Check("B16", blocks = false, title = R.string.check_test_profile) { router, _ -> testProfile(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
 
@@ -521,6 +522,16 @@ private fun esimManagerBlocked(router: Router): CheckResult {
     }
     val all = listOfNotNull(port) + problems
     return if (all.isEmpty()) CheckResult.Passed else CheckResult.Failed(all.joinToString(" "))
+}
+
+/** Whether the built-in eSIM shows the IMSI of GSMA TS.48's generic test profile with its placeholder ICCID. */
+private fun testProfile(router: Router): CheckResult {
+    if (router.slot2() != Slot2.ESIM) return CheckResult.NotApplicable(R.string.reason_slot2_on_tray)
+    val iccid = router.slot2Iccid() ?: return CheckResult.NotApplicable(R.string.reason_no_slot2_card)
+    if (iccid != Router.PLACEHOLDER_ICCID) return CheckResult.NotApplicable(R.string.reason_profile_enabled)
+    val imsi = router.slot2Imsi() ?: return CheckResult.NotApplicable(R.string.reason_no_slot2_card)
+    if (imsi == Router.TEST_IMSI) return CheckResult.Passed
+    return CheckResult.Failed("The placeholder ICCID came with another IMSI than TS.48's generic test profile's.")
 }
 
 /**

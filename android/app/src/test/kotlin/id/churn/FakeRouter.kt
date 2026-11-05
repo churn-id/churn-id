@@ -439,7 +439,7 @@ class FakeRouter : Shell {
             slot2 == Slot2.SIM2 -> trayCard
             clock < esimReloadsUntil -> null
             else -> esimProfile?.let { Card(it, "260010000000001") }
-                ?: Card(Router.PLACEHOLDER_ICCID, "001010123456789")
+                ?: Card(Router.PLACEHOLDER_ICCID, Router.TEST_IMSI)
         }
         val data = when {
             card == null -> "\r\n+CME ERROR: 10\r\n"

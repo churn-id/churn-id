@@ -793,6 +793,42 @@ class ChecksTest {
     }
 
     @Test
+    fun testProfileCheckPassesWithNoProfileEnabled() {
+        fake.slot2 = Slot2.ESIM
+        fake.esimProfile = null
+        assertEquals(CheckResult.Passed, run("B16"))
+    }
+
+    @Test
+    fun testProfileCheckFailsAtAnotherTestImsi() {
+        fake.slot2 = Slot2.ESIM
+        fake.esimProfile = null
+        fake.answers[cardCommand("AT+CIMI")] = cardAnswer("\r\n001010123456789\r\n\r\nOK\r\n")
+        assertEquals(
+            CheckResult.Failed("The placeholder ICCID came with another IMSI than TS.48's generic test profile's."),
+            run("B16"),
+        )
+    }
+
+    @Test
+    fun testProfileCheckDoesNotApplyWithAProfileEnabled() {
+        fake.slot2 = Slot2.ESIM
+        assertEquals(CheckResult.NotApplicable(R.string.reason_profile_enabled), run("B16"))
+    }
+
+    @Test
+    fun testProfileCheckDoesNotApplyWhileTheChipDoesNotAnswer() {
+        fake.slot2 = Slot2.ESIM
+        fake.answers[cardCommand("AT+ICCID")] = cardAnswer("\r\n+CME ERROR: 10\r\n")
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_slot2_card), run("B16"))
+    }
+
+    @Test
+    fun testProfileCheckDoesNotApplyOnTheTray() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_slot2_on_tray), run("B16"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2
