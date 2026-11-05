@@ -21,7 +21,13 @@ sealed interface Screen {
     data class Working(val title: String) : Screen
     data class TrustKey(val key: String, val fingerprint: String, val changed: Boolean) : Screen
     data class SetUp(val factory: ImeiPair, val warnings: List<String>, val note: String?) : Screen
-    data class Home(val status: RouterStatus, val notes: List<String>, val places: List<PlaceCard>) : Screen
+    data class Home(
+        val status: RouterStatus,
+        val notes: List<String>,
+        val places: List<PlaceCard>,
+        /** The router checks' results, once the checks have run. */
+        val checks: CheckReport? = null,
+    ) : Screen
     data class Swapping(
         val step: Step,
         val log: List<String> = emptyList(),
@@ -54,6 +60,9 @@ class RouterStatus(
     val firewall: Boolean,
     val flashLogOff: Boolean,
 )
+
+/** The router checks' results as the router screen shows them: a line for each check, and whether one failed. */
+class CheckReport(val lines: List<String>, val failed: Boolean)
 
 private class NoRouterNetwork : Exception()
 
@@ -254,7 +263,7 @@ class Controller(private val context: Context) {
     /** Changes the place list, which stays on the phone, and shows the router screen with it. */
     private fun changePlaceCards(change: () -> Unit) {
         change()
-        (screen as? Screen.Home)?.let { show(it.copy(places = saved.placeCards.all)) }
+        showChanged { (it as? Screen.Home)?.copy(places = saved.placeCards.all) }
     }
 
     /** Starts a swap from the router screen, whose [status] tells whether the router still has its factory IMEIs. */
@@ -344,6 +353,16 @@ class Controller(private val context: Context) {
         }
     }
 
+    /** Shows what [change] makes of the screen as it is by then, unless it makes nothing of it. */
+    private fun showChanged(change: (Screen) -> Screen?) {
+        main.post {
+            change(screen)?.let {
+                screen = it
+                onScreen?.invoke(it)
+            }
+        }
+    }
+
     /**
      * Runs [body] on the worker thread while the screen shows [title]. With [keepAlive], for a job that takes minutes,
      * the foreground service keeps the app alive meanwhile.
@@ -417,6 +436,8 @@ class Controller(private val context: Context) {
                             update()
                         }
                     },
+                    // For now a failed check only shows in the debug log.
+                    check = { runChecks(router, folder, CHECKS.filter { it.blocks }) },
                 )
                 // The next step's screen keeps the step's lines, so that the user can still read them.
                 body(swap, folder).copy(log = log.toList(), logStep = step)
@@ -490,13 +511,47 @@ class Controller(private val context: Context) {
         // everything this version changes.
         if (folder.complete) updateChurnFiles(router)
         val step = saved.step
-        show(
-            when {
-                !folder.complete -> setUpScreen(router, note)
-                step != null -> Screen.Swapping(step)
-                else -> home(router, folder, note)
-            },
-        )
+        val next = when {
+            !folder.complete -> setUpScreen(router, note)
+            step != null -> Screen.Swapping(step)
+            else -> home(router, folder, note)
+        }
+        show(next)
+        // Only once the router screen shows, so that connecting takes no longer.
+        if (next is Screen.Home) {
+            debugLog.start(context.getString(R.string.checking_router))
+            val checks = runChecks(router, folder, CHECKS)
+            // Unless the user has left the router screen, or it shows a newer read of the router.
+            showChanged { (it as? Screen.Home)?.takeIf { home -> home.status === next.status }?.copy(checks = checks) }
+        }
+    }
+
+    /**
+     * Runs [checks] on [router], whose Churn folder is [folder], and returns their results. The debug log gets each
+     * result after the commands of its check.
+     */
+    private fun runChecks(router: Router, folder: ChurnFolder, checks: List<Check>): CheckReport {
+        val lines = mutableListOf<String>()
+        var failed = false
+        for (check in checks) {
+            val result = check.run(router, folder)
+            failed = failed || result is CheckResult.Failed
+            lines += line(check, result)
+            debugLog.add(lines.last())
+        }
+        return CheckReport(lines, failed)
+    }
+
+    /** [check]'s [result], as the router screen and the debug log show it. */
+    private fun line(check: Check, result: CheckResult): String {
+        val title = context.getString(check.title)
+        val ids = check.ids.joinToString(", ")
+        return when (result) {
+            CheckResult.Passed -> context.getString(R.string.check_passed, title, ids)
+            is CheckResult.Failed -> context.getString(R.string.check_failed, title, ids, result.detail)
+            is CheckResult.NotApplicable ->
+                context.getString(R.string.check_not_applicable, title, ids, context.getString(result.reason))
+        }
     }
 
     /** The setup screen, for a router without Churn's folder, such as a new or a restored one. */

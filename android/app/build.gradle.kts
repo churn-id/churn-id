@@ -58,3 +58,8 @@ dependencies {
     // Android's org.json is only a stub in unit tests.
     testImplementation("org.json:json:20260814")
 }
+
+// ChecksTest reads docs/testing.md, so a change there runs the tests again.
+tasks.withType<Test>().configureEach {
+    inputs.file("../../docs/testing.md")
+}

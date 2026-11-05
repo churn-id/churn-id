@@ -26,12 +26,14 @@ enum class Progress {
 
 /**
  * The router's part of steps 1 and 3. Each run starts from the beginning and checks every state it relies on,
- * so a step that stopped is simply run again. [ask] shows step 3's question and waits for the user's answer.
+ * so a step that stopped is simply run again. [ask] shows step 3's question and waits for the user's answer. [check]
+ * runs the router checks that a swap relies on before the step changes slot 2, in step 3 once the router has started.
  */
 class Swap(
     private val router: Router,
     private val report: (Progress) -> Unit,
     private val ask: (Question) -> Answer,
+    private val check: () -> Unit = {},
     private val sleep: (Long) -> Unit = Thread::sleep,
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
@@ -45,6 +47,7 @@ class Swap(
         if (router.scheduledReboot()) throw RouterException(Problem.SCHEDULED_REBOOT)
         // Rule 5. Checked before anything changes, while the old card can still reach the internet to set one up.
         if (!router.vpnSetUp()) throw RouterException(Problem.NO_VPN)
+        check()
         turnAirplaneModeOn()
         waitForRadioOff()
         setSlot2(Slot2.ESIM)
@@ -86,6 +89,7 @@ class Swap(
         if (!poll(BOOT_TIMEOUT_SECONDS) { router.uptimeSeconds() >= SETTLED_UPTIME_SECONDS }) {
             throw RouterException(Problem.NOT_STARTED)
         }
+        check()
         waitForRadioOff()
         // A card in the SIM 1 tray registers at every power-on, whatever airplane mode says (design.md, section 6), so
         // at step 4 it would go out with the new card and link the two. Slot 2 is still on the eSIM, so the step can

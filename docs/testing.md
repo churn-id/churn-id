@@ -6,21 +6,24 @@ each one on a real router, so that a new GL firmware, or a claim that was
 wrong all along, shows up before a user depends on it. The claims come
 from [design.md](design.md) and [development.md](development.md).
 
-Status: plan. No test on a real router exists yet. The app's unit tests
-run in CI against a simulated Mudi 7 (`FakeRouter`) built from these
-claims, so a claim that turns out wrong makes the simulation wrong too.
-*Verified* means we observed it by hand on a Mudi 7 with GL firmware
-4.10.0 and a Quectel RG650V-EU modem; *inferred* means not yet tested;
-*open* means one of the open questions in design.md or development.md.
+Status: being built. The app runs the tier 1 checks built so far; the
+other tiers are a plan. The app's unit tests run in CI against a simulated
+Mudi 7 (`FakeRouter`) built from these claims, so a claim that turns out
+wrong makes the simulation wrong too. *Verified* means we observed it by
+hand on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
+*inferred* means not yet tested; *open* means one of the open questions in
+design.md or development.md.
 
 Each claim has an ID, a letter for its section and a number, such as M3.
 The app's checks, commit messages and pull requests name claims by their
-IDs. An ID stays with its claim: a new claim takes the next number in its
-section, and the number of a removed claim isn't used again.
+IDs, and a unit test keeps the checks' claims, tiers and *blocks* marks in
+step with this document. An ID stays with its claim: a new claim takes the
+next number in its section, and the number of a removed claim isn't used
+again.
 
 ## Tiers
 
-The tests will run in the app, over the same cable and SSH connection as a
+The tests run in the app, over the same cable and SSH connection as a
 swap, with the same code. They come in four tiers, by what a test may do
 to the router:
 
@@ -40,10 +43,18 @@ to the router:
 - A tier 2 or 3 test saves its progress like a swap, so an interrupted
   test is finished at the next connection, and it ends with the router as
   it was.
-- A tier 1 check marked *blocks* stops a swap when it fails, because the
-  app's commands can't be trusted then. The other checks show a note.
-  On firmware we haven't tested, a swap goes ahead if every blocking check
-  passes, with a note that the firmware is untested.
+- The app runs every tier 1 check once the router screen shows, so that
+  connecting takes no longer, and the checks marked *blocks* again before
+  steps 1 and 3. Router checks, on the router screen, lists each check as
+  passed, failed or not applicable, with the IDs of its claims. While the
+  debug log is on, the results are a section of it too. The app sends them
+  nowhere by itself.
+- A failed check shows a note on the router screen. A check marked
+  *blocks* will also stop a swap when it fails, because the app's commands
+  can't be trusted then. For now, its result before steps 1 and 3 goes
+  only into the debug log. On firmware we haven't tested, a swap will go
+  ahead if every blocking check passes, with a note that the firmware is
+  untested.
 - Tier 1 runs for every user. Tiers 2 and 3 start in debug builds; tier 2
   may later be offered to users. Tiers 3 and 4 are for the maintainer.
 - A test that clears the SIM history writes about 0.5 GB to the flash,
@@ -147,10 +158,10 @@ design.md, sections 7 and 10.
 | D4 | Without Churn's firewall rules, for about 2 s after airplane mode goes off, the main dnsmasq passes devices' lookups on over the SIM | verified | Watch what leaves over the cellular interface after airplane mode goes off | 4 |
 | D5 | Without Churn's firewall rules, what the router sends itself goes over the SIM, past both kill switches: the rule at priority 1 points to an empty table 16800, and the main table's default route goes over `rmnet_data0` | rules verified, traffic inferred | `ip rule show` and `ip route show` | 1 |
 | D6 | Without Churn's firewall rules, the router itself reaches the VPN server and its time servers over the SIM, looks up one time server's name at Google when it goes online, and GL's connection check pings four public addresses | verified | The enabled services and their targets are unchanged (tier 1); watch the cellular interface (tier 4) | 1, 4 |
-| D7 | GL's firewall loads `/etc/nftables.d/churn.nft` into its table `inet fw4`, and `fw4 reload` exits with 0 despite its warnings | verified, and checked by the app | All three chains are listed after a reload | 1, blocks |
+| D7 | GL's firewall loads `/etc/nftables.d/churn.nft` into its table `inet fw4`, and `fw4 reload` exits with 0 despite its warnings | verified, and checked by the app | With the file in place, all three chains are listed; the app checks the same, and the exit status, after each reload it starts | 1, blocks |
 | D8 | The SIM's data interfaces match `rmnet_data*`, online and in airplane mode | verified | The interfaces in `/sys/class/net` and the one `ifstatus modem_cpu` names | 1, blocks |
 | D9 | WireGuard sends with the mark `0x8000`, and on output no other packets carry it | verified | `wg show all fwmark` (tier 1); the rules' counters across airplane mode off and on (tier 4) | 1, 4 |
-| D10 | The main dnsmasq runs as the user ID the rules name | verified, and checked by the app | `id -u dnsmasq` | 1 |
+| D10 | The main dnsmasq runs as the user ID the rules name | verified, and checked by the app | `id -u dnsmasq` answers, and Churn's rules, while on the router, name the same user ID | 1 |
 | D11 | With the rules, nothing but WireGuard leaves over the SIM, from devices too, also with the Enhanced Kill Switch off and the tunnel down, and over IPv6 as over IPv4 | verified for devices over IPv4 with the switch off and the tunnel down; going online and IPv6 inferred | The drop counter grows and a device's website fails (tier 4); watch the cellular interface after airplane mode goes off (tier 4) | 4 |
 | D12 | With the rules, the router's own traffic leaves through the tunnel from the VPN's address, and its lookups go to the VPN's DNS server | verified | A request and a lookup from the router, watched on the tunnel interface | 4 |
 | D13 | The tunnel's IP Masquerading translates the router's own packets to the tunnel's address; without it, the VPN server wouldn't accept them | translation verified, without it inferred | The setting is on, once we know where GL keeps it (tier 1); a request from the router with it off (tier 4) | 1, 4 |
@@ -257,7 +268,7 @@ From development.md, "Files on the router", and design.md, section 5.
 | F2 | `/etc/churn/` is listed in `/etc/sysupgrade.conf` | verified by the app | The line is there | 1, blocks |
 | F3 | With the firewall rules, `/etc/nftables.d/churn.nft` is listed in `/etc/sysupgrade.conf` | inferred | The line is there | 1 |
 | F4 | `/etc/churn/zeros` links to `/overlay/churn-zeros`, and `du`, `grep -r`, `cp` and the `find` and `tar` that an upgrade runs take only the link | verified with BusyBox 1.36.1 on a PC | After a clearing, `ls -l /etc/churn` shows the link and `du -sh /etc` stays small; `sysupgrade -l` lists the link but no zero file | 1 |
-| F5 | GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | At every connection, the IMEIs are the recorded pair of the card in slot 2 (tier 1, which the app already does); after an upgrade, they are the ones from before it (tier 3) | 1, 3 |
+| F5 | GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | At every connection, while the recorded card answers in slot 2, the IMEIs are its recorded pair (tier 1); after an upgrade, they are the ones from before it (tier 3) | 1, 3 |
 | F6 | A firmware upgrade with "keep settings" keeps `/etc/churn/`, the link `zeros` in it included, Churn's firewall rules and the log's file off | open | Upgrade, then check the folder, the link, the rules and `log_file` | 3 |
 | F7 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
 | F8 | `restore.sh` then deletes Churn's record of the card | inferred | Run it, then check that `/etc/churn/card` is gone (tier 2) | 2 |

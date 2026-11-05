@@ -5,7 +5,7 @@ in [design.md](design.md); building, testing and the contribution process
 are in [CONTRIBUTING.md](../CONTRIBUTING.md). *Verified* means we observed
 it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
 *inferred* means not yet tested. [testing.md](testing.md) lists these claims
-with the test planned for each on a real router.
+with the test, built or planned, for each on a real router.
 
 ## Connecting to the router
 
@@ -530,14 +530,20 @@ standard error. The commands that read files, GL's VPN settings and the
 router's clock show only the size of their answer. A progress line starts
 with `✓`, a question with `?`, followed by the user's answer, and the
 reason a job or step stopped with `!`, followed by the exception and where
-in the app it was thrown. Every run of 12 or more hexadecimal digits shows
-as `…`, and the masking comes before the cuts, which could otherwise leave
-a part of a number. The ICCID and IMSI that the built-in eSIM shows
-without an enabled profile (above) name no card, so they show as
-`[built-in eSIM placeholder ICCID]` and `[built-in eSIM test IMSI]`. Every
-other card's numbers show as `…`, an adapter card's placeholders
-included. Before each section the app drops the oldest sections, keeping
-the last three swaps and at most 1,000,000 characters.
+in the app it was thrown. Once the router screen shows, a section
+`== Checking the router` holds the router checks, each with its commands
+and then its result: `✓`, `✗` or `–` for passed, failed or not
+applicable, the check and the IDs of its claims in testing.md, and on the
+next line why it failed or doesn't apply. Before steps 1 and 3, the checks
+a swap relies on go into the step's section the same way. Every run of 12
+or more hexadecimal digits shows as `…`, and the masking comes before the
+cuts, which could otherwise leave a part of a number. The ICCID and IMSI
+that the built-in eSIM shows without an enabled profile (above) name no
+card, so they show as `[built-in eSIM placeholder ICCID]` and
+`[built-in eSIM test IMSI]`. Every other card's numbers show as `…`, an
+adapter card's placeholders included. Before each section the app drops
+the oldest sections, keeping the last three swaps and at most 1,000,000
+characters.
 
 GL's eSIM manager writes its log to `/root/esim/log.txt`, not to the
 system log, and the clearing empties it (above). Once step 1 or 3 has
