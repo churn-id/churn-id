@@ -256,7 +256,7 @@ class Controller(private val context: Context) {
     }
 
     fun cancelSwap() {
-        saved.step = null
+        saved.endSwap()
         refresh()
     }
 
@@ -292,8 +292,7 @@ class Controller(private val context: Context) {
                 }
             }
             Step.GO_ONLINE -> {
-                saved.step = null
-                saved.cardToDestroy = null
+                saved.endSwap()
                 show(Screen.Connect())
             }
         }
