@@ -29,6 +29,10 @@ class MainActivity : Activity() {
     /** The Connect screen's line saying whether the router is on the cable, while that screen shows. */
     private var cableLine: TextView? = null
 
+    /** The screen drawn last, and the scroll view of its page. */
+    private var drawn: Screen? = null
+    private var scrollView: ScrollView? = null
+
     override fun onStart() {
         super.onStart()
         controller.onScreen = ::render
@@ -52,14 +56,19 @@ class MainActivity : Activity() {
         return true
     }
 
-    private fun render(screen: Screen) = when (screen) {
-        Screen.Intro -> intro()
-        is Screen.Connect -> connect(screen)
-        is Screen.Working -> working(screen)
-        is Screen.TrustKey -> trustKey(screen)
-        is Screen.SetUp -> setUp(screen)
-        is Screen.Home -> home(screen)
-        is Screen.Swapping -> swapping(screen)
+    private fun render(screen: Screen) {
+        // The router screen drawn again, such as with the checks' results, stays where the user scrolled to.
+        val again = screen is Screen.Home && drawn is Screen.Home
+        drawn = screen
+        when (screen) {
+            Screen.Intro -> intro()
+            is Screen.Connect -> connect(screen)
+            is Screen.Working -> working(screen)
+            is Screen.TrustKey -> trustKey(screen)
+            is Screen.SetUp -> setUp(screen)
+            is Screen.Home -> home(screen, keepScroll = again)
+            is Screen.Swapping -> swapping(screen)
+        }
     }
 
     private fun intro() = page {
@@ -107,7 +116,7 @@ class MainActivity : Activity() {
         button(R.string.cancel) { controller.cancel() }
     }
 
-    private fun home(screen: Screen.Home) = page {
+    private fun home(screen: Screen.Home, keepScroll: Boolean) = page(keepScroll = keepScroll) {
         val status = screen.status
         heading(getString(R.string.router_title))
         // From the place list as it is now, which a rename changes without a new read of the router.
@@ -155,6 +164,7 @@ class MainActivity : Activity() {
                 confirm(getString(R.string.clear_history_text)) { controller.clearHistory() }
             }
         }
+        if (screen.checks?.failed == true) warning(getString(R.string.checks_failed))
         // Off while step 1 would refuse to start, as the notes above say. Step 1 checks again, since this screen may be
         // minutes old.
         button(R.string.swap) { controller.beginSwap(status) }.isEnabled = status.vpnSetUp && !status.scheduledReboot
@@ -168,6 +178,7 @@ class MainActivity : Activity() {
             gap()
         }
         button(R.string.show_rules) { showRules() }
+        button(R.string.router_checks) { showChecks(screen.checks) }
         button(R.string.restore) {
             val factory = status.factory
             confirm(getString(R.string.restore_text, factory.imei1, factory.imei2)) { controller.restore() }
@@ -332,6 +343,16 @@ class MainActivity : Activity() {
             .show()
     }
 
+    /** The router checks' results, or that they are still running. */
+    private fun showChecks(checks: CheckReport?) {
+        val results = checks?.lines?.joinToString("\n\n") ?: getString(R.string.checks_running)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.router_checks)
+            .setMessage(getString(R.string.router_checks_text, results))
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
+
     /** The debug log's switch, with Share and Delete while the log holds something. */
     private fun showDebugLog() {
         val keep = CheckBox(this).apply {
@@ -384,7 +405,11 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun page(keepScreenOn: Boolean = false, build: LinearLayout.() -> Unit) {
+    /**
+     * Draws a page with [build]. With [keepScroll], the page takes the place of the last one in its scroll view, which
+     * keeps the scroll position, fitted to the new page at the next layout.
+     */
+    private fun page(keepScreenOn: Boolean = false, keepScroll: Boolean = false, build: LinearLayout.() -> Unit) {
         cableLine = null
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -392,19 +417,23 @@ class MainActivity : Activity() {
             setPadding(padding, padding, padding, padding)
             build()
         }
-        setContentView(
-            ScrollView(this).apply {
-                // Keeps the content clear of the status and navigation bars, which the app draws behind.
-                fitsSystemWindows = true
-                // Makes a page shorter than the screen as tall as the screen, so that its gaps can share out the rest.
-                isFillViewport = true
-                // While the app works on the router, the screen stays on, as it does while a video plays, so that the
-                // phone doesn't lock. GrapheneOS by default blocks new USB connections on a locked phone, and in
-                // step 3 the router, just switched on, connects anew.
-                this.keepScreenOn = keepScreenOn
-                addView(column)
-            },
-        )
+        val kept = scrollView?.takeIf { keepScroll }
+        val scroll = kept ?: ScrollView(this).apply {
+            // Keeps the content clear of the status and navigation bars, which the app draws behind.
+            fitsSystemWindows = true
+            // Makes a page shorter than the screen as tall as the screen, so that its gaps can share out the rest.
+            isFillViewport = true
+        }
+        // While the app works on the router, the screen stays on, as it does while a video plays, so that the phone
+        // doesn't lock. GrapheneOS by default blocks new USB connections on a locked phone, and in step 3 the router,
+        // just switched on, connects anew.
+        scroll.keepScreenOn = keepScreenOn
+        scroll.removeAllViews()
+        scroll.addView(column)
+        if (kept == null) {
+            setContentView(scroll)
+            scrollView = scroll
+        }
     }
 
     /**

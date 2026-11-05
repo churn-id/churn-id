@@ -6,21 +6,24 @@ each one on a real router, so that a new GL firmware, or a claim that was
 wrong all along, shows up before a user depends on it. The claims come
 from [design.md](design.md) and [development.md](development.md).
 
-Status: plan. No test on a real router exists yet. The app's unit tests
-run in CI against a simulated Mudi 7 (`FakeRouter`) built from these
-claims, so a claim that turns out wrong makes the simulation wrong too.
-*Verified* means we observed it by hand on a Mudi 7 with GL firmware
-4.10.0 and a Quectel RG650V-EU modem; *inferred* means not yet tested;
-*open* means one of the open questions in design.md or development.md.
+Status: being built. The app runs the tier 1 checks built so far; the
+other tiers are a plan. The app's unit tests run in CI against a simulated
+Mudi 7 (`FakeRouter`) built from these claims, so a claim that turns out
+wrong makes the simulation wrong too. *Verified* means we observed it by
+hand on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
+*inferred* means not yet tested; *open* means one of the open questions in
+design.md or development.md.
 
 Each claim has an ID, a letter for its section and a number, such as M3.
 The app's checks, commit messages and pull requests name claims by their
-IDs. An ID stays with its claim: a new claim takes the next number in its
-section, and the number of a removed claim isn't used again.
+IDs, and a unit test keeps the checks' claims, tiers and *blocks* marks in
+step with this document. An ID stays with its claim: a new claim takes the
+next number in its section, and the number of a removed claim isn't used
+again.
 
 ## Tiers
 
-The tests will run in the app, over the same cable and SSH connection as a
+The tests run in the app, over the same cable and SSH connection as a
 swap, with the same code. They come in four tiers, by what a test may do
 to the router:
 
@@ -40,10 +43,18 @@ to the router:
 - A tier 2 or 3 test saves its progress like a swap, so an interrupted
   test is finished at the next connection, and it ends with the router as
   it was.
-- A tier 1 check marked *blocks* stops a swap when it fails, because the
-  app's commands can't be trusted then. The other checks show a note.
-  On firmware we haven't tested, a swap goes ahead if every blocking check
-  passes, with a note that the firmware is untested.
+- The app runs every tier 1 check once the router screen shows, so that
+  connecting takes no longer, and the checks marked *blocks* again before
+  steps 1 and 3. Router checks, on the router screen, lists each check as
+  passed, failed or not applicable, with the IDs of its claims. While the
+  debug log is on, the results are a section of it too. The app sends them
+  nowhere by itself.
+- A failed check shows a note on the router screen. A check marked
+  *blocks* will also stop a swap when it fails, because the app's commands
+  can't be trusted then. For now, its result before steps 1 and 3 goes
+  only into the debug log. On firmware we haven't tested, a swap will go
+  ahead if every blocking check passes, with a note that the firmware is
+  untested.
 - Tier 1 runs for every user. Tiers 2 and 3 start in debug builds; tier 2
   may later be offered to users. Tiers 3 and 4 are for the maintainer.
 - A test that clears the SIM history writes about 0.5 GB to the flash,

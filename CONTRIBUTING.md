@@ -78,7 +78,8 @@ cspell (word list in `cspell.json`) and lints the Markdown files with
 markdownlint-cli2 (`.markdownlint.json`).
 
 The unit tests run against a simulated Mudi 7. Tests on a real router are
-planned in [docs/testing.md](docs/testing.md).
+listed in [docs/testing.md](docs/testing.md); the app runs the first of
+them, its read-only checks, whenever it connects.
 
 ## Signing
 

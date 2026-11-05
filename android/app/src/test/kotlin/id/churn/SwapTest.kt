@@ -19,6 +19,9 @@ class SwapTest {
 
     /** Runs while step 3 waits for the answer. */
     private var whileAsked = {}
+
+    /** Runs where a step runs the router checks. */
+    private var checks = {}
     private var placesJson: String? = null
     private val places = PlaceCards(load = { placesJson }, save = { placesJson = it })
     private val swap = Swap(
@@ -29,6 +32,7 @@ class SwapTest {
             whileAsked()
             answer
         },
+        check = { checks() },
         sleep = { fake.clock += it },
         now = { fake.clock },
     )
@@ -91,6 +95,24 @@ class SwapTest {
         assertTrue(swap.restartedSince(bootId))
         // A swap that an earlier version of the app began, which kept no boot ID.
         assertTrue(swap.restartedSince(null))
+    }
+
+    @Test
+    fun stepsRunTheChecksBeforeTheyChangeSlot2() {
+        // A check that stops the step shows what the step did before.
+        val stop = { throw RouterException(Problem.UNEXPECTED_ANSWER) }
+        checks = stop
+        assertStops(Problem.UNEXPECTED_ANSWER) { swap.prepare() }
+        assertFalse(fake.airplaneMode)
+        assertEquals(emptyList<String>(), fake.changes)
+        checks = {}
+        prepareAndRestart()
+        checks = stop
+        assertStops(Problem.UNEXPECTED_ANSWER) { giveNewImeis() }
+        // Once the router has started, with slot 2 still on the built-in eSIM.
+        assertEquals(listOf(Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START), progress.takeLast(2))
+        assertTrue(fake.uptime >= 120)
+        assertEquals(Slot2.ESIM, fake.slot2)
     }
 
     @Test

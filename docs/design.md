@@ -503,6 +503,14 @@ goes once step 3 has used it, or when the user cancels the swap.
   can name devices or websites (inferred), and the time of day: its times
   count in seconds from the start of each job or step. It keeps the last
   three swaps.
+- Whenever it connects, the app checks the claims about the router that
+  its commands rely on, as far as reading the router can tell (tier 1 in
+  [testing.md](testing.md)), so that a firmware upgrade that changes one
+  shows up. It does so once the router screen shows, so that connecting
+  takes no longer, and runs the checks a swap relies on again before steps
+  1 and 3. The router screen warns if a check failed and lists every
+  result under Router checks, and the debug log keeps them too. For now a
+  failed check stops nothing.
 - When a swap starts on a router with its factory IMEIs, as the first one
   does, step 1 adds that steps 1 to 3 can run at home or at work if the
   router was used there before Churn: until step 3 the router keeps its
