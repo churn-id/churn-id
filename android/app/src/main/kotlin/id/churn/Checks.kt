@@ -62,6 +62,7 @@ val CHECKS = listOf(
     Check("K5", blocks = false, title = R.string.check_kill_switch_settings) { router, _ -> killSwitchAgrees(router) },
     Check("K6", blocks = true, title = R.string.check_kill_switch_rules) { router, _ -> killSwitchRules(router) },
     Check("K7", blocks = false, title = R.string.check_usb_port) { router, _ -> usbPortInLan(router) },
+    Check("D1", blocks = false, title = R.string.check_dns_servers) { router, _ -> dnsServers(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -258,6 +259,31 @@ private fun firewallLoaded(router: Router) = when {
     router.firewallFile() == null -> CheckResult.NotApplicable(R.string.reason_no_firewall)
     router.firewallLoaded() -> CheckResult.Passed
     else -> CheckResult.Failed("GL's firewall table lacks chains of Churn's rules.")
+}
+
+/**
+ * Whether GL's main DNS server listens on UDP port 53, runs as user `dnsmasq` and takes its servers from the file
+ * with those of the active uplink, such as the cellular interface, and the tunnel's own listens on UDP port 2153,
+ * runs as `dnsmasq_vpn` and takes its servers from the tunnel's file.
+ */
+private fun dnsServers(router: Router): CheckResult {
+    val tunnels = router.vpnInterfaces()
+    if (tunnels.isEmpty()) return CheckResult.NotApplicable(R.string.reason_no_vpn)
+    val servers = router.dnsServers()
+    val main = DnsServer(53, "dnsmasq", router.dnsmasqUid(), "/tmp/resolv.conf.d/resolv.conf.auto")
+    val tunnelUid = router.userId("dnsmasq_vpn")
+    val tunnel = tunnels.map { DnsServer(2153, "dnsmasq", tunnelUid, "/tmp/resolv.conf.d/resolv.conf.$it") }
+    val problems = listOf(53 to listOf(main), 2153 to tunnel).mapNotNull { (port, expected) ->
+        val found = servers.filter { it.port == port }
+        when {
+            found.isEmpty() -> "Nothing listens on UDP port $port."
+            found.all { it in expected } -> null
+            else -> "On UDP port $port: " + found.joinToString(", ") {
+                "${it.program.take(20)} as user ID ${it.uid}, servers from ${it.serversFile?.take(60)}"
+            } + "."
+        }
+    }
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
 }
 
 /** Whether Churn's rules file, if it is there, names the user ID of GL's main DNS server, as [Router.firewallRules]. */

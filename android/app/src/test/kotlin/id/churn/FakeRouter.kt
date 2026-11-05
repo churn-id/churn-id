@@ -127,6 +127,15 @@ class FakeRouter : Shell {
     /** The user ID of GL's main DNS server, 453 on our Mudi 7. */
     var dnsmasqUid = 453
 
+    /**
+     * What listens on UDP ports 53 and 2153 as [Router.dnsServers] reads it: port, program, user ID and the file the
+     * program takes its servers from, as on our Mudi 7 with a WireGuard tunnel.
+     */
+    val dnsServers = mutableListOf(
+        "2153|dnsmasq|456|/tmp/resolv.conf.d/resolv.conf.wgclient1",
+        "53|dnsmasq|453|/tmp/resolv.conf.d/resolv.conf.auto",
+    )
+
     /** For a firewall that can't load Churn's rules, such as a later fw4 or nftables that rejects one of them. */
     var fw4Rejects = false
 
@@ -285,6 +294,8 @@ class FakeRouter : Shell {
             return Output(if (listed) 0 else 1, ByteArray(0), "")
         }
         if (command == "id -u dnsmasq") return ok("$dnsmasqUid\n")
+        if (command == "id -u dnsmasq_vpn") return ok("456\n")
+        if (DNS_SERVERS.matches(command)) return ok(dnsServers.joinToString("") { "$it\n" })
         Regex("""umask 022 && cat > (\S+)\.new && mv \S+ \S+""").matchEntire(command)?.let {
             files[it.groupValues[1]] = input!!
             return ok("")
@@ -536,6 +547,9 @@ class FakeRouter : Shell {
         /** How [Router.missingCommands] looks for commands. */
         private val COMMAND_LOOKUP =
             Regex("for c in ([a-z0-9_ ]+); do command -v \\\$c >/dev/null \\|\\| echo \\\$c; done")
+        /** How [Router.dnsServers] reads what listens on the DNS servers' ports. */
+        private val DNS_SERVERS =
+            Regex("""netstat -lnup \| while .* udp\*:53 \| udp\*:2153\) .* \| sort -u""", RegexOption.DOT_MATCHES_ALL)
         private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "curl")
         private const val FIREWALL_LOADED = "nft list chain inet fw4 churn_sim >/dev/null && " +
             "nft list chain inet fw4 churn_route >/dev/null && nft list chain inet fw4 churn_dns >/dev/null"

@@ -375,6 +375,40 @@ class ChecksTest {
     }
 
     @Test
+    fun dnsServerCheckPassesWithGlsTwoDnsServers() {
+        assertEquals(CheckResult.Passed, run("D1"))
+    }
+
+    @Test
+    fun dnsServerCheckFailsWithoutTheTunnelsDnsServer() {
+        fake.dnsServers.removeAll { it.startsWith("2153|") }
+        assertEquals(CheckResult.Failed("Nothing listens on UDP port 2153."), run("D1"))
+    }
+
+    @Test
+    fun dnsServerCheckFailsIfTheMainDnsServerRunsAsAnotherUser() {
+        fake.dnsServers[1] = "53|dnsmasq|0|/tmp/resolv.conf.d/resolv.conf.auto"
+        assertEquals(
+            CheckResult.Failed(
+                "On UDP port 53: dnsmasq as user ID 0, servers from /tmp/resolv.conf.d/resolv.conf.auto.",
+            ),
+            run("D1"),
+        )
+    }
+
+    @Test
+    fun dnsServerCheckFailsIfTheTunnelsDnsServerAsksTheSimsServers() {
+        fake.dnsServers[0] = "2153|dnsmasq|456|/tmp/resolv.conf.d/resolv.conf.auto"
+        assertTrue(run("D1") is CheckResult.Failed)
+    }
+
+    @Test
+    fun dnsServerCheckDoesNotApplyWithoutATunnel() {
+        fake.vpnTunnel = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_vpn), run("D1"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

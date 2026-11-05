@@ -67,6 +67,12 @@ sealed interface Slot2Card {
 /** GL's firmware version, the OpenWrt release it is built on, and the modem's model and firmware revision. */
 data class Platform(val gl: String, val openwrt: String, val modem: String, val revision: String)
 
+/**
+ * A program listening on the UDP [port], as `netstat` names it, the user ID it runs as, and the file that dnsmasq
+ * reads its servers from, or null for none.
+ */
+data class DnsServer(val port: Int, val program: String, val uid: Int?, val serversFile: String?)
+
 /** A card, by its ICCID's digits, and the IMEIs Churn gives it. */
 data class Card(val iccid: String, val imeis: ImeiPair)
 
@@ -492,7 +498,25 @@ class Router(private val shell: Shell) {
     }
 
     /** The user ID GL's main DNS server runs as. */
-    fun dnsmasqUid() = run("id -u dnsmasq").text.trim().toIntOrNull() ?: throw unexpected("id -u dnsmasq")
+    fun dnsmasqUid() = userId("dnsmasq") ?: throw unexpected("id -u dnsmasq")
+
+    /** The ID of the user [name]; null if there is no such user. */
+    fun userId(name: String): Int? {
+        require(name.matches(Regex("[a-z_][a-z0-9_]*")))
+        return run("id -u $name").text.trim().toIntOrNull()
+    }
+
+    /** What listens on UDP ports 53 and 2153, those of GL's two DNS servers, as development.md describes them. */
+    fun dnsServers(): List<DnsServer> {
+        val output = run(DNS_SERVERS)
+        output.check("netstat")
+        return output.text.lines().filter(String::isNotBlank).map { line ->
+            val fields = line.split('|')
+            val port = fields.first().toIntOrNull()
+            if (fields.size != 4 || port == null) throw unexpected("netstat", output)
+            DnsServer(port, fields[1], fields[2].toIntOrNull(), fields[3].ifEmpty { null })
+        }
+    }
 
     /** Runs Churn's restore script; returns what it printed. */
     fun restoreFactoryImeis(): String {
@@ -623,6 +647,22 @@ class Router(private val shell: Shell) {
         /** Churn's firewall rules. GL's firewall, fw4, loads the files in this folder into its own table. */
         const val FIREWALL = "/etc/nftables.d/churn.nft"
         private val FIREWALL_CHAINS = listOf("churn_sim", "churn_route", "churn_dns")
+
+        /**
+         * For each socket listening on UDP port 53 or 2153, its port, its program, the program's user ID, and for
+         * dnsmasq started with a configuration file (`-C`) the file named there in `resolv-file`, separated by `|`.
+         * Nothing in the loop reads its input, which is netstat's list, other than `read`.
+         */
+        private val DNS_SERVERS = """
+            netstat -lnup | while read -r proto recv send local foreign program; do
+            	case "${'$'}proto ${'$'}local" in udp*:53 | udp*:2153) ;; *) continue ;; esac
+            	pid=${'$'}{program%%/*}
+            	conf=${'$'}(tr '\000' '\n' < /proc/${'$'}pid/cmdline | sed -n '/^-C${'$'}/{n;p;}')
+            	uid=${'$'}(awk '/^Uid:/ { print ${'$'}2 }' /proc/${'$'}pid/status)
+            	servers=${'$'}(sed -n 's/^resolv-file=//p' "${'$'}{conf:-/dev/null}")
+            	echo "${'$'}{local##*:}|${'$'}{program#*/}|${'$'}uid|${'$'}servers"
+            done 2>/dev/null | sort -u
+        """.trimIndent()
 
         /** GL's two settings of the Enhanced Kill Switch: `0`, and absent, while it is on. */
         const val DEFAULT_POLICY = "route_policy.@default[0].enabled"
