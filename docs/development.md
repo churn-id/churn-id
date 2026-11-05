@@ -537,10 +537,11 @@ characters.
 GL's eSIM manager writes its log to `/root/esim/log.txt`, not to the
 system log, and the clearing empties it (above). Once step 1 or 3 has
 connected, the app notes the log's size, the MD5 sum of its first 64
-bytes and the router's clock (`date +%s`). When the step shuts the router
-down or stops, and in step 3 just before the clearing, the app copies what
-the log gained since the last note, at most its last 100,000 bytes from
-the start of a line, and notes the log anew. The log only grows until it
+bytes and the router's clock (`date +%s`). Just before step 3's
+clearing, and a last time when the step ends, the app copies what the log
+gained since the last note, at most its last 100,000 bytes from the start
+of a line, and notes the log anew. A step that shuts the router down makes
+its last copy just before the shutdown. The log only grows until it
 is emptied (inferred), so if it has become shorter or no longer begins
 with the bytes it began with, the app copies it from its start. The eSIM
 manager begins each line with a time such as `Sun Oct 11 11:17:08 2026`,
