@@ -673,6 +673,30 @@ class ChecksTest {
     }
 
     @Test
+    fun iccidCheckPassesWithATrailingF() {
+        assertEquals(CheckResult.Passed, run("E2"))
+    }
+
+    @Test
+    fun iccidCheckFailsWithoutTheTrailingF() {
+        fake.trayCard = FakeRouter.Card("8941000000000000015", "228010000000001")
+        assertEquals(CheckResult.Failed("Slot 2's card gave its 19-digit ICCID without a trailing F."), run("E2"))
+    }
+
+    @Test
+    fun iccidCheckDoesNotApplyToA20DigitIccid() {
+        fake.slot2 = Slot2.ESIM
+        fake.esimProfile = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_19_digit_iccid), run("E2"))
+    }
+
+    @Test
+    fun iccidCheckDoesNotApplyWithoutACard() {
+        fake.trayCard = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_slot2_card), run("E2"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2

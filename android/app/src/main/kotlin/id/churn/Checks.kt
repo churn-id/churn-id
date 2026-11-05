@@ -73,6 +73,7 @@ val CHECKS = listOf(
     Check("D13", blocks = false, title = R.string.check_masquerading) { router, _ -> tunnelMasquerading(router) },
     Check("S1", blocks = true, title = R.string.check_location_id) { router, _ -> locationId(router) },
     Check("E1", blocks = true, title = R.string.check_esim_answers) { router, _ -> esimAnswers(router) },
+    Check("E2", blocks = false, title = R.string.check_iccid_padding) { router, _ -> iccidPadding(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
 
@@ -447,6 +448,14 @@ private fun esimAnswers(router: Router): CheckResult {
         "AT+CIMI gave no IMSI.".takeIf { router.slot2Imsi() == null },
     )
     return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/** Whether slot 2's card, if it has a 19-digit ICCID, gives it with a trailing `F`, as GL also keeps it. */
+private fun iccidPadding(router: Router): CheckResult {
+    val iccid = router.slot2Iccid() ?: return CheckResult.NotApplicable(R.string.reason_no_slot2_card)
+    if (iccid.trimEnd('F', 'f').length != 19) return CheckResult.NotApplicable(R.string.reason_no_19_digit_iccid)
+    if (iccid.length == 20) return CheckResult.Passed
+    return CheckResult.Failed("Slot 2's card gave its 19-digit ICCID without a trailing F.")
 }
 
 /**
