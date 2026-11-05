@@ -509,7 +509,9 @@ since step 3 replaces the record and may run more than once.
   lost has no record but may still have a card's pair.
 - Before each rotation the app checks the slot 2 setting, airplane mode, and
   that "Power On with Charger" and GL's scheduled reboot are off. A reboot
-  is a power-on, so wherever it happens, the SIM registers there. It also
+  is a power-on, so wherever it happens, the SIM registers there. Step 1
+  asks the user about "Power On with Charger" in every swap: the app can't
+  read the setting, and an earlier answer says nothing about it now. It also
   checks that a VPN is set up (rule 5): with the Enhanced Kill Switch on, a
   router without one has no internet at all, which invites turning the
   switch off. Step 1 is where this check stops a swap, since the old card

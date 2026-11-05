@@ -26,9 +26,6 @@ class MainActivity : Activity() {
 
     private val controller get() = (application as ChurnApp).controller
 
-    /** Whether the user confirmed in step 1 that "Power On with Charger" is off. */
-    private var chargerChecked = false
-
     /** The Connect screen's line saying whether the router is on the cable, while that screen shows. */
     private var cableLine: TextView? = null
 
@@ -212,16 +209,16 @@ class MainActivity : Activity() {
             Step.PREPARE -> {
                 val charger = CheckBox(context).apply {
                     setText(R.string.step1_charger)
-                    isChecked = chargerChecked
+                    isChecked = controller.chargerChecked
                 }
                 addView(charger)
                 val start = button(if (screen.error == null) R.string.step1_start else R.string.try_again) {
                     askForNotifications()
                     controller.advance(Step.PREPARE)
                 }
-                start.isEnabled = chargerChecked
+                start.isEnabled = controller.chargerChecked
                 charger.setOnCheckedChangeListener { _, checked ->
-                    chargerChecked = checked
+                    controller.chargerChecked = checked
                     start.isEnabled = checked
                 }
             }

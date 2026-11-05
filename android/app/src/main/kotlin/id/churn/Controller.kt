@@ -115,6 +115,9 @@ class Controller(private val context: Context) {
     /** Whether step 1 says that a first swap can run at home or at work. */
     val firstSwap get() = saved.firstSwap
 
+    /** Whether the user confirmed in step 1 that "Power On with Charger" is off, for this swap. Main thread only. */
+    var chargerChecked = false
+
     /** What step 4 says: whether the new card is a place card, and the last digits of the card to destroy. */
     val placeCardIn get() = saved.placeCardIn
     val cardToDestroy get() = saved.cardToDestroy
@@ -247,6 +250,7 @@ class Controller(private val context: Context) {
     /** Starts a swap from the router screen, whose [status] tells whether the router still has its factory IMEIs. */
     fun beginSwap(status: RouterStatus) {
         saved.firstSwap = status.imeis == status.factory
+        chargerChecked = false
         debugLog.beginSwap()
         show(Screen.Swapping(Step.PREPARE))
     }
