@@ -61,8 +61,13 @@ class RouterStatus(
     val flashLogOff: Boolean,
 )
 
-/** The router checks' results as the router screen shows them: a line for each check, and whether one failed. */
-class CheckReport(val lines: List<String>, val failed: Boolean)
+/**
+ * The router checks' results as the router screen shows them: a line for each check that has run, out of [total], and
+ * whether one failed.
+ */
+class CheckReport(val lines: List<String>, val failed: Boolean, val total: Int) {
+    val done get() = lines.size == total
+}
 
 private class NoRouterNetwork : Exception()
 
@@ -520,26 +525,34 @@ class Controller(private val context: Context) {
         // Only once the router screen shows, so that connecting takes no longer.
         if (next is Screen.Home) {
             debugLog.start(context.getString(R.string.checking_router))
-            val checks = runChecks(router, folder, CHECKS)
-            // Unless the user has left the router screen, or it shows a newer read of the router.
-            showChanged { (it as? Screen.Home)?.takeIf { home -> home.status === next.status }?.copy(checks = checks) }
+            runChecks(router, folder, CHECKS) { report ->
+                // Unless the user has left the router screen, or it shows a newer read of the router.
+                showChanged { screen ->
+                    (screen as? Screen.Home)?.takeIf { it.status === next.status }?.copy(checks = report)
+                }
+            }
         }
     }
 
     /**
-     * Runs [checks] on [router], whose Churn folder is [folder], and returns their results. The debug log gets each
-     * result after the commands of its check.
+     * Runs [checks] on [router], whose Churn folder is [folder], and returns their results. [progress] gets the
+     * results so far after each check. The debug log gets each result after the commands of its check.
      */
-    private fun runChecks(router: Router, folder: ChurnFolder, checks: List<Check>): CheckReport {
-        val lines = mutableListOf<String>()
-        var failed = false
+    private fun runChecks(
+        router: Router,
+        folder: ChurnFolder,
+        checks: List<Check>,
+        progress: (CheckReport) -> Unit = {},
+    ): CheckReport {
+        var report = CheckReport(emptyList(), failed = false, checks.size)
         for (check in checks) {
             val result = check.run(router, folder)
-            failed = failed || result is CheckResult.Failed
-            lines += line(check, result)
-            debugLog.add(lines.last())
+            val line = line(check, result)
+            debugLog.add(line)
+            report = CheckReport(report.lines + line, report.failed || result is CheckResult.Failed, checks.size)
+            progress(report)
         }
-        return CheckReport(lines, failed)
+        return report
     }
 
     /** [check]'s [result], as the router screen and the debug log show it. */

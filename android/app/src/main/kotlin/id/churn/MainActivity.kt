@@ -29,7 +29,10 @@ class MainActivity : Activity() {
     /** The Connect screen's line saying whether the router is on the cable, while that screen shows. */
     private var cableLine: TextView? = null
 
-    /** The screen drawn last, and the scroll view of its page. */
+    /**
+     * The screen shown last, which is newer than the page when only the checks' progress changed, and the scroll view
+     * of the page.
+     */
     private var drawn: Screen? = null
     private var scrollView: ScrollView? = null
 
@@ -60,20 +63,23 @@ class MainActivity : Activity() {
     }
 
     private fun render(screen: Screen) {
-        // The router screen drawn again, such as with the checks' results, stays where the user scrolled to.
-        val again = screen is Screen.Home && drawn is Screen.Home
+        val last = drawn
         drawn = screen
+        if (screen is Screen.Home && last is Screen.Home) {
+            // An open Router checks dialog shows the checks' results as they come.
+            checksDialog?.setMessage(checksText(screen.checks))
+            // The page itself changes with the checks only when the first one fails, so that a tap on it while they
+            // run isn't lost.
+            if (screen.copy(checks = last.checks) == last && screen.checks?.failed == last.checks?.failed) return
+        }
         when (screen) {
             Screen.Intro -> intro()
             is Screen.Connect -> connect(screen)
             is Screen.Working -> working(screen)
             is Screen.TrustKey -> trustKey(screen)
             is Screen.SetUp -> setUp(screen)
-            is Screen.Home -> {
-                home(screen, keepScroll = again)
-                // An open Router checks dialog shows the checks' results as soon as they come.
-                checksDialog?.setMessage(checksText(screen.checks))
-            }
+            // The router screen drawn again, such as with a check that failed, stays where the user scrolled to.
+            is Screen.Home -> home(screen, keepScroll = last is Screen.Home)
             is Screen.Swapping -> swapping(screen)
         }
     }
@@ -185,7 +191,7 @@ class MainActivity : Activity() {
             gap()
         }
         button(R.string.show_rules) { showRules() }
-        button(R.string.router_checks) { showChecks(screen.checks) }
+        button(R.string.router_checks) { showChecks() }
         button(R.string.restore) {
             val factory = status.factory
             confirm(getString(R.string.restore_text, factory.imei1, factory.imei2)) { controller.restore() }
@@ -350,20 +356,25 @@ class MainActivity : Activity() {
             .show()
     }
 
-    private fun showChecks(checks: CheckReport?) {
+    /** The checks of the router screen drawn last, which may be newer than the page. */
+    private fun showChecks() {
         checksDialog = AlertDialog.Builder(this)
             .setTitle(R.string.router_checks)
-            .setMessage(checksText(checks))
+            .setMessage(checksText((drawn as? Screen.Home)?.checks))
             .setPositiveButton(android.R.string.ok, null)
             .setOnDismissListener { checksDialog = null }
             .show()
     }
 
-    /** What the Router checks dialog says: the results of [checks], or that they are still running. */
-    private fun checksText(checks: CheckReport?) = getString(
-        R.string.router_checks_text,
-        checks?.lines?.joinToString("\n\n") ?: getString(R.string.checks_running),
-    )
+    /** What the Router checks dialog says: how far the checks have got, and the results of [checks] so far. */
+    private fun checksText(checks: CheckReport?): String {
+        val progress = when {
+            checks == null -> listOf(getString(R.string.checks_running))
+            checks.done -> emptyList()
+            else -> listOf(getString(R.string.checks_progress, checks.lines.size, checks.total))
+        }
+        return getString(R.string.router_checks_text, (progress + checks?.lines.orEmpty()).joinToString("\n\n"))
+    }
 
     /** The debug log's switch, with Share and Delete while the log holds something. */
     private fun showDebugLog() {

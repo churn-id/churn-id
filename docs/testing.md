@@ -46,9 +46,9 @@ to the router:
 - The app runs every tier 1 check once the router screen shows, so that
   connecting takes no longer, and the checks marked *blocks* again before
   steps 1 and 3. Router checks, on the router screen, lists each check as
-  passed, failed or not applicable, with the IDs of its claims. While the
-  debug log is on, the results are a section of it too. The app sends them
-  nowhere by itself.
+  passed, failed or not applicable, with the IDs of its claims, and while
+  the checks run, how many are done. While the debug log is on, the
+  results are a section of it too. The app sends them nowhere by itself.
 - A failed check shows a note on the router screen. A check marked
   *blocks* will also stop a swap when it fails, because the app's commands
   can't be trusted then. For now, its result before steps 1 and 3 goes

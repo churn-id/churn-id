@@ -126,6 +126,7 @@
     <string name="router_checks">Router checks</string>
     <string name="router_checks_text">Whenever it connects, Churn checks that the router still works the way Churn relies on, so that a firmware upgrade that changes it shows up. The IDs in parentheses name the claims each check confirms, as docs/testing.md in Churn\'s repository lists them.\n\n%1$s</string>
     <string name="checks_running">Churn is still checking the router.</string>
+    <string name="checks_progress">Churn is still checking the router: %1$d of %2$d checks done.</string>
     <string name="checks_failed">A check found that the router doesn\'t work the way Churn relies on, for example after a firmware upgrade. Router checks shows which.</string>
     <string name="checking_router">Checking the router</string>
     <string name="check_passed">✓ %1$s (%2$s)</string>
