@@ -73,16 +73,18 @@ class Controller(private val context: Context) {
 
     // Used on the worker thread only.
     private var connection: RouterConnection? = null
+
+    /** The password typed for the connection attempt under way, until the attempt succeeds or fails. */
     private var typedPassword: String? = null
 
     /** Holds the user's answer to step 3's question until the step, on the worker thread, takes it. */
     private val answers = LinkedBlockingQueue<Answer>(1)
 
     // Used on the main thread only.
-    private val cableWatch = CableWatch(context, ::cableChanged)
+    private var cableWatch: CableWatch? = null
 
     /** The router's network on the cable, while the app watches for it; null if it isn't there. */
-    private var cable: Network? = null
+    private val cable get() = cableWatch?.network
 
     /** The router's network when the last job or step started. The app starts one by itself only once on each. */
     private var started: Network? = null
@@ -115,6 +117,9 @@ class Controller(private val context: Context) {
     /** Whether step 1 says that a first swap can run at home or at work. */
     val firstSwap get() = saved.firstSwap
 
+    /** Whether the user confirmed in step 1 that "Power On with Charger" is off, for this swap. Main thread only. */
+    var chargerChecked = false
+
     /** What step 4 says: whether the new card is a place card, and the last digits of the card to destroy. */
     val placeCardIn get() = saved.placeCardIn
     val cardToDestroy get() = saved.cardToDestroy
@@ -134,15 +139,16 @@ class Controller(private val context: Context) {
      * phone is locked: GrapheneOS lets no new USB connection through then, and Android lets an app in the background
      * start no foreground service, which a step needs.
      */
-    fun startWatching() = cableWatch.start()
+    fun startWatching() {
+        if (cableWatch == null) cableWatch = CableWatch.start(context, ::cableChanged)
+    }
 
     fun stopWatching() {
-        cableWatch.stop()
-        cable = null
+        cableWatch?.close()
+        cableWatch = null
     }
 
     private fun cableChanged(network: Network?) {
-        cable = network
         onCable?.invoke(network != null)
         if (network == null || network == started) return
         val current = screen
@@ -183,7 +189,14 @@ class Controller(private val context: Context) {
         job(R.string.connecting) { showRouter() }
     }
 
-    fun cancel() = show(Screen.Connect())
+    /** Cancel on the key or setup screen: ends the attempt at the key question, or the connection behind setup. */
+    fun cancel() {
+        worker.execute {
+            typedPassword = null
+            disconnect()
+        }
+        show(Screen.Connect())
+    }
 
     fun setUp(factory: ImeiPair) = job(R.string.setting_up) {
         val router = router()
@@ -247,12 +260,13 @@ class Controller(private val context: Context) {
     /** Starts a swap from the router screen, whose [status] tells whether the router still has its factory IMEIs. */
     fun beginSwap(status: RouterStatus) {
         saved.firstSwap = status.imeis == status.factory
+        chargerChecked = false
         debugLog.beginSwap()
         show(Screen.Swapping(Step.PREPARE))
     }
 
     fun cancelSwap() {
-        saved.step = null
+        saved.endSwap()
         refresh()
     }
 
@@ -288,8 +302,7 @@ class Controller(private val context: Context) {
                 }
             }
             Step.GO_ONLINE -> {
-                saved.step = null
-                saved.cardToDestroy = null
+                saved.endSwap()
                 show(Screen.Connect())
             }
         }
@@ -347,9 +360,13 @@ class Controller(private val context: Context) {
             try {
                 body()
             } catch (e: UntrustedHostKey) {
+                // The connection attempt goes on once the user trusts the key.
                 show(trustKey(e))
             } catch (e: Exception) {
+                typedPassword = null
                 show(Screen.Connect(stopped(e)))
+                // Every way on from the Connect screen connects anew.
+                disconnect()
             }
             if (keepAlive) {
                 main.post {
@@ -439,9 +456,6 @@ class Controller(private val context: Context) {
                     typedPassword = null
                 }
                 return Router(debugLog.record(opened))
-            } catch (e: WrongPassword) {
-                typedPassword = null
-                throw e
             } catch (e: IOException) {
                 // While the router starts, its network can show up before it accepts connections.
                 debugLog.add("  $e")

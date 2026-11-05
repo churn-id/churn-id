@@ -80,6 +80,11 @@ class Saved(context: Context) {
         get() = preferences.getString(CARD_TO_DESTROY, null)
         set(value) = save { putString(CARD_TO_DESTROY, value) }
 
+    /** Forgets the swap under way, once it ended or the user canceled it. */
+    fun endSwap() = save {
+        listOf(STEP, BOOT_ID, CARD_BEFORE_SWAP, FIRST_SWAP, PLACE_CARD_IN, CARD_TO_DESTROY).forEach { remove(it) }
+    }
+
     /** Whether the user has the app keep its debug log. */
     var debugLog: Boolean
         get() = preferences.getBoolean(DEBUG_LOG, false)

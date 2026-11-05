@@ -441,7 +441,8 @@ any place the user returns to.
 Step 4, not step 2, says to destroy the card taken out: until step 3 has
 given the new card its IMEIs, the old card is the fallback, as when the user
 keeps it after all. Step 1 notes on the phone which card the record names,
-since step 3 replaces the record and may run more than once.
+since step 3 replaces the record and may run more than once. The note
+goes once step 3 has used it, or when the user cancels the swap.
 
 ### App behavior
 
@@ -456,7 +457,8 @@ since step 3 replaces the record and may run more than once.
   anew if that connection has ended. Android ends the TCP connections of
   an app it freezes in the background, as it may while the phone is
   locked and no step runs. Step 1 failed when we let the phone lock
-  before starting it.
+  before starting it. Back on the Connect screen, the app drops its
+  connection, since every way on from there connects anew.
 - While it is on screen, the app watches for the router's network on the
   cable. The Connect screen says whether the router is there and, once the
   user has connected with the password and trusted the router's key,
@@ -509,7 +511,9 @@ since step 3 replaces the record and may run more than once.
   lost has no record but may still have a card's pair.
 - Before each rotation the app checks the slot 2 setting, airplane mode, and
   that "Power On with Charger" and GL's scheduled reboot are off. A reboot
-  is a power-on, so wherever it happens, the SIM registers there. It also
+  is a power-on, so wherever it happens, the SIM registers there. Step 1
+  asks the user about "Power On with Charger" in every swap: the app can't
+  read the setting, and an earlier answer says nothing about it now. It also
   checks that a VPN is set up (rule 5): with the Enhanced Kill Switch on, a
   router without one has no internet at all, which invites turning the
   switch off. Step 1 is where this check stops a swap, since the old card
