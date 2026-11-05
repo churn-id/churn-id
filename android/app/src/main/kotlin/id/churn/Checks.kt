@@ -1,5 +1,7 @@
 package id.churn
 
+import org.json.JSONObject
+
 /**
  * A check of the router that only reads, tier 1 in docs/testing.md. It confirms the claims there with the IDs [ids],
  * such as `D7`, and one that [blocks] confirms a claim that Churn's commands can't be trusted without. [title] says
@@ -84,6 +86,7 @@ val CHECKS = listOf(
     Check("B16", blocks = false, title = R.string.check_test_profile) { router, _ -> testProfile(router) },
     Check("H1", blocks = false, title = R.string.check_flash_log) { router, _ -> flashLogWritten(router) },
     Check("H2", blocks = false, title = R.string.check_flash_log_stopped) { router, _ -> flashLogStopped(router) },
+    Check("H4", blocks = false, title = R.string.check_card_files) { router, _ -> cardFileFormats(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
 
@@ -551,6 +554,34 @@ private fun flashLogStopped(router: Router): CheckResult {
     }
     if (files.isEmpty()) return CheckResult.Passed
     return CheckResult.Failed("logread still writes ${files.joinToString(", ") { it.take(60) }}.")
+}
+
+/**
+ * Whether GL's card files and the eSIM manager's records parse and name each card by its ICCID, in the formats
+ * development.md lists. The result names no card, and no record's file, whose name is the chip's ID.
+ */
+private fun cardFileFormats(router: Router): CheckResult {
+    val files = router.cardFiles()
+    if (files.isEmpty()) return CheckResult.NotApplicable(R.string.reason_no_card_files)
+    val wrong = files.filter { (path, json) -> json == null || !inCardFileFormat(path, json) }.keys
+    if (wrong.isEmpty()) return CheckResult.Passed
+    val records = wrong.count { it.startsWith(Router.ESIM_RECORDS) }
+    val names = wrong.filter { !it.startsWith(Router.ESIM_RECORDS) }.map { it.substringAfterLast('/') } +
+        listOfNotNull("$records of the eSIM manager's records".takeIf { records > 0 })
+    return CheckResult.Failed("Not in the format development.md lists: ${names.joinToString(", ")}.")
+}
+
+/** Whether [json], the card file or eSIM record at [path], is in the format development.md lists. */
+private fun inCardFileFormat(path: String, json: JSONObject): Boolean {
+    fun isIccid(value: Any?) = value is String && Imei.iccidDigits(value) != null
+    fun membersByIccid(members: JSONObject?, entry: (JSONObject) -> Boolean) = members != null &&
+        members.keys().asSequence().all { isIccid(it) && members.optJSONObject(it)?.let(entry) == true }
+    return when (path) {
+        Router.SIM_MAP -> membersByIccid(json) { true }
+        Router.APN_HISTORY -> json.optJSONArray("apns")
+            ?.let { apns -> (0 until apns.length()).all { isIccid(apns.optJSONObject(it)?.opt("iccid")) } } == true
+        else -> membersByIccid(json.optJSONObject("records")) { isIccid(it.opt("iccid")) }
+    }
 }
 
 /**

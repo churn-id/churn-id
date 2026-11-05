@@ -411,8 +411,8 @@ class Router(private val shell: Shell) {
         val keep = keepIccid?.let(::iccidKey)
         turnFlashLogOff()
         run("rm -f $SYS_LOG $SYS_LOG.old").check("delete the system log")
-        pruneSimMap("$CELLULAR/sim_map.json", keep)
-        pruneApnHistory("$CELLULAR/history_apn_database.json", keep)
+        pruneSimMap(SIM_MAP, keep)
+        pruneApnHistory(APN_HISTORY, keep)
         pruneEsimRecords(keep)
         // Earlier versions of the app derived each card's IMEIs from it, which networks' records then find.
         run("rm -f $CHURN/secret").check("delete the secret")
@@ -459,10 +459,7 @@ class Router(private val shell: Shell) {
 
     /** Deletes the eSIM manager's record files that don't name [keep], and empties its log. */
     private fun pruneEsimRecords(keep: String?) {
-        // GL names each file by the chip's 32-digit id; other names are left alone rather than passed to the shell.
-        val files = run("find $ESIM/db -maxdepth 1 -type f 2>/dev/null").text.lines()
-            .filter { it.matches(Regex("$ESIM/db/[A-Za-z0-9._-]+")) }
-        for (file in files) {
+        for (file in esimRecordFiles()) {
             val content = readFile(file)?.toString(Charsets.UTF_8) ?: continue
             if (keep == null || !content.contains(keep)) run("rm -f $file").check("remove an eSIM record")
         }
@@ -475,6 +472,20 @@ class Router(private val shell: Shell) {
      * On our Mudi 7 it took about 3 minutes; the timeout allows for a slower flash.
      */
     private fun overwriteFreeSpace() = run(OVERWRITE_FREE_SPACE, timeoutSeconds = 900).check("overwrite the free space")
+
+    /**
+     * GL's card files and the eSIM manager's records, by path, each as JSON, or null if it doesn't parse; a file that
+     * isn't there is left out. Read privately: they hold SIM PINs, APN passwords and activation codes.
+     */
+    fun cardFiles(): Map<String, JSONObject?> = (listOf(SIM_MAP, APN_HISTORY) + esimRecordFiles()).mapNotNull { path ->
+        readFile(path)?.let { path to runCatching { JSONObject(it.toString(Charsets.UTF_8)) }.getOrNull() }
+    }.toMap()
+
+    /** The eSIM manager's record files, one per chip. */
+    private fun esimRecordFiles() =
+        // GL names each file by the chip's 32-digit id; other names are left alone rather than passed to the shell.
+        run("find $ESIM_RECORDS -maxdepth 1 -type f 2>/dev/null").text.lines()
+            .filter { it.matches(Regex("$ESIM_RECORDS/[A-Za-z0-9._-]+")) }
 
     private fun readJson(path: String) =
         readFile(path)?.let { runCatching { JSONObject(it.toString(Charsets.UTF_8)) }.getOrNull() }
@@ -754,7 +765,14 @@ class Router(private val shell: Shell) {
 
         private const val SYS_LOG = "/etc/sys_log"
         private const val CELLULAR = "/etc/config/cellular"
+
+        /** GL's card files: its settings for each card, and the APN that worked for each. */
+        const val SIM_MAP = "$CELLULAR/sim_map.json"
+        const val APN_HISTORY = "$CELLULAR/history_apn_database.json"
         private const val ESIM = "/root/esim"
+
+        /** The folder of the eSIM manager's records, a file per chip. */
+        const val ESIM_RECORDS = "$ESIM/db"
 
         /**
          * Fills the overlay's free space with zeros, then frees 512 MB of it again. ext4 keeps back free space that

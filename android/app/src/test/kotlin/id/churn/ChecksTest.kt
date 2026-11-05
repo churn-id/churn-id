@@ -864,6 +864,46 @@ class ChecksTest {
     }
 
     @Test
+    fun cardFileCheckPassesWithGlsFormats() {
+        fake.recordCards("8941000000000000015F", Router.PLACEHOLDER_ICCID)
+        assertEquals(CheckResult.Passed, run("H4"))
+    }
+
+    @Test
+    fun cardFileCheckFailsAtAFileThatDoesNotParse() {
+        fake.recordCards("8941000000000000015F")
+        fake.files[Router.SIM_MAP] = "{".toByteArray()
+        assertEquals(CheckResult.Failed("Not in the format development.md lists: sim_map.json."), run("H4"))
+    }
+
+    @Test
+    fun cardFileCheckFailsAtACardFileMemberThatIsNotAnIccid() {
+        fake.recordCards("8941000000000000015F")
+        fake.files[Router.SIM_MAP] = """{"default": {"manual": false}}""".toByteArray()
+        fake.files[Router.APN_HISTORY] = """{"apns": [{"iccid": "", "apn": "internet"}]}""".toByteArray()
+        assertEquals(
+            CheckResult.Failed("Not in the format development.md lists: sim_map.json, history_apn_database.json."),
+            run("H4"),
+        )
+    }
+
+    @Test
+    fun cardFileCheckFailsAtAnEsimRecordInAnotherFormat() {
+        fake.recordCards("8941000000000000015F", Router.PLACEHOLDER_ICCID)
+        val record = fake.files.keys.first { it.startsWith(Router.ESIM_RECORDS) }
+        fake.files[record] = """{"records": {"8941000000000000015F": {"apn": ""}}}""".toByteArray()
+        assertEquals(
+            CheckResult.Failed("Not in the format development.md lists: 1 of the eSIM manager's records."),
+            run("H4"),
+        )
+    }
+
+    @Test
+    fun cardFileCheckDoesNotApplyWithoutCardFiles() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_card_files), run("H4"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2

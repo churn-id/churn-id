@@ -242,7 +242,7 @@ and 10.
 | H1 | GL writes its system log to the file `system.@system[0].log_file` names, and the log pairs cards' ICCIDs with their IMSIs and names the cells they used | verified | The setting and a running `logread -f -F` (tier 1); the log's lines (tier 4) | 1, 4 |
 | H2 | Deleting `log_file`, committing and reloading the log service ends the `logread` that writes the file | verified | No `logread -f` process afterwards | 1 |
 | H3 | Setting `log_file` back and reloading the log service makes `logread` write the file again | open | Run `restore.sh`, check the process and the file; setting the router up again turns the file off | 2 |
-| H4 | GL's card files and the eSIM manager's records have the formats development.md lists | verified | Both card files parse, and every member name and `iccid` in them is an ICCID | 1 |
+| H4 | GL's card files and the eSIM manager's records have the formats development.md lists | verified | Both card files and the eSIM manager's records parse, and every member name and `iccid` in them is an ICCID | 1 |
 | H5 | GL's eSIM manager writes its log to `/root/esim/log.txt`, beginning each line with the time in UTC | verified for the file; inferred for UTC | Compare the time of the log's last line with `date -u` right after the eSIM manager writes one | 1 |
 | H6 | The eSIM manager's log only grows until something empties it | inferred | Note the log's size and first bytes at two connections a day apart | 1 |
 | H7 | GL doesn't add back pruned cards, also not when airplane mode goes off and on | verified | The card files after airplane mode off and on | 4 |
