@@ -469,6 +469,23 @@ class ChecksTest {
     }
 
     @Test
+    fun ownTrafficTargetCheckPassesWithTheTargetsWeWatched() {
+        assertEquals(CheckResult.Passed, run("D6"))
+    }
+
+    @Test
+    fun ownTrafficTargetCheckFailsWithAnotherTimeServer() {
+        fake.answers["uci -q show chrony"] = "chrony.@pool[0]=pool\n" + "chrony.@pool[0].hostname='pool.ntp.org'\n"
+        assertEquals(CheckResult.Failed("Chrony's time servers are pool.ntp.org."), run("D6"))
+    }
+
+    @Test
+    fun ownTrafficTargetCheckFailsWithAnotherConnectionCheck() {
+        fake.uciAnswers["kmwan.modem_cpu.tracks"] = null
+        assertEquals(CheckResult.Failed("GL's connection check over the SIM pings nothing."), run("D6"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

@@ -151,6 +151,7 @@
     <string name="check_dns_servers">GL runs its main DNS server on port 53 and the tunnel\'s on port 2153, each with its own servers</string>
     <string name="check_dns_rules">GL\'s firewall sends devices\' lookups to the tunnel\'s DNS server and drops those that would go past it</string>
     <string name="check_own_traffic_routes">Without Churn\'s firewall rules, what the router sends itself would go over the SIM</string>
+    <string name="check_own_traffic_targets">The router reaches the same time servers and connection check addresses as when we watched it</string>
     <string name="check_firewall_loaded">GL\'s firewall has loaded Churn\'s firewall rules</string>
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>

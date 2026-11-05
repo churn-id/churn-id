@@ -272,6 +272,7 @@ class FakeRouter : Shell {
             )
         }
         if (command == "uci -q show route_policy") return ok(routePolicy())
+        if (command == "uci -q show chrony") return ok(CHRONY)
         if (command == KILL_SWITCH_ON) {
             change("Enhanced Kill Switch")
             killSwitchSet = true
@@ -476,6 +477,7 @@ class FakeRouter : Shell {
         "network.modem_cpu.dds_id" -> ok("$activeSlot\n")
         "system.@system[0].log_file" -> logFile?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
         "network.modem_cpu.iccid" -> modemCpuIccid?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
+        "kmwan.modem_cpu.tracks" -> ok("ping,1.1.1.1 ping,8.8.8.8 ping,208.67.222.222 ping,208.67.220.220\n")
         "route_policy.@default[0]" -> ok("default\n")
         "route_policy.@default[0].enabled" -> ok(if (killSwitchSet) "0\n" else "1\n")
         "network.vpn_to_main" -> if (killSwitchSet) Output(1, ByteArray(0), "") else ok("rule\n")
@@ -590,6 +592,28 @@ class FakeRouter : Shell {
         private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "curl")
         private const val FIREWALL_LOADED = "nft list chain inet fw4 churn_sim >/dev/null && " +
             "nft list chain inet fw4 churn_route >/dev/null && nft list chain inet fw4 churn_dns >/dev/null"
+
+        /** Chrony's settings as our Mudi 7 listed them, shortened. */
+        // cspell:disable
+        private val CHRONY = """
+            chrony.@pool[0]=pool
+            chrony.@pool[0].hostname='time.cloudflare.com'
+            chrony.@pool[0].iburst='yes'
+            chrony.@pool[0].nts='yes'
+            chrony.@dhcp_ntp_server[0]=dhcp_ntp_server
+            chrony.@dhcp_ntp_server[0].disabled='no'
+            chrony.time_nl=server
+            chrony.time_nl.hostname='ntppool1.time.nl'
+            chrony.netnod=server
+            chrony.netnod.hostname='nts.netnod.se'
+            chrony.ptb=server
+            chrony.ptb.hostname='ptbtime1.ptb.de'
+            chrony.dfm=server
+            chrony.dfm.hostname='time.dfm.dk'
+            chrony.cifelli=server
+            chrony.cifelli.hostname='time.cifelli.xyz'
+        """.trimIndent() + "\n"
+        // cspell:enable
 
         /** The answer recorded on our Mudi 7, shortened. */
         val FEATURE_CONFIG = """

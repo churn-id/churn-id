@@ -588,6 +588,16 @@ class Router(private val shell: Shell) {
     /** The uci setting [key] as it is, for the router checks; null if it isn't set. */
     fun setting(key: String) = uci(key)
 
+    /**
+     * The uci settings of the config or section [name], as `uci show` lists them, by key, each value without its
+     * quotes; a list's values stay quoted between them.
+     */
+    fun settings(name: String): Map<String, String> {
+        require(name.matches(Regex("[A-Za-z0-9_.-]+")))
+        return run("uci -q show $name").text.lines().filter { '=' in it }
+            .associate { it.substringBefore('=') to it.substringAfter('=').removeSurrounding("'") }
+    }
+
     private fun uci(key: String): String? {
         val output = run("uci -q get ${quote(key)}")
         return if (output.status == 0) output.text.trim() else null

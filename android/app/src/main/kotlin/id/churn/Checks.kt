@@ -65,6 +65,7 @@ val CHECKS = listOf(
     Check("D1", blocks = false, title = R.string.check_dns_servers) { router, _ -> dnsServers(router) },
     Check("D2", blocks = false, title = R.string.check_dns_rules) { router, _ -> glDnsRules(router) },
     Check("D5", blocks = false, title = R.string.check_own_traffic_routes) { router, _ -> ownTrafficRoutes(router) },
+    Check("D6", blocks = false, title = R.string.check_own_traffic_targets) { router, _ -> ownTrafficTargets(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -330,6 +331,32 @@ private fun ownTrafficRoutes(router: Router): CheckResult {
     val device = Regex(""" dev (\S+)""").find(route)?.groupValues?.get(1)
     if (device?.matches(SIM_INTERFACE) == true) return CheckResult.Passed
     return CheckResult.NotApplicable(R.string.reason_other_uplink)
+}
+
+/** The time servers chrony was set up with on our Mudi 7, which it reaches over the SIM without Churn's rules. */
+// cspell:disable
+private val WATCHED_TIME_SERVERS = setOf(
+    "time.cloudflare.com", "ntppool1.time.nl", "nts.netnod.se", "ptbtime1.ptb.de", "time.dfm.dk", "time.cifelli.xyz",
+)
+// cspell:enable
+
+/** What GL's connection check pings over the SIM on our Mudi 7, as `uci get` lists it. */
+private const val WATCHED_CONNECTION_CHECK = "ping,1.1.1.1 ping,8.8.8.8 ping,208.67.222.222 ping,208.67.220.220"
+
+/**
+ * Whether the router would still reach the time servers and the addresses we watched it reach over the SIM, without
+ * Churn's rules: chrony's servers, and those that GL's connection check pings over the SIM's interface.
+ */
+private fun ownTrafficTargets(router: Router): CheckResult {
+    val timeServers = router.settings("chrony").filterKeys { it.endsWith(".hostname") }.values.toSet()
+    val pings = router.setting("kmwan.modem_cpu.tracks")
+    val problems = listOfNotNull(
+        "Chrony's time servers are ${timeServers.sorted().joinToString(", ").take(200)}."
+            .takeIf { timeServers != WATCHED_TIME_SERVERS },
+        "GL's connection check over the SIM pings ${pings?.take(200) ?: "nothing"}."
+            .takeIf { pings != WATCHED_CONNECTION_CHECK },
+    )
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
 }
 
 /** Whether Churn's rules file, if it is there, names the user ID of GL's main DNS server, as [Router.firewallRules]. */
