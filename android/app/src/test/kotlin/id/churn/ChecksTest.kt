@@ -77,6 +77,17 @@ class ChecksTest {
     }
 
     @Test
+    fun md5sumCheckPassesWithMd5sum() {
+        assertEquals(CheckResult.Passed, run("P3"))
+    }
+
+    @Test
+    fun md5sumCheckFailsWithoutMd5sum() {
+        fake.absentCommands += "md5sum"
+        assertEquals(CheckResult.Failed("Missing: md5sum."), run("P3"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

@@ -40,6 +40,7 @@ val TESTED_PLATFORMS = listOf(
 val CHECKS = listOf(
     Check("P1", blocks = false, title = R.string.check_platform) { router, _ -> platformTested(router) },
     Check("P2", blocks = true, title = R.string.check_commands) { router, _ -> commandsFound(router, CHURN_COMMANDS) },
+    Check("P3", blocks = false, title = R.string.check_md5sum) { router, _ -> commandsFound(router, listOf("md5sum")) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
