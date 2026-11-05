@@ -528,11 +528,13 @@ router's clock show only the size of their answer. A progress line starts
 with `✓`, a question with `?`, followed by the user's answer, and the
 reason a job or step stopped with `!`, followed by the exception and where
 in the app it was thrown. Every run of 12 or more hexadecimal digits shows
-as `…`, except the ICCIDs and IMSIs that cards without an enabled profile
-show (above), and the masking comes before the cuts, which could
-otherwise leave a part of a number. Before each section the app drops the
-oldest sections, keeping the last three swaps and at most 1,000,000
-characters.
+as `…`, and the masking comes before the cuts, which could otherwise leave
+a part of a number. The ICCID and IMSI that the built-in eSIM shows
+without an enabled profile (above) name no card, so they show as
+`[built-in eSIM placeholder ICCID]` and `[built-in eSIM test IMSI]`. Every
+other card's numbers show as `…`, an adapter card's placeholders
+included. Before each section the app drops the oldest sections, keeping
+the last three swaps and at most 1,000,000 characters.
 
 GL's eSIM manager writes its log to `/root/esim/log.txt`, not to the
 system log, and the clearing empties it (above). Once step 1 or 3 has

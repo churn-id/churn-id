@@ -51,12 +51,13 @@ class DebugLogTest {
     }
 
     @Test
-    fun showsTheNumbersThatNameNoCard() {
+    fun namesTheBuiltInEsimPlaceholderNumbers() {
         assertEquals(
-            "+ICCID: 89000123456789012341, +CIMI: 001010123456063, 89111111111111111111, 111111111111111, …, …",
+            "+ICCID: [built-in eSIM placeholder ICCID], +CIMI: [built-in eSIM test IMSI], …, …, …, …",
             DebugLog.mask(
-                "+ICCID: 89000123456789012341, +CIMI: 001010123456063, 89111111111111111111, 111111111111111, " +
-                    "8944000000000000123F, 260010000000001",
+                "+ICCID: 89000123456789012341, +CIMI: 001010123456063, " +
+                    // A 9eSIM adapter card's placeholders, and a card's numbers.
+                    "89111111111111111111, 111111111111111, 8944000000000000123F, 260010000000001",
             ),
         )
     }
