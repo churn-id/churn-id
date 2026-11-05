@@ -59,6 +59,7 @@ val CHECKS = listOf(
         settingIn(router.activeSlot(), "1", "2")
     },
     Check("K1", blocks = true, title = R.string.check_vpn_policy) { router, _ -> vpnPolicy(router) },
+    Check("K5", blocks = false, title = R.string.check_kill_switch_settings) { router, _ -> killSwitchAgrees(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -189,6 +190,22 @@ private fun vpnPolicy(router: Router) = when {
         CheckResult.Failed("GL's route policy has no default section.")
     router.vpnSetUp() -> CheckResult.Passed
     else -> CheckResult.NotApplicable(R.string.reason_no_vpn)
+}
+
+/**
+ * Whether GL's two settings of the Enhanced Kill Switch and the routing rule at priority 9000 agree on whether it is
+ * on, as [Router.enhancedKillSwitch] reads them: turning the switch on or off in GL's web interface changes all three.
+ */
+private fun killSwitchAgrees(router: Router): CheckResult {
+    val policy = router.setting(Router.DEFAULT_POLICY)
+    val vpnToMain = router.setting(Router.VPN_TO_MAIN) != null
+    val rule = router.ipRules().any { it.startsWith("9000:") }
+    if (policy == "0" && !vpnToMain && !rule || policy == "1" && vpnToMain && rule) return CheckResult.Passed
+    val value = policy?.let { "\"${it.take(20)}\"" } ?: "missing"
+    return CheckResult.Failed(
+        "${Router.DEFAULT_POLICY} is $value, ${Router.VPN_TO_MAIN} is ${if (vpnToMain) "there" else "absent"}, " +
+            "and ip rule show lists ${if (rule) "a" else "no"} rule at priority 9000.",
+    )
 }
 
 /** Whether a uci setting holds one of [expected], given its [value], or null if it isn't set. */

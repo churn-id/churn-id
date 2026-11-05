@@ -267,11 +267,16 @@ class Router(private val shell: Shell) {
      * rules in use, which follow the settings only at a network reload.
      */
     fun enhancedKillSwitch(): Boolean {
+        // network.vpn_to_main is the rule at priority 9000.
+        val ruleInUse = ipRules().any { it.startsWith("9000:") }
+        return uci(DEFAULT_POLICY) == "0" && uci(VPN_TO_MAIN) == null && !ruleInUse
+    }
+
+    /** The routing rules in use, one per line as `ip rule show` lists them. */
+    fun ipRules(): List<String> {
         val rules = run("ip rule show")
         rules.check("ip rule")
-        // network.vpn_to_main is the rule at priority 9000.
-        val ruleInUse = rules.text.lines().any { it.startsWith("9000:") }
-        return uci(DEFAULT_POLICY) == "0" && uci(VPN_TO_MAIN) == null && !ruleInUse
+        return rules.text.lines().filter(String::isNotBlank)
     }
 
     /** Turns GL's Enhanced Kill Switch on, also for later power-ons, and checks that it is on. */
@@ -601,8 +606,9 @@ class Router(private val shell: Shell) {
         const val FIREWALL = "/etc/nftables.d/churn.nft"
         private val FIREWALL_CHAINS = listOf("churn_sim", "churn_route", "churn_dns")
 
-        private const val DEFAULT_POLICY = "route_policy.@default[0].enabled"
-        private const val VPN_TO_MAIN = "network.vpn_to_main"
+        /** GL's two settings of the Enhanced Kill Switch: `0`, and absent, while it is on. */
+        const val DEFAULT_POLICY = "route_policy.@default[0].enabled"
+        const val VPN_TO_MAIN = "network.vpn_to_main"
         private const val LOCK = "/var/lock/churn.lock"
         private const val SYSUPGRADE = "/etc/sysupgrade.conf"
         private const val ESIM_API = "http://127.0.0.1:3456/sdk/v1"

@@ -286,6 +286,36 @@ class ChecksTest {
     }
 
     @Test
+    fun killSwitchCheckPassesWithTheSwitchOn() {
+        assertEquals(CheckResult.Passed, run("K5"))
+    }
+
+    @Test
+    fun killSwitchCheckPassesWithTheSwitchOff() {
+        fake.killSwitchSet = false
+        fake.killSwitchInUse = false
+        assertEquals(CheckResult.Passed, run("K5"))
+    }
+
+    @Test
+    fun killSwitchCheckFailsWhileTheRulesDoNotFollowTheSettings() {
+        fake.killSwitchInUse = false
+        assertEquals(
+            CheckResult.Failed(
+                "route_policy.@default[0].enabled is \"0\", network.vpn_to_main is absent, and ip rule show lists " +
+                    "a rule at priority 9000.",
+            ),
+            run("K5"),
+        )
+    }
+
+    @Test
+    fun killSwitchCheckFailsWhileTheSettingsDisagree() {
+        fake.uciAnswers["network.vpn_to_main"] = "rule"
+        assertTrue(run("K5") is CheckResult.Failed)
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))
