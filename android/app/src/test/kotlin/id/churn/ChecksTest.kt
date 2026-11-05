@@ -744,6 +744,44 @@ class ChecksTest {
     }
 
     @Test
+    fun esimManagerCheckPassesWithGlsRule() {
+        assertEquals(CheckResult.Passed, run("E5"))
+    }
+
+    @Test
+    fun esimManagerCheckFailsIfNothingListensOnItsPort() {
+        fake.answers["netstat -lnt"] = FakeRouter.TCP_PORTS.lines().filter { ":3456" !in it }.joinToString("\n")
+        assertEquals(CheckResult.Failed("Nothing listens on TCP port 3456."), run("E5"))
+    }
+
+    @Test
+    fun esimManagerCheckFailsWithoutGlsRule() {
+        fake.answers["uci -q show firewall.block_lpa_port"] = ""
+        assertEquals(CheckResult.Failed("GL's firewall has no rule block_lpa_port."), run("E5"))
+    }
+
+    @Test
+    fun esimManagerCheckFailsWithTheRuleOff() {
+        fake.answers["uci -q show firewall.block_lpa_port"] = FakeRouter.LPA_RULE.replace("enabled='1'", "enabled='0'")
+        assertEquals(CheckResult.Failed("The rule is off."), run("E5"))
+    }
+
+    @Test
+    fun esimManagerCheckFailsWithAnotherRule() {
+        // A rule for traffic through the router, for any protocol, that lets it through.
+        fake.answers["uci -q show firewall.block_lpa_port"] = FakeRouter.LPA_RULE.lines()
+            .filter { "proto" !in it }.map { it.replace("target='DROP'", "target='ACCEPT'") }
+            .joinToString("\n") + "firewall.block_lpa_port.dest='wan'\n"
+        assertEquals(
+            CheckResult.Failed(
+                "firewall.block_lpa_port.dest is set. firewall.block_lpa_port.proto is missing. " +
+                    "firewall.block_lpa_port.target is \"ACCEPT\".",
+            ),
+            run("E5"),
+        )
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2

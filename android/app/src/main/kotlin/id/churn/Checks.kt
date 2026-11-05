@@ -75,6 +75,7 @@ val CHECKS = listOf(
     Check("E1", blocks = true, title = R.string.check_esim_answers) { router, _ -> esimAnswers(router) },
     Check("E2", blocks = false, title = R.string.check_iccid_padding) { router, _ -> iccidPadding(router) },
     Check("E3", blocks = false, title = R.string.check_esim_placeholder) { router, _ -> esimPlaceholder(router) },
+    Check("E5", blocks = false, title = R.string.check_esim_manager) { router, _ -> esimManagerBlocked(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
 
@@ -478,6 +479,43 @@ private fun esimPlaceholder(router: Router): CheckResult {
         )
         else -> CheckResult.NotApplicable(R.string.reason_profile_enabled)
     }
+}
+
+/**
+ * GL's firewall rule that drops devices' connections to its eSIM manager, as our Mudi 7 listed it, by setting; null for
+ * one that has to be absent: with `dest`, the rule would cover only traffic through the router.
+ */
+private val LPA_RULE = mapOf(
+    "firewall.block_lpa_port" to "rule",
+    "firewall.block_lpa_port.src" to "lan",
+    "firewall.block_lpa_port.dest" to null,
+    "firewall.block_lpa_port.dest_port" to "3456",
+    "firewall.block_lpa_port.proto" to "tcp",
+    "firewall.block_lpa_port.target" to "DROP",
+)
+
+/**
+ * Whether GL's eSIM manager listens on TCP port 3456, and GL's firewall rule `block_lpa_port` keeps devices from
+ * reaching it, which would let them change profiles without a login.
+ */
+private fun esimManagerBlocked(router: Router): CheckResult {
+    val port = "Nothing listens on TCP port 3456.".takeIf { 3456 !in router.tcpPorts() }
+    val rule = router.settings("firewall.block_lpa_port")
+    val problems = if (rule.isEmpty()) {
+        listOf("GL's firewall has no rule block_lpa_port.")
+    } else {
+        LPA_RULE.mapNotNull { (key, expected) ->
+            val value = rule[key]
+            when {
+                value == expected -> null
+                value == null -> "$key is missing."
+                expected == null -> "$key is set."
+                else -> "$key is \"${value.take(20)}\"."
+            }
+        } + listOfNotNull("The rule is off.".takeIf { rule["firewall.block_lpa_port.enabled"] == "0" })
+    }
+    val all = listOfNotNull(port) + problems
+    return if (all.isEmpty()) CheckResult.Passed else CheckResult.Failed(all.joinToString(" "))
 }
 
 /**

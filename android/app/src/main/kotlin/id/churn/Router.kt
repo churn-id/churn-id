@@ -289,6 +289,15 @@ class Router(private val shell: Shell) {
         }
     }
 
+    /** The TCP ports that something listens on, as `netstat -lnt` lists them. */
+    fun tcpPorts(): Set<Int> {
+        val output = run("netstat -lnt")
+        output.check("netstat")
+        return output.text.lines().map { it.trim().split(Regex("\\s+")) }
+            .filter { it.size >= 4 && it[0].startsWith("tcp") }
+            .mapNotNull { it[3].substringAfterLast(':').toIntOrNull() }.toSet()
+    }
+
     /** The names of the router's network devices, as `/sys/class/net` lists them. */
     fun networkDevices(): List<String> {
         val output = run("ls /sys/class/net")

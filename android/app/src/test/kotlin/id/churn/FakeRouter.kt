@@ -285,6 +285,8 @@ class FakeRouter : Shell {
         }
         if (command == "uci -q show route_policy") return ok(routePolicy())
         if (command == "uci -q show chrony") return ok(CHRONY)
+        if (command == "uci -q show firewall.block_lpa_port") return ok(LPA_RULE)
+        if (command == "netstat -lnt") return ok(TCP_PORTS)
         if (command == KILL_SWITCH_ON) {
             change("Enhanced Kill Switch")
             killSwitchSet = true
@@ -641,6 +643,25 @@ class FakeRouter : Shell {
             chrony.cifelli.hostname='time.cifelli.xyz'
         """.trimIndent() + "\n"
         // cspell:enable
+
+        /** GL's firewall rule for its eSIM manager's port, with the settings our Mudi 7 listed. */
+        val LPA_RULE = """
+            firewall.block_lpa_port=rule
+            firewall.block_lpa_port.name='Block LPA External Port'
+            firewall.block_lpa_port.src='lan'
+            firewall.block_lpa_port.dest_port='3456'
+            firewall.block_lpa_port.proto='tcp'
+            firewall.block_lpa_port.target='DROP'
+            firewall.block_lpa_port.enabled='1'
+        """.trimIndent() + "\n"
+
+        /** What listens on TCP ports, shortened to SSH's and the eSIM manager's, whose line our Mudi 7 listed. */
+        val TCP_PORTS = """
+            Active Internet connections (only servers)
+            Proto Recv-Q Send-Q Local Address           Foreign Address         State
+            tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN
+            tcp        0      0 :::3456                 :::*                    LISTEN
+        """.trimIndent() + "\n"
 
         /** The answer recorded on our Mudi 7, shortened. */
         val FEATURE_CONFIG = """
