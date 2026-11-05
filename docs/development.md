@@ -297,13 +297,15 @@ card with no profile enabled showed the placeholder ICCID
 `89111111111111111111` and the IMSI `111111111111111` (verified). Every
 such card probably shows the same ICCID, and other brands of adapter card
 may show placeholders of their own (inferred). Step 3 records a pair only
-for a card that shows neither placeholder ICCID and has a real network's
-IMSI, since a pair recorded for a placeholder would go to every card that
-shows it. No real network's country code starts with 0, which test
-networks such as 001/01 use, or 1, which no country has (inferred from
-published lists of country codes), so an IMSI starting with either digit
-counts as no real network's. That also covers placeholders of other brands
-that use such an IMSI (inferred).
+for a card that has a real network's IMSI and doesn't show the built-in
+eSIM's placeholder ICCID, since a pair recorded for a placeholder would go
+to every card that shows it. No real network's country code starts with
+0, which test networks such as 001/01 use, or 1, which no country has
+(inferred from published lists of country codes), so an IMSI starting
+with either digit counts as no real network's. That covers the 9eSIM
+card's placeholder and those of other brands that use such an IMSI
+(inferred). The app relies on no adapter card's placeholder ICCID, which
+can differ by brand, only on the built-in eSIM's.
 
 ### Disabling the enabled profile
 

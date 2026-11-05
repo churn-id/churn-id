@@ -141,13 +141,13 @@ class Router(private val shell: Shell) {
     fun slot2Imsi() = slot2Answer("AT+CIMI")?.lines?.firstOrNull { it.matches(Regex("[0-9]{6,15}")) }
 
     /**
-     * The card in slot 2; null if none answers. A card without an enabled profile shows a placeholder ICCID or an
-     * IMSI of no real network. Its ICCID may then be the same on every such card, which would give them all the same
-     * IMEIs.
+     * The card in slot 2; null if none answers. A card counts as one without an enabled profile if its IMSI is no
+     * real network's, or if it shows the built-in eSIM's placeholder ICCID. Its ICCID may then be the same on every
+     * such card, which would give them all the same IMEIs.
      */
     fun slot2Card(): Slot2Card? {
         val iccid = slot2Iccid() ?: return null
-        if (iccid in PLACEHOLDERS) return Slot2Card.NoProfile
+        if (iccid == PLACEHOLDER_ICCID) return Slot2Card.NoProfile
         val imsi = slot2Imsi() ?: return null
         return if (imsi[0] in NO_NETWORK) Slot2Card.NoProfile else Slot2Card.Subscription(iccid)
     }
@@ -536,9 +536,6 @@ class Router(private val shell: Shell) {
     companion object {
         /** The ICCID slot 2 shows while it is on the built-in eSIM with no profile enabled. */
         const val PLACEHOLDER_ICCID = "89000123456789012341"
-
-        /** The ICCIDs of cards without an enabled profile: the built-in eSIM's, and a 9eSIM adapter card's. */
-        val PLACEHOLDERS = setOf(PLACEHOLDER_ICCID, "89111111111111111111")
 
         /** The start of a test network's IMSI, which the built-in eSIM shows with no profile enabled. */
         const val TEST_NETWORK = "00101"
