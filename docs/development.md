@@ -510,6 +510,48 @@ doesn't answer AT commands for a while after power-on, so the app keeps
 asking. Step 3 of the swap changes nothing before `/proc/uptime` shows
 120 s and the modem answers `+CFUN: 4`.
 
+## The debug log
+
+design.md, section 7, says what the debug log holds and leaves out. The
+app keeps it in `debug-log.txt` among its private files. The "Debug log"
+menu item turns it on and off, deletes it, or shares it through the
+app's own content provider, which lets only the app the user picks read
+it.
+
+Each job or step starts a section with a line `== <title>`, and each swap
+with `== New swap`. Every line begins with the seconds since its section
+began. A command shows as `$` and its first line, up to 300 characters,
+followed by its exit status and its answer, up to 2,000 characters, with
+`|` before each line of standard output and `!` before each line of
+standard error. The commands that read files, GL's VPN settings and the
+router's clock show only the size of their answer. A progress line starts
+with `✓`, a question with `?`, followed by the user's answer, and the
+reason a job or step stopped with `!`, followed by the exception and where
+in the app it was thrown. Every run of 12 or more hexadecimal digits shows
+as `…`, except the ICCIDs and IMSIs that cards without an enabled profile
+show (above), and the masking comes before the cuts, which could
+otherwise leave a part of a number. Before each section the app drops the
+oldest sections, keeping the last three swaps and at most 1,000,000
+characters.
+
+GL's eSIM manager writes its log to `/root/esim/log.txt`, not to the
+system log, and the clearing empties it (above). Once step 1 or 3 has
+connected, the app notes the log's size, the MD5 sum of its first 64
+bytes and the router's clock (`date +%s`). When the step shuts the router
+down or stops, and in step 3 just before the clearing, the app copies what
+the log gained since the last note, at most its last 100,000 bytes from
+the start of a line, and notes the log anew. The log only grows until it
+is emptied (inferred), so if it has become shorter or no longer begins
+with the bytes it began with, the app copies it from its start. The eSIM
+manager begins each line with a time such as `Sun Oct 11 11:17:08 2026`,
+which the app turns into seconds in the section by its distance from the
+router's clock at the first note. It takes that time as UTC (inferred:
+the eSIM manager's times were two hours behind the system log's, which
+uses the router's time zone, CEST). If the times are local instead, the
+copied lines are off by the time zone's offset. The reads use `dd`,
+`md5sum`, `tail -c` and `wc -c`; whether GL's firmware has `md5sum` is
+untested.
+
 ## Still to find out
 
 - Where GL stores "Power On with Charger". Until then the app asks the user

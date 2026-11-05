@@ -192,4 +192,12 @@
     <string name="notification_channel">SIM swap</string>
     <string name="notification_title">Churn is changing the router\'s settings</string>
     <string name="notification_text">Keep the cable connected.</string>
+
+    <!-- The debug log -->
+    <string name="debug_log">Debug log</string>
+    <string name="debug_log_text">Churn can keep a log of what it does on the router, so that a problem can be looked into afterwards: each command it sends and the router\'s answer, what each step did and why it stopped, and what GL\'s eSIM manager logged during steps 1 and 3. The log leaves out ICCIDs, IMSIs and IMEIs, the contents of files, your VPN settings and the time of day, and keeps the last three swaps. It stays on this phone until you share it, and turning it off keeps it until you delete it.</string>
+    <string name="debug_log_keep">Keep a debug log</string>
+    <string name="debug_log_share">Share</string>
+    <string name="debug_log_delete">Delete</string>
+    <string name="close">Close</string>
 </resources>

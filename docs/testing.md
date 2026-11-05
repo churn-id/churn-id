@@ -57,6 +57,7 @@ From development.md, "Sending AT commands", and design.md, section 6.
 | --- | --- | --- | --- |
 | GL firmware 4.10.0 (OpenWrt 23.05.4), modem Quectel RG650V-EU | verified | Read `/etc/glversion`, `/etc/openwrt_release` and `ATI`, and compare with the versions we tested | 1 |
 | The firmware has `flock`, `curl`, `ubus`, `fw4` and `nft` | verified | `command -v` for each | 1, blocks |
+| The firmware has `md5sum`, which the debug log uses | inferred | `command -v md5sum` | 1 |
 | AT commands work through `gl_modem -B cpu AT` | verified | `AT+CFUN?` answers, ending with `OK` | 1, blocks |
 | `gl_modem` keeps Churn's commands apart from those of GL's daemons | inferred | Read the radio and both IMEIs many times in a row while GL's services run, and check every answer | 2 |
 
@@ -225,6 +226,8 @@ and 10.
 | Deleting `log_file`, committing and reloading the log service ends the `logread` that writes the file | verified | No `logread -f` process afterwards | 1 |
 | Setting `log_file` back and reloading the log service makes `logread` write the file again | open | Run `restore.sh`, check the process and the file; setting the router up again turns the file off | 2 |
 | GL's card files and the eSIM manager's records have the formats development.md lists | verified | Both card files parse, and every member name and `iccid` in them is an ICCID | 1 |
+| GL's eSIM manager writes its log to `/root/esim/log.txt`, beginning each line with the time in UTC | verified for the file; inferred for UTC | Compare the time of the log's last line with `date -u` right after the eSIM manager writes one | 1 |
+| The eSIM manager's log only grows until something empties it | inferred | Note the log's size and first bytes at two connections a day apart | 1 |
 | GL doesn't add back pruned cards, also not when airplane mode goes off and on | verified | The card files after airplane mode off and on | 4 |
 | GL copes with card files that name no card until it records the new one | inferred | Step 3 with a new card, then a power-on and airplane mode off | 4 |
 | A card used again after a clearing gets GL's defaults, and GL's search finds its APN | verified with the built-in eSIM's profile | Use a cleared card again | 4 |

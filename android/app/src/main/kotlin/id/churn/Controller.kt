@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Network
 import android.os.Handler
 import android.os.Looper
+import java.io.File
 import java.io.IOException
 import java.net.ConnectException
 import java.net.NoRouteToHostException
@@ -117,6 +118,15 @@ class Controller(private val context: Context) {
     /** What step 4 says: whether the new card is a place card, and the last digits of the card to destroy. */
     val placeCardIn get() = saved.placeCardIn
     val cardToDestroy get() = saved.cardToDestroy
+
+    /** The debug log, which the app keeps while [debugLogOn]. */
+    val debugLog = DebugLog(File(context.filesDir, DebugLog.FILE_NAME), on = { saved.debugLog })
+
+    var debugLogOn: Boolean
+        get() = saved.debugLog
+        set(value) {
+            saved.debugLog = value
+        }
 
     /**
      * Watches for the router on the cable until [stopWatching], while the app is on screen. When the router shows up,
@@ -237,6 +247,7 @@ class Controller(private val context: Context) {
     /** Starts a swap from the router screen, whose [status] tells whether the router still has its factory IMEIs. */
     fun beginSwap(status: RouterStatus) {
         saved.firstSwap = status.imeis == status.factory
+        debugLog.beginSwap()
         show(Screen.Swapping(Step.PREPARE))
     }
 
@@ -297,6 +308,7 @@ class Controller(private val context: Context) {
         saved.bootId = swap.bootId()
         // Saved before the router goes down, which may end the connection before it answers.
         saved.step = next
+        debugLog.copyEsim()
         swap.shutDown()
         val left = connection?.awaitCableLost(SHUTDOWN_WAIT_SECONDS * 1_000L) != false
         disconnect()
@@ -331,12 +343,13 @@ class Controller(private val context: Context) {
             context.startForegroundService(Intent(context, SwapService::class.java))
         }
         worker.execute {
+            debugLog.start(context.getString(title))
             try {
                 body()
             } catch (e: UntrustedHostKey) {
-                show(Screen.TrustKey(e.key, e.fingerprint, e.changed))
+                show(trustKey(e))
             } catch (e: Exception) {
-                show(Screen.Connect(describe(e)))
+                show(Screen.Connect(stopped(e)))
             }
             if (keepAlive) {
                 main.post {
@@ -354,37 +367,47 @@ class Controller(private val context: Context) {
         val log = mutableListOf<String>()
         fun update(question: Question? = null) =
             show(Screen.Swapping(step, log.toList(), running = true, question = question))
+        fun report(line: String) {
+            log += line
+            debugLog.add("✓ $line")
+            update()
+        }
         update()
         stepRunning = true
         context.startForegroundService(Intent(context, SwapService::class.java))
         worker.execute {
+            debugLog.start(context.getString(R.string.step_number, step.ordinal + 1))
             val next = try {
-                if (openConnection() == null) {
-                    log += context.getString(R.string.waiting_for_router)
-                    update()
-                }
+                if (openConnection() == null) report(context.getString(R.string.waiting_for_router))
                 val router = router(waitSeconds)
+                debugLog.watchEsim(router)
                 val folder = router.readChurnFolder()
                 if (!folder.complete) throw RouterException(Problem.NOT_SET_UP)
                 val swap = Swap(
                     router,
                     report = {
-                        log += text(it)
-                        update()
+                        // The clearing empties GL's eSIM manager's log.
+                        if (it == Progress.CLEARING_HISTORY) debugLog.copyEsim()
+                        report(text(it))
                     },
                     ask = { question ->
+                        debugLog.add("? ${question.javaClass.simpleName}")
                         // Drops an answer left from an earlier question, such as a second tap.
                         answers.clear()
                         update(question)
-                        answers.take().also { update() }
+                        answers.take().also {
+                            debugLog.add("  $it")
+                            update()
+                        }
                     },
                 )
                 // The next step's screen keeps the step's lines, so that the user can still read them.
                 body(swap, folder).copy(log = log.toList(), logStep = step)
             } catch (e: UntrustedHostKey) {
-                Screen.TrustKey(e.key, e.fingerprint, e.changed)
+                trustKey(e)
             } catch (e: Exception) {
-                Screen.Swapping(step, log.toList(), error = describe(e))
+                debugLog.copyEsim()
+                Screen.Swapping(step, log.toList(), error = stopped(e))
             }
             // Before the next screen, which may start the next step.
             main.post {
@@ -397,26 +420,29 @@ class Controller(private val context: Context) {
 
     /** The router, connecting first if needed, and waiting up to [waitSeconds] for it to come up. */
     private fun router(waitSeconds: Int = CONNECT_WAIT_SECONDS): Router {
-        openConnection()?.let { return Router(it) }
+        openConnection()?.let { return Router(debugLog.record(it)) }
         if (!RouterNetwork.socketsAllowed()) throw NoNetworkPermission()
         val password = typedPassword ?: saved.sealedPassword?.let { PasswordVault.open(it) } ?: throw MissingPassword()
         val deadline = System.nanoTime() + waitSeconds * 1_000_000_000L
         while (true) {
             val left = ((deadline - System.nanoTime()) / 1_000_000).toInt()
             val usb = RouterNetwork.connect(context, maxOf(left, 1_000)) ?: throw NoRouterNetwork()
+            debugLog.add("The router's network is there.")
             try {
                 val opened = RouterConnection.open(usb, saved.address, password, saved.hostKey)
                 connection = opened
+                debugLog.add("Connected to the router.")
                 if (typedPassword != null) {
                     saved.sealedPassword = PasswordVault.seal(password)
                     typedPassword = null
                 }
-                return Router(opened)
+                return Router(debugLog.record(opened))
             } catch (e: WrongPassword) {
                 typedPassword = null
                 throw e
             } catch (e: IOException) {
                 // While the router starts, its network can show up before it accepts connections.
+                debugLog.add("  $e")
                 if (System.nanoTime() >= deadline) throw e
                 Thread.sleep(RETRY_MILLISECONDS)
             }
@@ -523,6 +549,15 @@ class Controller(private val context: Context) {
     }
 
     private fun asset(name: String) = context.assets.open(name).use { it.readBytes() }
+
+    /** The screen that asks the user whether to trust the router's key in [e]. */
+    private fun trustKey(e: UntrustedHostKey): Screen.TrustKey {
+        debugLog.error(context.getString(if (e.changed) R.string.key_changed_title else R.string.key_new_title), e)
+        return Screen.TrustKey(e.key, e.fingerprint, e.changed)
+    }
+
+    /** What the screen says about [e], which the debug log keeps too. */
+    private fun stopped(e: Exception) = describe(e).also { debugLog.error(it, e) }
 
     private fun describe(e: Exception): String {
         // Whatever failed, it failed because the router left the cable.

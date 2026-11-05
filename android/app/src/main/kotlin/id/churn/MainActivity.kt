@@ -3,11 +3,13 @@ package id.churn
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Build
 import android.text.InputType
+import android.view.Menu
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.CheckBox
@@ -43,6 +45,14 @@ class MainActivity : Activity() {
         controller.onScreen = null
         controller.onCable = null
         super.onStop()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menu.add(R.string.debug_log).setOnMenuItemClickListener {
+            showDebugLog()
+            true
+        }
+        return true
     }
 
     private fun render(screen: Screen) = when (screen) {
@@ -323,6 +333,41 @@ class MainActivity : Activity() {
             .setMessage(rules())
             .setPositiveButton(android.R.string.ok, null)
             .show()
+    }
+
+    /** The debug log's switch, with Share and Delete while the log holds something. */
+    private fun showDebugLog() {
+        val keep = CheckBox(this).apply {
+            setText(R.string.debug_log_keep)
+            isChecked = controller.debugLogOn
+            setOnCheckedChangeListener { _, checked -> controller.debugLogOn = checked }
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.debug_log)
+            .setMessage(R.string.debug_log_text)
+            .setView(
+                FrameLayout(this).apply {
+                    val padding = dp(20)
+                    setPadding(padding, 0, padding, 0)
+                    addView(keep)
+                },
+            )
+            .setPositiveButton(R.string.debug_log_share) { _, _ -> shareDebugLog() }
+            .setNeutralButton(R.string.debug_log_delete) { _, _ -> controller.debugLog.delete() }
+            .setNegativeButton(R.string.close, null)
+            .show()
+        val empty = controller.debugLog.isEmpty
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = !empty
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).isEnabled = !empty
+    }
+
+    /** Lets the user pick an app to send the debug log to, which gets to read the log and nothing else. */
+    private fun shareDebugLog() {
+        val send = Intent(Intent.ACTION_SEND)
+            .setType("text/plain")
+            .putExtra(Intent.EXTRA_STREAM, DebugLogProvider.URI)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        startActivity(Intent.createChooser(send, getString(R.string.debug_log)))
     }
 
     private fun confirm(message: String, action: () -> Unit) {

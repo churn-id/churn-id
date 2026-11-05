@@ -80,6 +80,11 @@ class Saved(context: Context) {
         get() = preferences.getString(CARD_TO_DESTROY, null)
         set(value) = save { putString(CARD_TO_DESTROY, value) }
 
+    /** Whether the user has the app keep its debug log. */
+    var debugLog: Boolean
+        get() = preferences.getBoolean(DEBUG_LOG, false)
+        set(value) = save { putBoolean(DEBUG_LOG, value) }
+
     /** The place cards, with their pairs and the names the user gave them. */
     val placeCards = PlaceCards(
         load = { preferences.getString(PLACE_CARDS, null) },
@@ -113,5 +118,6 @@ class Saved(context: Context) {
         const val PLACE_CARD_IN = "place_card_in"
         const val CARD_TO_DESTROY = "card_to_destroy"
         const val BOOT_ID = "boot_id"
+        const val DEBUG_LOG = "debug_log"
     }
 }

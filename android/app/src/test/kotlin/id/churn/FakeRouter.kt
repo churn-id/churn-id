@@ -1,5 +1,10 @@
 package id.churn
 
+import java.security.MessageDigest
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
@@ -14,6 +19,9 @@ class FakeRouter : Shell {
 
     /** Milliseconds, advanced by the tests' sleep. */
     var clock = 0L
+
+    /** The router's clock, in seconds since 1970, which [clock] advances. */
+    val time get() = START_TIME + clock / 1000
     private var bootedAt = -600_000L
     val uptime get() = (clock - bootedAt) / 1000.0
 
@@ -126,8 +134,14 @@ class FakeRouter : Shell {
         }
         files[SIM_MAP] = simMap.toString(2).toByteArray()
         files[APN_HISTORY] = JSONObject().put("apns", apns).toString(2).toByteArray()
-        files["/root/esim/log.txt"] = cards.joinToString("") { "get profile list: $it\n" }.toByteArray()
+        files[ESIM_LOG] = cards.joinToString("") { "get profile list: $it\n" }.toByteArray()
         files["/etc/sys_log"] = cards.joinToString("") { "user.info Diag_Lib[1]: iccid[$it]\n" }.toByteArray()
+    }
+
+    /** Adds [text] to GL's eSIM manager's log, after the time in UTC, as the eSIM manager writes it (inferred). */
+    fun esimLogs(text: String) {
+        val stamp = ESIM_TIME.format(Instant.ofEpochSecond(time).atOffset(ZoneOffset.UTC))
+        files[ESIM_LOG] = (files[ESIM_LOG] ?: ByteArray(0)) + "$stamp $text\r\n".toByteArray()
     }
 
     /** The cards GL's `sim_map.json` still names. */
@@ -244,6 +258,14 @@ class FakeRouter : Shell {
         Regex("""find (\S+/db) -maxdepth 1 -type f 2>/dev/null""").matchEntire(command)?.let {
             val dir = "${it.groupValues[1]}/"
             return ok(files.keys.filter { key -> key.startsWith(dir) }.joinToString("") { key -> "$key\n" })
+        }
+        // The debug log's read of GL's eSIM manager's log, as Router.esimLog describes it.
+        ESIM_LOG_READ.matchEntire(command)?.let {
+            val (count, from, head, max) = it.destructured
+            val log = files[ESIM_LOG] ?: ByteArray(0)
+            val start = if (md5(log, count.toInt()) == head && log.size >= from.toInt()) from.toInt() else 0
+            val part = log.copyOfRange(log.size - minOf(log.size - start, max.toInt()), log.size)
+            return Output(0, "$time\n${log.size} ${md5(log, 64)} $start\n".toByteArray() + part, "")
         }
         Regex(""": > (\S+)""").matchEntire(command)?.let {
             files[it.groupValues[1]] = ByteArray(0)
@@ -394,6 +416,10 @@ class FakeRouter : Shell {
         (if (killSwitchInUse) "" else "9000:\tnot from all fwmark 0/0xf000 lookup main\n") +
         "32766:\tfrom all lookup main\n32767:\tfrom all lookup default\n"
 
+    /** The MD5 sum of the first [count] bytes of [bytes], or of all of them if there are fewer. */
+    private fun md5(bytes: ByteArray, count: Int) =
+        MessageDigest.getInstance("MD5").digest(bytes.take(count).toByteArray()).joinToString("") { "%02x".format(it) }
+
     private fun change(what: String) {
         changes += "$what at ${uptime.toInt()} s"
         if (!airplaneMode || radio != 4) unsafe += what
@@ -409,6 +435,16 @@ class FakeRouter : Shell {
         const val SIM_MAP = "/etc/config/cellular/sim_map.json"
         const val APN_HISTORY = "/etc/config/cellular/history_apn_database.json"
         const val ESIM_DB = "/root/esim/db"
+        const val ESIM_LOG = "/root/esim/log.txt"
+
+        /** Sunday, October 11, 2026, 11:17:08 UTC: the router's clock at [clock] 0. */
+        private const val START_TIME = 1_791_717_428L
+
+        /** The time at the start of a line of GL's eSIM manager's log, such as `Sun Oct 11 11:17:08 2026`. */
+        private val ESIM_TIME = DateTimeFormatter.ofPattern("EEE MMM ppd HH:mm:ss yyyy", Locale.ROOT)
+        private val ESIM_LOG_READ = Regex(
+            """date \+%s; s=.*? count=(\d+) .*? o=(\d+); .*? = '([0-9a-f]*)' ] .* n=(\d+); .* tail -c .n """ + ESIM_LOG,
+        )
         private const val KILL_SWITCH_ON = "uci set 'route_policy.@default[0].enabled=0' && " +
             "{ uci -q delete 'network.vpn_to_main' || true; } && uci commit route_policy && uci commit network && " +
             "/etc/init.d/network reload"
