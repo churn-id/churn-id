@@ -34,6 +34,7 @@ sealed interface CheckResult {
 /** The checks, in the order of their claims in docs/testing.md. */
 val CHECKS = listOf(
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
+    Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
 )
 
 /** Whether GL's firewall has loaded Churn's rules file, if it is there. */
@@ -41,4 +42,16 @@ private fun firewallLoaded(router: Router) = when {
     router.firewallFile() == null -> CheckResult.NotApplicable(R.string.reason_no_firewall)
     router.firewallLoaded() -> CheckResult.Passed
     else -> CheckResult.Failed("GL's firewall table lacks chains of Churn's rules.")
+}
+
+/** Whether Churn's rules file, if it is there, names the user ID of GL's main DNS server, as [Router.firewallRules]. */
+private fun dnsmasqUser(router: Router): CheckResult {
+    val uid = router.dnsmasqUid()
+    val rules = router.firewallFile() ?: return CheckResult.NotApplicable(R.string.reason_no_firewall)
+    val named = Regex("""meta skuid (\d+) """).find(rules)?.groupValues?.get(1)?.toIntOrNull()
+    return when (named) {
+        uid -> CheckResult.Passed
+        null -> CheckResult.Failed("Churn's rules name no user ID.")
+        else -> CheckResult.Failed("Churn's rules name user ID $named, but the user dnsmasq has $uid.")
+    }
 }

@@ -441,7 +441,7 @@ class Router(private val shell: Shell) {
     }
 
     /** The user ID GL's main DNS server runs as. */
-    private fun dnsmasqUid() = run("id -u dnsmasq").text.trim().toIntOrNull() ?: throw unexpected("id -u dnsmasq")
+    fun dnsmasqUid() = run("id -u dnsmasq").text.trim().toIntOrNull() ?: throw unexpected("id -u dnsmasq")
 
     /** Runs Churn's restore script; returns what it printed. */
     fun restoreFactoryImeis(): String {

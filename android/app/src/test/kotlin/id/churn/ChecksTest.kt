@@ -55,6 +55,35 @@ class ChecksTest {
         assertEquals(CheckResult.NotApplicable(R.string.reason_no_firewall), run("D7"))
     }
 
+    @Test
+    fun dnsmasqCheckPassesWithItsUserIdInChurnsRules() {
+        router.installFirewall()
+        assertEquals(CheckResult.Passed, run("D10"))
+    }
+
+    @Test
+    fun dnsmasqCheckFailsIfChurnsRulesNameAnotherUserId() {
+        router.installFirewall()
+        // As if a firmware upgrade had given GL's DNS server another user ID.
+        fake.dnsmasqUid = 454
+        assertEquals(
+            CheckResult.Failed("Churn's rules name user ID 453, but the user dnsmasq has 454."),
+            run("D10"),
+        )
+    }
+
+    @Test
+    fun dnsmasqCheckFailsIfChurnsRulesNameNoUserId() {
+        val rules = Router.firewallRules(dnsmasqUid = 453).replace("meta skuid 453 ", "")
+        fake.files[Router.FIREWALL] = rules.toByteArray()
+        assertEquals(CheckResult.Failed("Churn's rules name no user ID."), run("D10"))
+    }
+
+    @Test
+    fun dnsmasqCheckDoesNotApplyWithoutChurnsRules() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_firewall), run("D10"))
+    }
+
     /** Runs the check of the claim with [id] on the router, whose Churn folder is [folder]. */
     private fun run(id: String, folder: ChurnFolder = NO_FOLDER) = CHECKS.single { id in it.ids }.run(router, folder)
 

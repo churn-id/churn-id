@@ -132,6 +132,7 @@
     <string name="check_failed">✗ %1$s (%2$s)\nFailed: %3$s</string>
     <string name="check_not_applicable">– %1$s (%2$s)\nNot applicable: %3$s</string>
     <string name="check_firewall_loaded">GL\'s firewall has loaded Churn\'s firewall rules</string>
+    <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
     <string name="reason_no_firewall">Churn\'s firewall rules aren\'t on the router.</string>
 
     <!-- The swap -->
