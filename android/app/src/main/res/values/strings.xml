@@ -141,6 +141,7 @@
     <string name="check_slot2_subscription">The modem names slot 2\'s subscription SUB2</string>
     <string name="check_modem_settings">The modem lists only the settings we searched for one that starts the radio off at power-on</string>
     <string name="check_airplane_mode">With GL\'s airplane mode on, the radio is off once the router has started</string>
+    <string name="check_scheduled_reboot">GL keeps its scheduled reboot where Churn reads it</string>
     <string name="check_firewall_loaded">GL\'s firewall has loaded Churn\'s firewall rules</string>
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>

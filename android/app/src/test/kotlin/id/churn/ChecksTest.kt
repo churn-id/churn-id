@@ -217,6 +217,24 @@ class ChecksTest {
     }
 
     @Test
+    fun rebootCheckPassesWithTheRebootOff() {
+        assertEquals(CheckResult.Passed, run("U4"))
+    }
+
+    @Test
+    fun rebootCheckPassesWithTheRebootOn() {
+        fake.scheduledReboot = true
+        assertEquals(CheckResult.Passed, run("U4"))
+    }
+
+    @Test
+    fun rebootCheckFailsWithoutTheSetting() {
+        // As if a firmware upgrade had moved GL's scheduled reboot, which steps 1 and 3 would then miss.
+        fake.uciAnswers[Router.SCHEDULED_REBOOT] = null
+        assertEquals(CheckResult.Failed("The setting is missing."), run("U4"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

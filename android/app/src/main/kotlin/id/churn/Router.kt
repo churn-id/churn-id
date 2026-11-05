@@ -245,7 +245,7 @@ class Router(private val shell: Shell) {
     /** The ID Linux gives the router's current run at power-on, a new one each time. */
     fun bootId() = run("cat $BOOT_ID").text.trim().takeIf { it.matches(UUID) } ?: throw unexpected(BOOT_ID)
 
-    fun scheduledReboot() = uci("gl_timer.reboot.enable") == "1"
+    fun scheduledReboot() = uci(SCHEDULED_REBOOT) == "1"
 
     /**
      * Whether GL's VPN client has a WireGuard tunnel set up, as development.md describes it: a rule in GL's route
@@ -586,6 +586,9 @@ class Router(private val shell: Shell) {
 
         /** GL's airplane mode, `1` on and `0` off. */
         const val AIRPLANE_MODE = "glconfig.general.airplane_mode"
+
+        /** GL's scheduled reboot, `1` on and `0` off. */
+        const val SCHEDULED_REBOOT = "gl_timer.reboot.enable"
 
         private val IMEI = Regex("[0-9]{15}")
         private val VERSION = Regex("[0-9A-Za-z][0-9A-Za-z.+_-]{0,39}")

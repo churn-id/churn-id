@@ -51,6 +51,9 @@ val CHECKS = listOf(
     Check("M4", blocks = false, title = R.string.check_slot2_subscription) { router, _ -> slot2Subscription(router) },
     Check("M5", blocks = false, title = R.string.check_modem_settings) { router, _ -> modemSettingsSearched(router) },
     Check("U1", blocks = true, title = R.string.check_airplane_mode) { router, _ -> airplaneModeKept(router) },
+    Check("U4", blocks = true, title = R.string.check_scheduled_reboot) { router, _ ->
+        settingIn(router.setting(Router.SCHEDULED_REBOOT), "0", "1")
+    },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -163,6 +166,10 @@ private fun airplaneModeKept(router: Router): CheckResult {
         }
     }
 }
+
+/** Whether a uci setting holds one of [expected], given its [value], or null if it isn't set. */
+private fun settingIn(value: String?, vararg expected: String) =
+    if (value in expected) CheckResult.Passed else settingFailed(value)
 
 /** A failed check of a uci setting that holds [value], or that isn't set. */
 private fun settingFailed(value: String?) =
