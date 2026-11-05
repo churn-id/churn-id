@@ -55,6 +55,9 @@ val CHECKS = listOf(
         settingIn(router.setting(Router.SCHEDULED_REBOOT), "0", "1")
     },
     Check("U5", blocks = false, title = R.string.check_modem_iccid) { router, _ -> activeCardIccid(router) },
+    Check("U6", blocks = true, title = R.string.check_active_slot) { router, _ ->
+        settingIn(router.activeSlot(), "1", "2")
+    },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),

@@ -252,6 +252,23 @@ class ChecksTest {
     }
 
     @Test
+    fun activeSlotCheckPassesWithSlot2() {
+        assertEquals(CheckResult.Passed, run("U6"))
+    }
+
+    @Test
+    fun activeSlotCheckPassesWithSlot1() {
+        fake.activeSlot = 1
+        assertEquals(CheckResult.Passed, run("U6"))
+    }
+
+    @Test
+    fun activeSlotCheckFailsAtAnotherValue() {
+        fake.activeSlot = 0
+        assertEquals(CheckResult.Failed("The setting is \"0\"."), run("U6"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

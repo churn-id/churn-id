@@ -143,6 +143,7 @@
     <string name="check_airplane_mode">With GL\'s airplane mode on, the radio is off once the router has started</string>
     <string name="check_scheduled_reboot">GL keeps its scheduled reboot where Churn reads it</string>
     <string name="check_modem_iccid">GL records the active card by its ICCID</string>
+    <string name="check_active_slot">GL reports the active slot as 1 or 2</string>
     <string name="check_firewall_loaded">GL\'s firewall has loaded Churn\'s firewall rules</string>
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>
