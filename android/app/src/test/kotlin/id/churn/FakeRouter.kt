@@ -17,6 +17,11 @@ class FakeRouter : Shell {
 
     class Card(val iccid: String, val imsi: String, val pinLocked: Boolean = false)
 
+    /** GL's firmware version, the OpenWrt release it is built on, and the modem's firmware revision. */
+    var glVersion = "4.10.0"
+    var openwrtRelease = "23.05.4"
+    var modemRevision = "RG650VEU00ADR02A04G8G"
+
     /** Milliseconds, advanced by the tests' sleep. */
     var clock = 0L
 
@@ -208,6 +213,9 @@ class FakeRouter : Shell {
             if (radioOnAtReload) radioStuckOn = true
             return ok("")
         }
+        if (command == "cat /etc/glversion && grep '^DISTRIB_RELEASE=' /etc/openwrt_release") {
+            return ok("$glVersion\nDISTRIB_RELEASE='$openwrtRelease'\n")
+        }
         if (command == "cat /proc/uptime") return ok(if (uptimeBroken) "" else "%.2f 100.00\n".format(uptime))
         if (command == "cat /proc/sys/kernel/random/boot_id") return ok("$bootId\n")
         if (command == "poweroff") {
@@ -301,6 +309,7 @@ class FakeRouter : Shell {
         if (!modemAnswers) return Output(1, ByteArray(0), "modem not ready")
         val imeiWrite = Regex("""AT\+EGMR=1,(7|11),"(\d{15})"""").matchEntire(command)
         return when {
+            command == "ATI" -> atOk("Quectel\r\nRG650V-EU\r\nRevision: $modemRevision")
             command == "AT+CFUN?" -> atOk("+CFUN: $radio")
             command == "AT+EGMR=0,7" -> atOk("+EGMR: \"$imei1\"")
             command == "AT+EGMR=0,11" -> atOk("+EGMR: \"$imei2\"")

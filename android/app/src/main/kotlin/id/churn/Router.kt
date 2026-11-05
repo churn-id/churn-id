@@ -64,6 +64,9 @@ sealed interface Slot2Card {
     data class Subscription(val iccid: String) : Slot2Card
 }
 
+/** GL's firmware version, the OpenWrt release it is built on, and the modem's model and firmware revision. */
+data class Platform(val gl: String, val openwrt: String, val modem: String, val revision: String)
+
 /** A card, by its ICCID's digits, and the IMEIs Churn gives it. */
 data class Card(val iccid: String, val imeis: ImeiPair)
 
@@ -209,6 +212,22 @@ class Router(private val shell: Shell) {
             // The cut leaves a part of a line, which could hold a part of an ICCID.
             text = if (size - start > max) text.substringAfter('\n', missingDelimiterValue = "") else text,
         )
+    }
+
+    /** The firmware and the modem the router runs. */
+    fun platform(): Platform {
+        val versions = run("cat /etc/glversion && grep '^DISTRIB_RELEASE=' /etc/openwrt_release").text.lines()
+        val gl = versions.getOrNull(0)?.trim()?.takeIf { it.matches(VERSION) } ?: throw unexpected("/etc/glversion")
+        val openwrt = versions.getOrNull(1)?.trim()?.removePrefix("DISTRIB_RELEASE=")?.removeSurrounding("'")
+            ?.takeIf { it.matches(VERSION) } ?: throw unexpected("/etc/openwrt_release")
+        // The maker and the model, then the firmware revision.
+        val ati = at("ATI").lines
+        val revision = ati.lastOrNull()?.takeIf { it.startsWith("Revision:") }?.substringAfter(':')?.trim()
+        val modem = ati.dropLast(1).joinToString(" ")
+        if (revision == null || !revision.matches(VERSION) || !modem.matches(Regex("[A-Za-z0-9 ._-]{1,40}"))) {
+            throw unexpected("ATI")
+        }
+        return Platform(gl, openwrt, modem, revision)
     }
 
     fun uptimeSeconds() = run("cat /proc/uptime").text.substringBefore(' ').toDoubleOrNull()
@@ -554,6 +573,7 @@ class Router(private val shell: Shell) {
         const val CHURN = "/etc/churn"
 
         private val IMEI = Regex("[0-9]{15}")
+        private val VERSION = Regex("[0-9A-Za-z][0-9A-Za-z.+_-]{0,39}")
         private val MD5 = Regex("[0-9a-f]{32}")
         private const val BOOT_ID = "/proc/sys/kernel/random/boot_id"
         private val UUID = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")

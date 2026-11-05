@@ -37,6 +37,35 @@ class ChecksTest {
     }
 
     @Test
+    fun platformCheckPassesOnTheFirmwareAndModemWeTested() {
+        assertEquals(CheckResult.Passed, run("P1"))
+    }
+
+    @Test
+    fun platformCheckFailsOnAnotherFirmware() {
+        fake.glVersion = "4.11.0"
+        assertEquals(
+            CheckResult.Failed(
+                "GL firmware 4.11.0 (OpenWrt 23.05.4), modem Quectel RG650V-EU RG650VEU00ADR02A04G8G, " +
+                    "which we haven't tested.",
+            ),
+            run("P1"),
+        )
+    }
+
+    @Test
+    fun platformCheckFailsOnAnotherModemFirmware() {
+        fake.modemRevision = "RG650VEU00ADR02A05G8G"
+        assertTrue(run("P1") is CheckResult.Failed)
+    }
+
+    @Test
+    fun platformCheckFailsOnAnotherOpenWrtRelease() {
+        fake.openwrtRelease = "24.10.0"
+        assertTrue(run("P1") is CheckResult.Failed)
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

@@ -31,12 +31,27 @@ sealed interface CheckResult {
     data class NotApplicable(val reason: Int) : CheckResult
 }
 
+/** The firmware and the modem we tested Churn with, as [Router.platform] reads them. */
+val TESTED_PLATFORMS = listOf(
+    Platform(gl = "4.10.0", openwrt = "23.05.4", modem = "Quectel RG650V-EU", revision = "RG650VEU00ADR02A04G8G"),
+)
+
 /** The checks, in the order of their claims in docs/testing.md. */
 val CHECKS = listOf(
+    Check("P1", blocks = false, title = R.string.check_platform) { router, _ -> platformTested(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
+
+/** Whether the router runs a firmware and a modem we tested Churn with. */
+private fun platformTested(router: Router): CheckResult {
+    val platform = router.platform()
+    if (platform in TESTED_PLATFORMS) return CheckResult.Passed
+    return with(platform) {
+        CheckResult.Failed("GL firmware $gl (OpenWrt $openwrt), modem $modem $revision, which we haven't tested.")
+    }
+}
 
 /** Whether GL's firewall has loaded Churn's rules file, if it is there. */
 private fun firewallLoaded(router: Router) = when {
