@@ -278,6 +278,13 @@ class Router(private val shell: Shell) {
         return run("ip route show table $table").text.lines().filter { it.isNotBlank() && it != "Dump terminated" }
     }
 
+    /** The names of the router's network devices, as `/sys/class/net` lists them. */
+    fun networkDevices(): List<String> {
+        val output = run("ls /sys/class/net")
+        output.check("/sys/class/net")
+        return output.text.lines().filter(String::isNotBlank)
+    }
+
     /** The network device [name] as `ip link show` lists it; null if there is no such one. */
     fun link(name: String): String? {
         require(name.matches(Regex("[A-Za-z0-9_.-]+")))

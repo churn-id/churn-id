@@ -96,6 +96,7 @@
     "sysupgrade",
     "ubus",
     "userauth",
-    "wgclient"
+    "wgclient",
+    "wlan"
   ]
 }

@@ -153,6 +153,7 @@
     <string name="check_own_traffic_routes">Without Churn\'s firewall rules, what the router sends itself would go over the SIM</string>
     <string name="check_own_traffic_targets">The router reaches the same time servers and connection check addresses as when we watched it</string>
     <string name="check_firewall_loaded">GL\'s firewall has loaded Churn\'s firewall rules</string>
+    <string name="check_sim_interfaces">The SIM\'s data interfaces have the names that Churn\'s firewall rules match</string>
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>
     <string name="reason_not_set_up">Churn hasn\'t set up this router yet.</string>

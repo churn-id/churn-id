@@ -505,6 +505,35 @@ class ChecksTest {
     }
 
     @Test
+    fun simInterfaceCheckPassesOnline() {
+        assertEquals(CheckResult.Passed, run("D8"))
+    }
+
+    @Test
+    fun simInterfaceCheckPassesInAirplaneMode() {
+        fake.airplaneMode = true
+        assertEquals(CheckResult.Passed, run("D8"))
+    }
+
+    @Test
+    fun simInterfaceCheckFailsWithoutTheSimsDataInterfaces() {
+        fake.answers["ls /sys/class/net"] = listOf("br-lan", "ecm0", "eth0", "lo", "usb0").joinToString("") { "$it\n" }
+        assertEquals(CheckResult.Failed("No network device is named rmnet_data and a number."), run("D8"))
+    }
+
+    @Test
+    fun simInterfaceCheckFailsIfGlsCellularInterfaceUsesAnotherDevice() {
+        fake.simDevice = "usb0"
+        assertEquals(CheckResult.Failed("GL's cellular interface uses usb0."), run("D8"))
+    }
+
+    @Test
+    fun simInterfaceCheckFailsWithoutGlsCellularInterface() {
+        fake.failing += "ifstatus modem_cpu"
+        assertEquals(CheckResult.Failed("GL has no network interface modem_cpu."), run("D8"))
+    }
+
+    @Test
     fun dnsmasqCheckPassesWithItsUserIdInChurnsRules() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D10"))

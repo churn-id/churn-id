@@ -118,6 +118,9 @@ class FakeRouter : Shell {
     /** Whether the tunnel's interface is up, as while GL's VPN client has the tunnel connected. */
     var tunnelUp = true
 
+    /** The network device GL's cellular interface uses while it is up. */
+    var simDevice = "rmnet_data0"
+
     /** The bridge the USB-C port's network device `ecm0` is in, or null for none. */
     var usbBridge: String? = "br-lan"
     var poweredOff = false
@@ -262,6 +265,9 @@ class FakeRouter : Shell {
         // As our Mudi 7 listed them, with other addresses on the cellular network.
         if (command == "ip route show table 16800") return Output(2, ByteArray(0), "Dump terminated\n")
         if (command == "ip route show table main") return ok(mainRoutes())
+        if (command == "ls /sys/class/net") {
+            return ok((NETWORK_DEVICES + listOfNotNull(vpnTunnel?.takeIf { tunnelUp })).joinToString("") { "$it\n" })
+        }
         Regex("""ifstatus (\w+)""").matchEntire(command)?.let { return interfaceStatus(it.groupValues[1]) }
         // As our Mudi 7 showed it, with another hardware address.
         if (command == "ip link show ecm0") {
@@ -544,11 +550,14 @@ class FakeRouter : Shell {
 
     /** `ifstatus` of the network interface [name], shortened, as OpenWrt's netifd gives it. */
     private fun interfaceStatus(name: String): Output {
-        val up = when (name) {
-            vpnTunnel -> tunnelUp
+        val (up, device) = when (name) {
+            vpnTunnel -> tunnelUp to name
+            "modem_cpu" -> !airplaneMode to simDevice
             else -> return Output(1, "Interface $name not found\n".toByteArray(), "")
         }
-        return ok(JSONObject().put("up", up).put("pending", false).put("available", true).toString(1))
+        val status = JSONObject().put("up", up).put("pending", false).put("available", true)
+        if (up) status.put("l3_device", device)
+        return ok(status.toString(1))
     }
 
     /** The MD5 sum of the first [count] bytes of [bytes], or of all of them if there are fewer. */
@@ -592,6 +601,15 @@ class FakeRouter : Shell {
         private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "curl")
         private const val FIREWALL_LOADED = "nft list chain inet fw4 churn_sim >/dev/null && " +
             "nft list chain inet fw4 churn_route >/dev/null && nft list chain inet fw4 churn_dns >/dev/null"
+
+        /**
+         * The network devices of our Mudi 7, without the tunnel's, as `/sys/class/net` lists them: the SIM's data
+         * interfaces are there in airplane mode too.
+         */
+        private val NETWORK_DEVICES = listOf(
+            "br-lan", "ecm0", "eth0", "lo", "rmnet_data0", "rmnet_data1", "rmnet_data15", "rmnet_data16", "rmnet_data2",
+            "rmnet_data3", "rmnet_data4", "rmnet_data5", "rmnet_ipa0", "wlan0",
+        )
 
         /** Chrony's settings as our Mudi 7 listed them, shortened. */
         // cspell:disable

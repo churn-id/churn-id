@@ -67,6 +67,7 @@ val CHECKS = listOf(
     Check("D5", blocks = false, title = R.string.check_own_traffic_routes) { router, _ -> ownTrafficRoutes(router) },
     Check("D6", blocks = false, title = R.string.check_own_traffic_targets) { router, _ -> ownTrafficTargets(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
+    Check("D8", blocks = true, title = R.string.check_sim_interfaces) { router, _ -> simInterfaces(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
@@ -357,6 +358,22 @@ private fun ownTrafficTargets(router: Router): CheckResult {
             .takeIf { pings != WATCHED_CONNECTION_CHECK },
     )
     return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/**
+ * Whether the SIM's data interfaces are those Churn's rules name: the router has network devices named so, in
+ * airplane mode too, and GL's cellular interface uses one of them while it is up.
+ */
+private fun simInterfaces(router: Router): CheckResult {
+    if (router.networkDevices().none(SIM_INTERFACE::matches)) {
+        return CheckResult.Failed("No network device is named rmnet_data and a number.")
+    }
+    val status = router.interfaceStatus("modem_cpu")
+        ?: return CheckResult.Failed("GL has no network interface modem_cpu.")
+    if (!status.optBoolean("up")) return CheckResult.Passed
+    val device = status.optString("l3_device")
+    if (device.matches(SIM_INTERFACE)) return CheckResult.Passed
+    return CheckResult.Failed("GL's cellular interface uses ${device.take(20).ifEmpty { "no device" }}.")
 }
 
 /** Whether Churn's rules file, if it is there, names the user ID of GL's main DNS server, as [Router.firewallRules]. */
