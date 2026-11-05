@@ -66,6 +66,17 @@ class ChecksTest {
     }
 
     @Test
+    fun commandCheckPassesWithEveryCommandChurnRuns() {
+        assertEquals(CheckResult.Passed, run("P2"))
+    }
+
+    @Test
+    fun commandCheckFailsWithoutACommandChurnRuns() {
+        fake.absentCommands += listOf("curl", "nft")
+        assertEquals(CheckResult.Failed("Missing: curl, nft."), run("P2"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

@@ -22,6 +22,9 @@ class FakeRouter : Shell {
     var openwrtRelease = "23.05.4"
     var modemRevision = "RG650VEU00ADR02A04G8G"
 
+    /** Commands the firmware doesn't have. Our Mudi 7 has every one Churn runs. */
+    val absentCommands = mutableSetOf<String>()
+
     /** Milliseconds, advanced by the tests' sleep. */
     var clock = 0L
 
@@ -215,6 +218,10 @@ class FakeRouter : Shell {
         }
         if (command == "cat /etc/glversion && grep '^DISTRIB_RELEASE=' /etc/openwrt_release") {
             return ok("$glVersion\nDISTRIB_RELEASE='$openwrtRelease'\n")
+        }
+        COMMAND_LOOKUP.matchEntire(command)?.let { lookup ->
+            val names = lookup.groupValues[1].split(" ")
+            return ok(names.filter { it in absentCommands }.joinToString("") { "$it\n" })
         }
         if (command == "cat /proc/uptime") return ok(if (uptimeBroken) "" else "%.2f 100.00\n".format(uptime))
         if (command == "cat /proc/sys/kernel/random/boot_id") return ok("$bootId\n")
@@ -457,6 +464,9 @@ class FakeRouter : Shell {
         private const val KILL_SWITCH_ON = "uci set 'route_policy.@default[0].enabled=0' && " +
             "{ uci -q delete 'network.vpn_to_main' || true; } && uci commit route_policy && uci commit network && " +
             "/etc/init.d/network reload"
+        /** How [Router.missingCommands] looks for commands. */
+        private val COMMAND_LOOKUP =
+            Regex("for c in ([a-z0-9_ ]+); do command -v \\\$c >/dev/null \\|\\| echo \\\$c; done")
         private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "curl")
         private const val FIREWALL_LOADED = "nft list chain inet fw4 churn_sim >/dev/null && " +
             "nft list chain inet fw4 churn_route >/dev/null && nft list chain inet fw4 churn_dns >/dev/null"

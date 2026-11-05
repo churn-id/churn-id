@@ -39,6 +39,7 @@ val TESTED_PLATFORMS = listOf(
 /** The checks, in the order of their claims in docs/testing.md. */
 val CHECKS = listOf(
     Check("P1", blocks = false, title = R.string.check_platform) { router, _ -> platformTested(router) },
+    Check("P2", blocks = true, title = R.string.check_commands) { router, _ -> commandsFound(router, CHURN_COMMANDS) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -51,6 +52,15 @@ private fun platformTested(router: Router): CheckResult {
     return with(platform) {
         CheckResult.Failed("GL firmware $gl (OpenWrt $openwrt), modem $modem $revision, which we haven't tested.")
     }
+}
+
+/** The commands Churn runs on the router besides the shell's own and BusyBox's usual ones. */
+private val CHURN_COMMANDS = listOf("flock", "curl", "ubus", "fw4", "nft")
+
+/** Whether the router's shell finds the commands [names]. */
+private fun commandsFound(router: Router, names: List<String>): CheckResult {
+    val missing = router.missingCommands(names)
+    return if (missing.isEmpty()) CheckResult.Passed else CheckResult.Failed("Missing: ${missing.joinToString(", ")}.")
 }
 
 /** Whether GL's firewall has loaded Churn's rules file, if it is there. */

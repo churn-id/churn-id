@@ -230,6 +230,15 @@ class Router(private val shell: Shell) {
         return Platform(gl, openwrt, modem, revision)
     }
 
+    /** Those of the commands [names] that the router's shell doesn't find. */
+    fun missingCommands(names: List<String>): List<String> {
+        require(names.all { it.matches(Regex("[a-z0-9_]+")) })
+        val output = run("for c in ${names.joinToString(" ")}; do command -v \$c >/dev/null || echo \$c; done")
+        val missing = output.text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        if (output.status != 0 || !names.containsAll(missing)) throw unexpected("command -v", output)
+        return missing
+    }
+
     fun uptimeSeconds() = run("cat /proc/uptime").text.substringBefore(' ').toDoubleOrNull()
         ?: throw unexpected("/proc/uptime")
 
