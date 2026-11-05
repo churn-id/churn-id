@@ -22,9 +22,10 @@ class Output(val status: Int?, val stdout: ByteArray, val stderr: String) {
 
 /**
  * A part of GL's eSIM manager's log, [text], read when the log was [size] bytes long, its first bytes, up to 64, had
- * the MD5 sum [head], and the router's clock showed [clock], in seconds since 1970.
+ * the MD5 sum [head], and the router's clock showed [clock], in seconds since 1970. The read took the log from
+ * [start]: from where it was asked to, if the log began as before, or else from its beginning.
  */
-class EsimLog(val clock: Long, val size: Long, val head: String, val text: String)
+class EsimLog(val clock: Long, val size: Long, val head: String, val start: Long, val text: String)
 
 /** Why a step stopped. Nothing it did after the last confirmed answer is assumed done. */
 enum class Problem {
@@ -215,6 +216,7 @@ class Router(private val shell: Shell) {
             clock = clock,
             size = size,
             head = md5,
+            start = start,
             // The cut leaves a part of a line, which could hold a part of an ICCID.
             text = if (size - start > max) text.substringAfter('\n', missingDelimiterValue = "") else text,
         )

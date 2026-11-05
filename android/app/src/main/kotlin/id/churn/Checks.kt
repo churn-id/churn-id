@@ -12,16 +12,34 @@ class Check(
     vararg val ids: String,
     val blocks: Boolean,
     val title: Int,
-    private val confirm: (Router, ChurnFolder) -> CheckResult,
+    private val confirm: (Router, CheckContext) -> CheckResult,
 ) {
 
-    /** Runs the check on [router], whose Churn folder is [folder]. An answer the check doesn't expect fails it. */
-    fun run(router: Router, folder: ChurnFolder) = try {
-        confirm(router, folder)
+    /** Runs the check on [router], with what [context] holds. An answer the check doesn't expect fails it. */
+    fun run(router: Router, context: CheckContext) = try {
+        confirm(router, context)
     } catch (e: RouterException) {
         CheckResult.Failed("Unexpected answer: ${e.detail ?: e.problem}")
     }
 }
+
+/**
+ * What a check knows besides what it reads: the router's Churn [folder], as the app read it when it connected, and
+ * the [notes] that checks keep on the phone.
+ */
+class CheckContext(val folder: ChurnFolder, val notes: CheckNotes)
+
+/** What checks keep on the phone from one connection to the next, by key; null for none. */
+interface CheckNotes {
+    operator fun get(key: String): String?
+    operator fun set(key: String, value: String?)
+}
+
+/**
+ * The note of the check of H6: the size of GL's eSIM manager's log and the MD5 sum of its first bytes, up to 64. The
+ * app forgets it when it clears the router's SIM history, which empties the log.
+ */
+const val ESIM_LOG_NOTE = "esim_log"
 
 /** What a [Check] found. */
 sealed interface CheckResult {
@@ -45,7 +63,9 @@ val CHECKS = listOf(
     Check("P2", blocks = true, title = R.string.check_commands) { router, _ -> commandsFound(router, CHURN_COMMANDS) },
     Check("P3", blocks = false, title = R.string.check_md5sum) { router, _ -> commandsFound(router, listOf("md5sum")) },
     Check("P4", "M1", blocks = true, title = R.string.check_radio_answer) { router, _ -> radioAnswered(router) },
-    Check("M2", blocks = true, title = R.string.check_imeis_read, confirm = ::imeisRead),
+    Check("M2", blocks = true, title = R.string.check_imeis_read) { router, context ->
+        imeisRead(router, context.folder)
+    },
     Check("M3", blocks = true, title = R.string.check_slot2_answer) { router, _ ->
         // An answer other than the SIM 2 tray or the eSIM fails it.
         router.slot2()
@@ -89,7 +109,10 @@ val CHECKS = listOf(
     Check("H2", blocks = false, title = R.string.check_flash_log_stopped) { router, _ -> flashLogStopped(router) },
     Check("H4", blocks = false, title = R.string.check_card_files) { router, _ -> cardFileFormats(router) },
     Check("H5", blocks = false, title = R.string.check_esim_log_time) { router, _ -> esimLogInUtc(router) },
-    Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
+    Check("H6", blocks = false, title = R.string.check_esim_log_growth, confirm = ::esimLogGrows),
+    Check("F5", blocks = false, title = R.string.check_imeis_kept) { router, context ->
+        imeisKept(router, context.folder)
+    },
 )
 
 /** Whether the router runs a firmware and a modem we tested Churn with. */
@@ -599,6 +622,21 @@ private fun esimLogInUtc(router: Router): CheckResult {
     if (minutes in -2..2) return CheckResult.Passed
     val direction = if (minutes > 0) "ahead of" else "behind"
     return CheckResult.Failed("The log's last line is timed ${abs(minutes)} minutes $direction UTC.")
+}
+
+/**
+ * Whether GL's eSIM manager's log has only grown since the last connection, as the debug log expects, unless the app
+ * cleared the router's SIM history since: it is at least as long as then, and begins as it did.
+ */
+private fun esimLogGrows(router: Router, context: CheckContext): CheckResult {
+    val note = context.notes[ESIM_LOG_NOTE]?.split(' ')
+    val size = note?.getOrNull(0)?.toLongOrNull()
+    val head = note?.getOrNull(1)?.takeIf { it.matches(Regex("[0-9a-f]{32}")) }
+    val log = router.esimLog(from = size ?: 0, head = head ?: "", max = 0)
+    context.notes[ESIM_LOG_NOTE] = "${log.size} ${log.head}"
+    if (size == null || head == null) return CheckResult.NotApplicable(R.string.reason_first_note)
+    if (log.start == size) return CheckResult.Passed
+    return CheckResult.Failed("Since the last connection, the log was emptied or cut, though the app didn't clear it.")
 }
 
 /**

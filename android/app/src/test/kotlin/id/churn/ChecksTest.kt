@@ -12,6 +12,17 @@ class ChecksTest {
     private val fake = FakeRouter()
     private val router = Router(fake)
 
+    /** The notes the checks keep on the phone. */
+    private val notes = object : CheckNotes {
+        val map = mutableMapOf<String, String>()
+
+        override fun get(key: String) = map[key]
+
+        override fun set(key: String, value: String?) {
+            if (value == null) map.remove(key) else map[key] = value
+        }
+    }
+
     @Test
     fun everyCheckConfirmsTier1ClaimsOfTestingMd() {
         assertTrue("No claims read from testing.md", TIERS.isNotEmpty())
@@ -35,7 +46,10 @@ class ChecksTest {
         }
         // Just switched on, the modem doesn't answer yet.
         fake.boot()
-        assertEquals(CheckResult.Failed("Unexpected answer: AT+CFUN?: modem not ready"), check.run(router, NO_FOLDER))
+        assertEquals(
+            CheckResult.Failed("Unexpected answer: AT+CFUN?: modem not ready"),
+            check.run(router, CheckContext(NO_FOLDER, notes)),
+        )
     }
 
     @Test
@@ -930,6 +944,44 @@ class ChecksTest {
     }
 
     @Test
+    fun esimLogGrowthCheckNotesTheLogAtTheFirstConnection() {
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        assertEquals(CheckResult.NotApplicable(R.string.reason_first_note), run("H6"))
+        assertTrue(ESIM_LOG_NOTE in notes.map)
+    }
+
+    @Test
+    fun esimLogGrowthCheckPassesWhileTheLogGrows() {
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        run("H6")
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        assertEquals(CheckResult.Passed, run("H6"))
+    }
+
+    @Test
+    fun esimLogGrowthCheckPassesWithoutALog() {
+        run("H6")
+        assertEquals(CheckResult.Passed, run("H6"))
+    }
+
+    @Test
+    fun esimLogGrowthCheckNotesTheLogAnewAfterABrokenNote() {
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        notes.map[ESIM_LOG_NOTE] = "0"
+        assertEquals(CheckResult.NotApplicable(R.string.reason_first_note), run("H6"))
+    }
+
+    @Test
+    fun esimLogGrowthCheckFailsIfTheLogWasEmptied() {
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        run("H6")
+        fake.files.remove(FakeRouter.ESIM_LOG)
+        fake.esimLogs("Debug esim: (ipa:383) IpaDisableProfile")
+        val emptied = "Since the last connection, the log was emptied or cut, though the app didn't clear it."
+        assertEquals(CheckResult.Failed(emptied), run("H6"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2
@@ -965,7 +1017,8 @@ class ChecksTest {
     }
 
     /** Runs the check of the claim with [id] on the router, whose Churn folder is [folder]. */
-    private fun run(id: String, folder: ChurnFolder = NO_FOLDER) = CHECKS.single { id in it.ids }.run(router, folder)
+    private fun run(id: String, folder: ChurnFolder = NO_FOLDER) =
+        CHECKS.single { id in it.ids }.run(router, CheckContext(folder, notes))
 
     /** How the router sends the AT [command] to slot 2's card. */
     private fun cardCommand(command: String) = "ubus -t 35 call modem.CPU.AT get_result_AT " +

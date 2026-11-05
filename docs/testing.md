@@ -49,6 +49,9 @@ to the router:
   passed, failed or not applicable, with the IDs of its claims, and while
   the checks run, how many are done. While the debug log is on, the
   results are a section of it too. The app sends them nowhere by itself.
+  The check of H6 keeps a note on the phone from one connection to the
+  next: the size of GL's eSIM manager's log and an MD5 sum of its first
+  64 bytes, which the app forgets when it clears the SIM history.
 - A failed check shows a note on the router screen. A check marked
   *blocks* will also stop a swap when it fails, because the app's commands
   can't be trusted then. For now, its result before steps 1 and 3 goes
@@ -244,7 +247,7 @@ and 10.
 | H3 | Setting `log_file` back and reloading the log service makes `logread` write the file again | open | Run `restore.sh`, check the process and the file; setting the router up again turns the file off | 2 |
 | H4 | GL's card files and the eSIM manager's records have the formats development.md lists | verified | Both card files and the eSIM manager's records parse, and every member name and `iccid` in them is an ICCID | 1 |
 | H5 | GL's eSIM manager writes its log to `/root/esim/log.txt`, beginning each line with the time in UTC | verified for the file; inferred for UTC | The time that the log's last line with a time begins with is within 2 minutes of when the log was last written (`date -r`) | 1 |
-| H6 | The eSIM manager's log only grows until something empties it | inferred | Note the log's size and first bytes at two connections a day apart | 1 |
+| H6 | The eSIM manager's log only grows until something empties it | inferred | At each connection, the log is at least as long as at the last one and begins as it did, unless the app cleared it since | 1 |
 | H7 | GL doesn't add back pruned cards, also not when airplane mode goes off and on | verified | The card files after airplane mode off and on | 4 |
 | H8 | GL copes with card files that name no card until it records the new one | inferred | Step 3 with a new card, then a power-on and airplane mode off | 4 |
 | H9 | A card used again after a clearing gets GL's defaults, and GL's search finds its APN | verified with the built-in eSIM's profile | Use a cleared card again | 4 |
