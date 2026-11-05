@@ -60,6 +60,7 @@ val CHECKS = listOf(
     },
     Check("K1", blocks = true, title = R.string.check_vpn_policy) { router, _ -> vpnPolicy(router) },
     Check("K5", blocks = false, title = R.string.check_kill_switch_settings) { router, _ -> killSwitchAgrees(router) },
+    Check("K6", blocks = true, title = R.string.check_kill_switch_rules) { router, _ -> killSwitchRules(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -206,6 +207,31 @@ private fun killSwitchAgrees(router: Router): CheckResult {
         "${Router.DEFAULT_POLICY} is $value, ${Router.VPN_TO_MAIN} is ${if (vpnToMain) "there" else "absent"}, " +
             "and ip rule show lists ${if (rule) "a" else "no"} rule at priority 9000.",
     )
+}
+
+/**
+ * GL's routing rules with the Enhanced Kill Switch on and a WireGuard tunnel set up, as development.md lists them, in
+ * `ip rule show`'s words with single spaces: traffic marked for GL's fallback policy goes to the main table, other
+ * marked traffic and devices' unmarked traffic to a blackhole.
+ */
+private val KILL_SWITCH_RULES = listOf(
+    "6000: from all fwmark 0x8000/0xf000 lookup main",
+    "9910: not from all fwmark 0/0xf000 blackhole",
+    "9920: from all iif br-lan blackhole",
+)
+
+/** GL's routing rule that sends traffic marked for the tunnel to the tunnel's table, while the tunnel is up. */
+private const val TUNNEL_RULE = "6000: from all fwmark 0x1000/0xf000 lookup 1001"
+
+/** Whether, with the Enhanced Kill Switch on, `ip rule show` lists GL's rules that send traffic through the tunnel. */
+private fun killSwitchRules(router: Router): CheckResult {
+    val tunnels = router.vpnInterfaces()
+    if (tunnels.isEmpty()) return CheckResult.NotApplicable(R.string.reason_no_vpn)
+    if (!router.enhancedKillSwitch()) return CheckResult.NotApplicable(R.string.reason_kill_switch_off)
+    val rules = router.ipRules().map { it.replace(Regex("\\s+"), " ") }
+    val tunnelUp = tunnels.any { router.interfaceStatus(it)?.optBoolean("up") == true }
+    val missing = (KILL_SWITCH_RULES + listOfNotNull(TUNNEL_RULE.takeIf { tunnelUp })).filter { it !in rules }
+    return if (missing.isEmpty()) CheckResult.Passed else CheckResult.Failed("Missing: ${missing.joinToString(", ")}.")
 }
 
 /** Whether a uci setting holds one of [expected], given its [value], or null if it isn't set. */

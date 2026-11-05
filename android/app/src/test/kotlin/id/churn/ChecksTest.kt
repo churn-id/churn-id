@@ -316,6 +316,42 @@ class ChecksTest {
     }
 
     @Test
+    fun killSwitchRuleCheckPassesWithTheTunnelUp() {
+        assertEquals(CheckResult.Passed, run("K6"))
+    }
+
+    @Test
+    fun killSwitchRuleCheckPassesWithTheTunnelDown() {
+        fake.tunnelUp = false
+        assertEquals(CheckResult.Passed, run("K6"))
+    }
+
+    @Test
+    fun killSwitchRuleCheckFailsWithoutABlackhole() {
+        fake.answers["ip rule show"] = RULES.lines().filterNot { it.startsWith("9920:") }.joinToString("\n")
+        assertEquals(CheckResult.Failed("Missing: 9920: from all iif br-lan blackhole."), run("K6"))
+    }
+
+    @Test
+    fun killSwitchRuleCheckFailsWithoutTheTunnelsRuleWhileItIsUp() {
+        fake.answers["ip rule show"] = RULES.lines().filterNot { "lookup 1001" in it }.joinToString("\n")
+        assertEquals(CheckResult.Failed("Missing: 6000: from all fwmark 0x1000/0xf000 lookup 1001."), run("K6"))
+    }
+
+    @Test
+    fun killSwitchRuleCheckDoesNotApplyWithTheSwitchOff() {
+        fake.killSwitchSet = false
+        fake.killSwitchInUse = false
+        assertEquals(CheckResult.NotApplicable(R.string.reason_kill_switch_off), run("K6"))
+    }
+
+    @Test
+    fun killSwitchRuleCheckDoesNotApplyWithoutATunnel() {
+        fake.vpnTunnel = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_vpn), run("K6"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))
@@ -403,6 +439,19 @@ class ChecksTest {
 
     private companion object {
         val NO_FOLDER = ChurnFolder(factory = null, card = null)
+
+        /** `ip rule show` as our Mudi 7 answered it with the Enhanced Kill Switch on and a WireGuard tunnel up. */
+        val RULES = """
+            0:	from all lookup local
+            1:	from all iif lo lookup 16800
+            800:	from all lookup 9910 suppress_prefixlength 0
+            6000:	from all fwmark 0x1000/0xf000 lookup 1001
+            6000:	from all fwmark 0x8000/0xf000 lookup main
+            9910:	not from all fwmark 0/0xf000 blackhole
+            9920:	from all iif br-lan blackhole
+            32766:	from all lookup main
+            32767:	from all lookup default
+        """.trimIndent()
 
         /** The fake router's IMEIs, as setup records them. */
         val FACTORY = ImeiPair("356090215000002", "356090215000077")

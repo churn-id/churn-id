@@ -37,6 +37,12 @@ class FakeRouter : Shell {
      */
     val uciAnswers = mutableMapOf<String, String?>()
 
+    /**
+     * Answers to commands that replace the router's own, such as another GL firmware might give. Only the router
+     * checks' tests use them.
+     */
+    val answers = mutableMapOf<String, String>()
+
     /** Milliseconds, advanced by the tests' sleep. */
     var clock = 0L
 
@@ -105,6 +111,9 @@ class FakeRouter : Shell {
 
     /** The tunnel's type in GL's route policy. */
     var vpnType = "wireguard"
+
+    /** Whether the tunnel's interface is up, as while GL's VPN client has the tunnel connected. */
+    var tunnelUp = true
     var poweredOff = false
     val files = mutableMapOf<String, ByteArray>()
     var sysupgrade = "/etc/config/\n/etc/profile"
@@ -197,6 +206,7 @@ class FakeRouter : Shell {
         commands += command
         val body = command.removePrefix(LOCK)
         if (body == command && MODEM.any { it in command }) unlocked += command
+        answers[body]?.let { return ok(it) }
         return answer(body, input)
     }
 
@@ -220,6 +230,7 @@ class FakeRouter : Shell {
             return ok("")
         }
         if (command == "ip rule show") return ok(ipRules())
+        Regex("""ifstatus (\w+)""").matchEntire(command)?.let { return interfaceStatus(it.groupValues[1]) }
         if (command == "uci -q show route_policy") return ok(routePolicy())
         if (command == KILL_SWITCH_ON) {
             change("Enhanced Kill Switch")
@@ -448,10 +459,32 @@ class FakeRouter : Shell {
         appendLine("route_policy.gl_process.via='wgclient1'")
     }
 
-    /** The rule at priority 9000 as our Mudi 7 printed it, among Linux's default rules. */
-    private fun ipRules() = "0:\tfrom all lookup local\n" +
-        (if (killSwitchInUse) "" else "9000:\tnot from all fwmark 0/0xf000 lookup main\n") +
-        "32766:\tfrom all lookup main\n32767:\tfrom all lookup default\n"
+    /**
+     * As our Mudi 7 listed them with the Enhanced Kill Switch on and a WireGuard tunnel up, or with the tunnel down,
+     * which drops the rule to its table 1001. With the switch off, GL adds the rule at priority 9000; that it drops
+     * the blackholes then is a guess.
+     */
+    private fun ipRules() = buildString {
+        append("0:\tfrom all lookup local\n1:\tfrom all iif lo lookup 16800\n")
+        append("800:\tfrom all lookup 9910 suppress_prefixlength 0\n")
+        if (vpnTunnel != null && tunnelUp) append("6000:\tfrom all fwmark 0x1000/0xf000 lookup 1001\n")
+        append("6000:\tfrom all fwmark 0x8000/0xf000 lookup main\n")
+        if (killSwitchInUse) {
+            append("9910:\tnot from all fwmark 0/0xf000 blackhole\n9920:\tfrom all iif br-lan blackhole\n")
+        } else {
+            append("9000:\tnot from all fwmark 0/0xf000 lookup main\n")
+        }
+        append("32766:\tfrom all lookup main\n32767:\tfrom all lookup default\n")
+    }
+
+    /** `ifstatus` of the network interface [name], shortened, as OpenWrt's netifd gives it. */
+    private fun interfaceStatus(name: String): Output {
+        val up = when (name) {
+            vpnTunnel -> tunnelUp
+            else -> return Output(1, "Interface $name not found\n".toByteArray(), "")
+        }
+        return ok(JSONObject().put("up", up).put("pending", false).put("available", true).toString(1))
+    }
 
     /** The MD5 sum of the first [count] bytes of [bytes], or of all of them if there are fewer. */
     private fun md5(bytes: ByteArray, count: Int) =

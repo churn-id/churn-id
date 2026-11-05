@@ -252,14 +252,25 @@ class Router(private val shell: Shell) {
      * policy that sends traffic through an existing WireGuard interface. Other tunnel types are untested, so they
      * don't count. Whether the tunnel is on or up doesn't count either.
      */
-    fun vpnSetUp(): Boolean {
+    fun vpnSetUp() = vpnInterfaces().isNotEmpty()
+
+    /** The network interfaces of the WireGuard tunnels that [vpnSetUp] counts, such as `wgclient1`. */
+    fun vpnInterfaces(): List<String> {
         // The debug log leaves the settings out: GL's policies can name the user's devices or the sites they visit.
         val settings = runPrivately("uci -q show route_policy").text.lines()
             .associate { it.substringBefore('=') to it.substringAfter('=').removeSurrounding("'") }
         return settings.filterValues { it == "rule" }.keys
             .filter { settings["$it.via_type"] == "wireguard" }
             .mapNotNull { settings["$it.via"]?.takeIf { via -> via.matches(Regex("[A-Za-z0-9_]+")) } }
-            .any { uci("network.$it") == "interface" }
+            .filter { uci("network.$it") == "interface" }
+    }
+
+    /** The state of the network interface [name] as `ifstatus` gives it, such as `up`; null if there is no such one. */
+    fun interfaceStatus(name: String): JSONObject? {
+        require(name.matches(Regex("[A-Za-z0-9_]+")))
+        val output = run("ifstatus $name")
+        if (output.status != 0) return null
+        return runCatching { JSONObject(output.text) }.getOrNull() ?: throw unexpected("ifstatus $name", output)
     }
 
     /**
