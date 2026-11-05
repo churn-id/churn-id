@@ -261,6 +261,13 @@ class Router(private val shell: Shell) {
     fun firewallInPlace() =
         readFile(FIREWALL).contentEquals(firewallRules(dnsmasqUid()).toByteArray()) && firewallLoaded()
 
+    /** Churn's firewall rules as the file on the router holds them; null if the file isn't there. */
+    fun firewallFile() = readFile(FIREWALL)?.toString(Charsets.UTF_8)
+
+    /** Whether GL's firewall has all the chains of Churn's rules in its table. */
+    fun firewallLoaded() =
+        run(FIREWALL_CHAINS.joinToString(" && ") { "nft list chain inet fw4 $it >/dev/null" }).status == 0
+
     /**
      * Writes Churn's firewall rules, keeps them across firmware upgrades and has GL's firewall load them. Rules that
      * don't load are removed again, since at the next power-on GL's firewall might then load none of its own either.
@@ -435,9 +442,6 @@ class Router(private val shell: Shell) {
 
     /** The user ID GL's main DNS server runs as. */
     private fun dnsmasqUid() = run("id -u dnsmasq").text.trim().toIntOrNull() ?: throw unexpected("id -u dnsmasq")
-
-    private fun firewallLoaded() =
-        run(FIREWALL_CHAINS.joinToString(" && ") { "nft list chain inet fw4 $it >/dev/null" }).status == 0
 
     /** Runs Churn's restore script; returns what it printed. */
     fun restoreFactoryImeis(): String {

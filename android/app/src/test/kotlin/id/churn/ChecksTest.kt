@@ -36,6 +36,28 @@ class ChecksTest {
         assertEquals(CheckResult.Failed("Unexpected answer: AT+CFUN?: modem not ready"), check.run(router, NO_FOLDER))
     }
 
+    @Test
+    fun firewallCheckPassesWithChurnsRulesLoaded() {
+        router.installFirewall()
+        assertEquals(CheckResult.Passed, run("D7"))
+    }
+
+    @Test
+    fun firewallCheckFailsWithChurnsRulesNotLoaded() {
+        router.installFirewall()
+        // As if GL's firewall hadn't loaded the file at power-on.
+        fake.loadedChains.clear()
+        assertTrue(run("D7") is CheckResult.Failed)
+    }
+
+    @Test
+    fun firewallCheckDoesNotApplyWithoutChurnsRules() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_firewall), run("D7"))
+    }
+
+    /** Runs the check of the claim with [id] on the router, whose Churn folder is [folder]. */
+    private fun run(id: String, folder: ChurnFolder = NO_FOLDER) = CHECKS.single { id in it.ids }.run(router, folder)
+
     private companion object {
         val NO_FOLDER = ChurnFolder(factory = null, card = null)
 

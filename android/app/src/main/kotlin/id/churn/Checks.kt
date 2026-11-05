@@ -32,4 +32,13 @@ sealed interface CheckResult {
 }
 
 /** The checks, in the order of their claims in docs/testing.md. */
-val CHECKS = listOf<Check>()
+val CHECKS = listOf(
+    Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
+)
+
+/** Whether GL's firewall has loaded Churn's rules file, if it is there. */
+private fun firewallLoaded(router: Router) = when {
+    router.firewallFile() == null -> CheckResult.NotApplicable(R.string.reason_no_firewall)
+    router.firewallLoaded() -> CheckResult.Passed
+    else -> CheckResult.Failed("GL's firewall table lacks chains of Churn's rules.")
+}

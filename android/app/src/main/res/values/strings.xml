@@ -131,6 +131,8 @@
     <string name="check_passed">✓ %1$s (%2$s)</string>
     <string name="check_failed">✗ %1$s (%2$s)\nFailed: %3$s</string>
     <string name="check_not_applicable">– %1$s (%2$s)\nNot applicable: %3$s</string>
+    <string name="check_firewall_loaded">GL\'s firewall has loaded Churn\'s firewall rules</string>
+    <string name="reason_no_firewall">Churn\'s firewall rules aren\'t on the router.</string>
 
     <!-- The swap -->
     <string name="step_number">Step %1$d of 4</string>
