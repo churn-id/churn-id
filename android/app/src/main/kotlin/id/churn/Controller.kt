@@ -73,6 +73,8 @@ class Controller(private val context: Context) {
 
     // Used on the worker thread only.
     private var connection: RouterConnection? = null
+
+    /** The password typed for the connection attempt under way, until the attempt succeeds or fails. */
     private var typedPassword: String? = null
 
     /** Holds the user's answer to step 3's question until the step, on the worker thread, takes it. */
@@ -186,7 +188,11 @@ class Controller(private val context: Context) {
         job(R.string.connecting) { showRouter() }
     }
 
-    fun cancel() = show(Screen.Connect())
+    /** Cancel on the key or setup screen. At the key question, it ends the connection attempt. */
+    fun cancel() {
+        worker.execute { typedPassword = null }
+        show(Screen.Connect())
+    }
 
     fun setUp(factory: ImeiPair) = job(R.string.setting_up) {
         val router = router()
@@ -350,8 +356,10 @@ class Controller(private val context: Context) {
             try {
                 body()
             } catch (e: UntrustedHostKey) {
+                // The connection attempt goes on once the user trusts the key.
                 show(trustKey(e))
             } catch (e: Exception) {
+                typedPassword = null
                 show(Screen.Connect(stopped(e)))
             }
             if (keepAlive) {
@@ -442,9 +450,6 @@ class Controller(private val context: Context) {
                     typedPassword = null
                 }
                 return Router(debugLog.record(opened))
-            } catch (e: WrongPassword) {
-                typedPassword = null
-                throw e
             } catch (e: IOException) {
                 // While the router starts, its network can show up before it accepts connections.
                 debugLog.add("  $e")
