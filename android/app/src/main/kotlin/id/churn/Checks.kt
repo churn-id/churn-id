@@ -49,6 +49,7 @@ val CHECKS = listOf(
         CheckResult.Passed
     },
     Check("M4", blocks = false, title = R.string.check_slot2_subscription) { router, _ -> slot2Subscription(router) },
+    Check("M5", blocks = false, title = R.string.check_modem_settings) { router, _ -> modemSettingsSearched(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -98,6 +99,51 @@ private fun slot2Subscription(router: Router): CheckResult {
     val answer = router.at("AT+QUIMSUB?").after("+QUIMSUB:")
     if (answer?.startsWith("2,\"SUB2\"") == true) return CheckResult.Passed
     return CheckResult.Failed("AT+QUIMSUB? answers ${answer?.take(40) ?: "without +QUIMSUB:"}.")
+}
+
+/**
+ * What the modem's test commands listed when we searched them for a setting that starts the radio off at power-on,
+ * and found none: `AT+CFUN=?`'s answer, and the names of the settings that `AT+QCFG=?` and `AT+QNWCFG=?` list.
+ */
+private const val SEARCHED_CFUN = "(0,1,4),(0,1)"
+
+// cspell:disable
+private val SEARCHED_QCFG = setOf(
+    "rrc", "hsdpacat", "hsupacat", "pdp/duplicatechk", "risignaltype", "lte/bandprior", "volte_disable",
+    "diversity/config", "div_test_mode", "usbnet", "usbspeed", "data_interface", "pcie/mode", "sms_control",
+    "call_control", "netmaskset", "clat", "enable_gea1", "dhcppktfltr",
+)
+
+private val SEARCHED_QNWCFG = setOf(
+    "lte_cdrx", "nr5g_cdrx", "csi_ctrl", "lte_csi", "nr5g_csi", "lte_cell_id", "nr5g_cell_id", "lte_csi_ext",
+    "nr5g_csi_ext", "lte_tx_pwr", "nr5g_tx_pwr", "wcdma_cqi", "up/down", "data_path", "dss_enable", "lte_dl_tx_mode",
+    "nr5g_ulMCS", "nr5g_dlMCS", "nr5g_pusch_data", "lapi", "nr5g_meas_info", "lte_time_advance", "nr5g_time_advance",
+    "clr_rplmn", "dis_rplmnact", "lte_ambr", "nr5g_ambr", "disable_lte_ca", "disable_nr_ca", "dis_4mimo_enable",
+    "nr5g_4mimo_enable", "nr5g_ulTBsize", "encryp_alg_support", "integ_alg_support", "data_roaming", "nr5g_earfcn_lock",
+    "lte_earfcn_lock", "event_a3_offset", "used_algo", "nr5g_pref_freq_list", "lte_pref_freq_list", "ehplmn_config",
+    "nr5g_mimo", "ctrl_plane_dly", "rrc_state", "ssb_beam_id", "ul_data_path", "lte_ulMCS", "lte_mimo_layers",
+    "nr5g_mimo_layers", "wcdma_tx_power", "lte_band_priority", "nr5g_band_priority", "3gpp_rel", "cause7_map_cause14",
+    "nr5g_ul_256qam", "msearch_bscan_sep", "thin_ui_cfg", "freq_info", "msisdn", "lte_fgi_fdd", "lte_fgi_tdd",
+    "sysmode", "nr5g_ulbw", "cops_auto_mode", "nr5g_pathloss", "nitz_ons", "clr_guti", "nr5g_mimo_info",
+    "lte_mimo_info", "hplmn_search_timer", "center_arfcn_info", "eth_cfg", "lte_qos", "nr5g_qos", "rrc_inactive",
+    "overheat_ind", "q8rxrssi", "c_rnti", "reg_time_info", "rrc_time_info", "pdu_time_info", "rrc_seg",
+)
+// cspell:enable
+
+/** Whether the modem's test commands list no setting beyond those we searched for one that starts the radio off. */
+private fun modemSettingsSearched(router: Router): CheckResult {
+    val radioStates = router.at("AT+CFUN=?").after("+CFUN:")
+    val newSettings = mapOf("QCFG" to SEARCHED_QCFG, "QNWCFG" to SEARCHED_QNWCFG).flatMap { (command, searched) ->
+        router.at("AT+$command=?").lines
+            .mapNotNull { Regex("""\+$command: "([^"]+)".*""").matchEntire(it)?.groupValues?.get(1) }
+            .filter { it !in searched }
+            .map { "AT+$command \"${it.take(30)}\"" }
+    }
+    val problems = listOfNotNull(
+        "AT+CFUN=? answers ${radioStates?.take(40)}, not $SEARCHED_CFUN.".takeIf { radioStates != SEARCHED_CFUN },
+        "Settings we haven't searched: ${newSettings.joinToString(", ")}.".takeIf { newSettings.isNotEmpty() },
+    )
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
 }
 
 /** Whether GL's firewall has loaded Churn's rules file, if it is there. */

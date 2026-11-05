@@ -102,7 +102,7 @@ From development.md, "AT commands (RG650V-EU)", and design.md, section 6.
 | M2 | `AT+EGMR=0,7` and `AT+EGMR=0,11` return IMEI 1 and IMEI 2 | verified | Both are 15 digits with a valid check digit and the factory IMEIs' TAC | 1, blocks |
 | M3 | `AT+QSIMTYPE="slot2"` answers `0` for the SIM 2 tray and `1` for the eSIM | verified | The answer parses | 1, blocks |
 | M4 | `AT+QUIMSUB?` answers `2,"SUB2"` for slot 2's card | verified | The answer parses | 1 |
-| M5 | No modem setting starts the radio off at power-on | verified | The test commands `AT+CFUN=?`, `AT+QCFG=?` and `AT+QNWCFG=?` list the same settings as when we searched | 1 |
+| M5 | No modem setting starts the radio off at power-on | verified | The test commands `AT+CFUN=?`, `AT+QCFG=?` and `AT+QNWCFG=?` list no setting beyond those we searched | 1 |
 | M6 | Both IMEIs can be written and read back at once | verified | Write a test pair and read it back, then write the earlier pair back | 2 |
 | M7 | `AT+QPRTPARA=1` saves the written IMEIs; without it, a reboot 5 s after a write brought the earlier IMEIs back | verified | Write and save a test pair, reboot and read it; then the earlier pair the same way | 3 |
 | M8 | `AT+QPRTPARA=1` also overwrites the modem's backup of its settings | inferred | None known: we know no command that reads the backup | – |

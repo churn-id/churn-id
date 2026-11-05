@@ -163,6 +163,27 @@ class ChecksTest {
     }
 
     @Test
+    fun settingsCheckPassesWithTheSettingsWeSearched() {
+        assertEquals(CheckResult.Passed, run("M5"))
+    }
+
+    @Test
+    fun settingsCheckFailsAtSettingsWeHaveNotSearched() {
+        fake.atAnswers["AT+QCFG=?"] = "+QCFG: \"rrc\",(0-5)\r\n+QCFG: \"boot_radio\",(0,1)"
+        fake.atAnswers["AT+QNWCFG=?"] = "+QNWCFG: \"data_path\",(0,1)\r\n+QNWCFG: \"radio_at_boot\",(0,1)"
+        assertEquals(
+            CheckResult.Failed("Settings we haven't searched: AT+QCFG \"boot_radio\", AT+QNWCFG \"radio_at_boot\"."),
+            run("M5"),
+        )
+    }
+
+    @Test
+    fun settingsCheckFailsAtAnotherRadioStateList() {
+        fake.atAnswers["AT+CFUN=?"] = "+CFUN: (0,1,4,7),(0,1)"
+        assertEquals(CheckResult.Failed("AT+CFUN=? answers (0,1,4,7),(0,1), not (0,1,4),(0,1)."), run("M5"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

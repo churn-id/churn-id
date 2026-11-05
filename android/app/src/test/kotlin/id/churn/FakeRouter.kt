@@ -341,6 +341,10 @@ class FakeRouter : Shell {
             }
             command == "AT+QSIMTYPE=\"slot2\"" -> atOk("+QSIMTYPE: \"slot2\",${slot2.type}")
             command == "AT+QUIMSUB?" -> atOk("+QUIMSUB: 2,\"SUB2\",\"L\"")
+            // The test commands as our Mudi 7 answered them, shortened.
+            command == "AT+CFUN=?" -> atOk("+CFUN: (0,1,4),(0,1)")
+            command == "AT+QCFG=?" -> atOk("+QCFG: \"rrc\",(0-5)\r\n+QCFG: \"data_interface\",(0,1),(0,1)")
+            command == "AT+QNWCFG=?" -> atOk("+QNWCFG: \"data_path\",(0,1)\r\n+QNWCFG: \"data_roaming\",(0,1)")
             else -> ok("\r\nERROR\r\n")
         }
     }
