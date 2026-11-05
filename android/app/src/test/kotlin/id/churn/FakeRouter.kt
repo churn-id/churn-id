@@ -340,6 +340,7 @@ class FakeRouter : Shell {
                 atOk()
             }
             command == "AT+QSIMTYPE=\"slot2\"" -> atOk("+QSIMTYPE: \"slot2\",${slot2.type}")
+            command == "AT+QUIMSUB?" -> atOk("+QUIMSUB: 2,\"SUB2\",\"L\"")
             else -> ok("\r\nERROR\r\n")
         }
     }

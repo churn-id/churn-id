@@ -152,6 +152,17 @@ class ChecksTest {
     }
 
     @Test
+    fun subscriptionCheckPassesWithSub2() {
+        assertEquals(CheckResult.Passed, run("M4"))
+    }
+
+    @Test
+    fun subscriptionCheckFailsWithAnotherSubscription() {
+        fake.atAnswers["AT+QUIMSUB?"] = "+QUIMSUB: 1,\"SUB1\",\"L\""
+        assertEquals(CheckResult.Failed("AT+QUIMSUB? answers 1,\"SUB1\",\"L\"."), run("M4"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

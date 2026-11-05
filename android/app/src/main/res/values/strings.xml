@@ -138,6 +138,7 @@
     <string name="check_radio_answer">The modem answers AT commands, and AT+CFUN? with the radio on or off</string>
     <string name="check_imeis_read">The modem reads both IMEIs, each a valid one with the factory TAC</string>
     <string name="check_slot2_answer">The modem says whether slot 2 is on the SIM 2 tray or the eSIM</string>
+    <string name="check_slot2_subscription">The modem names slot 2\'s subscription SUB2</string>
     <string name="check_firewall_loaded">GL\'s firewall has loaded Churn\'s firewall rules</string>
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>

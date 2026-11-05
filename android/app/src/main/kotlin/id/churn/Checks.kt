@@ -48,6 +48,7 @@ val CHECKS = listOf(
         router.slot2()
         CheckResult.Passed
     },
+    Check("M4", blocks = false, title = R.string.check_slot2_subscription) { router, _ -> slot2Subscription(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -90,6 +91,13 @@ private fun imeisRead(router: Router, folder: ChurnFolder): CheckResult {
         }
     }
     return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/** Whether the modem names slot 2's card's subscription `SUB2`, as development.md says, whichever slot is active. */
+private fun slot2Subscription(router: Router): CheckResult {
+    val answer = router.at("AT+QUIMSUB?").after("+QUIMSUB:")
+    if (answer?.startsWith("2,\"SUB2\"") == true) return CheckResult.Passed
+    return CheckResult.Failed("AT+QUIMSUB? answers ${answer?.take(40) ?: "without +QUIMSUB:"}.")
 }
 
 /** Whether GL's firewall has loaded Churn's rules file, if it is there. */
