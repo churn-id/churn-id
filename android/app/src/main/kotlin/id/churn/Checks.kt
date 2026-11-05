@@ -1,5 +1,6 @@
 package id.churn
 
+import kotlin.math.abs
 import org.json.JSONObject
 
 /**
@@ -87,6 +88,7 @@ val CHECKS = listOf(
     Check("H1", blocks = false, title = R.string.check_flash_log) { router, _ -> flashLogWritten(router) },
     Check("H2", blocks = false, title = R.string.check_flash_log_stopped) { router, _ -> flashLogStopped(router) },
     Check("H4", blocks = false, title = R.string.check_card_files) { router, _ -> cardFileFormats(router) },
+    Check("H5", blocks = false, title = R.string.check_esim_log_time) { router, _ -> esimLogInUtc(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
 
@@ -582,6 +584,21 @@ private fun inCardFileFormat(path: String, json: JSONObject): Boolean {
             ?.let { apns -> (0 until apns.length()).all { isIccid(apns.optJSONObject(it)?.opt("iccid")) } } == true
         else -> membersByIccid(json.optJSONObject("records")) { isIccid(it.opt("iccid")) }
     }
+}
+
+/**
+ * Whether GL's eSIM manager begins its log's lines with the time in UTC: the last line that begins with a time begins
+ * with about the time the log was last written, by the router's clock. The result tells only how far apart they are.
+ */
+private fun esimLogInUtc(router: Router): CheckResult {
+    val (lines, written) = router.esimLogEnd() ?: return CheckResult.NotApplicable(R.string.reason_esim_log_empty)
+    val time = lines.asReversed().firstNotNullOfOrNull { EsimTime.LINE.matchEntire(it) }?.let(EsimTime::of)
+        ?: return CheckResult.Failed("None of the log's last 20 lines begins with a time.")
+    val minutes = (time - written) / 60
+    // A line written over a few seconds, or just before a minute turns, is still on time.
+    if (minutes in -2..2) return CheckResult.Passed
+    val direction = if (minutes > 0) "ahead of" else "behind"
+    return CheckResult.Failed("The log's last line is timed ${abs(minutes)} minutes $direction UTC.")
 }
 
 /**

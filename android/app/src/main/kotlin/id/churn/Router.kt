@@ -220,6 +220,20 @@ class Router(private val shell: Shell) {
         )
     }
 
+    /**
+     * The last 20 lines of GL's eSIM manager's log, and when the log was last written, in seconds since 1970; null
+     * for an empty log. Read privately: the lines can name profiles, and the time is the time of day.
+     */
+    fun esimLogEnd(): Pair<List<String>, Long>? {
+        val log = "$ESIM/log.txt"
+        val output = runPrivately("[ -s $log ] || exit 3; date -r $log +%s; tail -n 20 $log")
+        if (output.status == 3) return null
+        val lines = output.text.lines()
+        val written = lines[0].trim().toLongOrNull()
+        if (output.status != 0 || written == null) throw unexpected("GL's eSIM manager's log")
+        return lines.drop(1).map { it.trim() }.filter { it.isNotEmpty() } to written
+    }
+
     /** The firmware and the modem the router runs. */
     fun platform(): Platform {
         val versions = run("cat /etc/glversion && grep '^DISTRIB_RELEASE=' /etc/openwrt_release").text.lines()

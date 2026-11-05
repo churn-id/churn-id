@@ -167,6 +167,7 @@
     <string name="check_flash_log">GL writes its system log to the file its setting names, while it has one</string>
     <string name="check_flash_log_stopped">With GL\'s log file setting deleted, no logread writes the system log to a file</string>
     <string name="check_card_files">GL\'s card files and its eSIM manager\'s records name each card by its ICCID, as Churn\'s clearing expects</string>
+    <string name="check_esim_log_time">GL\'s eSIM manager begins its log\'s lines with the time in UTC</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>
     <string name="reason_not_set_up">Churn hasn\'t set up this router yet.</string>
     <string name="reason_starting">The router started less than 2 minutes ago, so the radio may still be on.</string>
@@ -179,6 +180,7 @@
     <string name="reason_flash_log_off">GL\'s system log stays in RAM, as Churn sets it.</string>
     <string name="reason_flash_log_on">GL still writes its system log to a file on the flash.</string>
     <string name="reason_no_card_files">GL has no files that record cards yet.</string>
+    <string name="reason_esim_log_empty">GL\'s eSIM manager\'s log is empty, as after a clearing.</string>
     <string name="reason_no_record">No swap has recorded a card on this router yet.</string>
     <string name="reason_slot2_on_esim">Slot 2 is on the built-in eSIM, so the card in the SIM 2 tray is off.</string>
     <string name="reason_slot2_on_tray">Slot 2 is on the SIM 2 tray, not the built-in eSIM.</string>

@@ -207,10 +207,17 @@ class FakeRouter : Shell {
         files["/etc/sys_log"] = cards.joinToString("") { "user.info Diag_Lib[1]: iccid[$it]\n" }.toByteArray()
     }
 
-    /** Adds [text] to GL's eSIM manager's log, after the time in UTC, as the eSIM manager writes it (inferred). */
+    /** The time zone of the times in GL's eSIM manager's log: UTC (inferred). */
+    var esimLogZone: ZoneOffset = ZoneOffset.UTC
+
+    /** When GL's eSIM manager last wrote its log, by [time]. */
+    private var esimLogWritten = 0L
+
+    /** Adds [text] to GL's eSIM manager's log, after the time in [esimLogZone], as the eSIM manager writes it. */
     fun esimLogs(text: String) {
-        val stamp = ESIM_TIME.format(Instant.ofEpochSecond(time).atOffset(ZoneOffset.UTC))
+        val stamp = ESIM_TIME.format(Instant.ofEpochSecond(time).atOffset(esimLogZone))
         files[ESIM_LOG] = (files[ESIM_LOG] ?: ByteArray(0)) + "$stamp $text\r\n".toByteArray()
+        esimLogWritten = time
     }
 
     /** The cards GL's `sim_map.json` still names. */
@@ -363,6 +370,11 @@ class FakeRouter : Shell {
             val logread = (logFile ?: "/etc/sys_log".takeIf { logreadStuck })?.takeIf { !logreadMissing }
                 ?.let { "/sbin/logread -f -F $it -p /var/run/logread.0.pid" }
             return Output(if (logread == null) 1 else 0, (logread?.let { "$it\n" } ?: "").toByteArray(), "")
+        }
+        if (command == "[ -s $ESIM_LOG ] || exit 3; date -r $ESIM_LOG +%s; tail -n 20 $ESIM_LOG") {
+            val log = files[ESIM_LOG]?.takeIf { it.isNotEmpty() } ?: return Output(3, ByteArray(0), "")
+            val tail = log.toString(Charsets.UTF_8).split("\n").takeLast(21).joinToString("\n")
+            return ok("$esimLogWritten\n$tail")
         }
         if (command == "/etc/init.d/log reload") {
             if (radioOnAtReload) radioStuckOn = true

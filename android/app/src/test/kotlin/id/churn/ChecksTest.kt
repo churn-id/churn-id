@@ -1,6 +1,7 @@
 package id.churn
 
 import java.io.File
+import java.time.ZoneOffset
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -901,6 +902,31 @@ class ChecksTest {
     @Test
     fun cardFileCheckDoesNotApplyWithoutCardFiles() {
         assertEquals(CheckResult.NotApplicable(R.string.reason_no_card_files), run("H4"))
+    }
+
+    @Test
+    fun esimLogCheckPassesWithTimesInUtc() {
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        assertEquals(CheckResult.Passed, run("H5"))
+    }
+
+    @Test
+    fun esimLogCheckFailsWithLocalTimes() {
+        fake.esimLogZone = ZoneOffset.ofHours(2)
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        assertEquals(CheckResult.Failed("The log's last line is timed 120 minutes ahead of UTC."), run("H5"))
+    }
+
+    @Test
+    fun esimLogCheckFailsWithoutTimes() {
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        fake.files[FakeRouter.ESIM_LOG] = "IpaReopen\r\n".toByteArray()
+        assertEquals(CheckResult.Failed("None of the log's last 20 lines begins with a time."), run("H5"))
+    }
+
+    @Test
+    fun esimLogCheckDoesNotApplyToAnEmptyLog() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_esim_log_empty), run("H5"))
     }
 
     @Test
