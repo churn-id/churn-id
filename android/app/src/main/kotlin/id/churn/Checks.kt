@@ -63,6 +63,7 @@ val CHECKS = listOf(
     Check("K6", blocks = true, title = R.string.check_kill_switch_rules) { router, _ -> killSwitchRules(router) },
     Check("K7", blocks = false, title = R.string.check_usb_port) { router, _ -> usbPortInLan(router) },
     Check("D1", blocks = false, title = R.string.check_dns_servers) { router, _ -> dnsServers(router) },
+    Check("D2", blocks = false, title = R.string.check_dns_rules) { router, _ -> glDnsRules(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -283,6 +284,28 @@ private fun dnsServers(router: Router): CheckResult {
             } + "."
         }
     }
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/** GL's rule that redirects devices' lookups marked for the tunnel to its DNS server, as nftables lists it. */
+private const val GL_DNS_REDIRECT =
+    "meta l4proto udp meta mark & 0x0000f000 == 0x00001000 fib daddr type local redirect to :2153"
+
+/** GL's rule that drops lookups that devices send past the router without the mark of GL's fallback policy. */
+private val GL_DNS_DROP = Regex(
+    "udp dport 53 meta mark & 0x0000f000 != 0x00008000 (counter packets \\d+ bytes \\d+ )?drop " +
+        "comment \"!fw4: lan_drop_leaked_dns\"",
+)
+
+/** Whether GL's firewall has its rules that keep devices' lookups in the tunnel, as development.md describes them. */
+private fun glDnsRules(router: Router): CheckResult {
+    if (!router.vpnSetUp()) return CheckResult.NotApplicable(R.string.reason_no_vpn)
+    val rules = router.firewallLines("redirect to :2153", "lan_drop_leaked_dns")
+    val problems = listOfNotNull(
+        "No rule redirects devices' lookups marked for the tunnel to port 2153.".takeIf { GL_DNS_REDIRECT !in rules },
+        "No rule lan_drop_leaked_dns drops lookups past the router without the mark 0x8000."
+            .takeIf { rules.none(GL_DNS_DROP::matches) },
+    )
     return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
 }
 

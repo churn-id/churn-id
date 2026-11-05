@@ -149,6 +149,7 @@
     <string name="check_kill_switch_rules">With the Enhanced Kill Switch on, the routing rules send traffic through the tunnel and block what would go past it</string>
     <string name="check_usb_port">The USB-C port is in the bridge whose traffic the Enhanced Kill Switch blocks</string>
     <string name="check_dns_servers">GL runs its main DNS server on port 53 and the tunnel\'s on port 2153, each with its own servers</string>
+    <string name="check_dns_rules">GL\'s firewall sends devices\' lookups to the tunnel\'s DNS server and drops those that would go past it</string>
     <string name="check_firewall_loaded">GL\'s firewall has loaded Churn\'s firewall rules</string>
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>

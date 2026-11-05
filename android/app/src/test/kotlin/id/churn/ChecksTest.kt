@@ -409,6 +409,37 @@ class ChecksTest {
     }
 
     @Test
+    fun dnsRuleCheckPassesWithGlsRules() {
+        assertEquals(CheckResult.Passed, run("D2"))
+    }
+
+    @Test
+    fun dnsRuleCheckFailsWithoutTheRedirectOfDevicesLookups() {
+        // Churn's own redirect is in place, and must not count.
+        router.installFirewall()
+        fake.glDnsRules.removeAll { "fib daddr type local" in it }
+        assertEquals(
+            CheckResult.Failed("No rule redirects devices' lookups marked for the tunnel to port 2153."),
+            run("D2"),
+        )
+    }
+
+    @Test
+    fun dnsRuleCheckFailsWithoutTheDropOfLeakedLookups() {
+        fake.glDnsRules.removeAll { "lan_drop_leaked_dns" in it }
+        assertEquals(
+            CheckResult.Failed("No rule lan_drop_leaked_dns drops lookups past the router without the mark 0x8000."),
+            run("D2"),
+        )
+    }
+
+    @Test
+    fun dnsRuleCheckDoesNotApplyWithoutATunnel() {
+        fake.vpnTunnel = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_vpn), run("D2"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

@@ -321,6 +321,14 @@ class Router(private val shell: Shell) {
     /** Churn's firewall rules as the file on the router holds them; null if the file isn't there. */
     fun firewallFile() = readFile(FIREWALL)?.toString(Charsets.UTF_8)
 
+    /** The lines of the firewall rules in use, as `nft list ruleset` lists them, that hold any of [texts], trimmed. */
+    fun firewallLines(vararg texts: String): List<String> {
+        val output = run("nft list ruleset | grep -F" + texts.joinToString("") { " -e ${quote(it)}" })
+        // 1: grep found no line.
+        if (output.status != 0 && output.status != 1) throw unexpected("nft list ruleset", output)
+        return output.text.lines().map(String::trim).filter(String::isNotEmpty)
+    }
+
     /** Whether GL's firewall has all the chains of Churn's rules in its table. */
     fun firewallLoaded() =
         run(FIREWALL_CHAINS.joinToString(" && ") { "nft list chain inet fw4 $it >/dev/null" }).status == 0

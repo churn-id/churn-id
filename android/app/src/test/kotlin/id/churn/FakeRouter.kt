@@ -136,6 +136,19 @@ class FakeRouter : Shell {
         "53|dnsmasq|453|/tmp/resolv.conf.d/resolv.conf.auto",
     )
 
+    /**
+     * The lines of GL's firewall rules that hold `redirect to :2153` or `lan_drop_leaked_dns`, as our Mudi 7 listed
+     * them with a WireGuard tunnel, without their indent: the redirect of devices' lookups marked for the tunnel, the
+     * drop of those sent past the router, and GL's redirects for its own processes.
+     */
+    val glDnsRules = mutableListOf(
+        "udp dport 53 meta mark & 0x0000f000 != 0x00008000 counter packets 0 bytes 0 drop " +
+            "comment \"!fw4: lan_drop_leaked_dns\"",
+        "meta l4proto udp meta mark & 0x0000f000 == 0x00001000 fib daddr type local redirect to :2153",
+        "tcp dport 53 meta mark & 0x0000f000 == 0x00001000 meta skuid 453 redirect to :2153",
+        "udp dport 53 meta mark & 0x0000f000 == 0x00001000 meta skgid 10000 redirect to :2153",
+    )
+
     /** For a firewall that can't load Churn's rules, such as a later fw4 or nftables that rejects one of them. */
     var fw4Rejects = false
 
@@ -304,6 +317,13 @@ class FakeRouter : Shell {
         if (command == "rm -f ${Router.FIREWALL} && fw4 reload") {
             files.remove(Router.FIREWALL)
             return fw4Reload()
+        }
+        if (command == "nft list ruleset | grep -F -e 'redirect to :2153' -e 'lan_drop_leaked_dns'") {
+            // Churn's own redirect, which holds no device's lookups, doesn't count.
+            val churns = "meta skuid $dnsmasqUid meta mark & 0x0000f000 == 0x00001000 meta l4proto { tcp, udp } " +
+                "th dport 53 counter packets 0 bytes 0 redirect to :2153"
+            val lines = glDnsRules + listOfNotNull(churns.takeIf { "churn_dns" in loadedChains })
+            return Output(if (lines.isEmpty()) 1 else 0, lines.joinToString("") { "$it\n" }.toByteArray(), "")
         }
         if (command == FIREWALL_LOADED) {
             val all = listOf("churn_sim", "churn_route", "churn_dns").all { it in loadedChains }
