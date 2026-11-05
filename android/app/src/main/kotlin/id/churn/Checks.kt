@@ -64,6 +64,7 @@ val CHECKS = listOf(
     Check("K7", blocks = false, title = R.string.check_usb_port) { router, _ -> usbPortInLan(router) },
     Check("D1", blocks = false, title = R.string.check_dns_servers) { router, _ -> dnsServers(router) },
     Check("D2", blocks = false, title = R.string.check_dns_rules) { router, _ -> glDnsRules(router) },
+    Check("D5", blocks = false, title = R.string.check_own_traffic_routes) { router, _ -> ownTrafficRoutes(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -231,11 +232,14 @@ private fun killSwitchRules(router: Router): CheckResult {
     val tunnels = router.vpnInterfaces()
     if (tunnels.isEmpty()) return CheckResult.NotApplicable(R.string.reason_no_vpn)
     if (!router.enhancedKillSwitch()) return CheckResult.NotApplicable(R.string.reason_kill_switch_off)
-    val rules = router.ipRules().map { it.replace(Regex("\\s+"), " ") }
+    val rules = spacedRules(router)
     val tunnelUp = tunnels.any { router.interfaceStatus(it)?.optBoolean("up") == true }
     val missing = (KILL_SWITCH_RULES + listOfNotNull(TUNNEL_RULE.takeIf { tunnelUp })).filter { it !in rules }
     return if (missing.isEmpty()) CheckResult.Passed else CheckResult.Failed("Missing: ${missing.joinToString(", ")}.")
 }
+
+/** The routing rules in use, as `ip rule show` lists them, with single spaces between the words. */
+private fun spacedRules(router: Router) = router.ipRules().map { it.replace(Regex("\\s+"), " ") }
 
 /** Whether the USB-C port's network device is in `br-lan`, whose unmarked traffic the blackhole at 9920 stops. */
 private fun usbPortInLan(router: Router): CheckResult {
@@ -307,6 +311,25 @@ private fun glDnsRules(router: Router): CheckResult {
             .takeIf { rules.none(GL_DNS_DROP::matches) },
     )
     return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/** The SIM's data interfaces, as development.md names them. */
+private val SIM_INTERFACE = Regex("rmnet_data[0-9]+")
+
+/**
+ * Whether, without Churn's rules, what the router sends itself would go over the SIM: the rule at priority 1 points to
+ * the empty table 16800, so it falls through to the main table, whose default route goes over the SIM's interface.
+ * Without a default route, such as in airplane mode, only the rule and the table count.
+ */
+private fun ownTrafficRoutes(router: Router): CheckResult {
+    if ("1: from all iif lo lookup 16800" !in spacedRules(router)) {
+        return CheckResult.Failed("ip rule show lists no rule at priority 1 to table 16800.")
+    }
+    if (router.routes("16800").isNotEmpty()) return CheckResult.Failed("Table 16800 has routes.")
+    val route = router.routes("main").firstOrNull { it.startsWith("default ") } ?: return CheckResult.Passed
+    val device = Regex(""" dev (\S+)""").find(route)?.groupValues?.get(1)
+    if (device?.matches(SIM_INTERFACE) == true) return CheckResult.Passed
+    return CheckResult.NotApplicable(R.string.reason_other_uplink)
 }
 
 /** Whether Churn's rules file, if it is there, names the user ID of GL's main DNS server, as [Router.firewallRules]. */

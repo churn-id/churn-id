@@ -271,6 +271,13 @@ class Router(private val shell: Shell) {
             .filter { uci("network.$it") == "interface" }
     }
 
+    /** The routes in the routing table [table], one per line as `ip route show` lists them; none for an empty table. */
+    fun routes(table: String): List<String> {
+        require(table.matches(Regex("[a-z0-9]+")))
+        // For an empty table, ip says "Dump terminated" and exits with 2.
+        return run("ip route show table $table").text.lines().filter { it.isNotBlank() && it != "Dump terminated" }
+    }
+
     /** The network device [name] as `ip link show` lists it; null if there is no such one. */
     fun link(name: String): String? {
         require(name.matches(Regex("[A-Za-z0-9_.-]+")))

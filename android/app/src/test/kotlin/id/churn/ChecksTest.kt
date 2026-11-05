@@ -440,6 +440,35 @@ class ChecksTest {
     }
 
     @Test
+    fun ownTrafficCheckPassesOnlineOverTheSim() {
+        assertEquals(CheckResult.Passed, run("D5"))
+    }
+
+    @Test
+    fun ownTrafficCheckPassesInAirplaneMode() {
+        fake.airplaneMode = true
+        assertEquals(CheckResult.Passed, run("D5"))
+    }
+
+    @Test
+    fun ownTrafficCheckFailsWithoutTheRuleAtPriority1() {
+        fake.answers["ip rule show"] = RULES.lines().filterNot { it.startsWith("1:") }.joinToString("\n")
+        assertEquals(CheckResult.Failed("ip rule show lists no rule at priority 1 to table 16800."), run("D5"))
+    }
+
+    @Test
+    fun ownTrafficCheckFailsWithRoutesInTable16800() {
+        fake.answers["ip route show table 16800"] = "default dev wgclient1 scope link\n"
+        assertEquals(CheckResult.Failed("Table 16800 has routes."), run("D5"))
+    }
+
+    @Test
+    fun ownTrafficCheckDoesNotApplyOverAnotherUplink() {
+        fake.answers["ip route show table main"] = "default via 192.168.1.1 dev eth0 proto static metric 3\n"
+        assertEquals(CheckResult.NotApplicable(R.string.reason_other_uplink), run("D5"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

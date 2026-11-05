@@ -259,6 +259,9 @@ class FakeRouter : Shell {
             return ok("")
         }
         if (command == "ip rule show") return ok(ipRules())
+        // As our Mudi 7 listed them, with other addresses on the cellular network.
+        if (command == "ip route show table 16800") return Output(2, ByteArray(0), "Dump terminated\n")
+        if (command == "ip route show table main") return ok(mainRoutes())
         Regex("""ifstatus (\w+)""").matchEntire(command)?.let { return interfaceStatus(it.groupValues[1]) }
         // As our Mudi 7 showed it, with another hardware address.
         if (command == "ip link show ecm0") {
@@ -521,6 +524,20 @@ class FakeRouter : Shell {
             append("9000:\tnot from all fwmark 0/0xf000 lookup main\n")
         }
         append("32766:\tfrom all lookup main\n32767:\tfrom all lookup default\n")
+    }
+
+    /**
+     * The main routing table as our Mudi 7 listed it while online over the SIM, with other addresses. In airplane
+     * mode the cellular interface is down, and its routes are gone (inferred).
+     */
+    private fun mainRoutes(): String {
+        val sim = "default via 10.0.0.1 dev rmnet_data0 proto static src 10.0.0.2 metric 1 mtu 1500\n" +
+            "8.8.4.4 dev rmnet_data0 proto static scope link metric 1\n" +
+            "8.8.8.8 dev rmnet_data0 proto static scope link metric 1\n" +
+            "10.0.0.0/30 dev rmnet_data0 proto kernel scope link src 10.0.0.2\n"
+        val lan = "169.254.21.0/24 dev ecm0 proto kernel scope link src 169.254.21.1\n" +
+            "192.168.8.0/24 dev br-lan proto kernel scope link src 192.168.8.1\n"
+        return if (airplaneMode) lan else sim + lan
     }
 
     /** `ifstatus` of the network interface [name], shortened, as OpenWrt's netifd gives it. */
