@@ -76,6 +76,11 @@ val CHECKS = listOf(
     Check("E2", blocks = false, title = R.string.check_iccid_padding) { router, _ -> iccidPadding(router) },
     Check("E3", blocks = false, title = R.string.check_esim_placeholder) { router, _ -> esimPlaceholder(router) },
     Check("E5", blocks = false, title = R.string.check_esim_manager) { router, _ -> esimManagerBlocked(router) },
+    Check("B6", blocks = true, title = R.string.check_boot_id) { router, _ ->
+        // An ID other than a UUID fails it.
+        router.bootId()
+        CheckResult.Passed
+    },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
 

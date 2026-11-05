@@ -782,6 +782,17 @@ class ChecksTest {
     }
 
     @Test
+    fun bootIdCheckPassesWithAUuid() {
+        assertEquals(CheckResult.Passed, run("B6"))
+    }
+
+    @Test
+    fun bootIdCheckFailsWithoutAUuid() {
+        fake.bootId = "0"
+        assertEquals(CheckResult.Failed("Unexpected answer: /proc/sys/kernel/random/boot_id"), run("B6"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2

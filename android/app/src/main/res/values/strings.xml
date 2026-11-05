@@ -162,6 +162,7 @@
     <string name="check_iccid_padding">Slot 2\'s card gives a 19-digit ICCID with a trailing F</string>
     <string name="check_esim_placeholder">With no profile enabled, the built-in eSIM shows the placeholder ICCID and a test network\'s IMSI</string>
     <string name="check_esim_manager">GL\'s eSIM manager listens on port 3456, and GL\'s firewall keeps devices from reaching it</string>
+    <string name="check_boot_id">The router has an ID for its current run, by which Churn tells that it was switched off and on</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>
     <string name="reason_not_set_up">Churn hasn\'t set up this router yet.</string>
     <string name="reason_starting">The router started less than 2 minutes ago, so the radio may still be on.</string>
