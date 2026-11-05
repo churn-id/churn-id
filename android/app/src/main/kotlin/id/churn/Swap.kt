@@ -274,23 +274,23 @@ class Swap(
         }
     }
 
-    private companion object {
-        const val RADIO_OFF = 4
-        const val POLL_MILLISECONDS = 2_000L
-        const val RADIO_TIMEOUT_SECONDS = 30
-        const val SWITCH_TIMEOUT_SECONDS = 30
-        const val CARD_TIMEOUT_SECONDS = 60
+    companion object {
+        private const val RADIO_OFF = 4
+        private const val POLL_MILLISECONDS = 2_000L
+        private const val RADIO_TIMEOUT_SECONDS = 30
+        private const val SWITCH_TIMEOUT_SECONDS = 30
+        private const val CARD_TIMEOUT_SECONDS = 60
 
         /** For the placeholder after a disable request, which showed 5 s after the answer in our recordings. */
-        const val PROFILE_TIMEOUT_SECONDS = 30
+        private const val PROFILE_TIMEOUT_SECONDS = 30
 
         /**
          * Disable requests sent before step 1 stops; problem_profile_still_enabled says how many. Each comes at least
          * 35 s after the last, later than GL's eSIM manager reused its channel to the chip in our recordings
          * (development.md, "Disabling the enabled profile"). Our guess, not a measurement.
          */
-        const val PROFILE_REQUESTS = 3
-        const val BOOT_TIMEOUT_SECONDS = 600
+        private const val PROFILE_REQUESTS = 3
+        private const val BOOT_TIMEOUT_SECONDS = 600
 
         /** About twice the latest end of the radio-on window we measured after power-on, 58 s. */
         const val SETTLED_UPTIME_SECONDS = 120.0

@@ -184,6 +184,39 @@ class ChecksTest {
     }
 
     @Test
+    fun airplaneModeCheckPassesWithAirplaneModeOff() {
+        assertEquals(CheckResult.Passed, run("U1"))
+    }
+
+    @Test
+    fun airplaneModeCheckPassesWithTheRadioOff() {
+        fake.airplaneMode = true
+        assertEquals(CheckResult.Passed, run("U1"))
+    }
+
+    @Test
+    fun airplaneModeCheckFailsWithTheRadioOn() {
+        fake.airplaneMode = true
+        fake.radioStuckOn = true
+        assertEquals(CheckResult.Failed("Airplane mode is on, but AT+CFUN? answers 1."), run("U1"))
+    }
+
+    @Test
+    fun airplaneModeCheckDoesNotApplyWhileTheRouterStarts() {
+        fake.airplaneMode = true
+        fake.boot()
+        // Past the radio-on window after power-on that we measured, but not yet past the swap's wait.
+        fake.clock += 90_000
+        assertEquals(CheckResult.NotApplicable(R.string.reason_starting), run("U1"))
+    }
+
+    @Test
+    fun airplaneModeCheckFailsAtAnotherValue() {
+        fake.uciAnswers[Router.AIRPLANE_MODE] = "2"
+        assertEquals(CheckResult.Failed("The setting is \"2\"."), run("U1"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

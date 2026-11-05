@@ -31,6 +31,12 @@ class FakeRouter : Shell {
      */
     val atAnswers = mutableMapOf<String, String>()
 
+    /**
+     * uci settings that replace the router's own, or remove them for null, such as another GL firmware might hold.
+     * Only the router checks' tests use them.
+     */
+    val uciAnswers = mutableMapOf<String, String?>()
+
     /** Milliseconds, advanced by the tests' sleep. */
     var clock = 0L
 
@@ -402,7 +408,9 @@ class FakeRouter : Shell {
         return ok("{\n\t\"ok\": true,\n\t\"changed\": true\n}\n")
     }
 
-    private fun uciGet(key: String): Output = when (key) {
+    private fun uciGet(key: String): Output = if (key in uciAnswers) {
+        uciAnswers[key]?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
+    } else when (key) {
         "glconfig.general.airplane_mode" -> ok(if (airplaneMode) "1\n" else "0\n")
         "gl_timer.reboot.enable" -> ok(if (scheduledReboot) "1\n" else "0\n")
         "network.modem_cpu.dds_id" -> ok("$activeSlot\n")

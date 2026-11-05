@@ -98,10 +98,10 @@ class ChurnFolder(val factory: ImeiPair?, val card: Card?) {
  */
 class Router(private val shell: Shell) {
 
-    fun airplaneMode() = uci("glconfig.general.airplane_mode") == "1"
+    fun airplaneMode() = uci(AIRPLANE_MODE) == "1"
 
     /** Turns airplane mode [on] or off, also for later power-ons, and reads the setting back. */
-    fun setAirplaneMode(on: Boolean) = uciSet("glconfig.general.airplane_mode", if (on) "1" else "0")
+    fun setAirplaneMode(on: Boolean) = uciSet(AIRPLANE_MODE, if (on) "1" else "0")
 
     /** The modem's radio state, `+CFUN:`: 1 on, 4 off. */
     fun radio() = at("AT+CFUN?").after("+CFUN:")?.toIntOrNull() ?: throw unexpected("AT+CFUN?")
@@ -523,6 +523,9 @@ class Router(private val shell: Shell) {
         if (!ok) throw unexpected("set_feature_config", output)
     }
 
+    /** The uci setting [key] as it is, for the router checks; null if it isn't set. */
+    fun setting(key: String) = uci(key)
+
     private fun uci(key: String): String? {
         val output = run("uci -q get ${quote(key)}")
         return if (output.status == 0) output.text.trim() else null
@@ -580,6 +583,9 @@ class Router(private val shell: Shell) {
 
         /** Churn's folder on the router. */
         const val CHURN = "/etc/churn"
+
+        /** GL's airplane mode, `1` on and `0` off. */
+        const val AIRPLANE_MODE = "glconfig.general.airplane_mode"
 
         private val IMEI = Regex("[0-9]{15}")
         private val VERSION = Regex("[0-9A-Za-z][0-9A-Za-z.+_-]{0,39}")

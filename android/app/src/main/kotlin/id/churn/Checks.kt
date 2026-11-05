@@ -50,6 +50,7 @@ val CHECKS = listOf(
     },
     Check("M4", blocks = false, title = R.string.check_slot2_subscription) { router, _ -> slot2Subscription(router) },
     Check("M5", blocks = false, title = R.string.check_modem_settings) { router, _ -> modemSettingsSearched(router) },
+    Check("U1", blocks = true, title = R.string.check_airplane_mode) { router, _ -> airplaneModeKept(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -145,6 +146,27 @@ private fun modemSettingsSearched(router: Router): CheckResult {
     )
     return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
 }
+
+/**
+ * Whether GL's airplane mode setting is `0` or `1`, and with `1` the radio is off once the router has started, that is
+ * once the radio is on for no more than the minute or so after power-on.
+ */
+private fun airplaneModeKept(router: Router): CheckResult {
+    val setting = router.setting(Router.AIRPLANE_MODE)
+    return when {
+        setting == "0" -> CheckResult.Passed
+        setting != "1" -> settingFailed(setting)
+        router.uptimeSeconds() < Swap.SETTLED_UPTIME_SECONDS -> CheckResult.NotApplicable(R.string.reason_starting)
+        else -> when (val radio = router.radio()) {
+            4 -> CheckResult.Passed
+            else -> CheckResult.Failed("Airplane mode is on, but AT+CFUN? answers $radio.")
+        }
+    }
+}
+
+/** A failed check of a uci setting that holds [value], or that isn't set. */
+private fun settingFailed(value: String?) =
+    CheckResult.Failed(if (value == null) "The setting is missing." else "The setting is \"${value.take(20)}\".")
 
 /** Whether GL's firewall has loaded Churn's rules file, if it is there. */
 private fun firewallLoaded(router: Router) = when {
