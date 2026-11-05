@@ -74,6 +74,7 @@ val CHECKS = listOf(
     Check("S1", blocks = true, title = R.string.check_location_id) { router, _ -> locationId(router) },
     Check("E1", blocks = true, title = R.string.check_esim_answers) { router, _ -> esimAnswers(router) },
     Check("E2", blocks = false, title = R.string.check_iccid_padding) { router, _ -> iccidPadding(router) },
+    Check("E3", blocks = false, title = R.string.check_esim_placeholder) { router, _ -> esimPlaceholder(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
 
@@ -456,6 +457,27 @@ private fun iccidPadding(router: Router): CheckResult {
     if (iccid.trimEnd('F', 'f').length != 19) return CheckResult.NotApplicable(R.string.reason_no_19_digit_iccid)
     if (iccid.length == 20) return CheckResult.Passed
     return CheckResult.Failed("Slot 2's card gave its 19-digit ICCID without a trailing F.")
+}
+
+/**
+ * Whether the built-in eSIM shows the placeholder ICCID together with a test network's IMSI, by which step 1 tells that
+ * no profile is enabled, and neither of them with another one.
+ */
+private fun esimPlaceholder(router: Router): CheckResult {
+    if (router.slot2() != Slot2.ESIM) return CheckResult.NotApplicable(R.string.reason_slot2_on_tray)
+    val iccid = router.slot2Iccid()
+    val imsi = router.slot2Imsi()
+    if (iccid == null || imsi == null) return CheckResult.NotApplicable(R.string.reason_no_slot2_card)
+    val placeholder = iccid == Router.PLACEHOLDER_ICCID
+    val testNetwork = imsi.startsWith(Router.TEST_NETWORK)
+    return when {
+        placeholder && testNetwork -> CheckResult.Passed
+        placeholder -> CheckResult.Failed("The placeholder ICCID came with an IMSI outside the test network 001/01.")
+        testNetwork -> CheckResult.Failed(
+            "An IMSI of the test network 001/01 came with another ICCID than the placeholder.",
+        )
+        else -> CheckResult.NotApplicable(R.string.reason_profile_enabled)
+    }
 }
 
 /**

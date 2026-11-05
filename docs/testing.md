@@ -193,7 +193,7 @@ From development.md, "eSIM profiles", and design.md, section 6.
 | --- | --- | --- | --- | --- |
 | E1 | Slot 2's card answers `AT+ICCID` and `AT+CIMI` through `ubus call modem.CPU.AT get_result_AT` with `sub_id` 2 | verified for the eSIM | Both answer while slot 2 is on the eSIM | 1, blocks |
 | E2 | A 19-digit ICCID comes with a trailing `F` | verified | The answer's format | 1 |
-| E3 | With no profile enabled, slot 2 shows the placeholder ICCID `89000123456789012341` and a 001/01 IMSI | verified | Read both after step 1 | 1 |
+| E3 | With no profile enabled, slot 2 shows the placeholder ICCID `89000123456789012341` and a 001/01 IMSI | verified | Read both while slot 2 is on the eSIM, as after step 1; neither comes with another | 1 |
 | E4 | The chip answers only while slot 2 is set to the eSIM | inferred | With slot 2 on the empty tray, the placeholder doesn't show | 2 |
 | E5 | GL's eSIM manager listens on port 3456, and its firewall rule `block_lpa_port` keeps devices from reaching it, which would otherwise let them change profiles without a login | verified | The listening port and the rule | 1 |
 | E6 | Posting `disable` to GL's eSIM manager from the router's shell disables the enabled profile without a login, answers `code` 200, and the placeholder shows within about 5 s, with airplane mode and `+CFUN: 4` holding | verified | Enable GL's pre-installed profile in airplane mode, then run step 1. Tier 4, because a power-on with a profile enabled registers wherever it happens | 4 |

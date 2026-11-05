@@ -160,6 +160,7 @@
     <string name="check_location_id">GL\'s modem settings have exactly one location_id, which Churn\'s slot switches name</string>
     <string name="check_esim_answers">On the built-in eSIM, slot 2\'s card gives its ICCID and IMSI the way Churn reads them</string>
     <string name="check_iccid_padding">Slot 2\'s card gives a 19-digit ICCID with a trailing F</string>
+    <string name="check_esim_placeholder">With no profile enabled, the built-in eSIM shows the placeholder ICCID and a test network\'s IMSI</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>
     <string name="reason_not_set_up">Churn hasn\'t set up this router yet.</string>
     <string name="reason_starting">The router started less than 2 minutes ago, so the radio may still be on.</string>
@@ -174,6 +175,7 @@
     <string name="reason_slot2_on_tray">Slot 2 is on the SIM 2 tray, not the built-in eSIM.</string>
     <string name="reason_no_slot2_card">No card answers in slot 2.</string>
     <string name="reason_no_19_digit_iccid">Slot 2\'s card has no 19-digit ICCID.</string>
+    <string name="reason_profile_enabled">A profile is enabled on the built-in eSIM.</string>
     <string name="reason_record_not_in_slot2">The card Churn recorded doesn\'t answer in slot 2.</string>
 
     <!-- The swap -->

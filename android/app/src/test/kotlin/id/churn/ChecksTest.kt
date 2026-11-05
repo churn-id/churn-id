@@ -697,6 +697,53 @@ class ChecksTest {
     }
 
     @Test
+    fun placeholderCheckPassesWithNoProfileEnabled() {
+        fake.slot2 = Slot2.ESIM
+        fake.esimProfile = null
+        assertEquals(CheckResult.Passed, run("E3"))
+    }
+
+    @Test
+    fun placeholderCheckFailsAtAnotherNetworksImsi() {
+        fake.slot2 = Slot2.ESIM
+        fake.esimProfile = null
+        fake.answers[cardCommand("AT+CIMI")] = cardAnswer("\r\n260010000000001\r\n\r\nOK\r\n")
+        assertEquals(
+            CheckResult.Failed("The placeholder ICCID came with an IMSI outside the test network 001/01."),
+            run("E3"),
+        )
+    }
+
+    @Test
+    fun placeholderCheckFailsAtAnotherPlaceholder() {
+        fake.slot2 = Slot2.ESIM
+        fake.esimProfile = null
+        fake.answers[cardCommand("AT+ICCID")] = cardAnswer("\r\n+ICCID: 89000123456789012358\r\n\r\nOK\r\n")
+        assertEquals(
+            CheckResult.Failed("An IMSI of the test network 001/01 came with another ICCID than the placeholder."),
+            run("E3"),
+        )
+    }
+
+    @Test
+    fun placeholderCheckDoesNotApplyWithAProfileEnabled() {
+        fake.slot2 = Slot2.ESIM
+        assertEquals(CheckResult.NotApplicable(R.string.reason_profile_enabled), run("E3"))
+    }
+
+    @Test
+    fun placeholderCheckDoesNotApplyWhileTheChipDoesNotAnswer() {
+        fake.slot2 = Slot2.ESIM
+        fake.answers[cardCommand("AT+ICCID")] = cardAnswer("\r\n+CME ERROR: 10\r\n")
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_slot2_card), run("E3"))
+    }
+
+    @Test
+    fun placeholderCheckDoesNotApplyOnTheTray() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_slot2_on_tray), run("E3"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2
