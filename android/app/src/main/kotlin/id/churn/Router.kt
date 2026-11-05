@@ -390,6 +390,14 @@ class Router(private val shell: Shell) {
     /** Whether GL's system log to the flash is off, so no new SIM details are written to the flash. */
     fun flashLogOff() = uci(LOG_FILE) == null
 
+    /** The command lines of the `logread -f` processes, such as the one that writes GL's system log to its file. */
+    fun logFollowers(): List<String> {
+        val output = run(LOG_FOLLOWERS)
+        // grep exits with 1 when no process matches.
+        if (output.status != 0 && output.status != 1) throw unexpected("logread", output)
+        return output.text.lines().filter(String::isNotBlank)
+    }
+
     /**
      * Removes the record GL keeps of past SIMs on the flash: it turns GL's system log to the flash off (saving the
      * original setting first, so [restoreFactoryImeis] can put it back), deletes the log files, keeps only the card
@@ -727,6 +735,10 @@ class Router(private val shell: Shell) {
             done 2>/dev/null | sort -u
         """.trimIndent()
 
+        /** The command line of each `logread -f` process, its arguments separated by spaces. */
+        private const val LOG_FOLLOWERS = "for c in /proc/[0-9]*/cmdline; do tr '\\000' ' ' < \$c; echo; done " +
+            "2>/dev/null | grep -E '^[^ ]*logread .*-f'"
+
         /** GL's two settings of the Enhanced Kill Switch: `0`, and absent, while it is on. */
         const val DEFAULT_POLICY = "route_policy.@default[0].enabled"
         const val VPN_TO_MAIN = "network.vpn_to_main"
@@ -735,7 +747,7 @@ class Router(private val shell: Shell) {
         private const val ESIM_API = "http://127.0.0.1:3456/sdk/v1"
 
         /** GL's uci setting that names the flash file its system log is written to. */
-        private const val LOG_FILE = "system.@system[0].log_file"
+        const val LOG_FILE = "system.@system[0].log_file"
 
         /** GL's uci value for the ICCID of the active card. */
         const val MODEM_ICCID = "network.modem_cpu.iccid"

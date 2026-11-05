@@ -78,6 +78,9 @@ class FakeRouter : Shell {
     /** GL's uci setting naming the flash file its system log goes to; null once the app turns the log off. */
     var logFile: String? = "/etc/sys_log"
 
+    /** For a log service that doesn't start the `logread` that writes [logFile]. */
+    var logreadMissing = false
+
     /** The ICCID GL recorded for the active card (`network.modem_cpu.iccid`), as GL stores it, or null for none. */
     var modemCpuIccid: String? = "8941000000000000015F"
 
@@ -352,6 +355,12 @@ class FakeRouter : Shell {
             logFile = null
             return ok("")
         }
+        if (LOG_FOLLOWERS.matches(command)) {
+            // As OpenWrt's log service starts it (inferred).
+            val logread = logFile?.takeIf { !logreadMissing }
+                ?.let { "/sbin/logread -f -F $it -p /var/run/logread.0.pid" }
+            return Output(if (logread == null) 1 else 0, (logread?.let { "$it\n" } ?: "").toByteArray(), "")
+        }
         if (command == "/etc/init.d/log reload") {
             if (radioOnAtReload) radioStuckOn = true
             return ok("")
@@ -609,6 +618,8 @@ class FakeRouter : Shell {
         /** How [Router.dnsServers] reads what listens on the DNS servers' ports. */
         private val DNS_SERVERS =
             Regex("""netstat -lnup \| while .* udp\*:53 \| udp\*:2153\) .* \| sort -u""", RegexOption.DOT_MATCHES_ALL)
+        /** How [Router.logFollowers] lists the `logread -f` processes. */
+        private val LOG_FOLLOWERS = Regex("""for c in /proc/\[0-9]\*/cmdline; .* \| grep -E '\^\[\^ ]\*logread .*""")
         private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "curl")
         private const val FIREWALL_LOADED = "nft list chain inet fw4 churn_sim >/dev/null && " +
             "nft list chain inet fw4 churn_route >/dev/null && nft list chain inet fw4 churn_dns >/dev/null"

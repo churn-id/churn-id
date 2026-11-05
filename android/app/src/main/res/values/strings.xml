@@ -164,6 +164,7 @@
     <string name="check_esim_manager">GL\'s eSIM manager listens on port 3456, and GL\'s firewall keeps devices from reaching it</string>
     <string name="check_boot_id">The router has an ID for its current run, by which Churn tells that it was switched off and on</string>
     <string name="check_test_profile">With no profile enabled, the built-in eSIM shows GSMA TS.48\'s generic test profile</string>
+    <string name="check_flash_log">GL writes its system log to the file its setting names, while it has one</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>
     <string name="reason_not_set_up">Churn hasn\'t set up this router yet.</string>
     <string name="reason_starting">The router started less than 2 minutes ago, so the radio may still be on.</string>
@@ -173,6 +174,7 @@
     <string name="reason_other_uplink">The router is online over another uplink than the SIM.</string>
     <string name="reason_no_tunnel_up">No WireGuard tunnel is up.</string>
     <string name="reason_no_firewall">Churn\'s firewall rules aren\'t on the router.</string>
+    <string name="reason_flash_log_off">GL\'s system log stays in RAM, as Churn sets it.</string>
     <string name="reason_no_record">No swap has recorded a card on this router yet.</string>
     <string name="reason_slot2_on_esim">Slot 2 is on the built-in eSIM, so the card in the SIM 2 tray is off.</string>
     <string name="reason_slot2_on_tray">Slot 2 is on the SIM 2 tray, not the built-in eSIM.</string>

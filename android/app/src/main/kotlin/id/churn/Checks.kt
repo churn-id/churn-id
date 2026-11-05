@@ -82,6 +82,7 @@ val CHECKS = listOf(
         CheckResult.Passed
     },
     Check("B16", blocks = false, title = R.string.check_test_profile) { router, _ -> testProfile(router) },
+    Check("H1", blocks = false, title = R.string.check_flash_log) { router, _ -> flashLogWritten(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
 
@@ -532,6 +533,13 @@ private fun testProfile(router: Router): CheckResult {
     val imsi = router.slot2Imsi() ?: return CheckResult.NotApplicable(R.string.reason_no_slot2_card)
     if (imsi == Router.TEST_IMSI) return CheckResult.Passed
     return CheckResult.Failed("The placeholder ICCID came with another IMSI than TS.48's generic test profile's.")
+}
+
+/** Whether GL's system log goes to the file that `log_file` names, through a `logread -f -F` that writes it. */
+private fun flashLogWritten(router: Router): CheckResult {
+    val file = router.setting(Router.LOG_FILE) ?: return CheckResult.NotApplicable(R.string.reason_flash_log_off)
+    val writes = router.logFollowers().any { line -> "-F" to file in line.split(' ').zipWithNext() }
+    return if (writes) CheckResult.Passed else CheckResult.Failed("No logread -f -F writes ${file.take(60)}.")
 }
 
 /**

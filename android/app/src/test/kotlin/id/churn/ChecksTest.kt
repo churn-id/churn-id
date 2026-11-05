@@ -829,6 +829,23 @@ class ChecksTest {
     }
 
     @Test
+    fun flashLogCheckPassesWhileLogreadWritesTheFile() {
+        assertEquals(CheckResult.Passed, run("H1"))
+    }
+
+    @Test
+    fun flashLogCheckFailsWithoutLogread() {
+        fake.logreadMissing = true
+        assertEquals(CheckResult.Failed("No logread -f -F writes /etc/sys_log."), run("H1"))
+    }
+
+    @Test
+    fun flashLogCheckDoesNotApplyWithTheLogInRam() {
+        fake.logFile = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_flash_log_off), run("H1"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2
