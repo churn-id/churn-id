@@ -42,6 +42,7 @@ val CHECKS = listOf(
     Check("P2", blocks = true, title = R.string.check_commands) { router, _ -> commandsFound(router, CHURN_COMMANDS) },
     Check("P3", blocks = false, title = R.string.check_md5sum) { router, _ -> commandsFound(router, listOf("md5sum")) },
     Check("P4", "M1", blocks = true, title = R.string.check_radio_answer) { router, _ -> radioAnswered(router) },
+    Check("M2", blocks = true, title = R.string.check_imeis_read, confirm = ::imeisRead),
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -69,6 +70,21 @@ private fun commandsFound(router: Router, names: List<String>): CheckResult {
 private fun radioAnswered(router: Router) = when (val radio = router.radio()) {
     1, 4 -> CheckResult.Passed
     else -> CheckResult.Failed("AT+CFUN? answers $radio.")
+}
+
+/** Whether the modem reads both IMEIs as valid ones with the TACs of the factory IMEIs that setup recorded. */
+private fun imeisRead(router: Router, folder: ChurnFolder): CheckResult {
+    val factory = folder.factory ?: return CheckResult.NotApplicable(R.string.reason_not_set_up)
+    val imeis = router.imeis()
+    val problems = listOf(imeis.imei1 to factory.imei1, imeis.imei2 to factory.imei2).mapIndexedNotNull { i, pair ->
+        val (imei, original) = pair
+        when {
+            !Imei.isValid(imei) -> "IMEI ${i + 1} has a wrong check digit."
+            Imei.tac(imei) != Imei.tac(original) -> "IMEI ${i + 1} has another TAC than the factory IMEI ${i + 1}."
+            else -> null
+        }
+    }
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
 }
 
 /** Whether GL's firewall has loaded Churn's rules file, if it is there. */

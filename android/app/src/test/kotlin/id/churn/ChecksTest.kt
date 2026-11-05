@@ -106,6 +106,35 @@ class ChecksTest {
     }
 
     @Test
+    fun imeiReadCheckPassesWithTheFactoryImeis() {
+        assertEquals(CheckResult.Passed, run("M2", SET_UP))
+    }
+
+    @Test
+    fun imeiReadCheckPassesWithACardsPair() {
+        fake.imei1 = CARD_IMEIS.imei1
+        fake.imei2 = CARD_IMEIS.imei2
+        assertEquals(CheckResult.Passed, run("M2", SWAPPED))
+    }
+
+    @Test
+    fun imeiReadCheckFailsAtAWrongCheckDigit() {
+        fake.imei2 = "356090215000078"
+        assertEquals(CheckResult.Failed("IMEI 2 has a wrong check digit."), run("M2", SET_UP))
+    }
+
+    @Test
+    fun imeiReadCheckFailsAtAnotherTac() {
+        fake.imei1 = "350000001234562"
+        assertEquals(CheckResult.Failed("IMEI 1 has another TAC than the factory IMEI 1."), run("M2", SET_UP))
+    }
+
+    @Test
+    fun imeiReadCheckDoesNotApplyBeforeSetup() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_not_set_up), run("M2"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))
@@ -173,8 +202,7 @@ class ChecksTest {
 
     @Test
     fun imeiCheckDoesNotApplyBeforeTheFirstSwap() {
-        val folder = ChurnFolder(FACTORY, card = null)
-        assertEquals(CheckResult.NotApplicable(R.string.reason_no_record), run("F5", folder))
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_record), run("F5", SET_UP))
     }
 
     @Test
@@ -198,6 +226,9 @@ class ChecksTest {
         /** The fake router's IMEIs, as setup records them. */
         val FACTORY = ImeiPair("356090215000002", "356090215000077")
         val CARD_IMEIS = ImeiPair("356090211234563", "356090211235313")
+
+        /** Churn's folder once setup has recorded the fake router's IMEIs. */
+        val SET_UP = ChurnFolder(FACTORY, card = null)
 
         /** Churn's folder once a swap has given the card in the fake router's tray [CARD_IMEIS]. */
         val SWAPPED = ChurnFolder(FACTORY, Card("8941000000000000015", CARD_IMEIS))

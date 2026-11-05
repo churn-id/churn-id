@@ -136,9 +136,11 @@
     <string name="check_commands">The firmware has the commands Churn runs: flock, curl, ubus, fw4 and nft</string>
     <string name="check_md5sum">The firmware has md5sum, which the debug log uses</string>
     <string name="check_radio_answer">The modem answers AT commands, and AT+CFUN? with the radio on or off</string>
+    <string name="check_imeis_read">The modem reads both IMEIs, each a valid one with the factory TAC</string>
     <string name="check_firewall_loaded">GL\'s firewall has loaded Churn\'s firewall rules</string>
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>
+    <string name="reason_not_set_up">Churn hasn\'t set up this router yet.</string>
     <string name="reason_no_firewall">Churn\'s firewall rules aren\'t on the router.</string>
     <string name="reason_no_record">No swap has recorded a card on this router yet.</string>
     <string name="reason_slot2_on_esim">Slot 2 is on the built-in eSIM, so the card in the SIM 2 tray is off.</string>
