@@ -586,15 +586,20 @@ class Router(private val shell: Shell) {
         null
     }
 
-    /** The modem's `location_id`: the key of `get_feature_config` whose entry holds `failover`. */
-    private fun locationId(): String {
+    /**
+     * The keys of `get_feature_config` whose entries hold `failover`. On our Mudi 7 that is only the modem's
+     * `location_id`, which the slot switches name.
+     */
+    fun failoverKeys(): List<String> {
         val output = run("ubus -t 30 call cellular.modem get_feature_config '{}'", timeoutSeconds = 40)
         val config = runCatching { JSONObject(output.text) }.getOrNull()
-        return config?.keys()?.asSequence()
-            ?.firstOrNull { config.optJSONObject(it)?.has("failover") == true }
-            ?.takeIf { it.matches(Regex("[A-Za-z0-9_]+")) }
             ?: throw unexpected("get_feature_config", output)
+        return config.keys().asSequence().filter { config.optJSONObject(it)?.has("failover") == true }.toList()
     }
+
+    /** The modem's `location_id`: the key of `get_feature_config` whose entry holds `failover`. */
+    private fun locationId() = failoverKeys().firstOrNull()?.takeIf { it.matches(LOCATION_ID) }
+        ?: throw unexpected("get_feature_config: no location_id")
 
     private fun setFeatureConfig(data: String) {
         val command = "ubus -t 30 call cellular.modem set_feature_config ${quote(data)}"
@@ -679,6 +684,9 @@ class Router(private val shell: Shell) {
 
         /** GL's scheduled reboot, `1` on and `0` off. */
         const val SCHEDULED_REBOOT = "gl_timer.reboot.enable"
+
+        /** The form of a `location_id` that the slot switches put into their requests. */
+        val LOCATION_ID = Regex("[A-Za-z0-9_]+")
 
         private val IMEI = Regex("[0-9]{15}")
         private val VERSION = Regex("[0-9A-Za-z][0-9A-Za-z.+_-]{0,39}")

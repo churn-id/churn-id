@@ -1,6 +1,7 @@
 package id.churn
 
 import java.io.File
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -609,6 +610,37 @@ class ChecksTest {
     }
 
     @Test
+    fun locationIdCheckPassesWithOneKeyHoldingFailover() {
+        assertEquals(CheckResult.Passed, run("S1"))
+    }
+
+    @Test
+    fun locationIdCheckFailsWithoutAKeyHoldingFailover() {
+        fake.answers[FEATURE_CONFIG_CALL] = FakeRouter.FEATURE_CONFIG.replace("\"failover\"", "\"fallback\"")
+        assertEquals(CheckResult.Failed("No key of get_feature_config holds failover."), run("S1"))
+    }
+
+    @Test
+    fun locationIdCheckFailsWithTwoKeysHoldingFailover() {
+        val config = JSONObject(FakeRouter.FEATURE_CONFIG)
+        config.put("bcpu_p0134_v2c7c", config.getJSONObject(FakeRouter.LOCATION_ID))
+        fake.answers[FEATURE_CONFIG_CALL] = config.toString()
+        assertEquals(
+            CheckResult.Failed("2 keys of get_feature_config hold failover: bcpu_p0133_v2c7c, bcpu_p0134_v2c7c."),
+            run("S1"),
+        )
+    }
+
+    @Test
+    fun locationIdCheckFailsAtAKeyTheSlotSwitchesCannotName() {
+        fake.answers[FEATURE_CONFIG_CALL] = FakeRouter.FEATURE_CONFIG.replace("\"bcpu_p0133_v2c7c\"", "\"bcpu p0133\"")
+        assertEquals(
+            CheckResult.Failed("The key that holds failover has characters other than letters, digits and _."),
+            run("S1"),
+        )
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2
@@ -648,6 +680,9 @@ class ChecksTest {
 
     private companion object {
         val NO_FOLDER = ChurnFolder(factory = null, card = null)
+
+        /** How the router reads GL's settings for the modem and its slots. */
+        const val FEATURE_CONFIG_CALL = "ubus -t 30 call cellular.modem get_feature_config '{}'"
 
         /** `ip rule show` as our Mudi 7 answered it with the Enhanced Kill Switch on and a WireGuard tunnel up. */
         val RULES = """

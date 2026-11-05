@@ -71,6 +71,7 @@ val CHECKS = listOf(
     Check("D9", blocks = false, title = R.string.check_wireguard_mark) { router, _ -> wireguardMark(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("D13", blocks = false, title = R.string.check_masquerading) { router, _ -> tunnelMasquerading(router) },
+    Check("S1", blocks = true, title = R.string.check_location_id) { router, _ -> locationId(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
 
@@ -419,6 +420,19 @@ private fun tunnelMasquerading(router: Router): CheckResult {
         }
     }
     return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/** Whether exactly one key of `get_feature_config` holds `failover`: the `location_id` that the slot switches name. */
+private fun locationId(router: Router): CheckResult {
+    val keys = router.failoverKeys().sorted()
+    return when {
+        keys.isEmpty() -> CheckResult.Failed("No key of get_feature_config holds failover.")
+        keys.size > 1 -> CheckResult.Failed(
+            "${keys.size} keys of get_feature_config hold failover: ${keys.joinToString(", ") { it.take(40) }}.",
+        )
+        keys[0].matches(Router.LOCATION_ID) -> CheckResult.Passed
+        else -> CheckResult.Failed("The key that holds failover has characters other than letters, digits and _.")
+    }
 }
 
 /**

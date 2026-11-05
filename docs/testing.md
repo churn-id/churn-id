@@ -179,7 +179,7 @@ From development.md, "Switching SIM slots", and design.md, section 6.
 
 | ID | Claim | Status | Check | Tier |
 | --- | --- | --- | --- | --- |
-| S1 | `get_feature_config` has exactly one key whose entry holds `failover`, the modem's `location_id` | verified | Read it | 1, blocks |
+| S1 | `get_feature_config` has exactly one key whose entry holds `failover`, the modem's `location_id` | verified | Exactly one key holds `failover`, with only letters, digits and `_`, which the app requires | 1, blocks |
 | S2 | `set_feature_config` sets slot 2 to the tray or the eSIM and makes slot 2 the active slot, answers `"ok": true`, and the new state shows at once in `AT+QSIMTYPE="slot2"` and `dds_id` | verified | Switch slot 2 to the tray, make it the active slot, and switch it back to the eSIM | 2 |
 | S3 | Both switches work in airplane mode, with the modem answering `+CFUN: 4` before and after | verified | `+CFUN: 4` after each switch | 2 |
 | S4 | Both switches emit nothing | verified | RF meter | 4 |
