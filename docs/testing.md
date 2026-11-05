@@ -80,7 +80,8 @@ From development.md, "Sending AT commands", and design.md, section 6.
 ## Phone and cable
 
 From development.md, "Connecting to the router", and design.md, sections 3
-and 7.
+and 7. The app's connection itself confirms C1 to C4 in tier 1, before any
+check runs, so they have no check of their own.
 
 | ID | Claim | Status | Check | Tier |
 | --- | --- | --- | --- | --- |
