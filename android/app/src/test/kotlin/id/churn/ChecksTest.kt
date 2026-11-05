@@ -88,6 +88,24 @@ class ChecksTest {
     }
 
     @Test
+    fun radioCheckPassesWithTheRadioOn() {
+        assertEquals(CheckResult.Passed, run("P4"))
+    }
+
+    @Test
+    fun radioCheckPassesWithTheRadioOff() {
+        fake.airplaneMode = true
+        assertEquals(CheckResult.Passed, run("M1"))
+    }
+
+    @Test
+    fun radioCheckFailsAtAnotherRadioState() {
+        // Minimum functionality, which Churn never sets.
+        fake.atAnswers["AT+CFUN?"] = "+CFUN: 0"
+        assertEquals(CheckResult.Failed("AT+CFUN? answers 0."), run("M1"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))

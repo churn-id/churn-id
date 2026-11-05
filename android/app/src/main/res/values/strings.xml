@@ -135,6 +135,7 @@
     <string name="check_platform">The router has the firmware and the modem we tested Churn with</string>
     <string name="check_commands">The firmware has the commands Churn runs: flock, curl, ubus, fw4 and nft</string>
     <string name="check_md5sum">The firmware has md5sum, which the debug log uses</string>
+    <string name="check_radio_answer">The modem answers AT commands, and AT+CFUN? with the radio on or off</string>
     <string name="check_firewall_loaded">GL\'s firewall has loaded Churn\'s firewall rules</string>
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>

@@ -25,6 +25,12 @@ class FakeRouter : Shell {
     /** Commands the firmware doesn't have. Our Mudi 7 has every one Churn runs. */
     val absentCommands = mutableSetOf<String>()
 
+    /**
+     * Answers to AT commands that replace the modem's own, such as another modem firmware might give, each without its
+     * final `OK`. Only the router checks' tests use them.
+     */
+    val atAnswers = mutableMapOf<String, String>()
+
     /** Milliseconds, advanced by the tests' sleep. */
     var clock = 0L
 
@@ -314,6 +320,7 @@ class FakeRouter : Shell {
 
     private fun at(command: String): Output {
         if (!modemAnswers) return Output(1, ByteArray(0), "modem not ready")
+        atAnswers[command]?.let { return atOk(it) }
         val imeiWrite = Regex("""AT\+EGMR=1,(7|11),"(\d{15})"""").matchEntire(command)
         return when {
             command == "ATI" -> atOk("Quectel\r\nRG650V-EU\r\nRevision: $modemRevision")
