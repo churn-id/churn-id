@@ -81,10 +81,10 @@ class Controller(private val context: Context) {
     private val answers = LinkedBlockingQueue<Answer>(1)
 
     // Used on the main thread only.
-    private val cableWatch = CableWatch(context, ::cableChanged)
+    private var cableWatch: CableWatch? = null
 
     /** The router's network on the cable, while the app watches for it; null if it isn't there. */
-    private var cable: Network? = null
+    private val cable get() = cableWatch?.network
 
     /** The router's network when the last job or step started. The app starts one by itself only once on each. */
     private var started: Network? = null
@@ -139,15 +139,16 @@ class Controller(private val context: Context) {
      * phone is locked: GrapheneOS lets no new USB connection through then, and Android lets an app in the background
      * start no foreground service, which a step needs.
      */
-    fun startWatching() = cableWatch.start()
+    fun startWatching() {
+        if (cableWatch == null) cableWatch = CableWatch.start(context, ::cableChanged)
+    }
 
     fun stopWatching() {
-        cableWatch.stop()
-        cable = null
+        cableWatch?.close()
+        cableWatch = null
     }
 
     private fun cableChanged(network: Network?) {
-        cable = network
         onCable?.invoke(network != null)
         if (network == null || network == started) return
         val current = screen

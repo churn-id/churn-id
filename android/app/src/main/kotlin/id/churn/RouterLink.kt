@@ -107,35 +107,48 @@ class RouterNetwork private constructor(
 }
 
 /**
- * Watches for the router's USB Ethernet network from [start] to [stop], and tells [onChange] on the main thread
+ * Watches for the router's USB Ethernet network from [start] until [close], and tells [onChange] on the main thread
  * whenever the network shows up, or goes with null. Android gives the network a new [Network] each time the cable goes
  * in or the router starts. Like [RouterNetwork], it requests the network rather than only listening for it: Android
  * may bring up an Ethernet network only while a request needs it.
  */
-class CableWatch(context: Context, private val onChange: (Network?) -> Unit) {
+class CableWatch private constructor(
+    private val connectivity: ConnectivityManager,
+    private val onChange: (Network?) -> Unit,
+) : Closeable {
 
-    private val connectivity = context.getSystemService(ConnectivityManager::class.java)
-    private var callback: ConnectivityManager.NetworkCallback? = null
+    /** The router's network, while it's there; null if it isn't. Main thread only. */
+    var network: Network? = null
+        private set
 
-    fun start() {
-        if (callback != null) return
-        val watching = object : ConnectivityManager.NetworkCallback() {
-            // A callback already on its way when the watch stopped is dropped.
-            override fun onAvailable(network: Network) {
-                if (callback === this) onChange(network)
-            }
+    private var closed = false
 
-            override fun onLost(network: Network) {
-                if (callback === this) onChange(null)
-            }
-        }
-        callback = watching
-        connectivity.requestNetwork(routerRequest(), watching, Handler(Looper.getMainLooper()))
+    private val callback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) = changed(network)
+
+        override fun onLost(network: Network) = changed(null)
     }
 
-    fun stop() {
-        callback?.let { connectivity.unregisterNetworkCallback(it) }
-        callback = null
+    private fun changed(network: Network?) {
+        // A callback already on its way when the watch closed is dropped.
+        if (closed) return
+        this.network = network
+        onChange(network)
+    }
+
+    override fun close() {
+        closed = true
+        connectivity.unregisterNetworkCallback(callback)
+    }
+
+    companion object {
+
+        /** Starts watching, on the main thread. */
+        fun start(context: Context, onChange: (Network?) -> Unit): CableWatch {
+            val watch = CableWatch(context.getSystemService(ConnectivityManager::class.java), onChange)
+            watch.connectivity.requestNetwork(routerRequest(), watch.callback, Handler(Looper.getMainLooper()))
+            return watch
+        }
     }
 }
 
