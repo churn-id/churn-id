@@ -185,7 +185,7 @@ From development.md, "eSIM profiles", and design.md, section 6.
 | The chip enables at most one profile at a time | inferred | Enable a second profile and check that the first one is disabled | 4 |
 | A card in the SIM 2 tray answers `AT+ICCID` and `AT+CIMI` like the eSIM | verified with an eSIM adapter card | Step 3 with a card in the tray | 4 |
 | A 9eSIM adapter card with no profile enabled shows the ICCID `89111111111111111111` and the IMSI `111111111111111` | verified | Read both with such a card in the tray and slot 2 on it | 4 |
-| Every 9eSIM adapter card shows that ICCID with no profile enabled | inferred | A second 9eSIM adapter card | 4 |
+| Other eSIM adapter cards with no profile enabled, other brands' included, also show an IMSI starting with 0 or 1. The app tells such a card by its IMSI alone, since adapter cards' placeholder ICCIDs can differ by brand | inferred | Read the IMSI of other adapter cards with no profile enabled, in the tray with slot 2 on them | 4 |
 | The router screen names such a card as an eSIM adapter card with no profile enabled, and step 3 stops at it as at an empty tray | inferred | The router screen with such a card in the tray and slot 2 on it, and step 3 with such a card | 4 |
 | No real network's country code starts with 0 or 1 | inferred | The ITU's list of country codes | – |
 | Deleting GL's pre-installed profile can't be undone without a factory reset, as blue-merle v2 reports | inferred | None: the app never deletes a profile | – |
