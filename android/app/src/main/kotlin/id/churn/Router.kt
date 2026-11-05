@@ -611,7 +611,7 @@ class Router(private val shell: Shell) {
         private const val LOG_FILE = "system.@system[0].log_file"
 
         /** GL's uci value for the ICCID of the active card. */
-        private const val MODEM_ICCID = "network.modem_cpu.iccid"
+        const val MODEM_ICCID = "network.modem_cpu.iccid"
 
         private const val SYS_LOG = "/etc/sys_log"
         private const val CELLULAR = "/etc/config/cellular"

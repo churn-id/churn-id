@@ -54,6 +54,7 @@ val CHECKS = listOf(
     Check("U4", blocks = true, title = R.string.check_scheduled_reboot) { router, _ ->
         settingIn(router.setting(Router.SCHEDULED_REBOOT), "0", "1")
     },
+    Check("U5", blocks = false, title = R.string.check_modem_iccid) { router, _ -> activeCardIccid(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
@@ -165,6 +166,14 @@ private fun airplaneModeKept(router: Router): CheckResult {
             else -> CheckResult.Failed("Airplane mode is on, but AT+CFUN? answers $radio.")
         }
     }
+}
+
+/** Whether GL records the active card by an ICCID, as the modem gives it, while it records one. */
+private fun activeCardIccid(router: Router): CheckResult {
+    val value = router.setting(Router.MODEM_ICCID) ?: return CheckResult.NotApplicable(R.string.reason_no_active_card)
+    if (Imei.iccidDigits(value) != null) return CheckResult.Passed
+    // Not the value itself, which may hold a card's number all the same.
+    return CheckResult.Failed("The setting holds ${value.length} characters that aren't an ICCID.")
 }
 
 /** Whether a uci setting holds one of [expected], given its [value], or null if it isn't set. */

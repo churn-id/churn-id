@@ -235,6 +235,23 @@ class ChecksTest {
     }
 
     @Test
+    fun activeCardCheckPassesWithAnIccid() {
+        assertEquals(CheckResult.Passed, run("U5"))
+    }
+
+    @Test
+    fun activeCardCheckDoesNotApplyWithoutAnActiveCard() {
+        fake.modemCpuIccid = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_active_card), run("U5"))
+    }
+
+    @Test
+    fun activeCardCheckFailsAtSomethingElse() {
+        fake.modemCpuIccid = "slot2"
+        assertEquals(CheckResult.Failed("The setting holds 5 characters that aren't an ICCID."), run("U5"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))
