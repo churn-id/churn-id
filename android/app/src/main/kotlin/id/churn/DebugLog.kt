@@ -223,12 +223,18 @@ class DebugLog(
         private val LONG_NUMBER = Regex("[0-9A-Fa-f]{12,}")
 
         /**
-         * Numbers that name no card, which the log shows: the ICCIDs, and the IMSIs, of the built-in eSIM and of a
-         * 9eSIM adapter card without an enabled profile.
+         * The numbers that name no card, and the names the log shows in their place: the ICCID and IMSI that the
+         * built-in eSIM shows without an enabled profile.
          */
-        private val NO_CARD = Router.PLACEHOLDERS + setOf("001010123456063", "111111111111111")
+        private val NO_CARD = mapOf(
+            Router.PLACEHOLDER_ICCID to "[built-in eSIM placeholder ICCID]",
+            "001010123456063" to "[built-in eSIM test IMSI]",
+        )
 
-        /** [text] without numbers of 12 digits or more, such as ICCIDs, IMSIs and IMEIs, but those that name no card. */
-        fun mask(text: String) = LONG_NUMBER.replace(text) { if (it.value in NO_CARD) it.value else "…" }
+        /**
+         * [text] without numbers of 12 digits or more, such as ICCIDs, IMSIs and IMEIs. Those that name no card show
+         * by name.
+         */
+        fun mask(text: String) = LONG_NUMBER.replace(text) { NO_CARD[it.value] ?: "…" }
     }
 }

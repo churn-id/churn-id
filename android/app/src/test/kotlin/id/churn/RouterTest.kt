@@ -60,8 +60,8 @@ class RouterTest {
         assertEquals(Slot2Card.NoProfile, router.slot2Card())
         fake.trayCard = FakeRouter.Card("89000123456789000001", "111111111111111")
         assertEquals(Slot2Card.NoProfile, router.slot2Card())
-        // A 9eSIM adapter card without one: its placeholder ICCID, whatever the IMSI.
-        fake.trayCard = FakeRouter.Card("89111111111111111111", "228010000000002")
+        // A 9eSIM adapter card without one, which counts by its IMSI, not by its placeholder ICCID.
+        fake.trayCard = FakeRouter.Card("89111111111111111111", "111111111111111")
         assertEquals(Slot2Card.NoProfile, router.slot2Card())
         fake.trayCard = null
         assertNull(router.slot2Card())

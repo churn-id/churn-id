@@ -297,13 +297,15 @@ card with no profile enabled showed the placeholder ICCID
 `89111111111111111111` and the IMSI `111111111111111` (verified). Every
 such card probably shows the same ICCID, and other brands of adapter card
 may show placeholders of their own (inferred). Step 3 records a pair only
-for a card that shows neither placeholder ICCID and has a real network's
-IMSI, since a pair recorded for a placeholder would go to every card that
-shows it. No real network's country code starts with 0, which test
-networks such as 001/01 use, or 1, which no country has (inferred from
-published lists of country codes), so an IMSI starting with either digit
-counts as no real network's. That also covers placeholders of other brands
-that use such an IMSI (inferred).
+for a card that has a real network's IMSI and doesn't show the built-in
+eSIM's placeholder ICCID, since a pair recorded for a placeholder would go
+to every card that shows it. No real network's country code starts with
+0, which test networks such as 001/01 use, or 1, which no country has
+(inferred from published lists of country codes), so an IMSI starting
+with either digit counts as no real network's. That covers the 9eSIM
+card's placeholder and those of other brands that use such an IMSI
+(inferred). The app relies on no adapter card's placeholder ICCID, which
+can differ by brand, only on the built-in eSIM's.
 
 ### Disabling the enabled profile
 
@@ -528,11 +530,13 @@ router's clock show only the size of their answer. A progress line starts
 with `✓`, a question with `?`, followed by the user's answer, and the
 reason a job or step stopped with `!`, followed by the exception and where
 in the app it was thrown. Every run of 12 or more hexadecimal digits shows
-as `…`, except the ICCIDs and IMSIs that cards without an enabled profile
-show (above), and the masking comes before the cuts, which could
-otherwise leave a part of a number. Before each section the app drops the
-oldest sections, keeping the last three swaps and at most 1,000,000
-characters.
+as `…`, and the masking comes before the cuts, which could otherwise leave
+a part of a number. The ICCID and IMSI that the built-in eSIM shows
+without an enabled profile (above) name no card, so they show as
+`[built-in eSIM placeholder ICCID]` and `[built-in eSIM test IMSI]`. Every
+other card's numbers show as `…`, an adapter card's placeholders
+included. Before each section the app drops the oldest sections, keeping
+the last three swaps and at most 1,000,000 characters.
 
 GL's eSIM manager writes its log to `/root/esim/log.txt`, not to the
 system log, and the clearing empties it (above). Once step 1 or 3 has
