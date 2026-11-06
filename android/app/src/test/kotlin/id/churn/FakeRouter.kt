@@ -37,6 +37,15 @@ class FakeRouter : Shell {
      */
     val uciAnswers = mutableMapOf<String, String?>()
 
+    /**
+     * Answers to commands that replace the router's own, such as another GL firmware might give. Only the router
+     * checks' tests use them.
+     */
+    val answers = mutableMapOf<String, String>()
+
+    /** Commands that fail, such as on a firmware without what they read. Only the router checks' tests use them. */
+    val failing = mutableSetOf<String>()
+
     /** Milliseconds, advanced by the tests' sleep. */
     var clock = 0L
 
@@ -105,12 +114,46 @@ class FakeRouter : Shell {
 
     /** The tunnel's type in GL's route policy. */
     var vpnType = "wireguard"
+
+    /** Whether the tunnel's interface is up, as while GL's VPN client has the tunnel connected. */
+    var tunnelUp = true
+
+    /** The mark the tunnel's WireGuard interface sends with, as `wg show` gives it. */
+    var wireguardMark = "0x8000"
+
+    /** The network device GL's cellular interface uses while it is up. */
+    var simDevice = "rmnet_data0"
+
+    /** The bridge the USB-C port's network device `ecm0` is in, or null for none. */
+    var usbBridge: String? = "br-lan"
     var poweredOff = false
     val files = mutableMapOf<String, ByteArray>()
     var sysupgrade = "/etc/config/\n/etc/profile"
 
     /** The user ID of GL's main DNS server, 453 on our Mudi 7. */
     var dnsmasqUid = 453
+
+    /**
+     * What listens on UDP ports 53 and 2153 as [Router.dnsServers] reads it: port, program, user ID and the file the
+     * program takes its servers from, as on our Mudi 7 with a WireGuard tunnel.
+     */
+    val dnsServers = mutableListOf(
+        "2153|dnsmasq|456|/tmp/resolv.conf.d/resolv.conf.wgclient1",
+        "53|dnsmasq|453|/tmp/resolv.conf.d/resolv.conf.auto",
+    )
+
+    /**
+     * The lines of GL's firewall rules that hold `redirect to :2153` or `lan_drop_leaked_dns`, as our Mudi 7 listed
+     * them with a WireGuard tunnel, without their indent: the redirect of devices' lookups marked for the tunnel, the
+     * drop of those sent past the router, and GL's redirects for its own processes.
+     */
+    val glDnsRules = mutableListOf(
+        "udp dport 53 meta mark & 0x0000f000 != 0x00008000 counter packets 0 bytes 0 drop " +
+            "comment \"!fw4: lan_drop_leaked_dns\"",
+        "meta l4proto udp meta mark & 0x0000f000 == 0x00001000 fib daddr type local redirect to :2153",
+        "tcp dport 53 meta mark & 0x0000f000 == 0x00001000 meta skuid 453 redirect to :2153",
+        "udp dport 53 meta mark & 0x0000f000 == 0x00001000 meta skgid 10000 redirect to :2153",
+    )
 
     /** For a firewall that can't load Churn's rules, such as a later fw4 or nftables that rejects one of them. */
     var fw4Rejects = false
@@ -197,6 +240,8 @@ class FakeRouter : Shell {
         commands += command
         val body = command.removePrefix(LOCK)
         if (body == command && MODEM.any { it in command }) unlocked += command
+        answers[body]?.let { return ok(it) }
+        if (body in failing) return Output(1, ByteArray(0), "")
         return answer(body, input)
     }
 
@@ -220,7 +265,28 @@ class FakeRouter : Shell {
             return ok("")
         }
         if (command == "ip rule show") return ok(ipRules())
+        // As our Mudi 7 listed them, with other addresses on the cellular network.
+        if (command == "ip route show table 16800") return Output(2, ByteArray(0), "Dump terminated\n")
+        if (command == "ip route show table main") return ok(mainRoutes())
+        if (command == "wg show all fwmark") {
+            return ok(vpnTunnel?.takeIf { tunnelUp }?.let { "$it\t$wireguardMark\n" } ?: "")
+        }
+        if (command == "ls /sys/class/net") {
+            return ok((NETWORK_DEVICES + listOfNotNull(vpnTunnel?.takeIf { tunnelUp })).joinToString("") { "$it\n" })
+        }
+        Regex("""ifstatus (\w+)""").matchEntire(command)?.let { return interfaceStatus(it.groupValues[1]) }
+        // As our Mudi 7 showed it, with another hardware address.
+        if (command == "ip link show ecm0") {
+            val master = usbBridge?.let { " master $it" } ?: ""
+            return ok(
+                "26: ecm0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast$master state UP mode DEFAULT " +
+                    "group default qlen 1000\n    link/ether 02:00:00:00:00:01 brd ff:ff:ff:ff:ff:ff\n",
+            )
+        }
         if (command == "uci -q show route_policy") return ok(routePolicy())
+        if (command == "uci -q show chrony") return ok(CHRONY)
+        if (command == "uci -q show firewall.block_lpa_port") return ok(LPA_RULE)
+        if (command == "netstat -lnt") return ok(TCP_PORTS)
         if (command == KILL_SWITCH_ON) {
             change("Enhanced Kill Switch")
             killSwitchSet = true
@@ -259,6 +325,8 @@ class FakeRouter : Shell {
             return Output(if (listed) 0 else 1, ByteArray(0), "")
         }
         if (command == "id -u dnsmasq") return ok("$dnsmasqUid\n")
+        if (command == "id -u dnsmasq_vpn") return ok("456\n")
+        if (DNS_SERVERS.matches(command)) return ok(dnsServers.joinToString("") { "$it\n" })
         Regex("""umask 022 && cat > (\S+)\.new && mv \S+ \S+""").matchEntire(command)?.let {
             files[it.groupValues[1]] = input!!
             return ok("")
@@ -267,6 +335,13 @@ class FakeRouter : Shell {
         if (command == "rm -f ${Router.FIREWALL} && fw4 reload") {
             files.remove(Router.FIREWALL)
             return fw4Reload()
+        }
+        if (command == "nft list ruleset | grep -F -e 'redirect to :2153' -e 'lan_drop_leaked_dns'") {
+            // Churn's own redirect, which holds no device's lookups, doesn't count.
+            val churns = "meta skuid $dnsmasqUid meta mark & 0x0000f000 == 0x00001000 meta l4proto { tcp, udp } " +
+                "th dport 53 counter packets 0 bytes 0 redirect to :2153"
+            val lines = glDnsRules + listOfNotNull(churns.takeIf { "churn_dns" in loadedChains })
+            return Output(if (lines.isEmpty()) 1 else 0, lines.joinToString("") { "$it\n" }.toByteArray(), "")
         }
         if (command == FIREWALL_LOADED) {
             val all = listOf("churn_sim", "churn_route", "churn_dns").all { it in loadedChains }
@@ -416,9 +491,14 @@ class FakeRouter : Shell {
         "network.modem_cpu.dds_id" -> ok("$activeSlot\n")
         "system.@system[0].log_file" -> logFile?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
         "network.modem_cpu.iccid" -> modemCpuIccid?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
+        "kmwan.modem_cpu.tracks" -> ok("ping,1.1.1.1 ping,8.8.8.8 ping,208.67.222.222 ping,208.67.220.220\n")
+        "route_policy.@default[0]" -> ok("default\n")
         "route_policy.@default[0].enabled" -> ok(if (killSwitchSet) "0\n" else "1\n")
         "network.vpn_to_main" -> if (killSwitchSet) Output(1, ByteArray(0), "") else ok("rule\n")
         "network.wgclient1" -> ok("interface\n")
+        // The tunnel's WireGuard peer and its IP Masquerading, as our Mudi 7 listed them.
+        "network.wgclient1.config" -> ok("peer_2010\n")
+        "wireguard.peer_2010.masq" -> ok("1\n")
         // Only for ignoresATunnelThatIsNotWireGuard: with the interface present, only the WireGuard check can reject
         // that tunnel.
         "network.ovpnclient1" -> ok("interface\n")
@@ -447,10 +527,49 @@ class FakeRouter : Shell {
         appendLine("route_policy.gl_process.via='wgclient1'")
     }
 
-    /** The rule at priority 9000 as our Mudi 7 printed it, among Linux's default rules. */
-    private fun ipRules() = "0:\tfrom all lookup local\n" +
-        (if (killSwitchInUse) "" else "9000:\tnot from all fwmark 0/0xf000 lookup main\n") +
-        "32766:\tfrom all lookup main\n32767:\tfrom all lookup default\n"
+    /**
+     * As our Mudi 7 listed them with the Enhanced Kill Switch on and a WireGuard tunnel up, or with the tunnel down,
+     * which drops the rule to its table 1001. With the switch off, GL adds the rule at priority 9000; that it drops
+     * the blackholes then is a guess.
+     */
+    private fun ipRules() = buildString {
+        append("0:\tfrom all lookup local\n1:\tfrom all iif lo lookup 16800\n")
+        append("800:\tfrom all lookup 9910 suppress_prefixlength 0\n")
+        if (vpnTunnel != null && tunnelUp) append("6000:\tfrom all fwmark 0x1000/0xf000 lookup 1001\n")
+        append("6000:\tfrom all fwmark 0x8000/0xf000 lookup main\n")
+        if (killSwitchInUse) {
+            append("9910:\tnot from all fwmark 0/0xf000 blackhole\n9920:\tfrom all iif br-lan blackhole\n")
+        } else {
+            append("9000:\tnot from all fwmark 0/0xf000 lookup main\n")
+        }
+        append("32766:\tfrom all lookup main\n32767:\tfrom all lookup default\n")
+    }
+
+    /**
+     * The main routing table as our Mudi 7 listed it while online over the SIM, with other addresses. In airplane
+     * mode the cellular interface is down, and its routes are gone (inferred).
+     */
+    private fun mainRoutes(): String {
+        val sim = "default via 10.0.0.1 dev rmnet_data0 proto static src 10.0.0.2 metric 1 mtu 1500\n" +
+            "8.8.4.4 dev rmnet_data0 proto static scope link metric 1\n" +
+            "8.8.8.8 dev rmnet_data0 proto static scope link metric 1\n" +
+            "10.0.0.0/30 dev rmnet_data0 proto kernel scope link src 10.0.0.2\n"
+        val lan = "169.254.21.0/24 dev ecm0 proto kernel scope link src 169.254.21.1\n" +
+            "192.168.8.0/24 dev br-lan proto kernel scope link src 192.168.8.1\n"
+        return if (airplaneMode) lan else sim + lan
+    }
+
+    /** `ifstatus` of the network interface [name], shortened, as OpenWrt's netifd gives it. */
+    private fun interfaceStatus(name: String): Output {
+        val (up, device) = when (name) {
+            vpnTunnel -> tunnelUp to name
+            "modem_cpu" -> !airplaneMode to simDevice
+            else -> return Output(1, "Interface $name not found\n".toByteArray(), "")
+        }
+        val status = JSONObject().put("up", up).put("pending", false).put("available", true)
+        if (up) status.put("l3_device", device)
+        return ok(status.toString(1))
+    }
 
     /** The MD5 sum of the first [count] bytes of [bytes], or of all of them if there are fewer. */
     private fun md5(bytes: ByteArray, count: Int) =
@@ -487,9 +606,62 @@ class FakeRouter : Shell {
         /** How [Router.missingCommands] looks for commands. */
         private val COMMAND_LOOKUP =
             Regex("for c in ([a-z0-9_ ]+); do command -v \\\$c >/dev/null \\|\\| echo \\\$c; done")
+        /** How [Router.dnsServers] reads what listens on the DNS servers' ports. */
+        private val DNS_SERVERS =
+            Regex("""netstat -lnup \| while .* udp\*:53 \| udp\*:2153\) .* \| sort -u""", RegexOption.DOT_MATCHES_ALL)
         private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "curl")
         private const val FIREWALL_LOADED = "nft list chain inet fw4 churn_sim >/dev/null && " +
             "nft list chain inet fw4 churn_route >/dev/null && nft list chain inet fw4 churn_dns >/dev/null"
+
+        /**
+         * The network devices of our Mudi 7, without the tunnel's, as `/sys/class/net` lists them: the SIM's data
+         * interfaces are there in airplane mode too.
+         */
+        private val NETWORK_DEVICES = listOf(
+            "br-lan", "ecm0", "eth0", "lo", "rmnet_data0", "rmnet_data1", "rmnet_data15", "rmnet_data16", "rmnet_data2",
+            "rmnet_data3", "rmnet_data4", "rmnet_data5", "rmnet_ipa0", "wlan0",
+        )
+
+        /** Chrony's settings as our Mudi 7 listed them, shortened. */
+        // cspell:disable
+        private val CHRONY = """
+            chrony.@pool[0]=pool
+            chrony.@pool[0].hostname='time.cloudflare.com'
+            chrony.@pool[0].iburst='yes'
+            chrony.@pool[0].nts='yes'
+            chrony.@dhcp_ntp_server[0]=dhcp_ntp_server
+            chrony.@dhcp_ntp_server[0].disabled='no'
+            chrony.time_nl=server
+            chrony.time_nl.hostname='ntppool1.time.nl'
+            chrony.netnod=server
+            chrony.netnod.hostname='nts.netnod.se'
+            chrony.ptb=server
+            chrony.ptb.hostname='ptbtime1.ptb.de'
+            chrony.dfm=server
+            chrony.dfm.hostname='time.dfm.dk'
+            chrony.cifelli=server
+            chrony.cifelli.hostname='time.cifelli.xyz'
+        """.trimIndent() + "\n"
+        // cspell:enable
+
+        /** GL's firewall rule for its eSIM manager's port, with the settings our Mudi 7 listed. */
+        val LPA_RULE = """
+            firewall.block_lpa_port=rule
+            firewall.block_lpa_port.name='Block LPA External Port'
+            firewall.block_lpa_port.src='lan'
+            firewall.block_lpa_port.dest_port='3456'
+            firewall.block_lpa_port.proto='tcp'
+            firewall.block_lpa_port.target='DROP'
+            firewall.block_lpa_port.enabled='1'
+        """.trimIndent() + "\n"
+
+        /** What listens on TCP ports, shortened to SSH's and the eSIM manager's, whose line our Mudi 7 listed. */
+        val TCP_PORTS = """
+            Active Internet connections (only servers)
+            Proto Recv-Q Send-Q Local Address           Foreign Address         State
+            tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN
+            tcp        0      0 :::3456                 :::*                    LISTEN
+        """.trimIndent() + "\n"
 
         /** The answer recorded on our Mudi 7, shortened. */
         val FEATURE_CONFIG = """

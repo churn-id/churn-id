@@ -158,14 +158,14 @@ design.md, sections 7 and 10.
 | D3 | With the tunnel up, devices' lookups go through the VPN; with it down, they get no answer | verified | A lookup of a made-up name from a device | 4 |
 | D4 | Without Churn's firewall rules, for about 2 s after airplane mode goes off, the main dnsmasq passes devices' lookups on over the SIM | verified | Watch what leaves over the cellular interface after airplane mode goes off | 4 |
 | D5 | Without Churn's firewall rules, what the router sends itself goes over the SIM, past both kill switches: the rule at priority 1 points to an empty table 16800, and the main table's default route goes over `rmnet_data0` | rules verified, traffic inferred | `ip rule show` and `ip route show` | 1 |
-| D6 | Without Churn's firewall rules, the router itself reaches the VPN server and its time servers over the SIM, looks up one time server's name at Google when it goes online, and GL's connection check pings four public addresses | verified | The enabled services and their targets are unchanged (tier 1); watch the cellular interface (tier 4) | 1, 4 |
+| D6 | Without Churn's firewall rules, the router itself reaches the VPN server and its time servers over the SIM, looks up one time server's name at Google when it goes online, and GL's connection check pings four public addresses | verified | Chrony's time servers and the addresses that GL's connection check pings over the SIM are those we watched (tier 1); watch the cellular interface (tier 4) | 1, 4 |
 | D7 | GL's firewall loads `/etc/nftables.d/churn.nft` into its table `inet fw4`, and `fw4 reload` exits with 0 despite its warnings | verified, and checked by the app | With the file in place, all three chains are listed; the app checks the same, and the exit status, after each reload it starts | 1, blocks |
 | D8 | The SIM's data interfaces match `rmnet_data*`, online and in airplane mode | verified | The interfaces in `/sys/class/net` and the one `ifstatus modem_cpu` names | 1, blocks |
 | D9 | WireGuard sends with the mark `0x8000`, and on output no other packets carry it | verified | `wg show all fwmark` (tier 1); the rules' counters across airplane mode off and on (tier 4) | 1, 4 |
 | D10 | The main dnsmasq runs as the user ID the rules name | verified, and checked by the app | `id -u dnsmasq` answers, and Churn's rules, while on the router, name the same user ID | 1 |
 | D11 | With the rules, nothing but WireGuard leaves over the SIM, from devices too, also with the Enhanced Kill Switch off and the tunnel down, and over IPv6 as over IPv4 | verified for devices over IPv4 with the switch off and the tunnel down; going online and IPv6 inferred | The drop counter grows and a device's website fails (tier 4); watch the cellular interface after airplane mode goes off (tier 4) | 4 |
 | D12 | With the rules, the router's own traffic leaves through the tunnel from the VPN's address, and its lookups go to the VPN's DNS server | verified | A request and a lookup from the router, watched on the tunnel interface | 4 |
-| D13 | The tunnel's IP Masquerading translates the router's own packets to the tunnel's address; without it, the VPN server wouldn't accept them | translation verified, without it inferred | The setting is on, once we know where GL keeps it (tier 1); a request from the router with it off (tier 4) | 1, 4 |
+| D13 | The tunnel's IP Masquerading translates the router's own packets to the tunnel's address; without it, the VPN server wouldn't accept them | translation verified, without it inferred | The setting `masq` of the tunnel's WireGuard peer, by its name the IP Masquerading, is on (tier 1); a request from the router with it off (tier 4) | 1, 4 |
 | D14 | GL's firewall loads Churn's rules at boot before the modem goes online | open | The chains are listed right after a boot (tier 3); what leaves over the SIM during a boot with a card (tier 4) | 3, 4 |
 | D15 | A rules file that GL's firewall rejects might keep it from loading any rules at the next boot, which is why the app removes such a file | inferred | None: a test could leave the router without a firewall | – |
 | D16 | With the rules, the tunnel comes up after a reboot and after airplane mode off and on, and the clock then syncs through it | verified | Reboot and turn airplane mode off and on; the handshake, the clock and a website | 4 |
@@ -179,7 +179,7 @@ From development.md, "Switching SIM slots", and design.md, section 6.
 
 | ID | Claim | Status | Check | Tier |
 | --- | --- | --- | --- | --- |
-| S1 | `get_feature_config` has exactly one key whose entry holds `failover`, the modem's `location_id` | verified | Read it | 1, blocks |
+| S1 | `get_feature_config` has exactly one key whose entry holds `failover`, the modem's `location_id` | verified | Exactly one key holds `failover`, with only letters, digits and `_`, which the app requires | 1, blocks |
 | S2 | `set_feature_config` sets slot 2 to the tray or the eSIM and makes slot 2 the active slot, answers `"ok": true`, and the new state shows at once in `AT+QSIMTYPE="slot2"` and `dds_id` | verified | Switch slot 2 to the tray, make it the active slot, and switch it back to the eSIM | 2 |
 | S3 | Both switches work in airplane mode, with the modem answering `+CFUN: 4` before and after | verified | `+CFUN: 4` after each switch | 2 |
 | S4 | Both switches emit nothing | verified | RF meter | 4 |
@@ -193,9 +193,9 @@ From development.md, "eSIM profiles", and design.md, section 6.
 | --- | --- | --- | --- | --- |
 | E1 | Slot 2's card answers `AT+ICCID` and `AT+CIMI` through `ubus call modem.CPU.AT get_result_AT` with `sub_id` 2 | verified for the eSIM | Both answer while slot 2 is on the eSIM | 1, blocks |
 | E2 | A 19-digit ICCID comes with a trailing `F` | verified | The answer's format | 1 |
-| E3 | With no profile enabled, slot 2 shows the placeholder ICCID `89000123456789012341` and a 001/01 IMSI | verified | Read both after step 1 | 1 |
+| E3 | With no profile enabled, slot 2 shows the placeholder ICCID `89000123456789012341` and a 001/01 IMSI | verified | Read both while slot 2 is on the eSIM, as after step 1; neither comes with another | 1 |
 | E4 | The chip answers only while slot 2 is set to the eSIM | inferred | With slot 2 on the empty tray, the placeholder doesn't show | 2 |
-| E5 | GL's eSIM manager listens on port 3456, and its firewall rule `block_lpa_port` keeps devices from reaching it, which would otherwise let them change profiles without a login | verified | The listening port and the rule | 1 |
+| E5 | GL's eSIM manager listens on port 3456, and its firewall rule `block_lpa_port` keeps devices from reaching it, which would otherwise let them change profiles without a login | verified | The listening port, and the rule's settings as we saw them | 1 |
 | E6 | Posting `disable` to GL's eSIM manager from the router's shell disables the enabled profile without a login, answers `code` 200, and the placeholder shows within about 5 s, with airplane mode and `+CFUN: 4` holding | verified | Enable GL's pre-installed profile in airplane mode, then run step 1. Tier 4, because a power-on with a profile enabled registers wherever it happens | 4 |
 | E7 | A request sent as soon as the radio is off can leave a profile that was online enabled | verified | Start step 1 several times with slot 2 on the eSIM and its profile online, and count the "still enabled" lines | 4 |
 | E8 | A request at least 35 s after one that left the profile enabled disables it | verified | In those runs, step 1 passes after a "still enabled" line | 4 |

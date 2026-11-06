@@ -58,8 +58,24 @@ val CHECKS = listOf(
     Check("U6", blocks = true, title = R.string.check_active_slot) { router, _ ->
         settingIn(router.activeSlot(), "1", "2")
     },
+    Check("K1", blocks = true, title = R.string.check_vpn_policy) { router, _ -> vpnPolicy(router) },
+    Check("K5", blocks = false, title = R.string.check_kill_switch_settings) { router, _ -> killSwitchAgrees(router) },
+    Check("K6", blocks = true, title = R.string.check_kill_switch_rules) { router, _ -> killSwitchRules(router) },
+    Check("K7", blocks = false, title = R.string.check_usb_port) { router, _ -> usbPortInLan(router) },
+    Check("D1", blocks = false, title = R.string.check_dns_servers) { router, _ -> dnsServers(router) },
+    Check("D2", blocks = false, title = R.string.check_dns_rules) { router, _ -> glDnsRules(router) },
+    Check("D5", blocks = false, title = R.string.check_own_traffic_routes) { router, _ -> ownTrafficRoutes(router) },
+    Check("D6", blocks = false, title = R.string.check_own_traffic_targets) { router, _ -> ownTrafficTargets(router) },
     Check("D7", blocks = true, title = R.string.check_firewall_loaded) { router, _ -> firewallLoaded(router) },
+    Check("D8", blocks = true, title = R.string.check_sim_interfaces) { router, _ -> simInterfaces(router) },
+    Check("D9", blocks = false, title = R.string.check_wireguard_mark) { router, _ -> wireguardMark(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
+    Check("D13", blocks = false, title = R.string.check_masquerading) { router, _ -> tunnelMasquerading(router) },
+    Check("S1", blocks = true, title = R.string.check_location_id) { router, _ -> locationId(router) },
+    Check("E1", blocks = true, title = R.string.check_esim_answers) { router, _ -> esimAnswers(router) },
+    Check("E2", blocks = false, title = R.string.check_iccid_padding) { router, _ -> iccidPadding(router) },
+    Check("E3", blocks = false, title = R.string.check_esim_placeholder) { router, _ -> esimPlaceholder(router) },
+    Check("E5", blocks = false, title = R.string.check_esim_manager) { router, _ -> esimManagerBlocked(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
 )
 
@@ -179,6 +195,71 @@ private fun activeCardIccid(router: Router): CheckResult {
     return CheckResult.Failed("The setting holds ${value.length} characters that aren't an ICCID.")
 }
 
+/**
+ * Whether GL's route policy has its default section, which holds the Enhanced Kill Switch's setting, and a WireGuard
+ * tunnel in the form [Router.vpnSetUp] looks for.
+ */
+private fun vpnPolicy(router: Router) = when {
+    router.setting("route_policy.@default[0]") != "default" ->
+        CheckResult.Failed("GL's route policy has no default section.")
+    router.vpnSetUp() -> CheckResult.Passed
+    else -> CheckResult.NotApplicable(R.string.reason_no_vpn)
+}
+
+/**
+ * Whether GL's two settings of the Enhanced Kill Switch and the routing rule at priority 9000 agree on whether it is
+ * on, as [Router.enhancedKillSwitch] reads them: turning the switch on or off in GL's web interface changes all three.
+ */
+private fun killSwitchAgrees(router: Router): CheckResult {
+    val policy = router.setting(Router.DEFAULT_POLICY)
+    val vpnToMain = router.setting(Router.VPN_TO_MAIN) != null
+    val rule = router.ipRules().any { it.startsWith("9000:") }
+    if (policy == "0" && !vpnToMain && !rule || policy == "1" && vpnToMain && rule) return CheckResult.Passed
+    val value = policy?.let { "\"${it.take(20)}\"" } ?: "missing"
+    return CheckResult.Failed(
+        "${Router.DEFAULT_POLICY} is $value, ${Router.VPN_TO_MAIN} is ${if (vpnToMain) "there" else "absent"}, " +
+            "and ip rule show lists ${if (rule) "a" else "no"} rule at priority 9000.",
+    )
+}
+
+/**
+ * GL's routing rules with the Enhanced Kill Switch on and a WireGuard tunnel set up, as development.md lists them, in
+ * `ip rule show`'s words with single spaces: traffic marked for GL's fallback policy goes to the main table, other
+ * marked traffic and devices' unmarked traffic to a blackhole.
+ */
+private val KILL_SWITCH_RULES = listOf(
+    "6000: from all fwmark 0x8000/0xf000 lookup main",
+    "9910: not from all fwmark 0/0xf000 blackhole",
+    "9920: from all iif br-lan blackhole",
+)
+
+/** GL's routing rule that sends traffic marked for the tunnel to the tunnel's table, while the tunnel is up. */
+private const val TUNNEL_RULE = "6000: from all fwmark 0x1000/0xf000 lookup 1001"
+
+/** Whether, with the Enhanced Kill Switch on, `ip rule show` lists GL's rules that send traffic through the tunnel. */
+private fun killSwitchRules(router: Router): CheckResult {
+    val tunnels = router.vpnInterfaces()
+    if (tunnels.isEmpty()) return CheckResult.NotApplicable(R.string.reason_no_vpn)
+    if (!router.enhancedKillSwitch()) return CheckResult.NotApplicable(R.string.reason_kill_switch_off)
+    val rules = spacedRules(router)
+    val tunnelUp = tunnels.any { router.interfaceStatus(it)?.optBoolean("up") == true }
+    val missing = (KILL_SWITCH_RULES + listOfNotNull(TUNNEL_RULE.takeIf { tunnelUp })).filter { it !in rules }
+    return if (missing.isEmpty()) CheckResult.Passed else CheckResult.Failed("Missing: ${missing.joinToString(", ")}.")
+}
+
+/** The routing rules in use, as `ip rule show` lists them, with single spaces between the words. */
+private fun spacedRules(router: Router) = router.ipRules().map { it.replace(Regex("\\s+"), " ") }
+
+/** Whether the USB-C port's network device is in `br-lan`, whose unmarked traffic the blackhole at 9920 stops. */
+private fun usbPortInLan(router: Router): CheckResult {
+    val link = router.link("ecm0") ?: return CheckResult.Failed("The router has no network device ecm0.")
+    return when (val bridge = Regex(""" master (\S+) """).find(link.lineSequence().first())?.groupValues?.get(1)) {
+        "br-lan" -> CheckResult.Passed
+        null -> CheckResult.Failed("ecm0 is in no bridge.")
+        else -> CheckResult.Failed("ecm0 is in ${bridge.take(20)}, not br-lan.")
+    }
+}
+
 /** Whether a uci setting holds one of [expected], given its [value], or null if it isn't set. */
 private fun settingIn(value: String?, vararg expected: String) =
     if (value in expected) CheckResult.Passed else settingFailed(value)
@@ -194,6 +275,125 @@ private fun firewallLoaded(router: Router) = when {
     else -> CheckResult.Failed("GL's firewall table lacks chains of Churn's rules.")
 }
 
+/**
+ * Whether GL's main DNS server listens on UDP port 53, runs as user `dnsmasq` and takes its servers from the file
+ * with those of the active uplink, such as the cellular interface, and the tunnel's own listens on UDP port 2153,
+ * runs as `dnsmasq_vpn` and takes its servers from the tunnel's file.
+ */
+private fun dnsServers(router: Router): CheckResult {
+    val tunnels = router.vpnInterfaces()
+    if (tunnels.isEmpty()) return CheckResult.NotApplicable(R.string.reason_no_vpn)
+    val servers = router.dnsServers()
+    val main = DnsServer(53, "dnsmasq", router.dnsmasqUid(), "/tmp/resolv.conf.d/resolv.conf.auto")
+    val tunnelUid = router.userId("dnsmasq_vpn")
+    val tunnel = tunnels.map { DnsServer(2153, "dnsmasq", tunnelUid, "/tmp/resolv.conf.d/resolv.conf.$it") }
+    val problems = listOf(53 to listOf(main), 2153 to tunnel).mapNotNull { (port, expected) ->
+        val found = servers.filter { it.port == port }
+        when {
+            found.isEmpty() -> "Nothing listens on UDP port $port."
+            found.all { it in expected } -> null
+            else -> "On UDP port $port: " + found.joinToString(", ") {
+                "${it.program.take(20)} as user ID ${it.uid}, servers from ${it.serversFile?.take(60)}"
+            } + "."
+        }
+    }
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/** GL's rule that redirects devices' lookups marked for the tunnel to its DNS server, as nftables lists it. */
+private const val GL_DNS_REDIRECT =
+    "meta l4proto udp meta mark & 0x0000f000 == 0x00001000 fib daddr type local redirect to :2153"
+
+/** GL's rule that drops lookups that devices send past the router without the mark of GL's fallback policy. */
+private val GL_DNS_DROP = Regex(
+    "udp dport 53 meta mark & 0x0000f000 != 0x00008000 (counter packets \\d+ bytes \\d+ )?drop " +
+        "comment \"!fw4: lan_drop_leaked_dns\"",
+)
+
+/** Whether GL's firewall has its rules that keep devices' lookups in the tunnel, as development.md describes them. */
+private fun glDnsRules(router: Router): CheckResult {
+    if (!router.vpnSetUp()) return CheckResult.NotApplicable(R.string.reason_no_vpn)
+    val rules = router.firewallLines("redirect to :2153", "lan_drop_leaked_dns")
+    val problems = listOfNotNull(
+        "No rule redirects devices' lookups marked for the tunnel to port 2153.".takeIf { GL_DNS_REDIRECT !in rules },
+        "No rule lan_drop_leaked_dns drops lookups past the router without the mark 0x8000."
+            .takeIf { rules.none(GL_DNS_DROP::matches) },
+    )
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/** The SIM's data interfaces, as development.md names them. */
+private val SIM_INTERFACE = Regex("rmnet_data[0-9]+")
+
+/**
+ * Whether, without Churn's rules, what the router sends itself would go over the SIM: the rule at priority 1 points to
+ * the empty table 16800, so it falls through to the main table, whose default route goes over the SIM's interface.
+ * Without a default route, such as in airplane mode, only the rule and the table count.
+ */
+private fun ownTrafficRoutes(router: Router): CheckResult {
+    if ("1: from all iif lo lookup 16800" !in spacedRules(router)) {
+        return CheckResult.Failed("ip rule show lists no rule at priority 1 to table 16800.")
+    }
+    if (router.routes("16800").isNotEmpty()) return CheckResult.Failed("Table 16800 has routes.")
+    val route = router.routes("main").firstOrNull { it.startsWith("default ") } ?: return CheckResult.Passed
+    val device = Regex(""" dev (\S+)""").find(route)?.groupValues?.get(1)
+    if (device?.matches(SIM_INTERFACE) == true) return CheckResult.Passed
+    return CheckResult.NotApplicable(R.string.reason_other_uplink)
+}
+
+/** The time servers chrony was set up with on our Mudi 7, which it reaches over the SIM without Churn's rules. */
+// cspell:disable
+private val WATCHED_TIME_SERVERS = setOf(
+    "time.cloudflare.com", "ntppool1.time.nl", "nts.netnod.se", "ptbtime1.ptb.de", "time.dfm.dk", "time.cifelli.xyz",
+)
+// cspell:enable
+
+/** What GL's connection check pings over the SIM on our Mudi 7, as `uci get` lists it. */
+private const val WATCHED_CONNECTION_CHECK = "ping,1.1.1.1 ping,8.8.8.8 ping,208.67.222.222 ping,208.67.220.220"
+
+/**
+ * Whether the router would still reach the time servers and the addresses we watched it reach over the SIM, without
+ * Churn's rules: chrony's servers, and those that GL's connection check pings over the SIM's interface.
+ */
+private fun ownTrafficTargets(router: Router): CheckResult {
+    val timeServers = router.settings("chrony").filterKeys { it.endsWith(".hostname") }.values.toSet()
+    val pings = router.setting("kmwan.modem_cpu.tracks")
+    val problems = listOfNotNull(
+        "Chrony's time servers are ${timeServers.sorted().joinToString(", ").take(200)}."
+            .takeIf { timeServers != WATCHED_TIME_SERVERS },
+        "GL's connection check over the SIM pings ${pings?.take(200) ?: "nothing"}."
+            .takeIf { pings != WATCHED_CONNECTION_CHECK },
+    )
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/**
+ * Whether the SIM's data interfaces are those Churn's rules name: the router has network devices named so, in
+ * airplane mode too, and GL's cellular interface uses one of them while it is up.
+ */
+private fun simInterfaces(router: Router): CheckResult {
+    if (router.networkDevices().none(SIM_INTERFACE::matches)) {
+        return CheckResult.Failed("No network device is named rmnet_data and a number.")
+    }
+    val status = router.interfaceStatus("modem_cpu")
+        ?: return CheckResult.Failed("GL has no network interface modem_cpu.")
+    if (!status.optBoolean("up")) return CheckResult.Passed
+    val device = status.optString("l3_device")
+    if (device.matches(SIM_INTERFACE)) return CheckResult.Passed
+    return CheckResult.Failed("GL's cellular interface uses ${device.take(20).ifEmpty { "no device" }}.")
+}
+
+/** Whether WireGuard sends with the mark `0x8000`, the only traffic that Churn's rules let out over the SIM. */
+private fun wireguardMark(router: Router): CheckResult {
+    val marks = router.wireguardMarks()
+    if (marks.isEmpty()) return CheckResult.NotApplicable(R.string.reason_no_tunnel_up)
+    val others = marks.filterValues { it != "0x8000" }
+    if (others.isEmpty()) return CheckResult.Passed
+    return CheckResult.Failed(
+        others.entries.joinToString(", ") { "${it.key.take(20)} sends with ${it.value.take(20)}" } + ".",
+    )
+}
+
 /** Whether Churn's rules file, if it is there, names the user ID of GL's main DNS server, as [Router.firewallRules]. */
 private fun dnsmasqUser(router: Router): CheckResult {
     val uid = router.dnsmasqUid()
@@ -204,6 +404,118 @@ private fun dnsmasqUser(router: Router): CheckResult {
         null -> CheckResult.Failed("Churn's rules name no user ID.")
         else -> CheckResult.Failed("Churn's rules name user ID $named, but the user dnsmasq has $uid.")
     }
+}
+
+/**
+ * Whether the IP Masquerading of each WireGuard tunnel is on, which translates the router's own packets to the
+ * tunnel's address: the setting `masq` of the peer that the tunnel's network interface names, by its name the one
+ * that GL's web interface calls IP Masquerading.
+ */
+private fun tunnelMasquerading(router: Router): CheckResult {
+    val tunnels = router.vpnInterfaces()
+    if (tunnels.isEmpty()) return CheckResult.NotApplicable(R.string.reason_no_vpn)
+    val problems = tunnels.mapNotNull { tunnel ->
+        val peer = router.setting("network.$tunnel.config") ?: return@mapNotNull "network.$tunnel.config is missing."
+        val key = "wireguard.$peer.masq"
+        when (val masq = router.setting(key)) {
+            "1" -> null
+            null -> "${key.take(60)} is missing."
+            else -> "${key.take(60)} is \"${masq.take(20)}\"."
+        }
+    }
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/** Whether exactly one key of `get_feature_config` holds `failover`: the `location_id` that the slot switches name. */
+private fun locationId(router: Router): CheckResult {
+    val keys = router.failoverKeys().sorted()
+    return when {
+        keys.isEmpty() -> CheckResult.Failed("No key of get_feature_config holds failover.")
+        keys.size > 1 -> CheckResult.Failed(
+            "${keys.size} keys of get_feature_config hold failover: ${keys.joinToString(", ") { it.take(40) }}.",
+        )
+        keys[0].matches(Router.LOCATION_ID) -> CheckResult.Passed
+        else -> CheckResult.Failed("The key that holds failover has characters other than letters, digits and _.")
+    }
+}
+
+/**
+ * Whether slot 2's card gives its ICCID and IMSI the way Churn reads them, while slot 2 is on the built-in eSIM, whose
+ * chip answers with or without a profile. A card in the SIM 2 tray may be missing or locked with a PIN.
+ */
+private fun esimAnswers(router: Router): CheckResult {
+    if (router.slot2() != Slot2.ESIM) return CheckResult.NotApplicable(R.string.reason_slot2_on_tray)
+    val problems = listOfNotNull(
+        "AT+ICCID gave no ICCID.".takeIf { router.slot2Iccid() == null },
+        "AT+CIMI gave no IMSI.".takeIf { router.slot2Imsi() == null },
+    )
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/** Whether slot 2's card, if it has a 19-digit ICCID, gives it with a trailing `F`, as GL also keeps it. */
+private fun iccidPadding(router: Router): CheckResult {
+    val iccid = router.slot2Iccid() ?: return CheckResult.NotApplicable(R.string.reason_no_slot2_card)
+    if (iccid.trimEnd('F', 'f').length != 19) return CheckResult.NotApplicable(R.string.reason_no_19_digit_iccid)
+    if (iccid.length == 20) return CheckResult.Passed
+    return CheckResult.Failed("Slot 2's card gave its 19-digit ICCID without a trailing F.")
+}
+
+/**
+ * Whether the built-in eSIM shows the placeholder ICCID together with a test network's IMSI, by which step 1 tells that
+ * no profile is enabled, and neither of them with another one.
+ */
+private fun esimPlaceholder(router: Router): CheckResult {
+    if (router.slot2() != Slot2.ESIM) return CheckResult.NotApplicable(R.string.reason_slot2_on_tray)
+    val iccid = router.slot2Iccid()
+    val imsi = router.slot2Imsi()
+    if (iccid == null || imsi == null) return CheckResult.NotApplicable(R.string.reason_no_slot2_card)
+    val placeholder = iccid == Router.PLACEHOLDER_ICCID
+    val testNetwork = imsi.startsWith(Router.TEST_NETWORK)
+    return when {
+        placeholder && testNetwork -> CheckResult.Passed
+        placeholder -> CheckResult.Failed("The placeholder ICCID came with an IMSI outside the test network 001/01.")
+        testNetwork -> CheckResult.Failed(
+            "An IMSI of the test network 001/01 came with another ICCID than the placeholder.",
+        )
+        else -> CheckResult.NotApplicable(R.string.reason_profile_enabled)
+    }
+}
+
+/**
+ * GL's firewall rule that drops devices' connections to its eSIM manager, as our Mudi 7 listed it, by setting; null for
+ * one that has to be absent: with `dest`, the rule would cover only traffic through the router.
+ */
+private val LPA_RULE = mapOf(
+    "firewall.block_lpa_port" to "rule",
+    "firewall.block_lpa_port.src" to "lan",
+    "firewall.block_lpa_port.dest" to null,
+    "firewall.block_lpa_port.dest_port" to "3456",
+    "firewall.block_lpa_port.proto" to "tcp",
+    "firewall.block_lpa_port.target" to "DROP",
+)
+
+/**
+ * Whether GL's eSIM manager listens on TCP port 3456, and GL's firewall rule `block_lpa_port` keeps devices from
+ * reaching it, which would let them change profiles without a login.
+ */
+private fun esimManagerBlocked(router: Router): CheckResult {
+    val port = "Nothing listens on TCP port 3456.".takeIf { 3456 !in router.tcpPorts() }
+    val rule = router.settings("firewall.block_lpa_port")
+    val problems = if (rule.isEmpty()) {
+        listOf("GL's firewall has no rule block_lpa_port.")
+    } else {
+        LPA_RULE.mapNotNull { (key, expected) ->
+            val value = rule[key]
+            when {
+                value == expected -> null
+                value == null -> "$key is missing."
+                expected == null -> "$key is set."
+                else -> "$key is \"${value.take(20)}\"."
+            }
+        } + listOfNotNull("The rule is off.".takeIf { rule["firewall.block_lpa_port.enabled"] == "0" })
+    }
+    val all = listOfNotNull(port) + problems
+    return if (all.isEmpty()) CheckResult.Passed else CheckResult.Failed(all.joinToString(" "))
 }
 
 /**

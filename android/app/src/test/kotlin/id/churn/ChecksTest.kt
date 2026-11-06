@@ -1,6 +1,7 @@
 package id.churn
 
 import java.io.File
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -269,6 +270,223 @@ class ChecksTest {
     }
 
     @Test
+    fun vpnPolicyCheckPassesWithAWireGuardTunnel() {
+        assertEquals(CheckResult.Passed, run("K1"))
+    }
+
+    @Test
+    fun vpnPolicyCheckFailsWithoutTheDefaultPolicy() {
+        fake.uciAnswers["route_policy.@default[0]"] = null
+        assertEquals(CheckResult.Failed("GL's route policy has no default section."), run("K1"))
+    }
+
+    @Test
+    fun vpnPolicyCheckDoesNotApplyWithoutATunnel() {
+        fake.vpnTunnel = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_vpn), run("K1"))
+    }
+
+    @Test
+    fun killSwitchCheckPassesWithTheSwitchOn() {
+        assertEquals(CheckResult.Passed, run("K5"))
+    }
+
+    @Test
+    fun killSwitchCheckPassesWithTheSwitchOff() {
+        fake.killSwitchSet = false
+        fake.killSwitchInUse = false
+        assertEquals(CheckResult.Passed, run("K5"))
+    }
+
+    @Test
+    fun killSwitchCheckFailsWhileTheRulesDoNotFollowTheSettings() {
+        fake.killSwitchInUse = false
+        assertEquals(
+            CheckResult.Failed(
+                "route_policy.@default[0].enabled is \"0\", network.vpn_to_main is absent, and ip rule show lists " +
+                    "a rule at priority 9000.",
+            ),
+            run("K5"),
+        )
+    }
+
+    @Test
+    fun killSwitchCheckFailsWhileTheSettingsDisagree() {
+        fake.uciAnswers["network.vpn_to_main"] = "rule"
+        assertTrue(run("K5") is CheckResult.Failed)
+    }
+
+    @Test
+    fun killSwitchRuleCheckPassesWithTheTunnelUp() {
+        assertEquals(CheckResult.Passed, run("K6"))
+    }
+
+    @Test
+    fun killSwitchRuleCheckPassesWithTheTunnelDown() {
+        fake.tunnelUp = false
+        assertEquals(CheckResult.Passed, run("K6"))
+    }
+
+    @Test
+    fun killSwitchRuleCheckFailsWithoutABlackhole() {
+        fake.answers["ip rule show"] = RULES.lines().filterNot { it.startsWith("9920:") }.joinToString("\n")
+        assertEquals(CheckResult.Failed("Missing: 9920: from all iif br-lan blackhole."), run("K6"))
+    }
+
+    @Test
+    fun killSwitchRuleCheckFailsWithoutTheTunnelsRuleWhileItIsUp() {
+        fake.answers["ip rule show"] = RULES.lines().filterNot { "lookup 1001" in it }.joinToString("\n")
+        assertEquals(CheckResult.Failed("Missing: 6000: from all fwmark 0x1000/0xf000 lookup 1001."), run("K6"))
+    }
+
+    @Test
+    fun killSwitchRuleCheckDoesNotApplyWithTheSwitchOff() {
+        fake.killSwitchSet = false
+        fake.killSwitchInUse = false
+        assertEquals(CheckResult.NotApplicable(R.string.reason_kill_switch_off), run("K6"))
+    }
+
+    @Test
+    fun killSwitchRuleCheckDoesNotApplyWithoutATunnel() {
+        fake.vpnTunnel = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_vpn), run("K6"))
+    }
+
+    @Test
+    fun usbPortCheckPassesWithTheUsbPortInTheLan() {
+        assertEquals(CheckResult.Passed, run("K7"))
+    }
+
+    @Test
+    fun usbPortCheckFailsWithTheUsbPortOutsideTheLan() {
+        fake.usbBridge = null
+        assertEquals(CheckResult.Failed("ecm0 is in no bridge."), run("K7"))
+    }
+
+    @Test
+    fun usbPortCheckFailsWithTheUsbPortInAnotherBridge() {
+        fake.usbBridge = "br-guest"
+        assertEquals(CheckResult.Failed("ecm0 is in br-guest, not br-lan."), run("K7"))
+    }
+
+    @Test
+    fun usbPortCheckFailsWithoutTheUsbPortsDevice() {
+        fake.failing += "ip link show ecm0"
+        assertEquals(CheckResult.Failed("The router has no network device ecm0."), run("K7"))
+    }
+
+    @Test
+    fun dnsServerCheckPassesWithGlsTwoDnsServers() {
+        assertEquals(CheckResult.Passed, run("D1"))
+    }
+
+    @Test
+    fun dnsServerCheckFailsWithoutTheTunnelsDnsServer() {
+        fake.dnsServers.removeAll { it.startsWith("2153|") }
+        assertEquals(CheckResult.Failed("Nothing listens on UDP port 2153."), run("D1"))
+    }
+
+    @Test
+    fun dnsServerCheckFailsIfTheMainDnsServerRunsAsAnotherUser() {
+        fake.dnsServers[1] = "53|dnsmasq|0|/tmp/resolv.conf.d/resolv.conf.auto"
+        assertEquals(
+            CheckResult.Failed(
+                "On UDP port 53: dnsmasq as user ID 0, servers from /tmp/resolv.conf.d/resolv.conf.auto.",
+            ),
+            run("D1"),
+        )
+    }
+
+    @Test
+    fun dnsServerCheckFailsIfTheTunnelsDnsServerAsksTheSimsServers() {
+        fake.dnsServers[0] = "2153|dnsmasq|456|/tmp/resolv.conf.d/resolv.conf.auto"
+        assertTrue(run("D1") is CheckResult.Failed)
+    }
+
+    @Test
+    fun dnsServerCheckDoesNotApplyWithoutATunnel() {
+        fake.vpnTunnel = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_vpn), run("D1"))
+    }
+
+    @Test
+    fun dnsRuleCheckPassesWithGlsRules() {
+        assertEquals(CheckResult.Passed, run("D2"))
+    }
+
+    @Test
+    fun dnsRuleCheckFailsWithoutTheRedirectOfDevicesLookups() {
+        // Churn's own redirect is in place, and must not count.
+        router.installFirewall()
+        fake.glDnsRules.removeAll { "fib daddr type local" in it }
+        assertEquals(
+            CheckResult.Failed("No rule redirects devices' lookups marked for the tunnel to port 2153."),
+            run("D2"),
+        )
+    }
+
+    @Test
+    fun dnsRuleCheckFailsWithoutTheDropOfLeakedLookups() {
+        fake.glDnsRules.removeAll { "lan_drop_leaked_dns" in it }
+        assertEquals(
+            CheckResult.Failed("No rule lan_drop_leaked_dns drops lookups past the router without the mark 0x8000."),
+            run("D2"),
+        )
+    }
+
+    @Test
+    fun dnsRuleCheckDoesNotApplyWithoutATunnel() {
+        fake.vpnTunnel = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_vpn), run("D2"))
+    }
+
+    @Test
+    fun ownTrafficCheckPassesOnlineOverTheSim() {
+        assertEquals(CheckResult.Passed, run("D5"))
+    }
+
+    @Test
+    fun ownTrafficCheckPassesInAirplaneMode() {
+        fake.airplaneMode = true
+        assertEquals(CheckResult.Passed, run("D5"))
+    }
+
+    @Test
+    fun ownTrafficCheckFailsWithoutTheRuleAtPriority1() {
+        fake.answers["ip rule show"] = RULES.lines().filterNot { it.startsWith("1:") }.joinToString("\n")
+        assertEquals(CheckResult.Failed("ip rule show lists no rule at priority 1 to table 16800."), run("D5"))
+    }
+
+    @Test
+    fun ownTrafficCheckFailsWithRoutesInTable16800() {
+        fake.answers["ip route show table 16800"] = "default dev wgclient1 scope link\n"
+        assertEquals(CheckResult.Failed("Table 16800 has routes."), run("D5"))
+    }
+
+    @Test
+    fun ownTrafficCheckDoesNotApplyOverAnotherUplink() {
+        fake.answers["ip route show table main"] = "default via 192.168.1.1 dev eth0 proto static metric 3\n"
+        assertEquals(CheckResult.NotApplicable(R.string.reason_other_uplink), run("D5"))
+    }
+
+    @Test
+    fun ownTrafficTargetCheckPassesWithTheTargetsWeWatched() {
+        assertEquals(CheckResult.Passed, run("D6"))
+    }
+
+    @Test
+    fun ownTrafficTargetCheckFailsWithAnotherTimeServer() {
+        fake.answers["uci -q show chrony"] = "chrony.@pool[0]=pool\n" + "chrony.@pool[0].hostname='pool.ntp.org'\n"
+        assertEquals(CheckResult.Failed("Chrony's time servers are pool.ntp.org."), run("D6"))
+    }
+
+    @Test
+    fun ownTrafficTargetCheckFailsWithAnotherConnectionCheck() {
+        fake.uciAnswers["kmwan.modem_cpu.tracks"] = null
+        assertEquals(CheckResult.Failed("GL's connection check over the SIM pings nothing."), run("D6"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))
@@ -285,6 +503,52 @@ class ChecksTest {
     @Test
     fun firewallCheckDoesNotApplyWithoutChurnsRules() {
         assertEquals(CheckResult.NotApplicable(R.string.reason_no_firewall), run("D7"))
+    }
+
+    @Test
+    fun simInterfaceCheckPassesOnline() {
+        assertEquals(CheckResult.Passed, run("D8"))
+    }
+
+    @Test
+    fun simInterfaceCheckPassesInAirplaneMode() {
+        fake.airplaneMode = true
+        assertEquals(CheckResult.Passed, run("D8"))
+    }
+
+    @Test
+    fun simInterfaceCheckFailsWithoutTheSimsDataInterfaces() {
+        fake.answers["ls /sys/class/net"] = listOf("br-lan", "ecm0", "eth0", "lo", "usb0").joinToString("") { "$it\n" }
+        assertEquals(CheckResult.Failed("No network device is named rmnet_data and a number."), run("D8"))
+    }
+
+    @Test
+    fun simInterfaceCheckFailsIfGlsCellularInterfaceUsesAnotherDevice() {
+        fake.simDevice = "usb0"
+        assertEquals(CheckResult.Failed("GL's cellular interface uses usb0."), run("D8"))
+    }
+
+    @Test
+    fun simInterfaceCheckFailsWithoutGlsCellularInterface() {
+        fake.failing += "ifstatus modem_cpu"
+        assertEquals(CheckResult.Failed("GL has no network interface modem_cpu."), run("D8"))
+    }
+
+    @Test
+    fun wireguardMarkCheckPassesWithTheMarkOfGlsFallbackPolicy() {
+        assertEquals(CheckResult.Passed, run("D9"))
+    }
+
+    @Test
+    fun wireguardMarkCheckFailsWithAnotherMark() {
+        fake.wireguardMark = "off"
+        assertEquals(CheckResult.Failed("wgclient1 sends with off."), run("D9"))
+    }
+
+    @Test
+    fun wireguardMarkCheckDoesNotApplyWithTheTunnelDown() {
+        fake.tunnelUp = false
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_tunnel_up), run("D9"))
     }
 
     @Test
@@ -314,6 +578,207 @@ class ChecksTest {
     @Test
     fun dnsmasqCheckDoesNotApplyWithoutChurnsRules() {
         assertEquals(CheckResult.NotApplicable(R.string.reason_no_firewall), run("D10"))
+    }
+
+    @Test
+    fun masqueradingCheckPassesWithMasqueradingOn() {
+        assertEquals(CheckResult.Passed, run("D13"))
+    }
+
+    @Test
+    fun masqueradingCheckFailsWithMasqueradingOff() {
+        fake.uciAnswers["wireguard.peer_2010.masq"] = "0"
+        assertEquals(CheckResult.Failed("wireguard.peer_2010.masq is \"0\"."), run("D13"))
+    }
+
+    @Test
+    fun masqueradingCheckFailsWithoutTheSetting() {
+        fake.uciAnswers["wireguard.peer_2010.masq"] = null
+        assertEquals(CheckResult.Failed("wireguard.peer_2010.masq is missing."), run("D13"))
+    }
+
+    @Test
+    fun masqueradingCheckFailsWithoutTheTunnelsPeer() {
+        fake.uciAnswers["network.wgclient1.config"] = null
+        assertEquals(CheckResult.Failed("network.wgclient1.config is missing."), run("D13"))
+    }
+
+    @Test
+    fun masqueradingCheckDoesNotApplyWithoutATunnel() {
+        fake.vpnTunnel = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_vpn), run("D13"))
+    }
+
+    @Test
+    fun locationIdCheckPassesWithOneKeyHoldingFailover() {
+        assertEquals(CheckResult.Passed, run("S1"))
+    }
+
+    @Test
+    fun locationIdCheckFailsWithoutAKeyHoldingFailover() {
+        fake.answers[FEATURE_CONFIG_CALL] = FakeRouter.FEATURE_CONFIG.replace("\"failover\"", "\"fallback\"")
+        assertEquals(CheckResult.Failed("No key of get_feature_config holds failover."), run("S1"))
+    }
+
+    @Test
+    fun locationIdCheckFailsWithTwoKeysHoldingFailover() {
+        val config = JSONObject(FakeRouter.FEATURE_CONFIG)
+        config.put("bcpu_p0134_v2c7c", config.getJSONObject(FakeRouter.LOCATION_ID))
+        fake.answers[FEATURE_CONFIG_CALL] = config.toString()
+        assertEquals(
+            CheckResult.Failed("2 keys of get_feature_config hold failover: bcpu_p0133_v2c7c, bcpu_p0134_v2c7c."),
+            run("S1"),
+        )
+    }
+
+    @Test
+    fun locationIdCheckFailsAtAKeyTheSlotSwitchesCannotName() {
+        fake.answers[FEATURE_CONFIG_CALL] = FakeRouter.FEATURE_CONFIG.replace("\"bcpu_p0133_v2c7c\"", "\"bcpu p0133\"")
+        assertEquals(
+            CheckResult.Failed("The key that holds failover has characters other than letters, digits and _."),
+            run("S1"),
+        )
+    }
+
+    @Test
+    fun esimAnswerCheckPassesWithAProfileEnabled() {
+        fake.slot2 = Slot2.ESIM
+        assertEquals(CheckResult.Passed, run("E1"))
+    }
+
+    @Test
+    fun esimAnswerCheckPassesWithNoProfileEnabled() {
+        fake.slot2 = Slot2.ESIM
+        fake.esimProfile = null
+        assertEquals(CheckResult.Passed, run("E1"))
+    }
+
+    @Test
+    fun esimAnswerCheckFailsWithoutAnIccid() {
+        fake.slot2 = Slot2.ESIM
+        fake.answers[cardCommand("AT+ICCID")] = cardAnswer("\r\nERROR\r\n")
+        assertEquals(CheckResult.Failed("AT+ICCID gave no ICCID."), run("E1"))
+    }
+
+    @Test
+    fun esimAnswerCheckFailsWithoutAnImsi() {
+        fake.slot2 = Slot2.ESIM
+        fake.answers[cardCommand("AT+CIMI")] = cardAnswer("\r\n+CME ERROR: 10\r\n")
+        assertEquals(CheckResult.Failed("AT+CIMI gave no IMSI."), run("E1"))
+    }
+
+    @Test
+    fun esimAnswerCheckDoesNotApplyOnTheTray() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_slot2_on_tray), run("E1"))
+    }
+
+    @Test
+    fun iccidCheckPassesWithATrailingF() {
+        assertEquals(CheckResult.Passed, run("E2"))
+    }
+
+    @Test
+    fun iccidCheckFailsWithoutTheTrailingF() {
+        fake.trayCard = FakeRouter.Card("8941000000000000015", "228010000000001")
+        assertEquals(CheckResult.Failed("Slot 2's card gave its 19-digit ICCID without a trailing F."), run("E2"))
+    }
+
+    @Test
+    fun iccidCheckDoesNotApplyToA20DigitIccid() {
+        fake.slot2 = Slot2.ESIM
+        fake.esimProfile = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_19_digit_iccid), run("E2"))
+    }
+
+    @Test
+    fun iccidCheckDoesNotApplyWithoutACard() {
+        fake.trayCard = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_slot2_card), run("E2"))
+    }
+
+    @Test
+    fun placeholderCheckPassesWithNoProfileEnabled() {
+        fake.slot2 = Slot2.ESIM
+        fake.esimProfile = null
+        assertEquals(CheckResult.Passed, run("E3"))
+    }
+
+    @Test
+    fun placeholderCheckFailsAtAnotherNetworksImsi() {
+        fake.slot2 = Slot2.ESIM
+        fake.esimProfile = null
+        fake.answers[cardCommand("AT+CIMI")] = cardAnswer("\r\n260010000000001\r\n\r\nOK\r\n")
+        assertEquals(
+            CheckResult.Failed("The placeholder ICCID came with an IMSI outside the test network 001/01."),
+            run("E3"),
+        )
+    }
+
+    @Test
+    fun placeholderCheckFailsAtAnotherPlaceholder() {
+        fake.slot2 = Slot2.ESIM
+        fake.esimProfile = null
+        fake.answers[cardCommand("AT+ICCID")] = cardAnswer("\r\n+ICCID: 89000123456789012358\r\n\r\nOK\r\n")
+        assertEquals(
+            CheckResult.Failed("An IMSI of the test network 001/01 came with another ICCID than the placeholder."),
+            run("E3"),
+        )
+    }
+
+    @Test
+    fun placeholderCheckDoesNotApplyWithAProfileEnabled() {
+        fake.slot2 = Slot2.ESIM
+        assertEquals(CheckResult.NotApplicable(R.string.reason_profile_enabled), run("E3"))
+    }
+
+    @Test
+    fun placeholderCheckDoesNotApplyWhileTheChipDoesNotAnswer() {
+        fake.slot2 = Slot2.ESIM
+        fake.answers[cardCommand("AT+ICCID")] = cardAnswer("\r\n+CME ERROR: 10\r\n")
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_slot2_card), run("E3"))
+    }
+
+    @Test
+    fun placeholderCheckDoesNotApplyOnTheTray() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_slot2_on_tray), run("E3"))
+    }
+
+    @Test
+    fun esimManagerCheckPassesWithGlsRule() {
+        assertEquals(CheckResult.Passed, run("E5"))
+    }
+
+    @Test
+    fun esimManagerCheckFailsIfNothingListensOnItsPort() {
+        fake.answers["netstat -lnt"] = FakeRouter.TCP_PORTS.lines().filter { ":3456" !in it }.joinToString("\n")
+        assertEquals(CheckResult.Failed("Nothing listens on TCP port 3456."), run("E5"))
+    }
+
+    @Test
+    fun esimManagerCheckFailsWithoutGlsRule() {
+        fake.answers["uci -q show firewall.block_lpa_port"] = ""
+        assertEquals(CheckResult.Failed("GL's firewall has no rule block_lpa_port."), run("E5"))
+    }
+
+    @Test
+    fun esimManagerCheckFailsWithTheRuleOff() {
+        fake.answers["uci -q show firewall.block_lpa_port"] = FakeRouter.LPA_RULE.replace("enabled='1'", "enabled='0'")
+        assertEquals(CheckResult.Failed("The rule is off."), run("E5"))
+    }
+
+    @Test
+    fun esimManagerCheckFailsWithAnotherRule() {
+        // A rule for traffic through the router, for any protocol, that lets it through.
+        fake.answers["uci -q show firewall.block_lpa_port"] = FakeRouter.LPA_RULE.lines()
+            .filter { "proto" !in it }.map { it.replace("target='DROP'", "target='ACCEPT'") }
+            .joinToString("\n") + "firewall.block_lpa_port.dest='wan'\n"
+        assertEquals(
+            CheckResult.Failed(
+                "firewall.block_lpa_port.dest is set. firewall.block_lpa_port.proto is missing. " +
+                    "firewall.block_lpa_port.target is \"ACCEPT\".",
+            ),
+            run("E5"),
+        )
     }
 
     @Test
@@ -354,8 +819,31 @@ class ChecksTest {
     /** Runs the check of the claim with [id] on the router, whose Churn folder is [folder]. */
     private fun run(id: String, folder: ChurnFolder = NO_FOLDER) = CHECKS.single { id in it.ids }.run(router, folder)
 
+    /** How the router sends the AT [command] to slot 2's card. */
+    private fun cardCommand(command: String) = "ubus -t 35 call modem.CPU.AT get_result_AT " +
+        "'{\"cmd\":\"$command\",\"sub_id\":2,\"source_flag\":0,\"timeout\":30}'"
+
+    /** GL's answer to [cardCommand], with the card's answer [data]. */
+    private fun cardAnswer(data: String) = JSONObject().put("data", data).put("channel_status", true).toString()
+
     private companion object {
         val NO_FOLDER = ChurnFolder(factory = null, card = null)
+
+        /** How the router reads GL's settings for the modem and its slots. */
+        const val FEATURE_CONFIG_CALL = "ubus -t 30 call cellular.modem get_feature_config '{}'"
+
+        /** `ip rule show` as our Mudi 7 answered it with the Enhanced Kill Switch on and a WireGuard tunnel up. */
+        val RULES = """
+            0:	from all lookup local
+            1:	from all iif lo lookup 16800
+            800:	from all lookup 9910 suppress_prefixlength 0
+            6000:	from all fwmark 0x1000/0xf000 lookup 1001
+            6000:	from all fwmark 0x8000/0xf000 lookup main
+            9910:	not from all fwmark 0/0xf000 blackhole
+            9920:	from all iif br-lan blackhole
+            32766:	from all lookup main
+            32767:	from all lookup default
+        """.trimIndent()
 
         /** The fake router's IMEIs, as setup records them. */
         val FACTORY = ImeiPair("356090215000002", "356090215000077")

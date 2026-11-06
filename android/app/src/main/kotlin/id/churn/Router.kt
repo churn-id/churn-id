@@ -67,6 +67,12 @@ sealed interface Slot2Card {
 /** GL's firmware version, the OpenWrt release it is built on, and the modem's model and firmware revision. */
 data class Platform(val gl: String, val openwrt: String, val modem: String, val revision: String)
 
+/**
+ * A program listening on the UDP [port], as `netstat` names it, the user ID it runs as, and the file that dnsmasq
+ * reads its servers from, or null for none.
+ */
+data class DnsServer(val port: Int, val program: String, val uid: Int?, val serversFile: String?)
+
 /** A card, by its ICCID's digits, and the IMEIs Churn gives it. */
 data class Card(val iccid: String, val imeis: ImeiPair)
 
@@ -252,14 +258,66 @@ class Router(private val shell: Shell) {
      * policy that sends traffic through an existing WireGuard interface. Other tunnel types are untested, so they
      * don't count. Whether the tunnel is on or up doesn't count either.
      */
-    fun vpnSetUp(): Boolean {
+    fun vpnSetUp() = vpnInterfaces().isNotEmpty()
+
+    /** The network interfaces of the WireGuard tunnels that [vpnSetUp] counts, such as `wgclient1`. */
+    fun vpnInterfaces(): List<String> {
         // The debug log leaves the settings out: GL's policies can name the user's devices or the sites they visit.
         val settings = runPrivately("uci -q show route_policy").text.lines()
             .associate { it.substringBefore('=') to it.substringAfter('=').removeSurrounding("'") }
         return settings.filterValues { it == "rule" }.keys
             .filter { settings["$it.via_type"] == "wireguard" }
             .mapNotNull { settings["$it.via"]?.takeIf { via -> via.matches(Regex("[A-Za-z0-9_]+")) } }
-            .any { uci("network.$it") == "interface" }
+            .filter { uci("network.$it") == "interface" }
+    }
+
+    /** The routes in the routing table [table], one per line as `ip route show` lists them; none for an empty table. */
+    fun routes(table: String): List<String> {
+        require(table.matches(Regex("[a-z0-9]+")))
+        // For an empty table, ip says "Dump terminated" and exits with 2.
+        return run("ip route show table $table").text.lines().filter { it.isNotBlank() && it != "Dump terminated" }
+    }
+
+    /** The mark that each WireGuard interface sends with, by interface, as `wg show` gives it, such as `0x8000`. */
+    fun wireguardMarks(): Map<String, String> {
+        val output = run("wg show all fwmark")
+        output.check("wg")
+        return output.text.lines().filter(String::isNotBlank).associate {
+            val fields = it.trim().split(Regex("\\s+"))
+            if (fields.size != 2) throw unexpected("wg", output)
+            fields[0] to fields[1]
+        }
+    }
+
+    /** The TCP ports that something listens on, as `netstat -lnt` lists them. */
+    fun tcpPorts(): Set<Int> {
+        val output = run("netstat -lnt")
+        output.check("netstat")
+        return output.text.lines().map { it.trim().split(Regex("\\s+")) }
+            .filter { it.size >= 4 && it[0].startsWith("tcp") }
+            .mapNotNull { it[3].substringAfterLast(':').toIntOrNull() }.toSet()
+    }
+
+    /** The names of the router's network devices, as `/sys/class/net` lists them. */
+    fun networkDevices(): List<String> {
+        val output = run("ls /sys/class/net")
+        output.check("/sys/class/net")
+        return output.text.lines().filter(String::isNotBlank)
+    }
+
+    /** The network device [name] as `ip link show` lists it; null if there is no such one. */
+    fun link(name: String): String? {
+        require(name.matches(Regex("[A-Za-z0-9_.-]+")))
+        val output = run("ip link show $name")
+        return if (output.status == 0) output.text else null
+    }
+
+    /** The state of the network interface [name] as `ifstatus` gives it, such as `up`; null if there is no such one. */
+    fun interfaceStatus(name: String): JSONObject? {
+        require(name.matches(Regex("[A-Za-z0-9_]+")))
+        val output = run("ifstatus $name")
+        if (output.status != 0) return null
+        return runCatching { JSONObject(output.text) }.getOrNull() ?: throw unexpected("ifstatus $name", output)
     }
 
     /**
@@ -267,11 +325,16 @@ class Router(private val shell: Shell) {
      * rules in use, which follow the settings only at a network reload.
      */
     fun enhancedKillSwitch(): Boolean {
+        // network.vpn_to_main is the rule at priority 9000.
+        val ruleInUse = ipRules().any { it.startsWith("9000:") }
+        return uci(DEFAULT_POLICY) == "0" && uci(VPN_TO_MAIN) == null && !ruleInUse
+    }
+
+    /** The routing rules in use, one per line as `ip rule show` lists them. */
+    fun ipRules(): List<String> {
         val rules = run("ip rule show")
         rules.check("ip rule")
-        // network.vpn_to_main is the rule at priority 9000.
-        val ruleInUse = rules.text.lines().any { it.startsWith("9000:") }
-        return uci(DEFAULT_POLICY) == "0" && uci(VPN_TO_MAIN) == null && !ruleInUse
+        return rules.text.lines().filter(String::isNotBlank)
     }
 
     /** Turns GL's Enhanced Kill Switch on, also for later power-ons, and checks that it is on. */
@@ -291,6 +354,14 @@ class Router(private val shell: Shell) {
 
     /** Churn's firewall rules as the file on the router holds them; null if the file isn't there. */
     fun firewallFile() = readFile(FIREWALL)?.toString(Charsets.UTF_8)
+
+    /** The lines of the firewall rules in use, as `nft list ruleset` lists them, that hold any of [texts], trimmed. */
+    fun firewallLines(vararg texts: String): List<String> {
+        val output = run("nft list ruleset | grep -F" + texts.joinToString("") { " -e ${quote(it)}" })
+        // 1: grep found no line.
+        if (output.status != 0 && output.status != 1) throw unexpected("nft list ruleset", output)
+        return output.text.lines().map(String::trim).filter(String::isNotEmpty)
+    }
 
     /** Whether GL's firewall has all the chains of Churn's rules in its table. */
     fun firewallLoaded() =
@@ -469,7 +540,25 @@ class Router(private val shell: Shell) {
     }
 
     /** The user ID GL's main DNS server runs as. */
-    fun dnsmasqUid() = run("id -u dnsmasq").text.trim().toIntOrNull() ?: throw unexpected("id -u dnsmasq")
+    fun dnsmasqUid() = userId("dnsmasq") ?: throw unexpected("id -u dnsmasq")
+
+    /** The ID of the user [name]; null if there is no such user. */
+    fun userId(name: String): Int? {
+        require(name.matches(Regex("[a-z_][a-z0-9_]*")))
+        return run("id -u $name").text.trim().toIntOrNull()
+    }
+
+    /** What listens on UDP ports 53 and 2153, those of GL's two DNS servers, as development.md describes them. */
+    fun dnsServers(): List<DnsServer> {
+        val output = run(DNS_SERVERS)
+        output.check("netstat")
+        return output.text.lines().filter(String::isNotBlank).map { line ->
+            val fields = line.split('|')
+            val port = fields.first().toIntOrNull()
+            if (fields.size != 4 || port == null) throw unexpected("netstat", output)
+            DnsServer(port, fields[1], fields[2].toIntOrNull(), fields[3].ifEmpty { null })
+        }
+    }
 
     /** Runs Churn's restore script; returns what it printed. */
     fun restoreFactoryImeis(): String {
@@ -506,15 +595,20 @@ class Router(private val shell: Shell) {
         null
     }
 
-    /** The modem's `location_id`: the key of `get_feature_config` whose entry holds `failover`. */
-    private fun locationId(): String {
+    /**
+     * The keys of `get_feature_config` whose entries hold `failover`. On our Mudi 7 that is only the modem's
+     * `location_id`, which the slot switches name.
+     */
+    fun failoverKeys(): List<String> {
         val output = run("ubus -t 30 call cellular.modem get_feature_config '{}'", timeoutSeconds = 40)
         val config = runCatching { JSONObject(output.text) }.getOrNull()
-        return config?.keys()?.asSequence()
-            ?.firstOrNull { config.optJSONObject(it)?.has("failover") == true }
-            ?.takeIf { it.matches(Regex("[A-Za-z0-9_]+")) }
             ?: throw unexpected("get_feature_config", output)
+        return config.keys().asSequence().filter { config.optJSONObject(it)?.has("failover") == true }.toList()
     }
+
+    /** The modem's `location_id`: the key of `get_feature_config` whose entry holds `failover`. */
+    private fun locationId() = failoverKeys().firstOrNull()?.takeIf { it.matches(LOCATION_ID) }
+        ?: throw unexpected("get_feature_config: no location_id")
 
     private fun setFeatureConfig(data: String) {
         val command = "ubus -t 30 call cellular.modem set_feature_config ${quote(data)}"
@@ -525,6 +619,16 @@ class Router(private val shell: Shell) {
 
     /** The uci setting [key] as it is, for the router checks; null if it isn't set. */
     fun setting(key: String) = uci(key)
+
+    /**
+     * The uci settings of the config or section [name], as `uci show` lists them, by key, each value without its
+     * quotes; a list's values stay quoted between them.
+     */
+    fun settings(name: String): Map<String, String> {
+        require(name.matches(Regex("[A-Za-z0-9_.-]+")))
+        return run("uci -q show $name").text.lines().filter { '=' in it }
+            .associate { it.substringBefore('=') to it.substringAfter('=').removeSurrounding("'") }
+    }
 
     private fun uci(key: String): String? {
         val output = run("uci -q get ${quote(key)}")
@@ -590,6 +694,9 @@ class Router(private val shell: Shell) {
         /** GL's scheduled reboot, `1` on and `0` off. */
         const val SCHEDULED_REBOOT = "gl_timer.reboot.enable"
 
+        /** The form of a `location_id` that the slot switches put into their requests. */
+        val LOCATION_ID = Regex("[A-Za-z0-9_]+")
+
         private val IMEI = Regex("[0-9]{15}")
         private val VERSION = Regex("[0-9A-Za-z][0-9A-Za-z.+_-]{0,39}")
         private val MD5 = Regex("[0-9a-f]{32}")
@@ -601,8 +708,25 @@ class Router(private val shell: Shell) {
         const val FIREWALL = "/etc/nftables.d/churn.nft"
         private val FIREWALL_CHAINS = listOf("churn_sim", "churn_route", "churn_dns")
 
-        private const val DEFAULT_POLICY = "route_policy.@default[0].enabled"
-        private const val VPN_TO_MAIN = "network.vpn_to_main"
+        /**
+         * For each socket listening on UDP port 53 or 2153, its port, its program, the program's user ID, and for
+         * dnsmasq started with a configuration file (`-C`) the file named there in `resolv-file`, separated by `|`.
+         * Nothing in the loop reads its input, which is netstat's list, other than `read`.
+         */
+        private val DNS_SERVERS = """
+            netstat -lnup | while read -r proto recv send local foreign program; do
+            	case "${'$'}proto ${'$'}local" in udp*:53 | udp*:2153) ;; *) continue ;; esac
+            	pid=${'$'}{program%%/*}
+            	conf=${'$'}(tr '\000' '\n' < /proc/${'$'}pid/cmdline | sed -n '/^-C${'$'}/{n;p;}')
+            	uid=${'$'}(awk '/^Uid:/ { print ${'$'}2 }' /proc/${'$'}pid/status)
+            	servers=${'$'}(sed -n 's/^resolv-file=//p' "${'$'}{conf:-/dev/null}")
+            	echo "${'$'}{local##*:}|${'$'}{program#*/}|${'$'}uid|${'$'}servers"
+            done 2>/dev/null | sort -u
+        """.trimIndent()
+
+        /** GL's two settings of the Enhanced Kill Switch: `0`, and absent, while it is on. */
+        const val DEFAULT_POLICY = "route_policy.@default[0].enabled"
+        const val VPN_TO_MAIN = "network.vpn_to_main"
         private const val LOCK = "/var/lock/churn.lock"
         private const val SYSUPGRADE = "/etc/sysupgrade.conf"
         private const val ESIM_API = "http://127.0.0.1:3456/sdk/v1"
