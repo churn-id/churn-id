@@ -265,6 +265,7 @@
     <string name="progress_firewall_reloaded">Churn\'s firewall rules are in place, and fw4 reload kept the cable and the radio off (D19).</string>
     <string name="progress_slot1_active">Slot 1 is the active slot, as dds_id shows (U6).</string>
     <string name="progress_tray_empty">No card answers in the SIM 2 tray.</string>
+    <string name="progress_esim_silent">Nor does the built-in eSIM, with slot 2 on the tray (E4).</string>
     <string name="progress_put_back">Slot 2, the active slot and the IMEIs are as they were before the dry run.</string>
     <string name="progress_dry_run_passed">The dry run passed.</string>
 

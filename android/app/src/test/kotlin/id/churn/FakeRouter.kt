@@ -120,6 +120,12 @@ class FakeRouter : Shell {
     var esimRequestsIgnored = 0
     var trayCard: Card? = Card("8941000000000000015F", "228010000000001")
 
+    /**
+     * For a modem that lets the built-in eSIM answer in slot 2 with slot 2 on the SIM 2 tray, against E4 in
+     * testing.md. Only the dry run's test uses it.
+     */
+    var esimAnswersOnTray = false
+
     /** The card in the SIM 1 tray, which Churn never uses. */
     var tray1Card: Card? = null
     var scheduledReboot = false
@@ -514,7 +520,7 @@ class FakeRouter : Shell {
             // step3StopsWhileTheCardIsOffIfTheSim1TrayHoldsACard then fails.
             !modemAnswers -> null
             slot == 1 -> tray1Card
-            slot2 == Slot2.SIM2 -> trayCard
+            slot2 == Slot2.SIM2 && !esimAnswersOnTray -> trayCard
             clock < esimReloadsUntil -> null
             else -> esimProfile?.let { Card(it, "260010000000001") }
                 ?: Card(Router.PLACEHOLDER_ICCID, Router.TEST_IMSI)

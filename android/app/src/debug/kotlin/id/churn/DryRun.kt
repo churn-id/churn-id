@@ -34,6 +34,13 @@ class DryRun(
                 report(Progress.SLOT1_ACTIVE)
             }
             part("S2", "S3", "U6") { emptyTray() }
+            part("E4") {
+                // The built-in eSIM answered in slot 2 before the switch, with its placeholder.
+                if (router.slot2Iccid() != null) {
+                    throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+ICCID: the eSIM, with slot 2 on the tray")
+                }
+                report(Progress.ESIM_SILENT)
+            }
             part("S2", "S3") {
                 setSlot2(Slot2.ESIM)
                 report(Progress.SLOT2_ON_ESIM)
@@ -85,8 +92,9 @@ class DryRun(
             cardInTray()
         } catch (e: RouterException) {
             if (e.problem != Problem.NO_CARD) throw e
-            // Or an eSIM adapter card without an enabled profile, which step 3 counts as no card.
-            router.slot2Iccid()
+            // Or an eSIM adapter card without an enabled profile, which step 3 counts as no card. The built-in
+            // eSIM's placeholder is the next part's.
+            router.slot2Iccid()?.takeIf { it != Router.PLACEHOLDER_ICCID }
         }
         if (iccid != null) throw RouterException(Problem.CARD_IN_TRAY)
         report(Progress.TRAY_EMPTY)

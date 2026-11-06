@@ -88,8 +88,8 @@ class DryRunTest {
                 Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.NO_PROFILE,
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
                 Progress.NETWORK_RELOADED, Progress.FIREWALL_RELOADED, Progress.SLOT1_ACTIVE, Progress.SLOT2_ON_SIM2,
-                Progress.SLOT2_ACTIVE, Progress.TRAY_EMPTY, Progress.SLOT2_ON_ESIM, Progress.PUT_BACK,
-                Progress.DRY_RUN_PASSED,
+                Progress.SLOT2_ACTIVE, Progress.TRAY_EMPTY, Progress.ESIM_SILENT, Progress.SLOT2_ON_ESIM,
+                Progress.PUT_BACK, Progress.DRY_RUN_PASSED,
             ),
             progress,
         )
@@ -121,7 +121,7 @@ class DryRunTest {
     @Test
     fun dryRunConfirmsTier2ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("S2", "S3", "K8", "D19", "U6"), claims)
+        assertEquals(setOf("S2", "S3", "K8", "D19", "U6", "E4"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)
@@ -158,6 +158,17 @@ class DryRunTest {
         fake.trayCard = FakeRouter.Card("89111111111111111111", "111111111111111")
         val before = state()
         assertStops(Problem.CARD_IN_TRAY) { run() }
+        assertEquals(before, state())
+    }
+
+    @Test
+    fun dryRunStopsWhenTheBuiltInEsimAnswersWithSlot2OnTheTray() {
+        fake.esimAnswersOnTray = true
+        val before = state()
+        assertStops(Problem.UNEXPECTED_ANSWER) { run() }
+        assertEquals(listOf("E4"), dryRun.testing)
+        // Not taken for a card in the tray.
+        assertEquals(Progress.TRAY_EMPTY, progress.dropLast(1).last())
         assertEquals(before, state())
     }
 

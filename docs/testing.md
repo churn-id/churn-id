@@ -111,8 +111,9 @@ settings can:
    slot again, as on a router new to Churn, and `dds_id` follows both
    switches (U6).
 5. Slot 2 switched to the SIM 2 tray and made the active slot, where no
-   card may answer, and back to the built-in eSIM. A card in the tray,
-   an eSIM adapter card without an enabled profile too, stops the dry run.
+   card may answer, nor the built-in eSIM (E4), and back to the built-in
+   eSIM. A card in the tray, an eSIM adapter card without an enabled
+   profile too, stops the dry run.
 6. Slot 2's setting and the active slot put back (S2, S3).
 
 Like a swap, the dry run leaves airplane mode and the Enhanced Kill Switch
