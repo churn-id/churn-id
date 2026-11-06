@@ -425,6 +425,21 @@ class FakeRouter : Shell {
     var keepsSimRoute = false
 
     /**
+     * How long after the router goes online chrony first updates the clock from one of its servers, which it reaches
+     * through the tunnel once WireGuard's handshake has come, or null for never.
+     */
+    var clockSyncMillis: Long? = 20_000L
+
+    /** For chrony taking its own clock as its reference, as with its setting `local`, and reaching no server. */
+    var chronyLocal = false
+
+    /** When WireGuard last completed a handshake, in seconds since 1970, or 0 for never. */
+    var latestHandshake = 0L
+
+    /** When chrony last updated the clock from one of its servers, in seconds since 1970, or null for never. */
+    private var clockUpdated: Long? = null
+
+    /**
      * When the router last went online, by [clock], or null while it is offline. The SIM's traffic is counted up to
      * [trafficAt].
      */
@@ -706,6 +721,7 @@ class FakeRouter : Shell {
             return ok("")
         }
         if (command.startsWith("cd /sys/class/net || exit 1\n")) return simTraffic()
+        if (command.startsWith("h=\$(wg show all latest-handshakes) || exit 1\n")) return tunnelClock()
         if (command == CHURN_CHAINS) {
             val chains = listOf("churn_sim", "churn_route", "churn_dns").filter { it in loadedChains }
             return ok(chains.joinToString("") { "$it\n" })
@@ -835,6 +851,12 @@ class FakeRouter : Shell {
                 wireguardBytes = 0
             }
             wireguard(wireguardMessages(clock - since) - wireguardMessages(maxOf(trafficAt, remade ?: 0L) - since))
+            // Both need WireGuard's packets to get past Churn's rules.
+            if (vpnTunnel != null && tunnelUp && !wireguardUnmarked && clock - since >= handshakeMillis) {
+                latestHandshake = START_TIME + (since + handshakeMillis) / 1000
+                val synced = clockSyncMillis?.let { maxOf(it, handshakeMillis) }?.takeIf { clock - since >= it }
+                synced?.let { clockUpdated = START_TIME + (since + it) / 1000 }
+            }
         }
         if (online && since == null) goOnline()
         if (!online) onlineAt = null
@@ -907,6 +929,15 @@ class FakeRouter : Shell {
             "\t\toifname \"rmnet_data*\" meta nfproto ipv6 ${counter(counters.passed6, "passed6")}\n\t}\n}\n"
         if (during && !early) wireguard(1)
         return ok(listing + wireguardLine("after") + "fragments $fragmentsMade\nfragments 0\n")
+    }
+
+    /** WireGuard's latest handshake and chrony's reference, as [Router.tunnelClock] reads them. */
+    private fun tunnelClock(): Output {
+        val reference = when {
+            chronyLocal -> "7F7F0101 $time.000000000"
+            else -> clockUpdated?.let { "C000027B $it.000000000" } ?: "00000000 0.000000000"
+        }
+        return ok("handshake $latestHandshake\nclock $reference\n")
     }
 
     private fun at(command: String): Output {

@@ -23,8 +23,17 @@ class LeakWatchTest {
 
     /** Runs after each command that [fake] answered, with the command. */
     private var after: (String) -> Unit = {}
-    private val shell = Shell { command, input, timeoutSeconds ->
-        fake.run(command, input, timeoutSeconds).also { after(command) }
+
+    /** The commands run privately, whose answers the debug log leaves out. */
+    private val privately = mutableListOf<String>()
+    private val shell = object : Shell {
+        override fun run(command: String, input: ByteArray?, timeoutSeconds: Long) =
+            fake.run(command, input, timeoutSeconds).also { after(command) }
+
+        override fun runPrivately(command: String, input: ByteArray?, timeoutSeconds: Long): Output {
+            privately += command
+            return run(command, input, timeoutSeconds)
+        }
     }
     private val progress = mutableListOf<Progress>()
 
@@ -64,6 +73,9 @@ class LeakWatchTest {
     /** Whether [command] reads the SIM's traffic. */
     private fun readsTraffic(command: String) = command.startsWith("cd /sys/class/net || exit 1\n")
 
+    /** Whether [command] reads WireGuard's latest handshake and chrony's reference. */
+    private fun readsTunnelClock(command: String) = command.startsWith("h=\$(wg show all latest-handshakes)")
+
     private fun assertStops(problem: Problem, run: () -> Unit): RouterException {
         try {
             run()
@@ -94,7 +106,7 @@ class LeakWatchTest {
      */
     private fun assertStoppedWatching(problem: Problem): String? {
         val e = assertStops(problem) { run() }
-        assertEquals(listOf("D9", "D11"), leakWatch.testing)
+        assertEquals(listOf("D9", "D11", "D16"), leakWatch.testing)
         assertEquals(Progress.AIRPLANE_MODE_ON, progress.last())
         assertTrue(fake.airplaneMode)
         assertNull(fake.leakCounters)
@@ -113,15 +125,17 @@ class LeakWatchTest {
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
                 Progress.CARD_READY, Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.SIM_ONLY,
-                Progress.GOING_ONLINE, Progress.SIM_PACKETS, Progress.WIREGUARD_MATCHED, Progress.LEAK_WATCH_PASSED,
+                Progress.GOING_ONLINE, Progress.HANDSHAKE, Progress.CLOCK_SYNCED, Progress.SIM_PACKETS,
+                Progress.WIREGUARD_MATCHED, Progress.LEAK_WATCH_PASSED,
             ),
             progress,
         )
-        // WireGuard's handshake 3 s after airplane mode went off and then 5 packets a second, the router's own packets
-        // that Churn's rules dropped, and WireGuard's bytes.
-        assertEquals(listOf(286L, 8L, 28_600L), numbers)
+        // WireGuard's handshake 3 s after airplane mode went off, seen at the read at 4 s, and then 5 packets a
+        // second; the clock synced at 20 s; the router's own packets that Churn's rules dropped; WireGuard's bytes.
+        assertEquals(listOf(4L, 20L, 286L, 8L, 28_600L), numbers)
         // Once in airplane mode, then every 2 s for 60 s.
         assertEquals(31, fake.commands.count(::readsTraffic))
+        assertEquals(31, fake.commands.count(::readsTunnelClock))
         val commit = fake.commands.indexOf("uci set 'glconfig.general.airplane_mode=0' && uci commit 'glconfig'")
         assertTrue(fake.commands.indexOfFirst(::readsTraffic) in fake.commands.indexOf("nft -f -")..commit)
         // As step 4 leaves the router.
@@ -135,7 +149,7 @@ class LeakWatchTest {
     @Test
     fun leakWatchConfirmsTier4ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("D9", "D11"), claims)
+        assertEquals(setOf("D9", "D11", "D16"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 4 claim in testing.md", "4" in tiers)
@@ -158,7 +172,7 @@ class LeakWatchTest {
         run()
         assertEquals(Progress.FRAGMENTS_UNCLEAR, progress[progress.size - 3])
         // Each of WireGuard's 286 packets left as two fragments.
-        assertEquals(listOf(286L, 572L, 28_600L), numbers)
+        assertEquals(listOf(4L, 20L, 286L, 572L, 28_600L), numbers)
         assertFalse(fake.airplaneMode)
     }
 
@@ -174,7 +188,7 @@ class LeakWatchTest {
         fake.remakesInterface = true
         run()
         assertEquals(Progress.INTERFACES_CHANGED, progress[progress.size - 3])
-        assertEquals(listOf(28_600L), numbers)
+        assertEquals(listOf(4L, 20L, 28_600L), numbers)
     }
 
     @Test
@@ -185,15 +199,48 @@ class LeakWatchTest {
     }
 
     @Test
-    fun nothingLeavingOverTheSimLeavesD11Unconfirmed() {
-        // A tunnel that sends nothing within the minute.
+    fun noHandshakeWithinAMinuteStopsTheWatch() {
         fake.handshakeMillis = 120_000
-        run()
         assertEquals(
-            listOf(Progress.NOTHING_LEFT, Progress.WIREGUARD_UNCLEAR, Progress.LEAK_WATCH_PASSED),
-            progress.takeLast(3),
+            "wg show all latest-handshakes: no new handshake within 60 s",
+            assertStoppedWatching(Problem.UNEXPECTED_ANSWER),
         )
-        assertEquals(listOf(8L), numbers)
+        assertEquals(31, fake.commands.count(::readsTraffic))
+    }
+
+    @Test
+    fun anEarlierHandshakeIsNoNewOne() {
+        fake.latestHandshake = fake.time - 3_600
+        run()
+        assertEquals(4L, numbers.first())
+    }
+
+    @Test
+    fun aClockThatSyncsLaterKeepsTheTestWatching() {
+        fake.clockSyncMillis = 100_000
+        run()
+        assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
+        assertEquals(listOf(4L, 100L, 486L, 8L, 48_600L), numbers)
+        assertEquals(51, fake.commands.count(::readsTraffic))
+    }
+
+    @Test
+    fun aClockThatDoesNotSyncWithin5MinutesStopsTheWatch() {
+        fake.clockSyncMillis = null
+        assertEquals("chronyc tracking: no update within 300 s", assertStoppedWatching(Problem.UNEXPECTED_ANSWER))
+        assertEquals(151, fake.commands.count(::readsTraffic))
+    }
+
+    @Test
+    fun chronyTakingItsOwnClockIsNoSync() {
+        fake.chronyLocal = true
+        assertEquals("chronyc tracking: no update within 300 s", assertStoppedWatching(Problem.UNEXPECTED_ANSWER))
+    }
+
+    @Test
+    fun theHandshakeAndTheClockStayOutOfTheDebugLog() {
+        run()
+        assertEquals(fake.commands.count(::readsTunnelClock), privately.count(::readsTunnelClock))
     }
 
     @Test
@@ -205,7 +252,7 @@ class LeakWatchTest {
         run()
         assertTrue("uci set 'glconfig.general.airplane_mode=1' && uci commit 'glconfig'" in fake.commands)
         assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
-        assertEquals(listOf(286L, 8L, 28_600L), numbers)
+        assertEquals(listOf(4L, 20L, 286L, 8L, 28_600L), numbers)
     }
 
     @Test
@@ -233,9 +280,8 @@ class LeakWatchTest {
         fake.tunnelRemadeAfter = 9_000
         run()
         assertEquals(1, progress.count { it == Progress.TUNNEL_MADE_ANEW })
-        assertEquals(Progress.GOING_ONLINE, progress[progress.indexOf(Progress.TUNNEL_MADE_ANEW) - 1])
         // From the read at 10 s, with 36 of WireGuard's packets by then.
-        assertEquals(listOf(286L, 8L, 25_000L), numbers)
+        assertEquals(listOf(4L, 20L, 286L, 8L, 25_000L), numbers)
     }
 
     @Test
@@ -247,7 +293,7 @@ class LeakWatchTest {
             progress.takeLast(3),
         )
         // One more packet during each of the 30 reads, after the interfaces' counts.
-        assertEquals(listOf(315L, 8L), numbers)
+        assertEquals(listOf(4L, 20L, 315L, 8L), numbers)
     }
 
     @Test

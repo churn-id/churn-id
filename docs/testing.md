@@ -281,13 +281,15 @@ the router has been switched on again there (rule 1):
    interface sent, the counters, with the bytes that WireGuard sent to its
    peers right before and right after them, and the fragments that the
    router made of packets since it started, from `/proc/net/snmp` and
-   `/proc/net/snmp6`.
-5. It commits airplane mode off and reads the same every 2 s for 60 s.
-   Every packet that got past Churn's rules passed the counters before it
-   left, so the interfaces can't have sent more, but for the fragments
-   that the router made of such packets, which they count one by one.
-   More than that, packets that Churn's rules didn't see, stops the test
-   (D11).
+   `/proc/net/snmp6`. It also reads when WireGuard last completed a
+   handshake and when chrony last updated the clock, which are times of
+   day, so the debug log leaves them out.
+5. It commits airplane mode off and reads the same every 2 s, for 60 s
+   and then until the clock has synced, for at most 5 min. Every packet
+   that got past Churn's rules passed the counters before it left, so the
+   interfaces can't have sent more, but for the fragments that the router
+   made of such packets, which they count one by one. More than that,
+   packets that Churn's rules didn't see, stops the test (D11).
 6. With each read it also compares the bytes that got past Churn's rules,
    without the IP and UDP headers of WireGuard's packets, with those that
    WireGuard sent. WireGuard counts a packet once the firewall has passed
@@ -299,17 +301,22 @@ the router has been switched on again there (rule 1):
    the two have to match exactly (D9). A WireGuard interface made anew
    starts its count again, so the test then compares from the next such
    read on.
-7. It deletes its table and leaves the router online, as step 4 does.
+7. WireGuard has to complete a new handshake within the 60 s, and chrony
+   has to update the clock from one of its servers within the 5 min,
+   which with Churn's rules it reaches only through the tunnel (D16).
+8. It deletes its table and leaves the router online, as step 4 does.
 
-The lines name how many packets left over the SIM in that minute, how
-many Churn's rules dropped, and how many bytes WireGuard had sent by the
-last read during which it sent nothing. If the router made fragments
-meanwhile, one of the SIM's interfaces went away or was made anew, or
-nothing left at all, D11 stays unconfirmed, and if no read matched
+The lines say by how many seconds after airplane mode went off the test
+saw the handshake and the clock's update, how many packets left over the
+SIM while it watched, how many Churn's rules dropped, and how many bytes
+WireGuard had sent by the last read during which it sent nothing. If the
+router made fragments meanwhile, or one of the SIM's interfaces went away
+or was made anew, D11 stays unconfirmed, and if no read matched
 WireGuard's bytes exactly, D9; the lines say so. A test that stops once
 airplane mode is off commits it on again and deletes its table. The
 screen lists what the test did and, if it stopped, the claims it was
-confirming. The debug log keeps every command.
+confirming. The debug log keeps every command. D16 after a reboot, a
+device's website and the rest of tier 4 stay with the user.
 
 ## Platform
 
@@ -414,7 +421,7 @@ design.md, sections 7 and 10.
 | D13 | The tunnel's IP Masquerading translates the router's own packets to the tunnel's address; without it, the VPN server wouldn't accept them | translation verified, without it inferred | The setting `masq` of the tunnel's WireGuard peer, by its name the IP Masquerading, is on (tier 1); a request from the router with it off (tier 4) | 1, 4 |
 | D14 | GL's firewall loads Churn's rules at boot before the modem goes online | open | The chains are listed after a boot, and when the app first saw them (tier 3); what leaves over the SIM during a boot with a card (tier 4) | 3, 4 |
 | D15 | A rules file that GL's firewall rejects might keep it from loading any rules at the next boot, which is why the app removes such a file | inferred | None: a test could leave the router without a firewall | – |
-| D16 | With the rules, the tunnel comes up after a reboot and after airplane mode off and on, and the clock then syncs through it | verified | Reboot and turn airplane mode off and on; the handshake, the clock and a website | 4 |
+| D16 | With the rules, the tunnel comes up after a reboot and after airplane mode off and on, and the clock then syncs through it | verified | Reboot and turn airplane mode off and on; the handshake, the clock and a website. The leak watch checks the first two after airplane mode goes off | 4 |
 | D17 | With the rules, GL still treats the cellular connection as connected, though its connection check can't ping over the SIM | verified with an earlier version of the rules | GL's connection status after airplane mode goes off | 4 |
 | D18 | With the rules, devices work alike over Wi-Fi, the Ethernet port and USB-C, and an uplink over Ethernet or Wi-Fi works as without the rules | inferred | A website from a device on each; the router's own traffic with an Ethernet uplink | 4 |
 | D19 | `fw4 reload` neither drops the cable nor turns the radio on | open | The connection and `+CFUN: 4` across a reload (tier 2); the RF meter (tier 4) | 2, 4 |

@@ -1089,12 +1089,13 @@ class Controller(private val context: Context) {
             Progress.SIM_PACKETS -> R.string.progress_sim_packets
             Progress.FRAGMENTS_UNCLEAR -> R.string.progress_fragments_unclear
             Progress.INTERFACES_CHANGED -> R.string.progress_interfaces_changed
-            Progress.NOTHING_LEFT -> R.string.progress_nothing_left
             Progress.LEAK_WATCH_PASSED -> R.string.progress_leak_watch_passed
             Progress.SIM_ONLY -> R.string.progress_sim_only
             Progress.TUNNEL_MADE_ANEW -> R.string.progress_tunnel_made_anew
             Progress.WIREGUARD_MATCHED -> R.string.progress_wireguard_matched
             Progress.WIREGUARD_UNCLEAR -> R.string.progress_wireguard_unclear
+            Progress.HANDSHAKE -> R.string.progress_handshake
+            Progress.CLOCK_SYNCED -> R.string.progress_clock_synced
         },
         *args,
     )

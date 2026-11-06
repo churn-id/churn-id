@@ -143,6 +143,14 @@ data class SimTraffic(
     val fragments: Long,
 )
 
+/**
+ * When WireGuard last completed a handshake with any of its peers, in seconds since 1970 as `wg show` gives it, or 0
+ * for never, [handshake]; and chrony's reference, by its ID in hex, such as `C000027B`, [clockSource], and when chrony
+ * last updated the clock from it, [clockUpdate], as `chronyc -c tracking` gives them. Both are times of day, which the
+ * debug log leaves out.
+ */
+data class TunnelClock(val handshake: Long, val clockSource: String, val clockUpdate: String)
+
 /** A card, by its ICCID's digits, and the IMEIs Churn gives it. */
 data class Card(val iccid: String, val imeis: ImeiPair)
 
@@ -459,6 +467,19 @@ class Router(private val shell: Shell) {
             wireguard("after"),
             fragments.sum(),
         )
+    }
+
+    /** WireGuard's latest handshake and chrony's reference, see [TunnelClock]. */
+    fun tunnelClock(): TunnelClock {
+        val what = "the tunnel's handshake and the clock"
+        // An error names neither time.
+        val output = runPrivately(TUNNEL_CLOCK)
+        if (output.status != 0) throw unexpected(what)
+        val lines = output.text.lines().map(String::trim)
+        val handshake = lines.firstNotNullOfOrNull { Regex("""handshake (\d+)""").matchEntire(it) }
+        val clock = lines.firstNotNullOfOrNull { Regex("""clock ([0-9A-Fa-f]{8}) ([0-9.]+)""").matchEntire(it) }
+        if (handshake == null || clock == null) throw unexpected(what)
+        return TunnelClock(handshake.groupValues[1].toLong(), clock.groupValues[1].uppercase(), clock.groupValues[2])
     }
 
     /** The names of the router's network devices, as `/sys/class/net` lists them. */
@@ -1128,6 +1149,14 @@ class Router(private val shell: Shell) {
             ' /proc/net/snmp
             awk '${'$'}1 == "Ip6FragCreates" { print "fragments", ${'$'}2 }' /proc/net/snmp6 2>/dev/null
             true
+        """.trimIndent()
+
+        /** Prints WireGuard's latest handshake with any peer, then chrony's reference, see [TunnelClock]. */
+        private val TUNNEL_CLOCK = """
+            h=${'$'}(wg show all latest-handshakes) || exit 1
+            c=${'$'}(chronyc -c tracking) || exit 1
+            echo "${'$'}h" | awk '${'$'}3 > m { m = ${'$'}3 } END { print "handshake", m + 0 }'
+            echo "${'$'}c" | awk -F, 'NR == 1 { print "clock", ${'$'}1, ${'$'}4 }'
         """.trimIndent()
 
         /** A path the shell takes as it is, without quoting. */
