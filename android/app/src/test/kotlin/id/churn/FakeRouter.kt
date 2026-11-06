@@ -111,6 +111,12 @@ class FakeRouter : Shell {
      */
     var overwriteCutsSimMap = false
 
+    /** The free space the overwrite leaves, in kB: 512 MB, but for an overwrite broken against H15. */
+    var overwriteKeepsFreeKb = 524_288L
+
+    /** For an overwrite that leaves fill files, against H15. Only the removal test's tests use it. */
+    var overwriteLeavesFillFiles = false
+
     /** The overlay's device and file system, or null for none, and the blocks that ext4 keeps back from it. */
     var overlayDevice = "/dev/mmcblk0p59"
     var overlayType: String? = "ext4"
@@ -558,7 +564,9 @@ class FakeRouter : Shell {
             zerosLink = "/overlay/churn-zeros"
             // It deletes any fill files first, and keeps all but 512 MB of the free space in zero files.
             fillFilesKb = 0
-            zeroFilesKb += overlayFreeKb - 524_288
+            zeroFilesKb = maxOf(0, zeroFilesKb + overlayFreeKb - overwriteKeepsFreeKb)
+            // Only an overwrite broken against H15 gets here: 4 kB files it didn't delete.
+            if (overwriteLeavesFillFiles) fillFilesKb = 1_200
             // Only an overwrite broken against H13 gets here.
             if (overwriteLeavesReserveOff) reservedClusters = 0
             // Only a firmware broken against H14 gets here.

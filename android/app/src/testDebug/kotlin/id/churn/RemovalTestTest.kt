@@ -131,7 +131,7 @@ class RemovalTestTest {
                 Progress.SIM1_EMPTY, Progress.RESTORED, Progress.FACTORY_IMEIS, Progress.FOLDER_GONE,
                 Progress.LOG_SETTING_BACK, Progress.LOG_WRITTEN, Progress.ZERO_FILES_GONE, Progress.FIREWALL_GONE,
                 Progress.SET_UP_AGAIN, Progress.CLEARING_HISTORY, Progress.CONNECTION_KEPT, Progress.RESERVE_BACK,
-                Progress.CARD_FILES_PARSE, Progress.REMOVAL_PASSED,
+                Progress.CARD_FILES_PARSE, Progress.ZEROS_KEEP_SPACE, Progress.REMOVAL_PASSED,
             ),
             progress,
         )
@@ -358,6 +358,25 @@ class RemovalTestTest {
         assertSafe()
     }
 
+    @Test
+    fun removalTestStopsWhenTheClearingLeavesMoreThan512MbFree() {
+        // As if it had deleted 8 zero files too many.
+        fake.overwriteKeepsFreeKb = 1_048_576
+        assertStopsAfterTheClearing("H15")
+    }
+
+    @Test
+    fun removalTestStopsWhenTheClearingLeavesLessThan512MbFree() {
+        fake.overwriteKeepsFreeKb = 500_000
+        assertStopsAfterTheClearing("H15")
+    }
+
+    @Test
+    fun removalTestStopsWhenTheClearingLeavesFillFiles() {
+        fake.overwriteLeavesFillFiles = true
+        assertStopsAfterTheClearing("H15")
+    }
+
     /**
      * Runs the test with a clearing or a firmware broken to fail the check of [ids], and checks that it stops there,
      * with the router set up again before the clearing.
@@ -375,7 +394,7 @@ class RemovalTestTest {
     @Test
     fun removalTestConfirmsTier2ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("F7", "F8", "F9", "F10", "F11", "F12", "H3", "H13", "H14", "H17"), claims)
+        assertEquals(setOf("F7", "F8", "F9", "F10", "F11", "F12", "H3", "H13", "H14", "H15", "H17"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)

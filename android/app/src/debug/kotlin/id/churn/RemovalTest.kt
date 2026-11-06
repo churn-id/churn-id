@@ -164,6 +164,18 @@ class RemovalTest(
             }
             report(Progress.CARD_FILES_PARSE)
         }
+        // The overwrite deletes zero files, 64 MB each, until 512 MB are free, of which GL may have taken some since.
+        part("H15") {
+            val free = router.overlayFreeKb()
+            if (free !in KEPT_FREE_KB - FREE_SLACK_KB until KEPT_FREE_KB + ZERO_FILE_KB) {
+                throw RouterException(Problem.UNEXPECTED_ANSWER, "${free / 1024} MB are free after the clearing")
+            }
+            // Their folder, with no fill files left: what isn't free any more went into the zero files.
+            if (router.zeroFiles().count != 1) {
+                throw RouterException(Problem.UNEXPECTED_ANSWER, "No folder of zero files, or fill files are left")
+            }
+            report(Progress.ZEROS_KEEP_SPACE)
+        }
         testing = emptyList()
     }
 
@@ -197,6 +209,12 @@ class RemovalTest(
 
         /** How much less free space than the zero files took the overlay may have after restore.sh: 16 MB. */
         private const val FREE_SLACK_KB = 16_384
+
+        /** The free space that the overwrite leaves, in kB: 512 MB. */
+        private const val KEPT_FREE_KB = 524_288
+
+        /** The size of each zero file, in kB: 64 MB. */
+        private const val ZERO_FILE_KB = 65_536
 
         /** How restore.sh's last line ends, which only a script that ran to its end prints. */
         const val LAST_LINE_END = "Airplane mode is on."
