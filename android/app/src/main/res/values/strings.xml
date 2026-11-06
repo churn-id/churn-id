@@ -175,6 +175,7 @@
     <string name="check_churn_folder">Churn\'s folder and its files belong to root, with the modes and sizes Churn gives them</string>
     <string name="check_folder_kept">A firmware upgrade that keeps settings keeps Churn\'s folder</string>
     <string name="check_firewall_kept">A firmware upgrade that keeps settings keeps Churn\'s firewall rules</string>
+    <string name="check_zeros_link">Churn\'s folder holds only a link to the zero files, which du and firmware upgrades don\'t follow</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>
     <string name="reason_not_set_up">Churn hasn\'t set up this router yet.</string>
     <string name="reason_starting">The router started less than 2 minutes ago, so the radio may still be on.</string>
@@ -190,6 +191,7 @@
     <string name="reason_no_card_files">GL has no files that record cards yet.</string>
     <string name="reason_esim_log_empty">GL\'s eSIM manager\'s log is empty, as after a clearing.</string>
     <string name="reason_first_note">Churn noted the log now, to compare it at the next connection.</string>
+    <string name="reason_no_zeros">Churn hasn\'t overwritten this router\'s free space yet.</string>
     <string name="reason_no_record">No swap has recorded a card on this router yet.</string>
     <string name="reason_slot2_on_esim">Slot 2 is on the built-in eSIM, so the card in the SIM 2 tray is off.</string>
     <string name="reason_slot2_on_tray">Slot 2 is on the SIM 2 tray, not the built-in eSIM.</string>

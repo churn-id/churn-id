@@ -89,6 +89,13 @@ data class FlashWear(val lifeTime: List<Int>, val preEol: Int)
 data class FolderEntry(val mode: String, val uid: Int?, val size: Long?, val name: String)
 
 /**
+ * Churn's link to the zero files and what tools make of it: where it leads, [target], how many kB `du` counts in
+ * Churn's folder, [folderKb], and the paths of the link or the zero files that `sysupgrade -l` lists, [kept], as a
+ * firmware upgrade that keeps settings would keep them.
+ */
+data class ZerosLink(val target: String, val folderKb: Long, val kept: List<String>)
+
+/**
  * A program listening on the UDP [port], as `netstat` names it, the user ID it runs as, and the file that dnsmasq
  * reads its servers from, or null for none.
  */
@@ -587,6 +594,16 @@ class Router(private val shell: Shell) {
         return folder to entries.drop(1)
     }
 
+    /** Churn's link to the zero files; null without the link. */
+    fun zerosLink(): ZerosLink? {
+        val output = run(ZEROS_LINK)
+        if (output.status == 3) return null
+        val lines = output.text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        val kb = lines.getOrNull(1)?.toLongOrNull()
+        if (output.status != 0 || kb == null) throw unexpected("The link to the zero files", output)
+        return ZerosLink(lines[0], kb, lines.drop(2))
+    }
+
     /** Records [card] in Churn's folder as the card step 3 last gave IMEIs. */
     fun recordCard(card: Card) = writeChurnFile(
         "card",
@@ -824,6 +841,18 @@ class Router(private val shell: Shell) {
             	servers=${'$'}(sed -n 's/^resolv-file=//p' "${'$'}{conf:-/dev/null}")
             	echo "${'$'}{local##*:}|${'$'}{program#*/}|${'$'}uid|${'$'}servers"
             done 2>/dev/null | sort -u
+        """.trimIndent()
+
+        /**
+         * Where Churn's link to the zero files leads, how many kB `du` counts in Churn's folder, and the paths of the
+         * link or the zero files that `sysupgrade -l` lists, one per line.
+         */
+        private val ZEROS_LINK = """
+            [ -L $CHURN/zeros ] || exit 3
+            readlink $CHURN/zeros || exit 1
+            du -sk $CHURN 2>/dev/null | cut -f 1
+            sysupgrade -l 2>/dev/null | grep -e '^$CHURN/zeros' -e '^/overlay/churn-zeros'
+            true
         """.trimIndent()
 
         /** The kernel's folder for the eMMC flash, which holds its estimates of its wear. */

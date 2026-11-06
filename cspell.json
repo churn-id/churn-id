@@ -89,6 +89,7 @@
     "Quectel",
     "QUIMSLOT",
     "QUIMSUB",
+    "readlink",
     "recv",
     "resolv",
     "rmnet",

@@ -1253,6 +1253,64 @@ class ChecksTest {
     }
 
     @Test
+    fun zerosLinkCheckPassesWithOnlyTheLinkTaken() {
+        router.keepChurnFolder()
+        fake.zerosLink = "/overlay/churn-zeros"
+        assertEquals(CheckResult.Passed, run("F4"))
+        fake.churnFolderKb = 1023
+        assertEquals(CheckResult.Passed, run("F4"))
+    }
+
+    @Test
+    fun zerosLinkCheckDoesNotApplyWithoutTheLink() {
+        router.keepChurnFolder()
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_zeros), run("F4"))
+    }
+
+    @Test
+    fun zerosLinkCheckFailsWithTheLinkLeadingElsewhere() {
+        router.keepChurnFolder()
+        fake.zerosLink = "/tmp/churn-zeros"
+        assertEquals(CheckResult.Failed("The link leads to /tmp/churn-zeros."), run("F4"))
+    }
+
+    @Test
+    fun zerosLinkCheckFailsWithDuFollowingTheLink() {
+        router.keepChurnFolder()
+        fake.zerosLink = "/overlay/churn-zeros"
+        fake.churnFolderKb = 1024
+        assertEquals(CheckResult.Failed("du counts 1024 kB in Churn's folder."), run("F4"))
+    }
+
+    @Test
+    fun zerosLinkCheckFailsWithAnUpgradeKeepingZeroFiles() {
+        router.keepChurnFolder()
+        fake.zerosLink = "/overlay/churn-zeros"
+        fake.upgradeFollowsLinks = true
+        assertEquals(CheckResult.Failed("sysupgrade -l lists zero files too."), run("F4"))
+    }
+
+    @Test
+    fun zerosLinkCheckFailsWithAnUpgradeLeavingOutTheLink() {
+        fake.zerosLink = "/overlay/churn-zeros"
+        assertEquals(CheckResult.Failed("sysupgrade -l doesn't list the link."), run("F4"))
+    }
+
+    @Test
+    fun zerosLinkCheckFailsAtAnAnswerItCannotRead() {
+        fake.zerosLink = "/overlay/churn-zeros"
+        val command = listOf(
+            "[ -L /etc/churn/zeros ] || exit 3",
+            "readlink /etc/churn/zeros || exit 1",
+            "du -sk /etc/churn 2>/dev/null | cut -f 1",
+            "sysupgrade -l 2>/dev/null | grep -e '^/etc/churn/zeros' -e '^/overlay/churn-zeros'",
+            "true",
+        ).joinToString("\n")
+        fake.answers[command] = "/overlay/churn-zeros\n"
+        assertTrue(run("F4").toString().contains("Unexpected answer: The link to the zero files"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2

@@ -160,6 +160,10 @@ class FakeRouter : Shell {
 
     /** Where `/etc/churn/zeros` links to, once the free-space overwrite made the link. */
     var zerosLink: String? = null
+
+    /** What `du` counts in Churn's folder, in kB, and whether `sysupgrade -l` follows the link to the zero files. */
+    var churnFolderKb = 12L
+    var upgradeFollowsLinks = false
     var sysupgrade = "/etc/config/\n/etc/profile"
 
     /** The user ID of GL's main DNS server, 453 on our Mudi 7. */
@@ -356,6 +360,13 @@ class FakeRouter : Shell {
             return ok("")
         }
         if (command == "[ -d /etc/churn ] || exit 3; ls -lnd /etc/churn && ls -lnA /etc/churn") return churnListing()
+        if (command.startsWith("[ -L /etc/churn/zeros ] || exit 3\n")) {
+            val target = zerosLink ?: return Output(3, ByteArray(0), "")
+            // As find lists them for an upgrade, through the folder that sysupgrade.conf names.
+            val kept = listOf("/etc/churn/zeros").filter { "/etc/churn/" in sysupgrade.lines() }
+            val zeroFiles = kept.map { "$it/0" }.filter { upgradeFollowsLinks }
+            return ok("$target\n$churnFolderKb\n" + (kept + zeroFiles).joinToString("") { "$it\n" })
+        }
         Regex("""grep -qxF (\S+) /etc/sysupgrade.conf.*""").matchEntire(command)?.let {
             val line = it.groupValues[1]
             val listed = line in sysupgrade.lines()

@@ -120,6 +120,7 @@ val CHECKS = listOf(
         folderKept(router, context.folder)
     },
     Check("F3", blocks = false, title = R.string.check_firewall_kept) { router, _ -> firewallKept(router) },
+    Check("F4", blocks = false, title = R.string.check_zeros_link) { router, _ -> zerosLinked(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept) { router, context ->
         imeisKept(router, context.folder)
     },
@@ -769,6 +770,25 @@ private fun firewallKept(router: Router) = when {
     router.firewallFile() == null -> CheckResult.NotApplicable(R.string.reason_no_firewall)
     router.upgradeKeeps(Router.FIREWALL) -> CheckResult.Passed
     else -> CheckResult.Failed("/etc/sysupgrade.conf doesn't list ${Router.FIREWALL}.")
+}
+
+/**
+ * Whether Churn's folder links to the zero files in `/overlay/churn-zeros`, and `du` and a firmware upgrade that keeps
+ * settings take only the link: `du` counts under 1 MB in the folder, and `sysupgrade -l` lists the link but no zero
+ * file.
+ */
+private fun zerosLinked(router: Router): CheckResult {
+    val link = router.zerosLink() ?: return CheckResult.NotApplicable(R.string.reason_no_zeros)
+    val problems = listOfNotNull(
+        "The link leads to ${link.target.take(60)}.".takeIf { link.target != "/overlay/churn-zeros" },
+        "du counts ${link.folderKb} kB in Churn's folder.".takeIf { link.folderKb >= 1024 },
+        when {
+            "${Router.CHURN}/zeros" !in link.kept -> "sysupgrade -l doesn't list the link."
+            link.kept.size > 1 -> "sysupgrade -l lists zero files too."
+            else -> null
+        },
+    )
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
 }
 
 /**
