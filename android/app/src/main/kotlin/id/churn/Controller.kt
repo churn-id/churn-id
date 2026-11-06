@@ -884,6 +884,12 @@ class Controller(private val context: Context) {
             Progress.RESERVE_BACK -> R.string.progress_reserve_back
             Progress.CARD_FILES_PARSE -> R.string.progress_card_files_parse
             Progress.ZEROS_KEEP_SPACE -> R.string.progress_zeros_keep_space
+            Progress.READING_PARTITION -> R.string.progress_reading_partition
+            Progress.IMSIS_GONE -> R.string.progress_imsis_gone
+            Progress.NO_IMSIS -> R.string.progress_no_imsis
+            Progress.ICCIDS_GONE -> R.string.progress_iccids_gone
+            Progress.NO_ICCIDS -> R.string.progress_no_iccids
+            Progress.PARTITION_UNCHECKED -> R.string.progress_partition_unchecked
             Progress.REMOVAL_PASSED -> R.string.progress_removal_passed
             Progress.PUT_BACK -> R.string.progress_put_back
             Progress.DRY_RUN_PASSED -> R.string.progress_dry_run_passed
