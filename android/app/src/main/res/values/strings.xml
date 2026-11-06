@@ -290,6 +290,7 @@
     <string name="progress_firewall_gone">Churn\'s firewall rules, their chains and their line in /etc/sysupgrade.conf are gone (F11).</string>
     <string name="progress_set_up_again">The router is set up again, with the card\'s record, the IMEIs it had and Churn\'s firewall rules as before.</string>
     <string name="progress_connection_kept">The clearing ended with the SSH connection still open, though it printed nothing for minutes (H17).</string>
+    <string name="progress_reserve_back">ext4\'s reserve of free space is back as before the clearing (H13).</string>
     <string name="progress_removal_passed">The removal test passed.</string>
 
     <!-- Why a step stopped -->
