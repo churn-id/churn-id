@@ -135,6 +135,15 @@ class FakeRouter : Shell {
     /** For a restore.sh that leaves the IMEIs as they are, against F7. Only the removal test's tests use it. */
     var restoreKeepsImeis = false
 
+    /** For a restore.sh that leaves Churn's folder, against F8 and F12. Only the removal test's tests use it. */
+    var restoreKeepsFolder = false
+
+    /**
+     * For a restore.sh that leaves the folder's line in /etc/sysupgrade.conf, against F12. Only the removal test's
+     * tests use it.
+     */
+    var restoreKeepsFolderLine = false
+
     /** The card in the SIM 1 tray, which Churn never uses. */
     var tray1Card: Card? = null
     var scheduledReboot = false
@@ -699,10 +708,9 @@ class FakeRouter : Shell {
         zerosLink = null
         files.remove(Router.FIREWALL)
         loadedChains.clear()
-        for (line in listOf(Router.FIREWALL, "/etc/churn/")) {
-            sysupgrade = sysupgrade.lines().filter { it != line }.joinToString("\n")
-        }
-        files.keys.removeAll { it.startsWith("/etc/churn/") }
+        sysupgrade = sysupgrade.lines().filter { it != Router.FIREWALL }.joinToString("\n")
+        if (!restoreKeepsFolderLine) sysupgrade = sysupgrade.lines().filter { it != "/etc/churn/" }.joinToString("\n")
+        if (!restoreKeepsFolder) files.keys.removeAll { it.startsWith("/etc/churn/") }
         if (restoreEndsEarly) return ok("")
         return ok(
             "The factory IMEIs are back: IMEI 1 ${factory[0]}, IMEI 2 ${factory[1]}. GL's setting for saving the " +
