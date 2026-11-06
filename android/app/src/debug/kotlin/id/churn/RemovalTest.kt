@@ -1,10 +1,10 @@
 package id.churn
 
 /**
- * Tier 2's removal test (docs/testing.md, "Removal and clearing"): restore.sh run as Remove Churn runs it, and the
- * router then set up again as it was, with the card's record, the IMEIs it had and Churn's firewall rules. restore.sh
- * deletes the zero files, so the next clearing fills all of the flash's free space: the test runs once for each
- * firmware. Only debug builds have it.
+ * Tier 2's removal test (docs/testing.md, "Removal and clearing"): restore.sh run as Remove Churn runs it, the router
+ * then set up again as it was, with the card's record, the IMEIs it had and Churn's firewall rules, and the SIM history
+ * cleared as step 3 clears it. restore.sh deletes the zero files, so the clearing fills all of the flash's free space:
+ * the test runs once for each firmware. Only debug builds have it.
  */
 class RemovalTest(
     router: Router,
@@ -116,6 +116,7 @@ class RemovalTest(
         testing = emptyList()
         save(null)
         report(Progress.SET_UP_AGAIN)
+        clear(start)
         report(Progress.REMOVAL_PASSED)
     }
 
@@ -132,6 +133,20 @@ class RemovalTest(
         report(Progress.SET_UP_AGAIN)
     }
 
+    /**
+     * Clears the SIM history as step 3 does, with the router set up again as [start] says it was. restore.sh deleted
+     * the zero files, so the overwrite fills all of the free space, about 2.9 GB, and takes minutes.
+     */
+    private fun clear(start: RemovalStart) {
+        // The overwrite prints nothing until it ends, and a connection that closes meanwhile fails the command.
+        part("H17") {
+            report(Progress.CLEARING_HISTORY)
+            router.clearHistory(keep(start))
+            report(Progress.CONNECTION_KEPT)
+        }
+        testing = emptyList()
+    }
+
     /** Runs [part] of the test, which confirms the claims with the IDs [ids]. */
     private fun part(vararg ids: String, part: () -> Unit) {
         testing = ids.toList()
@@ -140,9 +155,7 @@ class RemovalTest(
 
     /** Sets the router up as [start] says it was, with the radio off, as it must be already. */
     private fun setUp(start: RemovalStart) {
-        // As setup keeps the current card's history: the recorded card's, since with both trays empty GL may name no
-        // card as the current one, or else the card GL names.
-        setUpFolder(start.factory, start.card?.iccid ?: router.currentCardIccid())
+        setUpFolder(start.factory, keep(start))
         start.card?.let(router::recordCard)
         if (router.imeis() != start.imeis) {
             router.writeImeis(start.imeis)
@@ -150,6 +163,13 @@ class RemovalTest(
         }
         if (start.firewall && !router.firewallInPlace()) router.installFirewall()
     }
+
+    /**
+     * The ICCID of the card whose SIM history setting the router up again and the clearing keep, as setup keeps the
+     * current card's: the recorded card's, since with both trays empty GL may name no card as the current one, or else
+     * the card GL names.
+     */
+    private fun keep(start: RemovalStart) = start.card?.iccid ?: router.currentCardIccid()
 
     companion object {
         /** Debug builds have the removal test. */
