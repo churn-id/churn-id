@@ -141,10 +141,14 @@ class PowerCycleTestTest {
         )
         progress.clear()
         resume()
-        assertEquals(start + listOf(Progress.PUT_BACK, Progress.POWER_CYCLES_PASSED), progress)
+        val end = listOf(
+            Progress.TRAYS_EMPTY, Progress.RADIO_ON_UNCOMMITTED, Progress.RADIO_OFF_UNCOMMITTED, Progress.PUT_BACK,
+            Progress.POWER_CYCLES_PASSED,
+        )
+        assertEquals(start + end, progress)
         // The network lost after poweroff, the rules at once, then the modem's first answer and the radio's window,
-        // read every 2 s.
-        assertEquals(listOf(9, 0, 0, 30, 56, 58, 9, 0, 0, 30, 56, 58), seconds)
+        // read every 2 s; at the end the radio on and off again at once.
+        assertEquals(listOf(9, 0, 0, 30, 56, 58, 9, 0, 0, 30, 56, 58, 0, 0), seconds)
         assertEquals(before, state())
         // Kept before the first change, again before each power-off, and forgotten once the router is as it was.
         val first = before.copy(bootId = bootIds[0], powerOn = 1, testImeis = testPair)
@@ -162,7 +166,7 @@ class PowerCycleTestTest {
         run()
         resume()
         resume()
-        assertEquals(setOf("B1", "B2", "B3", "B4", "B5", "B6", "D14", "K10", "M7", "U3"), claims)
+        assertEquals(setOf("B1", "B2", "B3", "B4", "B5", "B6", "D14", "K10", "M7", "U2", "U3"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 3 claim in testing.md", "3" in tiers)
@@ -254,6 +258,91 @@ class PowerCycleTestTest {
         powerCycles.putBack(saves.last()!!) { saves += it }
         assertEquals(before, state())
         assertNull(saves.last())
+    }
+
+    @Test
+    fun powerCycleTestSwitchesAirplaneModeOffAndOnWithoutTheCommit() {
+        run()
+        resume()
+        resume()
+        val airplaneMode = fake.commands.filter { "glconfig.general.airplane_mode=" in it }.takeLast(3)
+        assertEquals(
+            listOf(
+                "uci set 'glconfig.general.airplane_mode=0'", "uci set 'glconfig.general.airplane_mode=1'",
+                "uci set 'glconfig.general.airplane_mode=1' && uci commit 'glconfig'",
+            ),
+            airplaneMode,
+        )
+        // Committed on, as before.
+        assertTrue(fake.airplaneMode)
+        fake.boot()
+        assertTrue(Router(fake).airplaneMode())
+        assertSafe()
+    }
+
+    @Test
+    fun anAirplaneModeThatWaitsForTheCommitStopsTheTest() {
+        fake.airplaneModeNeedsCommit = true
+        val before = state()
+        run()
+        resume()
+        assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals(listOf("U2"), powerCycles.testing)
+        assertTrue(Progress.RADIO_ON_UNCOMMITTED !in progress)
+        // Committed on again, so the radio stayed off and the test put the router back at once.
+        assertTrue(Router(fake).airplaneMode())
+        assertEquals(before, state())
+        assertNull(saves.last())
+        assertSafe()
+    }
+
+    @Test
+    fun aRadioThatFollowsAirplaneModeLaterIsTimed() {
+        fake.stagedAirplaneModeMillis = 10_000L
+        run()
+        resume()
+        resume()
+        // The radio on 10 s after airplane mode went off, and off 10 s after it went on again.
+        assertEquals(listOf(10, 10), seconds.takeLast(2))
+        assertEquals(Progress.POWER_CYCLES_PASSED, progress.last())
+        assertSafe()
+    }
+
+    @Test
+    fun aRadioFollowingAirplaneModeLaterThan30SecondsStopsTheTest() {
+        fake.stagedAirplaneModeMillis = 32_000L
+        val before = state()
+        run()
+        resume()
+        assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals(listOf("U2"), powerCycles.testing)
+        assertTrue(Progress.RADIO_ON_UNCOMMITTED !in progress)
+        // Committed on again before the radio followed, so it stayed off and the test put the router back at once.
+        assertEquals(before, state())
+        assertNull(saves.last())
+        assertSafe()
+    }
+
+    @Test
+    fun aCardInTheTrayAfterThePowerOffStopsTheTestBeforeTheRadioComesOn() {
+        val before = state()
+        run()
+        resume()
+        // Put in while the router was off.
+        fake.trayCard = FakeRouter.Card("8941000000000000015F", "228010000000001")
+        assertStops(Problem.CARD_IN_TRAY) { resume() }
+        assertTrue(fake.commands.none { it == "uci set 'glconfig.general.airplane_mode=0'" })
+        assertEquals(before, state())
+        assertNull(saves.last())
+    }
+
+    @Test
+    fun aCardInTheSim1TrayAfterThePowerOffStopsTheTestBeforeTheRadioComesOn() {
+        run()
+        resume()
+        fake.tray1Card = FakeRouter.Card("8941000000000000023F", "228010000000002")
+        assertStops(Problem.SIM1_CARD) { resume() }
+        assertTrue(fake.commands.none { it == "uci set 'glconfig.general.airplane_mode=0'" })
     }
 
     @Test

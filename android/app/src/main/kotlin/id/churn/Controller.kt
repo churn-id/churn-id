@@ -1020,6 +1020,9 @@ class Controller(private val context: Context) {
             Progress.RADIO_OFF_FROM -> R.string.progress_radio_off_from
             Progress.IMEIS_KEPT -> R.string.progress_imeis_kept
             Progress.EARLIER_IMEIS_SAVED -> R.string.progress_earlier_imeis_saved
+            Progress.TRAYS_EMPTY -> R.string.progress_trays_empty
+            Progress.RADIO_ON_UNCOMMITTED -> R.string.progress_radio_on_uncommitted
+            Progress.RADIO_OFF_UNCOMMITTED -> R.string.progress_radio_off_uncommitted
             Progress.POWER_CYCLES_PASSED -> R.string.progress_power_cycles_passed
         },
         *args,

@@ -90,6 +90,9 @@ class PowerCycleTest(
                 }
                 powerOff(start, powerOn = 2, save)
             } else {
+                // The radio comes on next, which a card in either tray would register with.
+                part { checkTraysEmpty() }
+                part("U2") { switchAirplaneMode() }
                 part { restore(start) }
                 save(null)
                 report(Progress.PUT_BACK)
@@ -216,6 +219,45 @@ class PowerCycleTest(
         }
     }
 
+    /** Checks that no card answers in either tray, as before the power-offs. */
+    private fun checkTraysEmpty() {
+        if (router.cardInSim1Tray()) throw RouterException(Problem.SIM1_CARD)
+        // Slot 2 has been on the tray since before the power-on, so a card there answers by now. The built-in eSIM's
+        // placeholder is no card in the tray.
+        val iccid = router.slot2Iccid()
+        if (iccid != null && iccid != Router.PLACEHOLDER_ICCID) throw RouterException(Problem.CARD_IN_TRAY)
+        report(Progress.TRAYS_EMPTY)
+    }
+
+    /**
+     * Sets airplane mode off and on again without the commit, timing how long the modem takes to report its radio on
+     * and then off, and commits airplane mode on, as before, also if that fails.
+     */
+    private fun switchAirplaneMode() {
+        try {
+            router.stageAirplaneMode(on = false)
+            val on = secondsUntil(RADIO_ON)
+                ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+CFUN?: no +CFUN: 1 within 30 s")
+            measured(Progress.RADIO_ON_UNCOMMITTED, on)
+            router.stageAirplaneMode(on = true)
+            val off = secondsUntil(RADIO_OFF)
+                ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+CFUN?: no +CFUN: 4 within 30 s")
+            measured(Progress.RADIO_OFF_UNCOMMITTED, off)
+        } catch (e: Exception) {
+            // So that the radio goes off again, and stays off at the next power-on.
+            runCatching { router.setAirplaneMode(true) }
+            throw e
+        }
+        router.setAirplaneMode(true)
+    }
+
+    /** The seconds the radio takes to be in [state], read as step 3 does for up to 30 s, or null if longer. */
+    private fun secondsUntil(state: Int): Int? {
+        val from = now()
+        if (!poll(SWITCH_TIMEOUT_SECONDS) { router.radio() == state }) return null
+        return ((now() - from) / 1000).toInt()
+    }
+
     /**
      * Runs [body] of the test that [start] keeps. If it stops, puts the router back as far as the router lets it. One
      * that doesn't answer, or whose radio isn't off, waits for [putBack], and [save] gets [start] waiting for no
@@ -256,6 +298,9 @@ class PowerCycleTest(
 
         /** How often the test reads the uptime and the radio after a power-on, as testing.md says. */
         private const val WATCH_MILLIS = 2_000L
+
+        /** How long the radio may take to follow airplane mode, in seconds, as step 3 waits for it. */
+        private const val SWITCH_TIMEOUT_SECONDS = 30
 
         /** Why K10 or D14 failed. */
         private const val NOT_BY_START = "not in place 120 s after power-on"
