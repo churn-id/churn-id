@@ -7,13 +7,13 @@ wrong all along, shows up before a user depends on it. The claims come
 from [design.md](design.md) and [development.md](development.md).
 
 Status: being built. The app runs the tier 1 checks, and debug builds
-have tier 2's dry run and removal and clearing tests; tiers 3 and 4
-are a plan. The app's unit tests run in CI against a simulated
-Mudi 7 (`FakeRouter`) built from these claims, so a claim that turns out
-wrong makes the simulation wrong too. *Verified* means we observed it by
-hand on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
-*inferred* means not yet tested; *open* means one of the open questions in
-design.md or development.md.
+have tier 2's dry run and removal and clearing tests and tier 3's power
+cycle test; tier 4 is a plan. The app's unit tests run in CI against a
+simulated Mudi 7 (`FakeRouter`) built from these claims, so a claim that
+turns out wrong makes the simulation wrong too. *Verified* means we
+observed it by hand on a Mudi 7 with GL firmware 4.10.0 and a Quectel
+RG650V-EU modem; *inferred* means not yet tested; *open* means one of the
+open questions in design.md or development.md.
 
 Each claim has an ID, a letter for its section and a number, such as M3.
 The app's checks, commit messages and pull requests name claims by their
@@ -196,6 +196,44 @@ flash, as before Churn, and names any card used since the router started.
 Setting the router up again turns that off and deletes the file, and the
 test's first clearing overwrites what was written.
 
+## Power cycles
+
+Debug builds also have a Power cycles button on the router screen, for
+the tier 3 claims that only a power-on can confirm. The test shuts the
+router down twice, and the user switches it on again each time. It runs
+at home with both trays empty, and with slot 2 on the empty SIM 2 tray,
+where the router emitted nothing at power-on (B8):
+
+1. It keeps slot 2's setting, the active slot and the IMEIs on the phone,
+   to put them back at the end.
+2. Step 3 up to the card, as in the dry run but without its reloads: the
+   VPN, the router started, the checks marked *blocks*, the radio off, the
+   SIM 1 tray empty, and the Enhanced Kill Switch and Churn's firewall
+   rules in place.
+3. Slot 2 switched to the SIM 2 tray and made the active slot, where no
+   card may answer. A card in the tray, an eSIM adapter card without an
+   enabled profile too, stops the test before the router shuts down.
+4. It keeps the router's boot ID on the phone and sends `poweroff`. The
+   phone has to lose the router's network within 120 s, and the test
+   times it from the command (B4, B5). Whether the router's screen had
+   gone dark by then, the user sees.
+5. Once the user has switched the router on again and it is on the cable,
+   the boot ID has to be new (B4, B6), and the test waits until the
+   router has started and its radio is off.
+6. It shuts the router down a second time, as in step 4, and checks the
+   next power-on as in step 5.
+7. It puts slot 2's setting, the active slot and the IMEIs back.
+
+Like a swap, the test leaves airplane mode and the Enhanced Kill Switch on
+and Churn's firewall rules in place. While the router is off, the test's
+screen waits in place of the router screen, and goes on once the router is
+on the cable again, or puts the router back instead. A test that stops
+puts the router back at once if the radio is still off. Otherwise its
+screen shows at the next connection, until Put the router back has done
+so, once the router has started and its radio is off. The screen lists
+what the test did and, if it stopped, the claims it was confirming. The
+debug log keeps every command.
+
 ## Platform
 
 From development.md, "Sending AT commands", and design.md, section 6.
@@ -347,8 +385,8 @@ From development.md, "After power-on", and design.md, section 6.
 | B1 | The modem doesn't answer AT commands for a while after power-on | verified | Poll `/proc/uptime` and `AT+CFUN?` from the moment the app reconnects | 3 |
 | B2 | At every power-on the modem reports its radio on (`+CFUN: 1`) for about 12 s whatever airplane mode says, ending 58 s after power-on at the latest | verified | The polling above: `+CFUN: 1` while the modem answers that early, then the first `+CFUN: 4` | 3 |
 | B3 | 120 s after power-on, with `+CFUN: 4`, is a safe point for step 3 to change slot 2 | inferred | The end of the window above, on each firmware | 3 |
-| B4 | `poweroff` over SSH shuts the router down | verified | Steps 1 and 3 of a swap, or a tier 3 test that ends with it | 3 |
-| B5 | After `poweroff` the phone loses the router's network within 120 s, and only once the router is off | open | Steps 1 and 3 of a swap, watching the router's screen: the app shows the next step about when the screen goes dark | 3 |
+| B4 | `poweroff` over SSH shuts the router down | verified | The power cycle test: the phone loses the router's network, and the boot ID is new once the router is on again | 3 |
+| B5 | After `poweroff` the phone loses the router's network within 120 s, and only once the router is off | open | The power cycle test times it from the command, while the user watches the router's screen go dark | 3 |
 | B6 | `/proc/sys/kernel/random/boot_id` holds a UUID that is new at every power-on | inferred | Read it: a UUID in Linux's format (tier 1); read it again after a reboot (tier 3) | 1, blocks; 3 |
 | B7 | The router emits nothing while it shuts down in airplane mode, with slot 2 on the eSIM or on a card in the tray | verified | RF meter | 4 |
 | B8 | With both trays empty and slot 2 on the SIM 2 tray, a power-on emits nothing, with airplane mode on or off | verified | RF meter | 4 |

@@ -17,7 +17,7 @@ enum class Step {
     GO_ONLINE,
 }
 
-/** What a step, or tier 2's dry run, reports as it goes. */
+/** What a step, or a test of docs/testing.md, reports as it goes. */
 enum class Progress {
     UNTESTED_PLATFORM, AIRPLANE_MODE_ON, RADIO_OFF, SLOT2_ON_ESIM, NO_PROFILE, DISABLING_AGAIN, PROFILE_DISABLED,
     WAITING_FOR_START, SIM1_EMPTY, KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND,
@@ -26,6 +26,7 @@ enum class Progress {
     RESTORED, FACTORY_IMEIS, FOLDER_GONE, LOG_SETTING_BACK, LOG_WRITTEN, ZERO_FILES_GONE, FIREWALL_GONE,
     SET_UP_AGAIN, CONNECTION_KEPT, RESERVE_BACK, CARD_FILES_PARSE, ZEROS_KEEP_SPACE, READING_PARTITION, IMSIS_GONE,
     NO_IMSIS, ICCIDS_GONE, NO_ICCIDS, PARTITION_UNCHECKED, FREE_SPACE_FILLED, CLEARED_QUICKLY, REMOVAL_PASSED,
+    NETWORK_LOST, NEW_BOOT_ID, POWER_CYCLES_PASSED,
 }
 
 /**
@@ -52,11 +53,24 @@ data class DryRunStart(override val slot2: Slot2, override val activeSlot: Int, 
 data class RemovalStart(val factory: ImeiPair, val card: Card?, val imeis: ImeiPair, val firewall: Boolean)
 
 /**
+ * What tier 3's power cycle test puts back and keeps across its power-offs (docs/testing.md, "Power cycles"): slot 2's
+ * setting, the active slot and the IMEIs as they were before it, the ID of the router's run that the last power-off
+ * ended, [bootId], and the power-on that the test waits for, [powerOn]: 1 or 2, or 0 for none.
+ */
+data class PowerCycleStart(
+    override val slot2: Slot2,
+    override val activeSlot: Int,
+    override val imeis: ImeiPair,
+    val bootId: String? = null,
+    val powerOn: Int = 0,
+) : TestStart
+
+/**
  * The router's part of steps 1 and 3. Each run starts from the beginning and checks every state it relies on,
  * so a step that stopped is simply run again. [ask] shows step 3's question and waits for the user's answer. [check]
  * runs the router checks that a swap relies on, those that block in testing.md, and returns the lines of those that
- * failed. Both steps run them before they change slot 2, step 3 once the router has started. Tier 2's dry run in
- * docs/testing.md builds on the steps' parts.
+ * failed. Both steps run them before they change slot 2, step 3 once the router has started. The tests of tiers 2
+ * and 3 in docs/testing.md build on the steps' parts.
  */
 open class Swap(
     protected val router: Router,

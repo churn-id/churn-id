@@ -138,6 +138,34 @@ class Saved(context: Context) {
             }
         }
 
+    /**
+     * What tier 3's power cycle test puts back and keeps across its power-offs, while one runs or waits for a power-on,
+     * or after one stopped before it put the router back as it was; null otherwise.
+     */
+    var powerCycleStart: PowerCycleStart?
+        get() {
+            val slot2 = preferences.getString(POWER_CYCLE_SLOT2, null)?.let { name ->
+                Slot2.entries.firstOrNull { it.name == name }
+            }
+            val active = preferences.getInt(POWER_CYCLE_ACTIVE_SLOT, 0)
+            val imeis = pair(POWER_CYCLE_IMEI1, POWER_CYCLE_IMEI2)
+            if (slot2 == null || active == 0 || imeis == null) return null
+            val bootId = preferences.getString(POWER_CYCLE_BOOT_ID, null)
+            return PowerCycleStart(slot2, active, imeis, bootId, preferences.getInt(POWER_CYCLE_POWER_ON, 0))
+        }
+        set(value) = save {
+            val keys = listOf(
+                POWER_CYCLE_SLOT2, POWER_CYCLE_ACTIVE_SLOT, POWER_CYCLE_IMEI1, POWER_CYCLE_IMEI2, POWER_CYCLE_BOOT_ID,
+                POWER_CYCLE_POWER_ON,
+            )
+            keys.forEach { remove(it) }
+            if (value != null) {
+                putString(POWER_CYCLE_SLOT2, value.slot2.name).putInt(POWER_CYCLE_ACTIVE_SLOT, value.activeSlot)
+                putString(POWER_CYCLE_IMEI1, value.imeis.imei1).putString(POWER_CYCLE_IMEI2, value.imeis.imei2)
+                putString(POWER_CYCLE_BOOT_ID, value.bootId).putInt(POWER_CYCLE_POWER_ON, value.powerOn)
+            }
+        }
+
     /** What the router checks keep from one connection to the next. */
     val checkNotes = object : CheckNotes {
         override fun get(key: String) = preferences.getString(NOTE + key, null)
@@ -199,5 +227,11 @@ class Saved(context: Context) {
         const val REMOVAL_IMEI1 = "removal_imei1"
         const val REMOVAL_IMEI2 = "removal_imei2"
         const val REMOVAL_FIREWALL = "removal_firewall"
+        const val POWER_CYCLE_SLOT2 = "power_cycle_slot2"
+        const val POWER_CYCLE_ACTIVE_SLOT = "power_cycle_active_slot"
+        const val POWER_CYCLE_IMEI1 = "power_cycle_imei1"
+        const val POWER_CYCLE_IMEI2 = "power_cycle_imei2"
+        const val POWER_CYCLE_BOOT_ID = "power_cycle_boot_id"
+        const val POWER_CYCLE_POWER_ON = "power_cycle_power_on"
     }
 }
