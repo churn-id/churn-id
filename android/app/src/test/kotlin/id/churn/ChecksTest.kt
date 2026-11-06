@@ -1090,6 +1090,131 @@ class ChecksTest {
         assertEquals(CheckResult.Passed, run("H19"))
     }
 
+    /** Writes Churn's folder as setup does, and with [card] as step 3 records it. */
+    private fun writeFolder(card: Card? = null) {
+        router.writeChurnFile("README.txt", "Churn's folder\n".toByteArray())
+        router.writeChurnFile("factory", "${FACTORY.imei1}\n${FACTORY.imei2}\n".toByteArray())
+        router.writeChurnFile("restore.sh", "#!/bin/sh\n".toByteArray(), executable = true)
+        card?.let(router::recordCard)
+    }
+
+    @Test
+    fun churnFolderCheckPassesWithTheFolderAsChurnWritesIt() {
+        writeFolder()
+        assertEquals(CheckResult.Passed, run("F1", SET_UP))
+        // After a swap with the overwrite, and with what earlier versions of the app left.
+        writeFolder(SWAPPED.card)
+        router.writeChurnFile("log_file", "/etc/sys_log\n".toByteArray())
+        router.writeChurnFile("secret", ByteArray(32))
+        fake.zerosLink = "/overlay/churn-zeros"
+        assertEquals(CheckResult.Passed, run("F1", SWAPPED))
+    }
+
+    @Test
+    fun churnFolderCheckPassesWithAnIccidOf18To20Digits() {
+        writeFolder(Card("894100000000000001", CARD_IMEIS))
+        assertEquals(CheckResult.Passed, run("F1", SWAPPED))
+        writeFolder(Card("89410000000000000015", CARD_IMEIS))
+        assertEquals(CheckResult.Passed, run("F1", SWAPPED))
+    }
+
+    @Test
+    fun churnFolderCheckDoesNotApplyBeforeSetup() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_not_set_up), run("F1"))
+    }
+
+    @Test
+    fun churnFolderCheckFailsWithoutTheFolder() {
+        assertEquals(CheckResult.Failed("Churn's folder is missing."), run("F1", SET_UP))
+    }
+
+    @Test
+    fun churnFolderCheckFailsWithAFolderOthersCanRead() {
+        writeFolder()
+        fake.churnFolderMode = "drwxr-xr-x"
+        assertEquals(CheckResult.Failed("The folder has mode drwxr-xr-x, not drwx------."), run("F1", SET_UP))
+    }
+
+    @Test
+    fun churnFolderCheckFailsWithAFileOthersCanRead() {
+        writeFolder(SWAPPED.card)
+        fake.modes["/etc/churn/card"] = "644"
+        assertEquals(CheckResult.Failed("card has mode -rw-r--r--, not -rw-------."), run("F1", SWAPPED))
+        fake.modes["/etc/churn/card"] = "600"
+        fake.modes["/etc/churn/restore.sh"] = "600"
+        assertEquals(CheckResult.Failed("restore.sh has mode -rw-------, not -rwx------."), run("F1", SWAPPED))
+        writeFolder()
+        router.writeChurnFile("log_file", "/etc/sys_log\n".toByteArray(), executable = true)
+        router.writeChurnFile("README.txt", "Churn's folder\n".toByteArray(), executable = true)
+        assertEquals(
+            CheckResult.Failed(
+                "README.txt has mode -rwx------, not -rw-------. log_file has mode -rwx------, not -rw-------.",
+            ),
+            run("F1", SET_UP),
+        )
+    }
+
+    @Test
+    fun churnFolderCheckFailsWithAnotherFileOthersCanRead() {
+        writeFolder()
+        fake.files["/etc/churn/notes"] = "x\n".toByteArray()
+        assertEquals(CheckResult.Failed("notes has mode -rw-r--r--."), run("F1", SET_UP))
+        fake.modes["/etc/churn/notes"] = "700"
+        assertEquals(CheckResult.Passed, run("F1", SET_UP))
+    }
+
+    @Test
+    fun churnFolderCheckFailsWithAMissingFile() {
+        writeFolder()
+        fake.files.remove("/etc/churn/restore.sh")
+        assertEquals(CheckResult.Failed("restore.sh is missing."), run("F1", SET_UP))
+        writeFolder()
+        fake.files.remove("/etc/churn/README.txt")
+        assertEquals(CheckResult.Failed("README.txt is missing."), run("F1", SET_UP))
+        writeFolder()
+        fake.files.remove("/etc/churn/factory")
+        assertEquals(CheckResult.Failed("factory is missing."), run("F1", SET_UP))
+    }
+
+    @Test
+    fun churnFolderCheckFailsAtAListingItCannotRead() {
+        writeFolder()
+        val listing = "[ -d /etc/churn ] || exit 3; ls -lnd /etc/churn && ls -lnA /etc/churn"
+        fake.answers[listing] = "ls: unknown option\n"
+        assertEquals(CheckResult.Failed("Unexpected answer: /etc/churn"), run("F1", SET_UP))
+        // Without the folder's own line first.
+        fake.answers[listing] = "-rw-------    1 0        0              32 Nov  5 21:00 factory\n"
+        assertEquals(CheckResult.Failed("Unexpected answer: /etc/churn"), run("F1", SET_UP))
+    }
+
+    @Test
+    fun churnFolderCheckFailsWithAnotherOwner() {
+        writeFolder()
+        fake.churnOwner = 1000
+        assertEquals(
+            CheckResult.Failed(
+                "/etc/churn belongs to user ID 1000. README.txt belongs to user ID 1000. " +
+                    "factory belongs to user ID 1000. restore.sh belongs to user ID 1000.",
+            ),
+            run("F1", SET_UP),
+        )
+    }
+
+    @Test
+    fun churnFolderCheckFailsWithRecordsOfOtherSizes() {
+        writeFolder()
+        fake.files["/etc/churn/factory"] = "${FACTORY.imei1}\n${FACTORY.imei2}\n\n".toByteArray()
+        assertEquals(CheckResult.Failed("factory is 33 bytes, not 32."), run("F1", SET_UP))
+        fake.files["/etc/churn/factory"] = "${FACTORY.imei1}\n${FACTORY.imei2}".toByteArray()
+        assertEquals(CheckResult.Failed("factory is 31 bytes, not 32."), run("F1", SET_UP))
+        writeFolder(SWAPPED.card)
+        fake.files["/etc/churn/card"] = "894100000000000001\n${CARD_IMEIS.imei1}\n${CARD_IMEIS.imei2}".toByteArray()
+        assertEquals(CheckResult.Failed("card is 50 bytes, not 51 to 53."), run("F1", SWAPPED))
+        fake.files["/etc/churn/card"] =
+            "89410000000000000015\n${CARD_IMEIS.imei1}\n${CARD_IMEIS.imei2}\n\n".toByteArray()
+        assertEquals(CheckResult.Failed("card is 54 bytes, not 51 to 53."), run("F1", SWAPPED))
+    }
+
     @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1

@@ -113,6 +113,9 @@ val CHECKS = listOf(
     Check("H12", blocks = true, title = R.string.check_overlay) { router, _ -> overlayReserve(router) },
     Check("H18", blocks = false, title = R.string.check_flash_wear) { router, _ -> flashWear(router) },
     Check("H19", blocks = false, title = R.string.check_etc_writes) { router, _ -> etcWritten(router) },
+    Check("F1", blocks = true, title = R.string.check_churn_folder) { router, context ->
+        churnFolderModes(router, context.folder)
+    },
     Check("F5", blocks = false, title = R.string.check_imeis_kept) { router, context ->
         imeisKept(router, context.folder)
     },
@@ -702,6 +705,52 @@ private fun etcWritten(router: Router): CheckResult {
         .filterNot { it in CHURN_ETC_FILES || it.startsWith("${Router.CHURN}/") }
     if (written.isNotEmpty()) return CheckResult.Passed
     return CheckResult.Failed("Nothing but Churn wrote a file in /etc in the last 2 minutes.")
+}
+
+/** The mode of each file that Churn writes in its folder, as `ls` shows it. */
+private val CHURN_FILE_MODES = mapOf(
+    "README.txt" to "-rw-------",
+    "card" to "-rw-------",
+    "factory" to "-rw-------",
+    "log_file" to "-rw-------",
+    "restore.sh" to "-rwx------",
+    "zeros" to "lrwxrwxrwx",
+)
+
+/** The files in Churn's folder from setup on. */
+private val CHURN_FILES_SET_UP = listOf("README.txt", "factory", "restore.sh")
+
+/** The sizes of Churn's records in bytes: the factory IMEIs, and an ICCID of 18 to 20 digits with its IMEIs. */
+private val CHURN_RECORD_SIZES = mapOf("factory" to 32L..32L, "card" to 51L..53L)
+
+/**
+ * Whether Churn's folder and its files belong to root and have the modes and sizes development.md lists. Another file
+ * there, such as the `secret` of earlier versions or one that a write stopped halfway left, only root may read.
+ */
+private fun churnFolderModes(router: Router, folder: ChurnFolder): CheckResult {
+    if (!folder.complete) return CheckResult.NotApplicable(R.string.reason_not_set_up)
+    val (self, entries) = router.churnFolderListing() ?: return CheckResult.Failed("Churn's folder is missing.")
+    val names = entries.map { it.name }
+    val folderProblem = "The folder has mode ${self.mode}, not drwx------.".takeIf { self.mode != "drwx------" }
+    val problems = listOfNotNull(folderProblem) +
+        CHURN_FILES_SET_UP.filter { it !in names }.map { "$it is missing." } +
+        (listOf(self) + entries).filter { it.uid != 0 }.map { "${it.name.take(40)} belongs to user ID ${it.uid}." } +
+        entries.mapNotNull(::churnFileProblem)
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/** What is wrong with [entry] of Churn's folder, if anything, other than its owner. */
+private fun churnFileProblem(entry: FolderEntry): String? {
+    val name = entry.name.take(40)
+    val mode = CHURN_FILE_MODES[entry.name]
+    val size = CHURN_RECORD_SIZES[entry.name]
+    return when {
+        mode == null -> "$name has mode ${entry.mode}.".takeUnless { entry.mode.matches(Regex("-..[-x]------")) }
+        entry.mode != mode -> "$name has mode ${entry.mode}, not $mode."
+        size != null && entry.size !in size -> "$name is ${entry.size} bytes, not " +
+            (if (size.first == size.last) "${size.first}." else "${size.first} to ${size.last}.")
+        else -> null
+    }
 }
 
 /**

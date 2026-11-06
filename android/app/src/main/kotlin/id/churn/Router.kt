@@ -83,6 +83,12 @@ data class Overlay(val device: String, val type: String, val reserve: Long?)
 data class FlashWear(val lifeTime: List<Int>, val preEol: Int)
 
 /**
+ * An entry of a folder as `ls -ln` lists it: its [mode], such as `-rw-------`, the user ID of its owner, [uid], its
+ * [size] in bytes and its [name].
+ */
+data class FolderEntry(val mode: String, val uid: Int?, val size: Long?, val name: String)
+
+/**
  * A program listening on the UDP [port], as `netstat` names it, the user ID it runs as, and the file that dnsmasq
  * reads its servers from, or null for none.
  */
@@ -563,6 +569,22 @@ class Router(private val shell: Shell) {
         val factory = readChurnLines("factory", IMEI, IMEI)?.let { ImeiPair(it[0], it[1]) }
         val card = readChurnLines("card", ICCID, IMEI, IMEI)?.let { Card(it[0], ImeiPair(it[1], it[2])) }
         return ChurnFolder(factory, card)
+    }
+
+    /** Churn's folder and the entries in it, as `ls` lists them; null without the folder. */
+    fun churnFolderListing(): Pair<FolderEntry, List<FolderEntry>>? {
+        // The debug log leaves the listing out: its times say when swaps ran.
+        val output = runPrivately("[ -d $CHURN ] || exit 3; ls -lnd $CHURN && ls -lnA $CHURN")
+        if (output.status == 3) return null
+        val entries = output.text.lines().mapNotNull { line ->
+            val fields = line.trim().split(Regex("\\s+"), limit = 9)
+            fields.takeIf { it.size == 9 }?.let {
+                FolderEntry(it[0], it[2].toIntOrNull(), it[4].toLongOrNull(), it[8].substringBefore(" -> "))
+            }
+        }
+        val folder = entries.firstOrNull()
+        if (output.status != 0 || folder?.name != CHURN) throw unexpected(CHURN)
+        return folder to entries.drop(1)
     }
 
     /** Records [card] in Churn's folder as the card step 3 last gave IMEIs. */

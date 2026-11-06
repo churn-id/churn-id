@@ -150,6 +150,16 @@ class FakeRouter : Shell {
     var usbBridge: String? = "br-lan"
     var poweredOff = false
     val files = mutableMapOf<String, ByteArray>()
+
+    /** The modes that the app gave [files], as chmod takes them, such as 600. */
+    val modes = mutableMapOf<String, String>()
+
+    /** Churn's folder's mode, as `ls` shows it, and the user ID that owns the folder and its files. */
+    var churnFolderMode = "drwx------"
+    var churnOwner = 0
+
+    /** Where `/etc/churn/zeros` links to, once the free-space overwrite made the link. */
+    var zerosLink: String? = null
     var sysupgrade = "/etc/config/\n/etc/profile"
 
     /** The user ID of GL's main DNS server, 453 on our Mudi 7. */
@@ -342,8 +352,10 @@ class FakeRouter : Shell {
         }
         Regex("""umask 077 && .* && cat > (\S+)\.new && chmod (\d+) .*""").matchEntire(command)?.let {
             files[it.groupValues[1]] = input!!
+            modes[it.groupValues[1]] = it.groupValues[2]
             return ok("")
         }
+        if (command == "[ -d /etc/churn ] || exit 3; ls -lnd /etc/churn && ls -lnA /etc/churn") return churnListing()
         Regex("""grep -qxF (\S+) /etc/sysupgrade.conf.*""").matchEntire(command)?.let {
             val line = it.groupValues[1]
             val listed = line in sysupgrade.lines()
@@ -424,6 +436,7 @@ class FakeRouter : Shell {
         // The free-space overwrite writes /overlay/churn-fill.* parts, kept as zero files; its effect is not in the files.
         if ("/overlay/churn-fill." in command) {
             freeSpaceOverwritten = true
+            zerosLink = "/overlay/churn-zeros"
             return ok("")
         }
         Regex("""rm -f (.+)""").matchEntire(command)?.let {
@@ -629,6 +642,19 @@ class FakeRouter : Shell {
     }
 
     private fun atOk(line: String? = null) = ok("\n\r\n" + (line?.let { "$it\r\n\r\n" } ?: "") + "OK\r\n\n")
+
+    /** Churn's folder and its files as BusyBox's `ls -ln` lists them, with any time. */
+    private fun churnListing(): Output {
+        val names = files.keys.filter { it.startsWith("/etc/churn/") }.map { it.removePrefix("/etc/churn/") }
+        if (names.isEmpty() && zerosLink == null) return Output(3, ByteArray(0), "")
+        fun line(mode: String, size: Int, name: String) =
+            "%-10s %4d %-8d %-8d %8d Nov  5 21:00 %s\n".format(mode, 1, churnOwner, 0, size, name)
+        val modeNames = mapOf("600" to "-rw-------", "700" to "-rwx------")
+        val text = line(churnFolderMode, 4096, "/etc/churn") + names.sorted().joinToString("") { name ->
+            line(modeNames[modes["/etc/churn/$name"]] ?: "-rw-r--r--", files.getValue("/etc/churn/$name").size, name)
+        } + (zerosLink?.let { line("lrwxrwxrwx", it.length, "zeros -> $it") } ?: "")
+        return ok(text)
+    }
 
     private fun ok(text: String) = Output(0, text.toByteArray(), "")
 

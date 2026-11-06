@@ -268,7 +268,7 @@ From development.md, "Files on the router", and design.md, section 5.
 
 | ID | Claim | Status | Check | Tier |
 | --- | --- | --- | --- | --- |
-| F1 | `/etc/churn/` and its files have the modes and contents development.md lists | contents verified by the app, modes inferred | Modes and sizes; the app itself rewrites `README.txt` and `restore.sh` at every connection where they differ from its copies | 1, blocks |
+| F1 | `/etc/churn/` and its files have the modes and contents development.md lists | contents verified by the app, modes inferred | Modes, owners and the records' sizes, and that only root may read any other file there; the app itself rewrites `README.txt` and `restore.sh` at every connection where they differ from its copies | 1, blocks |
 | F2 | `/etc/churn/` is listed in `/etc/sysupgrade.conf` | verified by the app | The line is there | 1, blocks |
 | F3 | With the firewall rules, `/etc/nftables.d/churn.nft` is listed in `/etc/sysupgrade.conf` | inferred | The line is there | 1 |
 | F4 | `/etc/churn/zeros` links to `/overlay/churn-zeros`, and `du`, `grep -r`, `cp` and the `find` and `tar` that an upgrade runs take only the link | verified with BusyBox 1.36.1 on a PC | After a clearing, `ls -l /etc/churn` shows the link and `du -sh /etc` stays small; `sysupgrade -l` lists the link but no zero file | 1 |
