@@ -414,8 +414,11 @@ class Router(private val shell: Shell) {
     fun enhancedKillSwitch(): Boolean {
         // network.vpn_to_main is the rule at priority 9000.
         val ruleInUse = ipRules().any { it.startsWith("9000:") }
-        return uci(DEFAULT_POLICY) == "0" && uci(VPN_TO_MAIN) == null && !ruleInUse
+        return killSwitchSettings() && !ruleInUse
     }
+
+    /** Whether GL's settings have the Enhanced Kill Switch on, whatever the routing rules in use. */
+    fun killSwitchSettings() = uci(DEFAULT_POLICY) == "0" && uci(VPN_TO_MAIN) == null
 
     /** The routing rules in use, one per line as `ip rule show` lists them. */
     fun ipRules(): List<String> {

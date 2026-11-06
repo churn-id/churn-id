@@ -1010,6 +1010,7 @@ class Controller(private val context: Context) {
             Progress.NETWORK_LOST -> R.string.progress_network_lost
             Progress.NEW_BOOT_ID -> R.string.progress_new_boot_id
             Progress.TEST_PAIR_SAVED -> R.string.progress_test_pair_saved
+            Progress.SETTINGS_KEPT -> R.string.progress_settings_kept
             Progress.IMEIS_KEPT -> R.string.progress_imeis_kept
             Progress.EARLIER_IMEIS_SAVED -> R.string.progress_earlier_imeis_saved
             Progress.POWER_CYCLES_PASSED -> R.string.progress_power_cycles_passed
