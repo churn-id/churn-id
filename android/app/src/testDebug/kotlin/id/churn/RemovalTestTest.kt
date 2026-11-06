@@ -124,7 +124,8 @@ class RemovalTestTest {
         assertEquals(
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.NO_PROFILE,
-                Progress.SIM1_EMPTY, Progress.RESTORED, Progress.SET_UP_AGAIN, Progress.REMOVAL_PASSED,
+                Progress.SIM1_EMPTY, Progress.RESTORED, Progress.FACTORY_IMEIS, Progress.SET_UP_AGAIN,
+                Progress.REMOVAL_PASSED,
             ),
             progress,
         )
@@ -179,9 +180,39 @@ class RemovalTestTest {
     }
 
     @Test
+    fun removalTestReadsTheFactoryImeisAfterRestoreSh() {
+        val reads = mutableListOf<String>()
+        shell.after = { if (test.testing == listOf("F7")) reads += it }
+        run()
+        assertTrue(reads.any { "AT+EGMR=0,7" in it } && reads.any { "AT+EGMR=0,11" in it })
+        assertTrue(reads.any { "AT+CFUN?" in it })
+    }
+
+    @Test
+    fun removalTestStopsWhenRestoreShLeavesOtherImeis() {
+        fake.restoreKeepsImeis = true
+        val before = state()
+        assertStops(Problem.UNEXPECTED_ANSWER) { run() }
+        assertEquals(listOf("F7"), test.testing)
+        assertEquals(before, state())
+        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true), null), saves)
+        assertSafe()
+    }
+
+    @Test
+    fun removalTestStopsWhenTheRadioIsOnAfterRestoreSh() {
+        shell.after = { if (it == "sh /etc/churn/restore.sh") fake.radioStuckOn = true }
+        assertStops(Problem.RADIO_ON) { run() }
+        assertEquals(listOf("F7"), test.testing)
+        // Left for Set the router up again.
+        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true)), saves)
+        assertSafe()
+    }
+
+    @Test
     fun removalTestConfirmsTier2ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("F12"), claims)
+        assertEquals(setOf("F7", "F12"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)
