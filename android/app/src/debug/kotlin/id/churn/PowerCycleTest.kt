@@ -15,7 +15,7 @@ class PowerCycleTest(
     check: () -> List<String>,
     /** Waits up to the milliseconds it gets for the phone to lose the router's network, and says whether it did. */
     private val awaitNetworkLost: (Long) -> Boolean,
-    sleep: (Long) -> Unit = Thread::sleep,
+    private val sleep: (Long) -> Unit = Thread::sleep,
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
 ) : Swap(router, report, ask = { error("The power cycle test asks nothing") }, check, sleep, now) {
 
@@ -72,10 +72,8 @@ class PowerCycleTest(
                 }
                 report(Progress.SETTINGS_KEPT)
             }
-            part {
-                waitForStart()
-                waitForRadioOff()
-            }
+            // From the moment the test reaches the router, while the modem may not answer yet.
+            checkStart(part("B1", "B2", "B3") { watchStart() })
             part("M7") {
                 // The test pair after the first power-on, and the earlier pair after the second.
                 val saved = if (start.powerOn == 1) start.testImeis else start.imeis
@@ -131,6 +129,72 @@ class PowerCycleTest(
         }
     }
 
+    /** The modem's answer to `AT+CFUN?` [uptime] seconds after power-on: the [radio] state, or null for none. */
+    private class RadioReading(val uptime: Double, val radio: Int?) {
+        /** [uptime] in whole seconds, as the lines name it. */
+        val seconds get() = uptime.toInt()
+    }
+
+    /**
+     * Reads `/proc/uptime` and `AT+CFUN?` every 2 s until the router has started, 120 s after power-on, and returns the
+     * modem's answers.
+     */
+    private fun watchStart(): List<RadioReading> {
+        report(Progress.WAITING_FOR_START)
+        val readings = mutableListOf<RadioReading>()
+        // Only a restart sets the uptime back, and it ends the connection first.
+        while (true) {
+            val uptime = router.uptimeSeconds()
+            // An answer that doesn't parse counts as none, as when the modem doesn't answer yet.
+            val radio = try {
+                router.radio()
+            } catch (_: RouterException) {
+                null
+            }
+            readings += RadioReading(uptime, radio)
+            if (uptime >= SETTLED_UPTIME_SECONDS) return readings
+            sleep(WATCH_MILLIS)
+        }
+    }
+
+    /**
+     * Checks the modem's answers after a power-on, [readings], against B1, B2 and B3: it doesn't answer at first, then
+     * reports its radio on until 58 s at the latest, and the radio is off from then on, also 120 s after power-on.
+     */
+    private fun checkStart(readings: List<RadioReading>) {
+        val answered = readings.filter { it.radio != null }
+        part("B1") {
+            val first = answered.firstOrNull()
+                ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+CFUN?: no answer until 120 s after power-on")
+            // A phone that reaches the router late finds the modem answering already.
+            val atOnce = readings.first().radio != null
+            measured(if (atOnce) Progress.MODEM_AT_ONCE else Progress.MODEM_ANSWERED, first.seconds)
+        }
+        part("B2") {
+            // The radio-on window: +CFUN: 1 before the first +CFUN: 4.
+            val window = answered.takeWhile { it.radio != RADIO_OFF }.filter { it.radio == RADIO_ON }
+            window.firstOrNull { it.uptime > WINDOW_END_SECONDS }?.let {
+                throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+CFUN?: +CFUN: 1 ${it.seconds} s after power-on")
+            }
+            if (window.isEmpty()) {
+                measured(Progress.RADIO_OFF_AT_FIRST, answered.first().seconds)
+            } else {
+                measured(Progress.RADIO_ON_UNTIL, window.last().seconds)
+            }
+        }
+        part("B3") {
+            val off = answered.dropWhile { it.radio != RADIO_OFF }
+            off.firstOrNull { it.radio != RADIO_OFF }?.let {
+                val detail = "AT+CFUN?: +CFUN: ${it.radio} ${it.seconds} s after power-on, after +CFUN: 4"
+                throw RouterException(Problem.UNEXPECTED_ANSWER, detail)
+            }
+            if (readings.last().radio != RADIO_OFF) {
+                throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+CFUN?: no +CFUN: 4 120 s after power-on")
+            }
+            measured(Progress.RADIO_OFF_FROM, off.first().seconds)
+        }
+    }
+
     /**
      * Runs [body] of the test that [start] keeps. If it stops, puts the router back as far as the router lets it. One
      * that doesn't answer, or whose radio isn't off, waits for [putBack], and [save] gets [start] waiting for no
@@ -156,10 +220,10 @@ class PowerCycleTest(
         }
     }
 
-    /** Runs [part] of the test, which confirms the claims with the IDs [ids]. */
-    private fun part(vararg ids: String, part: () -> Unit) {
+    /** Runs [part] of the test, which confirms the claims with the IDs [ids], and returns what it returns. */
+    private fun <T> part(vararg ids: String, part: () -> T): T {
         testing = ids.toList()
-        part()
+        return part()
     }
 
     companion object {
@@ -168,5 +232,13 @@ class PowerCycleTest(
 
         /** How long the phone may keep the router's network after poweroff, in milliseconds, as B5 says: 120 s. */
         private const val NETWORK_LOSS_MILLIS = 120_000L
+
+        /** How often the test reads the uptime and the radio after a power-on, as testing.md says. */
+        private const val WATCH_MILLIS = 2_000L
+
+        /** The latest end of the radio-on window after power-on, as B2 says. */
+        private const val WINDOW_END_SECONDS = 58.0
+        private const val RADIO_ON = 1
+        private const val RADIO_OFF = 4
     }
 }

@@ -1011,6 +1011,11 @@ class Controller(private val context: Context) {
             Progress.NEW_BOOT_ID -> R.string.progress_new_boot_id
             Progress.TEST_PAIR_SAVED -> R.string.progress_test_pair_saved
             Progress.SETTINGS_KEPT -> R.string.progress_settings_kept
+            Progress.MODEM_ANSWERED -> R.string.progress_modem_answered
+            Progress.MODEM_AT_ONCE -> R.string.progress_modem_at_once
+            Progress.RADIO_ON_UNTIL -> R.string.progress_radio_on_until
+            Progress.RADIO_OFF_AT_FIRST -> R.string.progress_radio_off_at_first
+            Progress.RADIO_OFF_FROM -> R.string.progress_radio_off_from
             Progress.IMEIS_KEPT -> R.string.progress_imeis_kept
             Progress.EARLIER_IMEIS_SAVED -> R.string.progress_earlier_imeis_saved
             Progress.POWER_CYCLES_PASSED -> R.string.progress_power_cycles_passed
