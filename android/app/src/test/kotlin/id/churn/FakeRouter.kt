@@ -90,6 +90,11 @@ class FakeRouter : Shell {
     /** Set once the app overwrites the overlay's free space. */
     var freeSpaceOverwritten = false
 
+    /** The overlay's device and file system, or null for none, and the blocks that ext4 keeps back from it. */
+    var overlayDevice = "/dev/mmcblk0p59"
+    var overlayType: String? = "ext4"
+    var reservedClusters = 4096L
+
     /** The enabled profile's ICCID as `AT+ICCID` gives it, or null for none. */
     var esimProfile: String? = "8944000000000000123F"
 
@@ -376,6 +381,10 @@ class FakeRouter : Shell {
             val tail = log.toString(Charsets.UTF_8).split("\n").takeLast(21).joinToString("\n")
             return ok("$esimLogWritten\n$tail")
         }
+        if (OVERLAY.matches(command)) {
+            val reserve = reservedClusters.takeIf { overlayType == "ext4" } ?: ""
+            return ok(overlayType?.let { "$overlayDevice $it $reserve\n" } ?: "\n")
+        }
         if (command == "/etc/init.d/log reload") {
             if (radioOnAtReload) radioStuckOn = true
             return ok("")
@@ -633,6 +642,9 @@ class FakeRouter : Shell {
         /** How [Router.dnsServers] reads what listens on the DNS servers' ports. */
         private val DNS_SERVERS =
             Regex("""netstat -lnup \| while .* udp\*:53 \| udp\*:2153\) .* \| sort -u""", RegexOption.DOT_MATCHES_ALL)
+        /** How [Router.overlay] reads the overlay's line in `/proc/mounts` and its reserve. */
+        private val OVERLAY = Regex("""set -- .* /proc/mounts\)\necho .*/reserved_clusters 2>/dev/null\)""")
+
         /** How [Router.logFollowers] lists the `logread -f` processes. */
         private val LOG_FOLLOWERS = Regex("""for c in /proc/\[0-9]\*/cmdline; .* \| grep -E '\^\[\^ ]\*logread .*""")
         private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "curl")

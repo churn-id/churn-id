@@ -69,6 +69,12 @@ sealed interface Slot2Card {
 data class Platform(val gl: String, val openwrt: String, val modem: String, val revision: String)
 
 /**
+ * The file system mounted on `/overlay`: its [device], as `/proc/mounts` names it, its [type], and the blocks that
+ * ext4 keeps back from it, [reserve], or null without ext4's `reserved_clusters` file for it.
+ */
+data class Overlay(val device: String, val type: String, val reserve: Long?)
+
+/**
  * A program listening on the UDP [port], as `netstat` names it, the user ID it runs as, and the file that dnsmasq
  * reads its servers from, or null for none.
  */
@@ -234,6 +240,15 @@ class Router(private val shell: Shell) {
         val written = lines[0].trim().toLongOrNull()
         if (output.status != 0 || written == null) throw unexpected("GL's eSIM manager's log")
         return lines.drop(1).map { it.trim() }.filter { it.isNotEmpty() } to written
+    }
+
+    /** The file system mounted on `/overlay`; null if none is. */
+    fun overlay(): Overlay? {
+        val output = run(OVERLAY)
+        output.check("/proc/mounts")
+        val fields = output.text.trim().split(' ')
+        if (fields.size < 2) return null
+        return Overlay(fields[0], fields[1], fields.getOrNull(2)?.toLongOrNull())
     }
 
     /** The firmware and the modem the router runs. */
@@ -760,6 +775,12 @@ class Router(private val shell: Shell) {
             	servers=${'$'}(sed -n 's/^resolv-file=//p' "${'$'}{conf:-/dev/null}")
             	echo "${'$'}{local##*:}|${'$'}{program#*/}|${'$'}uid|${'$'}servers"
             done 2>/dev/null | sort -u
+        """.trimIndent()
+
+        /** The overlay's device and file system type, and the blocks that ext4 keeps back from it. */
+        private val OVERLAY = """
+            set -- ${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1, ${'$'}3; exit }' /proc/mounts)
+            echo ${'$'}1 ${'$'}2 ${'$'}(cat /sys/fs/ext4/${'$'}{1##*/}/reserved_clusters 2>/dev/null)
         """.trimIndent()
 
         /** The command line of each `logread -f` process, its arguments separated by spaces. */

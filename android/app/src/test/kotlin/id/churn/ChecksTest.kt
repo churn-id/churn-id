@@ -982,6 +982,38 @@ class ChecksTest {
     }
 
     @Test
+    fun overlayCheckPassesOnExt4WithItsReserve() {
+        assertEquals(CheckResult.Passed, run("H12"))
+    }
+
+    @Test
+    fun overlayCheckFailsWithTheReserveAt0() {
+        fake.reservedClusters = 0
+        assertEquals(CheckResult.Failed("ext4 keeps 0 blocks back from it, not 4096."), run("H12"))
+    }
+
+    @Test
+    fun overlayCheckFailsOnAnotherPartition() {
+        fake.overlayDevice = "/dev/mmcblk0p60"
+        assertEquals(CheckResult.Failed("The overlay is on /dev/mmcblk0p60."), run("H12"))
+    }
+
+    @Test
+    fun overlayCheckFailsOnAnotherFileSystem() {
+        fake.overlayType = "f2fs"
+        assertEquals(
+            CheckResult.Failed("The overlay is f2fs, not ext4. ext4 has no reserved_clusters file for it."),
+            run("H12"),
+        )
+    }
+
+    @Test
+    fun overlayCheckFailsWithoutAnOverlay() {
+        fake.overlayType = null
+        assertEquals(CheckResult.Failed("Nothing is mounted on /overlay."), run("H12"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2

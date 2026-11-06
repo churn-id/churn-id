@@ -110,6 +110,7 @@ val CHECKS = listOf(
     Check("H4", blocks = false, title = R.string.check_card_files) { router, _ -> cardFileFormats(router) },
     Check("H5", blocks = false, title = R.string.check_esim_log_time) { router, _ -> esimLogInUtc(router) },
     Check("H6", blocks = false, title = R.string.check_esim_log_growth, confirm = ::esimLogGrows),
+    Check("H12", blocks = true, title = R.string.check_overlay) { router, _ -> overlayReserve(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept) { router, context ->
         imeisKept(router, context.folder)
     },
@@ -637,6 +638,24 @@ private fun esimLogGrows(router: Router, context: CheckContext): CheckResult {
     if (size == null || head == null) return CheckResult.NotApplicable(R.string.reason_first_note)
     if (log.start == size) return CheckResult.Passed
     return CheckResult.Failed("Since the last connection, the log was emptied or cut, though the app didn't clear it.")
+}
+
+/**
+ * Whether the overlay is ext4 on `mmcblk0p59`, and ext4 keeps 4096 blocks back from it: the reserve that the
+ * free-space overwrite sets to 0 for its run and back at its end.
+ */
+private fun overlayReserve(router: Router): CheckResult {
+    val overlay = router.overlay() ?: return CheckResult.Failed("Nothing is mounted on /overlay.")
+    val problems = listOfNotNull(
+        "The overlay is on ${overlay.device.take(40)}.".takeIf { overlay.device != "/dev/mmcblk0p59" },
+        "The overlay is ${overlay.type.take(20)}, not ext4.".takeIf { overlay.type != "ext4" },
+        when (overlay.reserve) {
+            4096L -> null
+            null -> "ext4 has no reserved_clusters file for it."
+            else -> "ext4 keeps ${overlay.reserve} blocks back from it, not 4096."
+        },
+    )
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
 }
 
 /**
