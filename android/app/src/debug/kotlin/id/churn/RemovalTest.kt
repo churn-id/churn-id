@@ -156,6 +156,14 @@ class RemovalTest(
             }
             report(Progress.RESERVE_BACK)
         }
+        // GL may save them while the overwrite fills the partition, and a save that finds it full could cut one short.
+        part("H14") {
+            val broken = router.cardFiles().values.count { it == null }
+            if (broken > 0) {
+                throw RouterException(Problem.UNEXPECTED_ANSWER, "$broken of GL's card files don't parse any more")
+            }
+            report(Progress.CARD_FILES_PARSE)
+        }
         testing = emptyList()
     }
 

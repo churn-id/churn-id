@@ -105,6 +105,12 @@ class FakeRouter : Shell {
      */
     var overwriteLeavesReserveOff = false
 
+    /**
+     * For a GL that saves `sim_map.json` while the overwrite has filled the partition and leaves it cut short, against
+     * H14. Only the removal test's tests use it.
+     */
+    var overwriteCutsSimMap = false
+
     /** The overlay's device and file system, or null for none, and the blocks that ext4 keeps back from it. */
     var overlayDevice = "/dev/mmcblk0p59"
     var overlayType: String? = "ext4"
@@ -555,6 +561,8 @@ class FakeRouter : Shell {
             zeroFilesKb += overlayFreeKb - 524_288
             // Only an overwrite broken against H13 gets here.
             if (overwriteLeavesReserveOff) reservedClusters = 0
+            // Only a firmware broken against H14 gets here.
+            if (overwriteCutsSimMap) files[SIM_MAP]?.let { files[SIM_MAP] = it.copyOf(it.size / 2) }
             return ok("")
         }
         Regex("""rm -f (.+)""").matchEntire(command)?.let {

@@ -291,6 +291,7 @@
     <string name="progress_set_up_again">The router is set up again, with the card\'s record, the IMEIs it had and Churn\'s firewall rules as before.</string>
     <string name="progress_connection_kept">The clearing ended with the SSH connection still open, though it printed nothing for minutes (H17).</string>
     <string name="progress_reserve_back">ext4\'s reserve of free space is back as before the clearing (H13).</string>
+    <string name="progress_card_files_parse">GL\'s card files and the eSIM manager\'s records parse (H14).</string>
     <string name="progress_removal_passed">The removal test passed.</string>
 
     <!-- Why a step stopped -->
