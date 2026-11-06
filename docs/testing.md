@@ -267,8 +267,10 @@ the router has been switched on again there (rule 1):
 2. The card that step 3 last gave its IMEIs, as Churn's folder records
    it, has to answer in the SIM 2 tray, with slot 2 on it as the active
    slot, and the router has to have the card's IMEIs. The Enhanced Kill
-   Switch and Churn's firewall rules have to be in place. Anything else
-   stops the test before airplane mode goes off.
+   Switch and Churn's firewall rules have to be in place, and the router
+   may have no default route other than over the SIM: another uplink could
+   carry WireGuard's packets instead. Anything else stops the test before
+   airplane mode goes off.
 3. It adds a table of its own to the router's firewall, `inet
    churn_watch`, in place of any that an earlier watch left, with counters
    of the packets that try to leave over the SIM, before Churn's rules, and
@@ -276,8 +278,9 @@ the router has been switched on again there (rule 1):
    changes only GL's table, so it keeps them (inferred), and a power-off
    deletes them.
 4. Still in airplane mode, it reads the packets that each `rmnet_data*`
-   interface sent, the counters, and the fragments that the router made
-   of packets since it started, from `/proc/net/snmp` and
+   interface sent, the counters, with the bytes that WireGuard sent to its
+   peers right before and right after them, and the fragments that the
+   router made of packets since it started, from `/proc/net/snmp` and
    `/proc/net/snmp6`.
 5. It commits airplane mode off and reads the same every 2 s for 60 s.
    Every packet that got past Churn's rules passed the counters before it
@@ -285,12 +288,25 @@ the router has been switched on again there (rule 1):
    that the router made of such packets, which they count one by one.
    More than that, packets that Churn's rules didn't see, stops the test
    (D11).
-6. It deletes its table and leaves the router online, as step 4 does.
+6. With each read it also compares the bytes that got past Churn's rules,
+   without the IP and UDP headers of WireGuard's packets, with those that
+   WireGuard sent. WireGuard counts a packet once the firewall has passed
+   it on, so its counts before and after the counters bound what they can
+   hold of its packets. More bytes than that got past the rules, packets
+   with WireGuard's mark that aren't WireGuard's, and fewer than WireGuard
+   sent, as its packets then didn't all get past the rules over the SIM,
+   stop the test. When WireGuard sent nothing while a read was under way,
+   the two have to match exactly (D9). A WireGuard interface made anew
+   starts its count again, so the test then compares from the next such
+   read on.
+7. It deletes its table and leaves the router online, as step 4 does.
 
-The lines name how many packets left over the SIM in that minute and how
-many Churn's rules dropped. If the router made fragments meanwhile, one of
-the SIM's interfaces went away or was made anew, or nothing left at all,
-D11 stays unconfirmed, and the lines say so. A test that stops once
+The lines name how many packets left over the SIM in that minute, how
+many Churn's rules dropped, and how many bytes WireGuard had sent by the
+last read during which it sent nothing. If the router made fragments
+meanwhile, one of the SIM's interfaces went away or was made anew, or
+nothing left at all, D11 stays unconfirmed, and if no read matched
+WireGuard's bytes exactly, D9; the lines say so. A test that stops once
 airplane mode is off commits it on again and deletes its table. The
 screen lists what the test did and, if it stopped, the claims it was
 confirming. The debug log keeps every command.
@@ -391,7 +407,7 @@ design.md, sections 7 and 10.
 | D6 | Without Churn's firewall rules, the router itself reaches the VPN server and its time servers over the SIM, looks up one time server's name at Google when it goes online, and GL's connection check pings four public addresses | verified | Chrony's time servers and the addresses that GL's connection check pings over the SIM are those we watched (tier 1); watch the cellular interface (tier 4) | 1, 4 |
 | D7 | GL's firewall loads `/etc/nftables.d/churn.nft` into its table `inet fw4`, and `fw4 reload` exits with 0 despite its warnings | verified, and checked by the app | With the file in place, all three chains are listed; the app checks the same, and the exit status, after each reload it starts | 1, blocks |
 | D8 | The SIM's data interfaces match `rmnet_data*`, online and in airplane mode | verified | The interfaces in `/sys/class/net` and the one `ifstatus modem_cpu` names | 1, blocks |
-| D9 | WireGuard sends with the mark `0x8000`, and on output no other packets carry it | verified | `wg show all fwmark` (tier 1); the rules' counters across airplane mode off and on (tier 4) | 1, 4 |
+| D9 | WireGuard sends with the mark `0x8000`, and on output no other packets carry it | verified | `wg show all fwmark` (tier 1); the leak watch's counts against WireGuard's (tier 4) | 1, 4 |
 | D10 | The main dnsmasq runs as the user ID the rules name | verified, and checked by the app | `id -u dnsmasq` answers, and Churn's rules, while on the router, name the same user ID | 1 |
 | D11 | With the rules, nothing but WireGuard leaves over the SIM, from devices too, also with the Enhanced Kill Switch off and the tunnel down, and over IPv6 as over IPv4 | verified for devices over IPv4 with the switch off and the tunnel down; going online and IPv6 inferred | The drop counter grows and a device's website fails (tier 4); the leak watch's counts after airplane mode goes off (tier 4) | 4 |
 | D12 | With the rules, the router's own traffic leaves through the tunnel from the VPN's address, and its lookups go to the VPN's DNS server | verified | A request and a lookup from the router, watched on the tunnel interface | 4 |

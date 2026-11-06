@@ -345,6 +345,10 @@
     <string name="progress_interfaces_changed">One of the SIM\'s interfaces went away while the test watched, or was made anew, so the packets it sent until then are missing from the count, and D11 stays unconfirmed.</string>
     <string name="progress_nothing_left">Nothing left over the SIM in that minute, not even WireGuard\'s handshake, so D11 stays unconfirmed. Churn\'s rules dropped %1$d packets.</string>
     <string name="progress_leak_watch_passed">The leak watch passed. The router stays online, as at step 4.</string>
+    <string name="progress_sim_only">The router has no default route other than over the SIM, so no other uplink that WireGuard could use.</string>
+    <string name="progress_tunnel_made_anew">WireGuard\'s interface was made anew, which starts its count again, so the test compares WireGuard\'s bytes from this read on.</string>
+    <string name="progress_wireguard_matched">By the last read during which WireGuard sent nothing, it had sent %1$d bytes over the SIM, as many as got past Churn\'s rules, so nothing else got past them (D9).</string>
+    <string name="progress_wireguard_unclear">No read could match WireGuard\'s bytes exactly with those that got past Churn\'s rules: WireGuard sent nothing, or sent packets while each read was under way. So D9 stays unconfirmed.</string>
 
     <!-- Why a step stopped -->
     <string name="problem_unexpected_answer">The router gave an answer Churn didn\'t expect, so Churn stopped. Nothing after the last line above is assumed done.</string>

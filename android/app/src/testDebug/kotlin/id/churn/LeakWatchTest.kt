@@ -88,13 +88,17 @@ class LeakWatchTest {
         return e.detail
     }
 
-    /** Asserts that the test stopped while it watched, with airplane mode turned on again and its counters gone. */
-    private fun assertStoppedWatching(problem: Problem) {
-        assertStops(problem) { run() }
-        assertEquals(listOf("D11"), leakWatch.testing)
+    /**
+     * Asserts that the test stopped while it watched, with airplane mode turned on again and its counters gone, and
+     * returns why.
+     */
+    private fun assertStoppedWatching(problem: Problem): String? {
+        val e = assertStops(problem) { run() }
+        assertEquals(listOf("D9", "D11"), leakWatch.testing)
         assertEquals(Progress.AIRPLANE_MODE_ON, progress.last())
         assertTrue(fake.airplaneMode)
         assertNull(fake.leakCounters)
+        return e.detail
     }
 
     private fun assertSafe() {
@@ -108,14 +112,14 @@ class LeakWatchTest {
         assertEquals(
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
-                Progress.CARD_READY, Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.GOING_ONLINE,
-                Progress.SIM_PACKETS, Progress.LEAK_WATCH_PASSED,
+                Progress.CARD_READY, Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.SIM_ONLY,
+                Progress.GOING_ONLINE, Progress.SIM_PACKETS, Progress.WIREGUARD_MATCHED, Progress.LEAK_WATCH_PASSED,
             ),
             progress,
         )
-        // WireGuard's handshake 3 s after airplane mode went off and then 5 packets a second, and the router's own
-        // packets that Churn's rules dropped.
-        assertEquals(listOf(286L, 8L), numbers)
+        // WireGuard's handshake 3 s after airplane mode went off and then 5 packets a second, the router's own packets
+        // that Churn's rules dropped, and WireGuard's bytes.
+        assertEquals(listOf(286L, 8L, 28_600L), numbers)
         // Once in airplane mode, then every 2 s for 60 s.
         assertEquals(31, fake.commands.count(::readsTraffic))
         val commit = fake.commands.indexOf("uci set 'glconfig.general.airplane_mode=0' && uci commit 'glconfig'")
@@ -131,7 +135,7 @@ class LeakWatchTest {
     @Test
     fun leakWatchConfirmsTier4ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("D11"), claims)
+        assertEquals(setOf("D9", "D11"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 4 claim in testing.md", "4" in tiers)
@@ -152,9 +156,9 @@ class LeakWatchTest {
     fun fragmentedWireGuardPacketsLeaveD11Unconfirmed() {
         fake.fragmentsWireguard = true
         run()
-        assertEquals(listOf(Progress.FRAGMENTS_UNCLEAR, Progress.LEAK_WATCH_PASSED), progress.takeLast(2))
+        assertEquals(Progress.FRAGMENTS_UNCLEAR, progress[progress.size - 3])
         // Each of WireGuard's 286 packets left as two fragments.
-        assertEquals(listOf(286L, 572L), numbers)
+        assertEquals(listOf(286L, 572L, 28_600L), numbers)
         assertFalse(fake.airplaneMode)
     }
 
@@ -169,8 +173,8 @@ class LeakWatchTest {
     fun aSimInterfaceMadeAnewLeavesD11Unconfirmed() {
         fake.remakesInterface = true
         run()
-        assertEquals(listOf(Progress.INTERFACES_CHANGED, Progress.LEAK_WATCH_PASSED), progress.takeLast(2))
-        assertEquals(emptyList<Long>(), numbers)
+        assertEquals(Progress.INTERFACES_CHANGED, progress[progress.size - 3])
+        assertEquals(listOf(28_600L), numbers)
     }
 
     @Test
@@ -185,7 +189,10 @@ class LeakWatchTest {
         // A tunnel that sends nothing within the minute.
         fake.handshakeMillis = 120_000
         run()
-        assertEquals(listOf(Progress.NOTHING_LEFT, Progress.LEAK_WATCH_PASSED), progress.takeLast(2))
+        assertEquals(
+            listOf(Progress.NOTHING_LEFT, Progress.WIREGUARD_UNCLEAR, Progress.LEAK_WATCH_PASSED),
+            progress.takeLast(3),
+        )
         assertEquals(listOf(8L), numbers)
     }
 
@@ -198,7 +205,75 @@ class LeakWatchTest {
         run()
         assertTrue("uci set 'glconfig.general.airplane_mode=1' && uci commit 'glconfig'" in fake.commands)
         assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
-        assertEquals(listOf(286L, 8L), numbers)
+        assertEquals(listOf(286L, 8L, 28_600L), numbers)
+    }
+
+    @Test
+    fun markedPacketsOtherThanWireGuardsStopTheWatch() {
+        fake.markedGoingOnline = 1
+        // A ping's 84 bytes without the 28 of the IP and UDP headers that WireGuard's packets have.
+        assertEquals("56 bytes got past Churn's rules beyond WireGuard's", assertStoppedWatching(Problem.LEAK))
+        // At the first read, 2 s after airplane mode went off.
+        assertEquals(2, fake.commands.count(::readsTraffic))
+    }
+
+    @Test
+    fun wireguardPacketsThatChurnsRulesDropStopTheWatch() {
+        fake.wireguardUnmarked = true
+        // The handshake at 3 s and 5 more packets by the read at 4 s.
+        assertEquals(
+            "wg show all transfer: WireGuard sent 600 bytes more than got past Churn's rules",
+            assertStoppedWatching(Problem.UNEXPECTED_ANSWER),
+        )
+        assertEquals(3, fake.commands.count(::readsTraffic))
+    }
+
+    @Test
+    fun aTunnelMadeAnewIsComparedFromTheNextQuietRead() {
+        fake.tunnelRemadeAfter = 9_000
+        run()
+        assertEquals(1, progress.count { it == Progress.TUNNEL_MADE_ANEW })
+        assertEquals(Progress.GOING_ONLINE, progress[progress.indexOf(Progress.TUNNEL_MADE_ANEW) - 1])
+        // From the read at 10 s, with 36 of WireGuard's packets by then.
+        assertEquals(listOf(286L, 8L, 25_000L), numbers)
+    }
+
+    @Test
+    fun wireguardSendingWhileEachReadIsUnderWayLeavesD9Unconfirmed() {
+        fake.wireguardWhileRead = true
+        run()
+        assertEquals(
+            listOf(Progress.SIM_PACKETS, Progress.WIREGUARD_UNCLEAR, Progress.LEAK_WATCH_PASSED),
+            progress.takeLast(3),
+        )
+        // One more packet during each of the 30 reads, after the interfaces' counts.
+        assertEquals(listOf(315L, 8L), numbers)
+    }
+
+    @Test
+    fun aTunnelOverIpv6IsCountedAlike() {
+        fake.tunnelOverIpv6 = true
+        run()
+        assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
+        assertEquals(listOf(286L, 8L, 28_600L), numbers.takeLast(3))
+    }
+
+    @Test
+    fun anUplinkOtherThanTheSimStopsTheWatchBeforeItGoesOnline() {
+        fake.wiredUplink = true
+        assertEquals(
+            "The router has an uplink other than the SIM: " +
+                "default via 192.168.1.1 dev eth0 proto static src 192.168.1.2 metric 10",
+            assertStoppedOffline(Problem.NOT_READY),
+        )
+        assertEquals(Progress.FIREWALL, progress.last())
+    }
+
+    @Test
+    fun theSimsOwnDefaultRouteInAirplaneModeIsNoOtherUplink() {
+        fake.keepsSimRoute = true
+        run()
+        assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
     }
 
     @Test
