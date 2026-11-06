@@ -260,6 +260,12 @@ class FakeRouter : Shell {
     /** The bridge the USB-C port's network device `ecm0` is in, or null for none. */
     var usbBridge: String? = "br-lan"
     var poweredOff = false
+
+    /**
+     * For a `poweroff` that doesn't shut the router down, against B4 in testing.md. Only the power cycle test's tests
+     * use it.
+     */
+    var poweroffIgnored = false
     val files = mutableMapOf<String, ByteArray>()
 
     /** The modes that the app gave [files], as chmod takes them, such as 600. */
@@ -476,7 +482,7 @@ class FakeRouter : Shell {
         if (command == "cat /proc/uptime") return ok(if (uptimeBroken) "" else "%.2f 100.00\n".format(uptime))
         if (command == "cat /proc/sys/kernel/random/boot_id") return ok("$bootId\n")
         if (command == "poweroff") {
-            poweredOff = true
+            if (!poweroffIgnored) poweredOff = true
             return ok("")
         }
         Regex("""\[ -e '([^']+)' ]""").matchEntire(command)?.let {

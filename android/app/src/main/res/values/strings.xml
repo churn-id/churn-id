@@ -251,6 +251,19 @@
     <string name="removal_test_forget">Forget the removal test</string>
     <string name="removal_test_forget_text">Churn then forgets the card\'s record and the IMEIs it had, and can\'t set the router up again as it was any more.</string>
 
+    <!-- Tier 3's power cycle test, which only debug builds have -->
+    <string name="power_cycles">Power cycles</string>
+    <string name="power_cycles_text">The power cycle test shuts the router down twice and checks each power-on, which confirms claims of docs/testing.md that only a power-on can. You switch the router on again each time. Both trays must be empty: the test puts slot 2 on the SIM 2 tray, where the router emitted nothing at power-on with both trays empty, and at the end puts slot 2, the active slot and the IMEIs back as they were. Like a swap, it turns airplane mode and the Enhanced Kill Switch on and puts Churn\'s firewall rules in place, and leaves them so. The debug log, if it is on, keeps every command.</string>
+    <string name="power_cycles_confirm">The test shuts the router down twice and waits for you to switch it on again each time. Until it has put the router back as it was, the router screen shows this screen.</string>
+    <string name="power_cycles_waiting">Once the router is off, switch it on again with Churn open and both trays still empty. The test goes on as soon as the router shows up on the cable, or when you tap Go on. To put the router back as it was instead, tap Put the router back before you switch the router on.</string>
+    <string name="power_cycles_unfinished">The last power cycle test stopped before it put the router back as it was, so slot 2, the active slot or the IMEIs may still be as the test left them. Put the router back, or forget the test if you have put the router back yourself.</string>
+    <string name="power_cycles_stopped">The power cycle test stopped while confirming %1$s.\n\n%2$s</string>
+    <string name="power_cycles_start">Start the power cycle test</string>
+    <string name="power_cycles_again">Run it again</string>
+    <string name="power_cycles_go_on">Go on</string>
+    <string name="power_cycles_forget">Forget the power cycle test</string>
+    <string name="power_cycles_forget_text">Churn then forgets how the router was before the test, and can\'t put it back any more.</string>
+
     <!-- What a step reports -->
     <string name="progress_untested_platform">The router runs a GL firmware or modem firmware we haven\'t tested Churn with. The router checks that swaps rely on passed, so the step goes on.</string>
     <string name="progress_airplane_mode_on">Airplane mode is on.</string>
@@ -279,7 +292,7 @@
     <string name="progress_test_imeis">A test pair of IMEIs is written and read back (M6).</string>
     <string name="progress_earlier_imeis">The earlier IMEIs are written and read back.</string>
     <string name="progress_answers_matched">Airplane mode, the radio and both IMEIs read the same 20 times in a row (P5).</string>
-    <string name="progress_put_back">Slot 2, the active slot and the IMEIs are as they were before the dry run.</string>
+    <string name="progress_put_back">Slot 2, the active slot and the IMEIs are as they were before the test.</string>
     <string name="progress_dry_run_passed">The dry run passed.</string>
     <string name="progress_restored">restore.sh ran to its end (F12).</string>
     <string name="progress_factory_imeis">The factory IMEIs are back, and the radio is still off (F7).</string>
@@ -302,6 +315,9 @@
     <string name="progress_free_space_filled">Clearing again wrote about as much as the free space, so the zero files spared the rest of the flash (H15).</string>
     <string name="progress_cleared_quickly">With the zero files in place, clearing again took under a minute (H16).</string>
     <string name="progress_removal_passed">The removal test passed.</string>
+    <string name="progress_network_lost">The phone lost the router\'s network %1$d s after poweroff (B5).</string>
+    <string name="progress_new_boot_id">The router has a new boot ID, so poweroff shut it down and it started anew (B4, B6).</string>
+    <string name="progress_power_cycles_passed">The power cycle test passed.</string>
 
     <!-- Why a step stopped -->
     <string name="problem_unexpected_answer">The router gave an answer Churn didn\'t expect, so Churn stopped. Nothing after the last line above is assumed done.</string>
@@ -321,7 +337,7 @@
     <string name="problem_check_failed">A router check that swaps rely on failed, so Churn stopped before changing slot 2: the router doesn\'t work the way Churn\'s commands expect, as after a firmware upgrade. Churn can swap on this router again once the check passes. Router checks, on the router screen, shows every check\'s result.</string>
     <string name="problem_firewall_not_loaded">The router\'s firewall didn\'t load Churn\'s rules, so Churn removed them again and stopped.</string>
     <string name="problem_profile_enabled">A profile is enabled on the built-in eSIM, so the dry run stopped before disabling it: the dry run is for a router with no SIM, and Churn can\'t enable a profile again.</string>
-    <string name="problem_card_in_tray">A card answers in the SIM 2 tray, so the dry run stopped: it is for a router with no SIM.</string>
+    <string name="problem_card_in_tray">A card answers in the SIM 2 tray, so the test stopped: it is for a router with no SIM.</string>
 
     <!-- The notification while a step runs -->
     <string name="notification_channel">SIM swap</string>

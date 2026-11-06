@@ -83,6 +83,7 @@ class MainActivity : Activity() {
             is Screen.Swapping -> swapping(screen)
             is Screen.DryRun -> dryRun(screen)
             is Screen.RemovalTest -> removalTest(screen)
+            is Screen.PowerCycles -> powerCycles(screen)
         }
     }
 
@@ -196,6 +197,7 @@ class MainActivity : Activity() {
         button(R.string.router_checks) { showChecks() }
         if (DryRun.AVAILABLE) button(R.string.dry_run) { controller.openDryRun() }
         if (RemovalTest.AVAILABLE) button(R.string.removal_test) { controller.openRemovalTest() }
+        if (PowerCycleTest.AVAILABLE) button(R.string.power_cycles) { controller.openPowerCycles() }
         button(R.string.restore) {
             val factory = status.factory
             confirm(getString(R.string.restore_text, factory.imei1, factory.imei2)) { controller.restore() }
@@ -305,6 +307,46 @@ class MainActivity : Activity() {
                 }
             }
             button(R.string.dry_run_back) { controller.refresh() }
+        }
+    }
+
+    private fun powerCycles(screen: Screen.PowerCycles) = page(keepScreenOn = screen.running) {
+        heading(getString(R.string.power_cycles))
+        val text = when {
+            screen.waiting -> R.string.power_cycles_waiting
+            screen.unfinished -> R.string.power_cycles_unfinished
+            else -> R.string.power_cycles_text
+        }
+        paragraph(getString(text))
+        screen.lines.forEach { paragraph("✓ $it") }
+        if (screen.running) {
+            addView(ProgressBar(context))
+            return@page
+        }
+        screen.error?.let { warning(it) }
+        when {
+            screen.waiting -> {
+                button(R.string.power_cycles_go_on) {
+                    askForNotifications()
+                    controller.resumePowerCycles()
+                }
+                button(R.string.dry_run_put_back) { controller.putBackPowerCycles() }
+            }
+            screen.unfinished -> {
+                button(R.string.dry_run_put_back) { controller.putBackPowerCycles() }
+                button(R.string.power_cycles_forget) {
+                    confirm(getString(R.string.power_cycles_forget_text)) { controller.forgetPowerCycles() }
+                }
+            }
+            else -> {
+                button(if (screen.lines.isEmpty()) R.string.power_cycles_start else R.string.power_cycles_again) {
+                    confirm(getString(R.string.power_cycles_confirm)) {
+                        askForNotifications()
+                        controller.startPowerCycles()
+                    }
+                }
+                button(R.string.dry_run_back) { controller.refresh() }
+            }
         }
     }
 
