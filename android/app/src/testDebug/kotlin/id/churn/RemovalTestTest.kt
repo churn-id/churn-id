@@ -18,10 +18,14 @@ class RemovalTestTest {
     private val shell = object : Shell {
         var broken = false
 
+        /** Runs before each command, with the command. */
+        var before: (String) -> Unit = {}
+
         /** Runs after each command that [fake] answered, with the command. */
         var after: (String) -> Unit = {}
 
         override fun run(command: String, input: ByteArray?, timeoutSeconds: Long): Output {
+            before(command)
             if (broken) throw IOException("Broken pipe")
             return fake.run(command, input, timeoutSeconds).also { after(command) }
         }
@@ -126,13 +130,16 @@ class RemovalTestTest {
                 Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.NO_PROFILE,
                 Progress.SIM1_EMPTY, Progress.RESTORED, Progress.FACTORY_IMEIS, Progress.FOLDER_GONE,
                 Progress.LOG_SETTING_BACK, Progress.LOG_WRITTEN, Progress.ZERO_FILES_GONE, Progress.FIREWALL_GONE,
-                Progress.SET_UP_AGAIN, Progress.REMOVAL_PASSED,
+                Progress.SET_UP_AGAIN, Progress.CLEARING_HISTORY, Progress.CONNECTION_KEPT, Progress.REMOVAL_PASSED,
             ),
             progress,
         )
         assertEquals(before, state())
         // Kept before restore.sh, and forgotten once the router is set up again.
         assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true), null), saves)
+        // The clearing made the zero files again, which restore.sh deleted.
+        assertEquals("/overlay/churn-zeros", fake.zerosLink)
+        assertTrue(fake.zeroFilesKb > 0)
         // As restore.sh leaves it.
         assertTrue(fake.airplaneMode)
         assertSafe()
@@ -312,9 +319,26 @@ class RemovalTestTest {
     }
 
     @Test
+    fun removalTestStopsWhenTheConnectionClosesDuringTheClearing() {
+        val before = state()
+        // The overwrite, which writes the zeros.
+        shell.before = { if ("dd if=/dev/zero" in it) shell.broken = true }
+        try {
+            run()
+            throw AssertionError("The test didn't stop")
+        } catch (_: IOException) {
+        }
+        assertEquals(listOf("H17"), test.testing)
+        // Set up again before the clearing, so nothing is left to do.
+        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true), null), saves)
+        assertEquals(before, state())
+        assertSafe()
+    }
+
+    @Test
     fun removalTestConfirmsTier2ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("F7", "F8", "F9", "F10", "F11", "F12", "H3"), claims)
+        assertEquals(setOf("F7", "F8", "F9", "F10", "F11", "F12", "H3", "H17"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)
