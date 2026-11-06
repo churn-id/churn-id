@@ -283,8 +283,11 @@ private val KILL_SWITCH_RULES = listOf(
 /** GL's routing rule that sends traffic marked for the tunnel to the tunnel's table, while the tunnel is up. */
 private const val TUNNEL_RULE = "6000: from all fwmark 0x1000/0xf000 lookup 1001"
 
-/** Whether, with the Enhanced Kill Switch on, `ip rule show` lists GL's rules that send traffic through the tunnel. */
-private fun killSwitchRules(router: Router): CheckResult {
+/**
+ * Whether, with the Enhanced Kill Switch on, `ip rule show` lists GL's rules that send traffic through the tunnel. The
+ * power cycle test checks it too, after power-on.
+ */
+internal fun killSwitchRules(router: Router): CheckResult {
     val tunnels = router.vpnInterfaces()
     if (tunnels.isEmpty()) return CheckResult.NotApplicable(R.string.reason_no_vpn)
     if (!router.enhancedKillSwitch()) return CheckResult.NotApplicable(R.string.reason_kill_switch_off)

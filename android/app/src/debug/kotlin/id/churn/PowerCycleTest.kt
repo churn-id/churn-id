@@ -73,7 +73,7 @@ class PowerCycleTest(
                 report(Progress.SETTINGS_KEPT)
             }
             // From the moment the test reaches the router, while the modem may not answer yet.
-            checkStart(part("B1", "B2", "B3") { watchStart() })
+            checkStart(part("K10", "D14", "B1", "B2", "B3") { watchStart() })
             part("M7") {
                 // The test pair after the first power-on, and the earlier pair after the second.
                 val saved = if (start.powerOn == 1) start.testImeis else start.imeis
@@ -136,12 +136,21 @@ class PowerCycleTest(
     }
 
     /**
-     * Reads `/proc/uptime` and `AT+CFUN?` every 2 s until the router has started, 120 s after power-on, and returns the
-     * modem's answers.
+     * What the test saw after a power-on until the router had started: the modem's answers, [readings], and the seconds
+     * after power-on at which the Enhanced Kill Switch's routing rules, [rulesAt], and Churn's firewall chains,
+     * [chainsAt], were first in place, or null for never.
      */
-    private fun watchStart(): List<RadioReading> {
+    private class Start(val readings: List<RadioReading>, val rulesAt: Int?, val chainsAt: Int?)
+
+    /**
+     * Reads `/proc/uptime` and `AT+CFUN?` every 2 s until the router has started, 120 s after power-on, and the
+     * Enhanced Kill Switch's routing rules and Churn's firewall chains until they are in place.
+     */
+    private fun watchStart(): Start {
         report(Progress.WAITING_FOR_START)
         val readings = mutableListOf<RadioReading>()
+        var rulesAt: Int? = null
+        var chainsAt: Int? = null
         // Only a restart sets the uptime back, and it ends the connection first.
         while (true) {
             val uptime = router.uptimeSeconds()
@@ -152,16 +161,28 @@ class PowerCycleTest(
                 null
             }
             readings += RadioReading(uptime, radio)
-            if (uptime >= SETTLED_UPTIME_SECONDS) return readings
+            if (rulesAt == null && killSwitchRules(router) == CheckResult.Passed) rulesAt = uptime.toInt()
+            if (chainsAt == null && router.firewallLoaded()) chainsAt = uptime.toInt()
+            if (uptime >= SETTLED_UPTIME_SECONDS) return Start(readings, rulesAt, chainsAt)
             sleep(WATCH_MILLIS)
         }
     }
 
     /**
-     * Checks the modem's answers after a power-on, [readings], against B1, B2 and B3: it doesn't answer at first, then
-     * reports its radio on until 58 s at the latest, and the radio is off from then on, also 120 s after power-on.
+     * Checks what the test saw after a power-on, [start], against K10, D14, B1, B2 and B3: the kill switch's rules and
+     * Churn's chains in place by the time the router had started, and the modem not answering at first, then reporting
+     * its radio on until 58 s at the latest, and the radio off from then on, also 120 s after power-on.
      */
-    private fun checkStart(readings: List<RadioReading>) {
+    private fun checkStart(start: Start) {
+        part("K10") {
+            val at = start.rulesAt ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "ip rule show: $NOT_BY_START")
+            measured(Progress.RULES_AT_START, at)
+        }
+        part("D14") {
+            val at = start.chainsAt ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "nft list chain: $NOT_BY_START")
+            measured(Progress.CHAINS_AT_START, at)
+        }
+        val readings = start.readings
         val answered = readings.filter { it.radio != null }
         part("B1") {
             val first = answered.firstOrNull()
@@ -235,6 +256,9 @@ class PowerCycleTest(
 
         /** How often the test reads the uptime and the radio after a power-on, as testing.md says. */
         private const val WATCH_MILLIS = 2_000L
+
+        /** Why K10 or D14 failed. */
+        private const val NOT_BY_START = "not in place 120 s after power-on"
 
         /** The latest end of the radio-on window after power-on, as B2 says. */
         private const val WINDOW_END_SECONDS = 58.0

@@ -417,6 +417,18 @@ class FakeRouter : Shell {
         get() = files.filterKeys { it.startsWith("$ESIM_DB/") }.values
             .flatMap { JSONObject(it.toString(Charsets.UTF_8)).getJSONObject("records").keys().asSequence() }.toSet()
 
+    /**
+     * For a power-on that leaves the routing rules without the Enhanced Kill Switch's, against K10 in testing.md. Only
+     * the power cycle test's tests use it.
+     */
+    var bootDropsKillSwitchRules = false
+
+    /**
+     * For a power-on whose firewall doesn't load Churn's rules, against D14 in testing.md. Only the power cycle test's
+     * tests use it.
+     */
+    var bootSkipsChurnRules = false
+
     /** Power-on with the settings kept. */
     fun boot() {
         savedImeis?.let {
@@ -427,6 +439,10 @@ class FakeRouter : Shell {
         bootedAt = clock
         bootId = UUID.randomUUID().toString()
         poweredOff = false
+        // The network and the firewall start from GL's settings and Churn's rules file.
+        killSwitchInUse = killSwitchSet && !bootDropsKillSwitchRules
+        loadedChains.clear()
+        if (!bootSkipsChurnRules) loadChurnChains()
     }
 
     override fun run(command: String, input: ByteArray?, timeoutSeconds: Long): Output {
@@ -657,11 +673,16 @@ class FakeRouter : Shell {
     private fun fw4Reload(): Output {
         change("firewall")
         if (radioOnAtReload) radioStuckOn = true
-        val file = files[Router.FIREWALL]?.toString(Charsets.UTF_8)
-        if (file != null && fw4Rejects) return Output(1, ByteArray(0), "Error: syntax error")
+        if (Router.FIREWALL in files && fw4Rejects) return Output(1, ByteArray(0), "Error: syntax error")
         loadedChains.clear()
-        file?.let { loadedChains += Regex("""chain (\w+) \{""").findAll(it).map { m -> m.groupValues[1] } }
+        loadChurnChains()
         return Output(0, ByteArray(0), "[!] Section glblock option 'reload' is not supported by fw4")
+    }
+
+    /** Adds the chains of Churn's rules file, if it is there, to [loadedChains]. */
+    private fun loadChurnChains() {
+        val file = files[Router.FIREWALL]?.toString(Charsets.UTF_8) ?: return
+        loadedChains += Regex("""chain (\w+) \{""").findAll(file).map { it.groupValues[1] }
     }
 
     private fun at(command: String): Output {

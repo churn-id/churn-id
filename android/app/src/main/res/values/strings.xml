@@ -319,6 +319,8 @@
     <string name="progress_new_boot_id">The router has a new boot ID, so poweroff shut it down and it started anew (B4, B6).</string>
     <string name="progress_test_pair_saved">A test pair of IMEIs is written, saved and read back.</string>
     <string name="progress_settings_kept">Airplane mode and the Enhanced Kill Switch are still on in GL\'s settings (U3).</string>
+    <string name="progress_rules_at_start">The Enhanced Kill Switch\'s routing rules were in place %1$d s after power-on (K10).</string>
+    <string name="progress_chains_at_start">GL\'s firewall had loaded Churn\'s rules %1$d s after power-on (D14).</string>
     <string name="progress_modem_answered">The modem first answered %1$d s after power-on (B1).</string>
     <string name="progress_modem_at_once">The modem answered as soon as Churn reached the router, %1$d s after power-on, so B1 stays unconfirmed.</string>
     <string name="progress_radio_on_until">The modem reported its radio on, though airplane mode is on, until %1$d s after power-on (B2).</string>
