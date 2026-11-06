@@ -133,10 +133,10 @@ confirming. The debug log keeps every command.
 
 Debug builds also have a Removal and clearing button on the router screen,
 for the tier 2 claims that only running `restore.sh` and a clearing can
-confirm. `restore.sh` deletes the zero files, so that the test's clearing
-fills all of the flash's free space, about 2.9 GB, and the test runs once
-for each firmware, after the dry run. Like the dry run, it needs a router
-with no SIM and no profile enabled on the built-in eSIM:
+confirm. `restore.sh` deletes the zero files, so that the test's first
+clearing fills all of the flash's free space, about 2.9 GB, and the test
+runs once for each firmware, after the dry run. Like the dry run, it needs a
+router with no SIM and no profile enabled on the built-in eSIM:
 
 1. Step 1 up to the shutdown, as in the dry run, and the SIM 1 tray
    empty, so that a power-on before the router is set up again registers
@@ -177,6 +177,11 @@ with no SIM and no profile enabled on the built-in eSIM:
      none of the numbers that files hold counts as failed. If files hold
      none, as on a router never swapped since setup, whose clearing keeps no
      card's numbers, H10 and H11 stay unconfirmed.
+8. It clears the SIM history again, now with the zero files in place, as
+   at every swap after the first. By ext4's `lifetime_write_kbytes`, the
+   clearing has to write about as much as the free space it found, not
+   the zero files' space again (H15), and it has to take under a minute
+   (H16).
 
 Like step 1, the test leaves airplane mode on and slot 2 on the built-in
 eSIM. A removal test that stops before it set the router up again does so at
@@ -189,7 +194,7 @@ debug log keeps every command.
 From `restore.sh` until the router is set up again, GL's log goes to the
 flash, as before Churn, and names any card used since the router started.
 Setting the router up again turns that off and deletes the file, and the
-test's clearing overwrites what was written.
+test's first clearing overwrites what was written.
 
 ## Platform
 
@@ -375,14 +380,14 @@ and 10.
 | H7 | GL doesn't add back pruned cards, also not when airplane mode goes off and on | verified | The card files after airplane mode off and on | 4 |
 | H8 | GL copes with card files that name no card until it records the new one | inferred | Step 3 with a new card, then a power-on and airplane mode off | 4 |
 | H9 | A card used again after a clearing gets GL's defaults, and GL's search finds its APN | verified with the built-in eSIM's profile | Use a cleared card again | 4 |
-| H10 | After a clearing, the raw partition holds no IMSI of an earlier card | verified | Before the removal test's clearing, read the earlier cards' numbers from GL's files and logs, keeping them only in memory; afterwards, count them on the raw partition and in its files | 2 |
-| H11 | After a clearing, the raw partition holds no ICCID of an earlier card either | verified | Before the removal test's clearing, read the earlier cards' numbers from GL's files and logs, keeping them only in memory; afterwards, count them on the raw partition and in its files | 2 |
+| H10 | After a clearing, the raw partition holds no IMSI of an earlier card | verified | Before the removal test's first clearing, read the earlier cards' numbers from GL's files and logs, keeping them only in memory; afterwards, count them on the raw partition and in its files | 2 |
+| H11 | After a clearing, the raw partition holds no ICCID of an earlier card either | verified | Before the removal test's first clearing, read the earlier cards' numbers from GL's files and logs, keeping them only in memory; afterwards, count them on the raw partition and in its files | 2 |
 | H12 | The overlay is ext4 on `mmcblk0p59`, 2.9 GB, and ext4 keeps 4096 blocks back from it in `reserved_clusters` | verified | The overlay's line in `/proc/mounts` and its `reserved_clusters` file | 1, blocks |
-| H13 | The overwrite puts ext4's reserve back at its end, and a trap does when a signal stops it | verified; the trap on a disk image | `reserved_clusters` before and after the removal test's clearing | 2 |
-| H14 | GL's files stay valid while the overwrite fills the partition | verified once | GL's card files and the eSIM manager's records parse after the removal test's clearing | 2 |
-| H15 | The overwrite leaves all but 512 MB of the free space in `/overlay/churn-zeros`, so the next one fills only those 512 MB | verified on disk images | The free space and the folder after a clearing; `lifetime_write_kbytes` in `/sys/fs/ext4/mmcblk0p59/` before and after the next | 2 |
-| H16 | With the zero files in place, an overwrite takes under a minute | inferred from the first overwrite's speed | Time a clearing from the router screen | 2 |
-| H17 | The SSH connection stays open through the overwrite, which prints nothing for minutes | inferred | The removal test's clearing, which fills about 2.9 GB | 2 |
+| H13 | The overwrite puts ext4's reserve back at its end, and a trap does when a signal stops it | verified; the trap on a disk image | `reserved_clusters` before and after the removal test's first clearing | 2 |
+| H14 | GL's files stay valid while the overwrite fills the partition | verified once | GL's card files and the eSIM manager's records parse after the removal test's first clearing | 2 |
+| H15 | The overwrite leaves all but 512 MB of the free space in `/overlay/churn-zeros`, so the next one fills only those 512 MB | verified on disk images | The free space and the folder after the removal test's first clearing; `lifetime_write_kbytes` in `/sys/fs/ext4/mmcblk0p59/` before and after its second | 2 |
+| H16 | With the zero files in place, an overwrite takes under a minute | inferred from the first overwrite's speed | Time the removal test's second clearing | 2 |
+| H17 | The SSH connection stays open through the overwrite, which prints nothing for minutes | inferred | The removal test's first clearing, which fills about 2.9 GB | 2 |
 | H18 | The flash rates its own wear, and reported under 10% used on our router after our tests | verified | `life_time` and `pre_eol_info` in `/sys/block/mmcblk0/device/`, which the debug log records at every connection; the check also fails once the flash warns that its life or its spare blocks are running out | 1 |
 | H19 | GL writes files in `/etc` every minute, so with the log's file off, the clock after a power-on still resumes from about the time of the power-off | verified with the SIM online | The files in `/etc` that something other than Churn wrote in the last 2 minutes, from 2 minutes after a power-on, in airplane mode too | 1 |
 

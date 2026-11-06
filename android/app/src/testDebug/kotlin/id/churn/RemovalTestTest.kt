@@ -132,7 +132,8 @@ class RemovalTestTest {
                 Progress.LOG_SETTING_BACK, Progress.LOG_WRITTEN, Progress.ZERO_FILES_GONE, Progress.FIREWALL_GONE,
                 Progress.SET_UP_AGAIN, Progress.CLEARING_HISTORY, Progress.CONNECTION_KEPT, Progress.RESERVE_BACK,
                 Progress.CARD_FILES_PARSE, Progress.ZEROS_KEEP_SPACE, Progress.READING_PARTITION, Progress.IMSIS_GONE,
-                Progress.ICCIDS_GONE, Progress.REMOVAL_PASSED,
+                Progress.ICCIDS_GONE, Progress.CLEARING_HISTORY, Progress.FREE_SPACE_FILLED, Progress.CLEARED_QUICKLY,
+                Progress.REMOVAL_PASSED,
             ),
             progress,
         )
@@ -487,6 +488,42 @@ class RemovalTestTest {
         assertEquals(Progress.REMOVAL_PASSED, progress.last())
     }
 
+    @Test
+    fun removalTestStopsWhenClearingAgainWritesMoreThanTheFreeSpace() {
+        // As if each overwrite wrote the zero files anew.
+        shell.after = { if ("dd if=/dev/zero" in it) fake.lifetimeWrittenKb += 2_000_000 }
+        assertStopsAfterTheClearing("H15")
+        assertTrue(Progress.ICCIDS_GONE in progress)
+    }
+
+    @Test
+    fun removalTestStopsWhenClearingAgainWritesLessThanTheFreeSpace() {
+        // As if each overwrite left 100 MB of the free space as it was.
+        shell.after = { if ("dd if=/dev/zero" in it) fake.lifetimeWrittenKb -= 102_400 }
+        assertStopsAfterTheClearing("H15")
+        assertTrue(Progress.ICCIDS_GONE in progress)
+    }
+
+    @Test
+    fun removalTestStopsWhenTheConnectionClosesDuringTheSecondClearing() {
+        shell.before = { if ("dd if=/dev/zero" in it && Progress.ICCIDS_GONE in progress) shell.broken = true }
+        try {
+            run()
+            throw AssertionError("The test didn't stop")
+        } catch (_: IOException) {
+        }
+        assertEquals(listOf("H15", "H16"), test.testing)
+        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true), null), saves)
+        assertSafe()
+    }
+
+    @Test
+    fun removalTestStopsWhenClearingAgainTakesAMinute() {
+        // 512 MB at 8 MB/s take 64 s.
+        fake.flashWriteKbPerSecond = 8_192
+        assertStopsAfterTheClearing("H16")
+    }
+
     /**
      * Runs the test with a clearing or a firmware broken to fail the check of [ids], and checks that it stops there,
      * with the router set up again before the clearing.
@@ -505,7 +542,7 @@ class RemovalTestTest {
     fun removalTestConfirmsTier2ClaimsOfTestingMd() {
         run()
         assertEquals(
-            setOf("F7", "F8", "F9", "F10", "F11", "F12", "H3", "H10", "H11", "H13", "H14", "H15", "H17"),
+            setOf("F7", "F8", "F9", "F10", "F11", "F12", "H3", "H10", "H11", "H13", "H14", "H15", "H16", "H17"),
             claims,
         )
         for (id in claims) {

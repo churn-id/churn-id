@@ -684,6 +684,17 @@ class Router(private val shell: Shell) {
         return output.text.trim().toLongOrNull()?.takeIf { output.status == 0 } ?: throw unexpected("df", output)
     }
 
+    /**
+     * The kB written to the overlay's partition since its file system was made, after a sync, as ext4 counts them in
+     * `lifetime_write_kbytes`.
+     */
+    fun overlayWrittenKb(): Long {
+        val output = run(OVERLAY_WRITTEN)
+        val kb = output.text.trim().toLongOrNull()
+        if (output.status != 0 || kb == null) throw unexpected("lifetime_write_kbytes", output)
+        return kb
+    }
+
     /** Records [card] in Churn's folder as the card step 3 last gave IMEIs. */
     fun recordCard(card: Card) = writeChurnFile(
         "card",
@@ -947,6 +958,13 @@ class Router(private val shell: Shell) {
 
         /** The overlay's free space in kB, as the free-space overwrite counts it. */
         private val OVERLAY_FREE = "sync; df -k /overlay | awk 'END { print ${'$'}(NF - 4) - ${'$'}(NF - 3) }'"
+
+        /** The kB written to the overlay's partition since its file system was made, after a sync. */
+        private val OVERLAY_WRITTEN = """
+            sync
+            dev=${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1; exit }' /proc/mounts)
+            cat /sys/fs/ext4/${'$'}{dev##*/}/lifetime_write_kbytes
+        """.trimIndent()
 
         /**
          * Counts each number of its input, one per line, on the overlay's raw partition and in the files on it, as a
