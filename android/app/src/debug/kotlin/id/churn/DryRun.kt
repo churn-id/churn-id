@@ -1,5 +1,7 @@
 package id.churn
 
+import java.security.SecureRandom
+
 /**
  * Tier 2's dry run (docs/testing.md, "Dry run"): steps 1 and 3 of a swap on a router with no SIM, as far as they go
  * without one, run by the swap's own code, and the router put back as it was. Only debug builds have it.
@@ -17,11 +19,11 @@ class DryRun(
         private set
 
     /**
-     * Runs the dry run. [save] gets what it puts back before the first change, to keep on the phone, and null once the
-     * router is as it was again. A dry run that stops puts the router back if the radio is still off, and otherwise
-     * leaves that to [putBack].
+     * Runs the dry run, with test IMEIs from [random] with the TACs and the spacing of the [factory] IMEIs. [save] gets
+     * what it puts back before the first change, to keep on the phone, and null once the router is as it was again. A
+     * dry run that stops puts the router back if the radio is still off, and otherwise leaves that to [putBack].
      */
-    fun run(save: (DryRunStart?) -> Unit) {
+    fun run(factory: ImeiPair, random: SecureRandom, save: (DryRunStart?) -> Unit) {
         val start = DryRunStart(router.slot2(), activeSlot(), router.imeis())
         save(start)
         try {
@@ -41,6 +43,8 @@ class DryRun(
                 }
                 report(Progress.ESIM_SILENT)
             }
+            // Where step 3 writes a card's pair.
+            part("M6") { writeTestImeis(start.imeis, factory, random) }
             part("S2", "S3") {
                 setSlot2(Slot2.ESIM)
                 report(Progress.SLOT2_ON_ESIM)
@@ -98,6 +102,19 @@ class DryRun(
         }
         if (iccid != null) throw RouterException(Problem.CARD_IN_TRAY)
         report(Progress.TRAY_EMPTY)
+    }
+
+    /**
+     * Writes a pair as step 3 writes a new card's, but another than [earlier], and then [earlier] again, each read back
+     * at once and with the radio still off after it.
+     */
+    private fun writeTestImeis(earlier: ImeiPair, factory: ImeiPair, random: SecureRandom) {
+        router.writeImeis(generateSequence { Imei.random(random, factory) }.first { it != earlier })
+        checkRadioOff()
+        report(Progress.TEST_IMEIS)
+        router.writeImeis(earlier)
+        checkRadioOff()
+        report(Progress.EARLIER_IMEIS)
     }
 
     /** Whether the router's IMEIs, slot 2's setting and the active slot are [start]'s. */

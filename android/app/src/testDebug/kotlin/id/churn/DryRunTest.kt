@@ -1,6 +1,7 @@
 package id.churn
 
 import java.io.IOException
+import java.security.SecureRandom
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -62,7 +63,17 @@ class DryRunTest {
     private fun activations() =
         fake.commands.mapNotNull { Regex(""""current_sim":(\d)""").find(it)?.groupValues?.get(1) }
 
-    private fun run() = dryRun.run { saves += it }
+    /** The factory IMEIs, which the router still has. */
+    private val factory = ImeiPair(fake.imei1, fake.imei2)
+
+    /** The test pair's serials: first the router's own pair, which tests no write, then another. */
+    private val random = Serials(500_000, 123_456)
+
+    private fun run() = dryRun.run(factory, random) { saves += it }
+
+    /** The IMEIs that the commands sent to [fake] wrote as IMEI [item], 7 or 11, in turn. */
+    private fun imeiWrites(item: Int) =
+        fake.commands.mapNotNull { Regex("""AT\+EGMR=1,$item,"(\d{15})"""").find(it)?.groupValues?.get(1) }
 
     private fun assertStops(problem: Problem, run: () -> Unit) {
         try {
@@ -88,8 +99,8 @@ class DryRunTest {
                 Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.NO_PROFILE,
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
                 Progress.NETWORK_RELOADED, Progress.FIREWALL_RELOADED, Progress.SLOT1_ACTIVE, Progress.SLOT2_ON_SIM2,
-                Progress.SLOT2_ACTIVE, Progress.TRAY_EMPTY, Progress.ESIM_SILENT, Progress.SLOT2_ON_ESIM,
-                Progress.PUT_BACK, Progress.DRY_RUN_PASSED,
+                Progress.SLOT2_ACTIVE, Progress.TRAY_EMPTY, Progress.ESIM_SILENT, Progress.TEST_IMEIS,
+                Progress.EARLIER_IMEIS, Progress.SLOT2_ON_ESIM, Progress.PUT_BACK, Progress.DRY_RUN_PASSED,
             ),
             progress,
         )
@@ -121,7 +132,7 @@ class DryRunTest {
     @Test
     fun dryRunConfirmsTier2ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("S2", "S3", "K8", "D19", "U6", "E4"), claims)
+        assertEquals(setOf("S2", "S3", "K8", "D19", "U6", "E4", "M6"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)
@@ -170,6 +181,47 @@ class DryRunTest {
         // Not taken for a card in the tray.
         assertEquals(Progress.TRAY_EMPTY, progress.dropLast(1).last())
         assertEquals(before, state())
+    }
+
+    @Test
+    fun dryRunWritesATestPairAndThenTheEarlierPair() {
+        val before = state()
+        run()
+        val test = Imei.random(Serials(123_456), factory)
+        assertEquals(listOf(test.imei1, before.imeis.imei1), imeiWrites(7))
+        assertEquals(listOf(test.imei2, before.imeis.imei2), imeiWrites(11))
+        assertSafe()
+    }
+
+    @Test
+    fun dryRunStopsWhenTheModemRefusesTheTestPair() {
+        fake.imeiWritesRefused = true
+        val before = state()
+        assertStops(Problem.UNEXPECTED_ANSWER) { run() }
+        assertEquals(listOf("M6"), dryRun.testing)
+        assertEquals(before, state())
+        assertEquals(listOf(before, null), saves)
+    }
+
+    @Test
+    fun dryRunChangesNothingMoreOnceTheRadioIsOnAfterTheTestPair() {
+        assertStopsWithTheRadioOnAfterImeiWrite(1)
+        // Left for Put the router back.
+        assertEquals(Imei.random(Serials(123_456), factory), state().imeis)
+    }
+
+    @Test
+    fun dryRunChangesNothingMoreOnceTheRadioIsOnAfterTheEarlierPair() {
+        assertStopsWithTheRadioOnAfterImeiWrite(2)
+    }
+
+    /** Turns the radio on after the dry run's [n]th IMEI write, and checks that it stops before its next change. */
+    private fun assertStopsWithTheRadioOnAfterImeiWrite(n: Int) {
+        var writes = 0
+        shell.after = { if ("AT+QPRTPARA=1" in it && ++writes == n) fake.radioStuckOn = true }
+        assertStops(Problem.RADIO_ON) { run() }
+        assertEquals(listOf("M6"), dryRun.testing)
+        assertSafe()
     }
 
     @Test
@@ -337,5 +389,12 @@ class DryRunTest {
         run()
         // Step 1, the tray, back to the eSIM, and put back.
         assertEquals(listOf(Slot2.SIM2, Slot2.ESIM, Slot2.SIM2, Slot2.ESIM, Slot2.SIM2), settings)
+    }
+
+    /** Gives [values] in turn, as the serials of test pairs. */
+    private class Serials(private vararg val values: Int) : SecureRandom() {
+        private var next = 0
+
+        override fun nextInt(bound: Int) = values[next++]
     }
 }

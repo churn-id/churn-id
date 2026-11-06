@@ -338,10 +338,12 @@ class Controller(private val context: Context) {
     fun openDryRun() = show(Screen.DryRun())
 
     /** Runs tier 2's dry run (docs/testing.md, "Dry run"), which only debug builds have. */
-    fun startDryRun() = runDryRun { dryRun -> dryRun.run { saved.dryRunStart = it } }
+    fun startDryRun() = runDryRun { dryRun, folder ->
+        dryRun.run(folder.factory!!, SecureRandom()) { saved.dryRunStart = it }
+    }
 
     /** Puts the router back as it was before the dry run that stopped. */
-    fun putBack() = runDryRun { dryRun ->
+    fun putBack() = runDryRun { dryRun, _ ->
         saved.dryRunStart?.let { start -> dryRun.putBack(start) { saved.dryRunStart = it } }
     }
 
@@ -498,7 +500,7 @@ class Controller(private val context: Context) {
      * Runs [body], the dry run or its putting back, on the worker thread, with the foreground service keeping the app
      * alive meanwhile.
      */
-    private fun runDryRun(body: (DryRun) -> Unit) {
+    private fun runDryRun(body: (DryRun, ChurnFolder) -> Unit) {
         started = cable
         val lines = mutableListOf<String>()
         fun update() = show(Screen.DryRun(lines.toList(), running = true))
@@ -522,7 +524,7 @@ class Controller(private val context: Context) {
                     },
                     check = { runChecks(router, folder, CHECKS.filter { it.blocks }).failures },
                 )
-                body(dryRun)
+                body(dryRun, folder)
                 Screen.DryRun(lines.toList(), unfinished = saved.dryRunStart != null)
             } catch (e: UntrustedHostKey) {
                 trustKey(e)
@@ -778,6 +780,8 @@ class Controller(private val context: Context) {
             Progress.SLOT1_ACTIVE -> R.string.progress_slot1_active
             Progress.TRAY_EMPTY -> R.string.progress_tray_empty
             Progress.ESIM_SILENT -> R.string.progress_esim_silent
+            Progress.TEST_IMEIS -> R.string.progress_test_imeis
+            Progress.EARLIER_IMEIS -> R.string.progress_earlier_imeis
             Progress.PUT_BACK -> R.string.progress_put_back
             Progress.DRY_RUN_PASSED -> R.string.progress_dry_run_passed
         },

@@ -231,7 +231,7 @@
 
     <!-- Tier 2's dry run, which only debug builds have -->
     <string name="dry_run">Dry run</string>
-    <string name="dry_run_text">The dry run runs steps 1 and 3 of a swap on a router with no SIM, as far as they go without one, and so confirms claims of docs/testing.md that only a change of the router\'s settings can. Both trays must be empty and no profile enabled on the built-in eSIM. The dry run keeps the radio off and puts slot 2 and the active slot back as they were. Like a swap, it turns airplane mode and the Enhanced Kill Switch on and puts Churn\'s firewall rules in place, and leaves them so. The debug log, if it is on, keeps every command.</string>
+    <string name="dry_run_text">The dry run runs steps 1 and 3 of a swap on a router with no SIM, as far as they go without one, and so confirms claims of docs/testing.md that only a change of the router\'s settings can. Both trays must be empty and no profile enabled on the built-in eSIM. The dry run keeps the radio off, writes a test pair of IMEIs, and puts slot 2, the active slot and the IMEIs back as they were. Like a swap, it turns airplane mode and the Enhanced Kill Switch on and puts Churn\'s firewall rules in place, and leaves them so. The debug log, if it is on, keeps every command.</string>
     <string name="dry_run_unfinished">The last dry run stopped before it put the router back as it was, so slot 2, the active slot or the IMEIs may still be as the dry run left them. Put the router back, or forget the dry run if you have put the router back yourself.</string>
     <string name="dry_run_stopped">The dry run stopped while confirming %1$s.\n\n%2$s</string>
     <string name="dry_run_start">Start the dry run</string>
@@ -266,6 +266,8 @@
     <string name="progress_slot1_active">Slot 1 is the active slot, as dds_id shows (U6).</string>
     <string name="progress_tray_empty">No card answers in the SIM 2 tray.</string>
     <string name="progress_esim_silent">Nor does the built-in eSIM, with slot 2 on the tray (E4).</string>
+    <string name="progress_test_imeis">A test pair of IMEIs is written and read back (M6).</string>
+    <string name="progress_earlier_imeis">The earlier IMEIs are written and read back.</string>
     <string name="progress_put_back">Slot 2, the active slot and the IMEIs are as they were before the dry run.</string>
     <string name="progress_dry_run_passed">The dry run passed.</string>
 
