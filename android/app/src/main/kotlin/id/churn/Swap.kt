@@ -19,21 +19,22 @@ enum class Step {
 
 /** What a step reports as it goes. */
 enum class Progress {
-    AIRPLANE_MODE_ON, RADIO_OFF, SLOT2_ON_ESIM, NO_PROFILE, DISABLING_AGAIN, PROFILE_DISABLED, WAITING_FOR_START,
-    SIM1_EMPTY, KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, SLOT2_BACK_ON_SIM2, SAME_CARD,
-    NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN,
+    UNTESTED_PLATFORM, AIRPLANE_MODE_ON, RADIO_OFF, SLOT2_ON_ESIM, NO_PROFILE, DISABLING_AGAIN, PROFILE_DISABLED,
+    WAITING_FOR_START, SIM1_EMPTY, KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND,
+    SLOT2_BACK_ON_SIM2, SAME_CARD, NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN,
 }
 
 /**
  * The router's part of steps 1 and 3. Each run starts from the beginning and checks every state it relies on,
  * so a step that stopped is simply run again. [ask] shows step 3's question and waits for the user's answer. [check]
- * runs the router checks that a swap relies on before the step changes slot 2, in step 3 once the router has started.
+ * runs the router checks that a swap relies on, those that block in testing.md, and returns the lines of those that
+ * failed. Both steps run them before they change slot 2, step 3 once the router has started.
  */
 class Swap(
     private val router: Router,
     private val report: (Progress) -> Unit,
     private val ask: (Question) -> Answer,
-    private val check: () -> Unit = {},
+    private val check: () -> List<String> = { emptyList() },
     private val sleep: (Long) -> Unit = Thread::sleep,
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
@@ -47,7 +48,7 @@ class Swap(
         if (router.scheduledReboot()) throw RouterException(Problem.SCHEDULED_REBOOT)
         // Rule 5. Checked before anything changes, while the old card can still reach the internet to set one up.
         if (!router.vpnSetUp()) throw RouterException(Problem.NO_VPN)
-        check()
+        runChecks()
         turnAirplaneModeOn()
         waitForRadioOff()
         setSlot2(Slot2.ESIM)
@@ -89,7 +90,7 @@ class Swap(
         if (!poll(BOOT_TIMEOUT_SECONDS) { router.uptimeSeconds() >= SETTLED_UPTIME_SECONDS }) {
             throw RouterException(Problem.NOT_STARTED)
         }
-        check()
+        runChecks()
         waitForRadioOff()
         // A card in the SIM 1 tray registers at every power-on, whatever airplane mode says (design.md, section 6), so
         // at step 4 it would go out with the new card and link the two. Slot 2 is still on the eSIM, so the step can
@@ -116,6 +117,22 @@ class Swap(
         // The clearing reloads GL's log service and fills the flash for a moment.
         checkRadioOff()
         return card
+    }
+
+    /**
+     * Stops the step if a router check that swaps rely on fails, since Churn's commands can't be trusted then. On a
+     * firmware or modem we haven't tested, the step goes on once they all pass, with a note.
+     */
+    private fun runChecks() {
+        val failed = check()
+        if (failed.isNotEmpty()) throw RouterException(Problem.CHECK_FAILED, failed.joinToString("\n\n"))
+        // As in the check of P1, a version the app can't read counts as untested, and doesn't stop the step.
+        val tested = try {
+            router.platform() in TESTED_PLATFORMS
+        } catch (e: RouterException) {
+            false
+        }
+        if (!tested) report(Progress.UNTESTED_PLATFORM)
     }
 
     /** Switches slot 2 to the SIM 2 tray and gives the card there its pair; null if the user cancels. */

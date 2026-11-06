@@ -20,8 +20,8 @@ class SwapTest {
     /** Runs while step 3 waits for the answer. */
     private var whileAsked = {}
 
-    /** Runs where a step runs the router checks. */
-    private var checks = {}
+    /** Runs where a step runs the router checks, and returns the lines of those that failed. */
+    private var checks = { emptyList<String>() }
     private var placesJson: String? = null
     private val places = PlaceCards(load = { placesJson }, save = { placesJson = it })
     private val swap = Swap(
@@ -98,21 +98,54 @@ class SwapTest {
     }
 
     @Test
-    fun stepsRunTheChecksBeforeTheyChangeSlot2() {
-        // A check that stops the step shows what the step did before.
-        val stop = { throw RouterException(Problem.UNEXPECTED_ANSWER) }
-        checks = stop
-        assertStops(Problem.UNEXPECTED_ANSWER) { swap.prepare() }
+    fun aFailedCheckStopsBothStepsBeforeTheyChangeSlot2() {
+        val failed = listOf("✗ A check (D7)\nFailed: one thing", "✗ Another check (F1)\nFailed: another")
+        checks = { failed }
+        val e = assertStops(Problem.CHECK_FAILED) { swap.prepare() }
+        // The lines of the failed checks follow the problem's text.
+        assertEquals("✗ A check (D7)\nFailed: one thing\n\n✗ Another check (F1)\nFailed: another", e.detail)
         assertFalse(fake.airplaneMode)
         assertEquals(emptyList<String>(), fake.changes)
-        checks = {}
+        checks = { emptyList() }
         prepareAndRestart()
-        checks = stop
-        assertStops(Problem.UNEXPECTED_ANSWER) { giveNewImeis() }
+        checks = { failed }
+        assertStops(Problem.CHECK_FAILED) { giveNewImeis() }
         // Once the router has started, with slot 2 still on the built-in eSIM.
         assertEquals(listOf(Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START), progress.takeLast(2))
         assertTrue(fake.uptime >= 120)
         assertEquals(Slot2.ESIM, fake.slot2)
+        assertSafe()
+    }
+
+    @Test
+    fun stepsGoOnWithANoteOnFirmwareWeHaveNotTested() {
+        fake.glVersion = "4.11.0"
+        swap.prepare()
+        assertEquals(listOf(Progress.UNTESTED_PLATFORM, Progress.AIRPLANE_MODE_ON), progress.take(2))
+        assertEquals(Slot2.ESIM, fake.slot2)
+        swap.shutDown()
+        fake.boot()
+        progress.clear()
+        giveNewImeis()
+        assertEquals(
+            listOf(Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.UNTESTED_PLATFORM),
+            progress.take(3),
+        )
+        assertTrue(Progress.NEW_IMEIS in progress)
+    }
+
+    @Test
+    fun stepsGoOnWithANoteWhenTheFirmwareCannotBeRead() {
+        fake.failing += "cat /etc/glversion && grep '^DISTRIB_RELEASE=' /etc/openwrt_release"
+        swap.prepare()
+        assertEquals(Progress.UNTESTED_PLATFORM, progress.first())
+    }
+
+    @Test
+    fun stepsGoOnWithoutANoteOnFirmwareWeTested() {
+        prepareAndRestart()
+        giveNewImeis()
+        assertFalse(Progress.UNTESTED_PLATFORM in progress)
     }
 
     @Test

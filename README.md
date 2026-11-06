@@ -91,7 +91,9 @@ work on its own.
 
 ## What you need
 
-- A GL.iNet Mudi 7 (GL-E5800). We test with GL firmware 4.10.0.
+- A GL.iNet Mudi 7 (GL-E5800). We test with GL firmware 4.10.0. The app
+  checks the router before each swap, so on another version it stops if
+  the router doesn't work the way Churn relies on.
 - An Android phone running a system built for privacy, such as GrapheneOS.
 - A USB-C cable to connect the phone to the router, ideally the router's
   own cable.

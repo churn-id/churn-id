@@ -53,11 +53,11 @@ to the router:
   next: the size of GL's eSIM manager's log and an MD5 sum of its first
   64 bytes, which the app forgets when it clears the SIM history.
 - A failed check shows a note on the router screen. A check marked
-  *blocks* will also stop a swap when it fails, because the app's commands
-  can't be trusted then. For now, its result before steps 1 and 3 goes
-  only into the debug log. On firmware we haven't tested, a swap will go
-  ahead if every blocking check passes, with a note that the firmware is
-  untested.
+  *blocks* also stops steps 1 and 3 when it fails, before they change
+  slot 2, because the app's commands can't be trusted then; the step's
+  screen lists the checks that failed. On firmware we haven't tested, a
+  swap goes ahead if every blocking check passes, with a note on the
+  step's screen that the firmware is untested.
 - Tier 1 runs for every user. Tiers 2 and 3 start in debug builds; tier 2
   may later be offered to users. Tiers 3 and 4 are for the maintainer.
 - A test that clears the SIM history writes about 0.5 GB to the flash,
@@ -67,6 +67,23 @@ to the router:
   every dry run, and the clearing comes after `restore.sh`. The dry run
   itself clears nothing and doesn't run `restore.sh`: step 3 with an empty
   tray stops before the clearing.
+
+## New firmware
+
+The firmware and modem versions we tested are a list in the app,
+`TESTED_PLATFORMS` in `Checks.kt`, which the check of P1 and the note at
+steps 1 and 3 compare with. A version joins the list, in a one-line
+change, once it has passed tiers 1 to 3 and the tier 4 items the release
+could affect. When GL releases a new firmware:
+
+1. Before upgrading, connect with the app once, with the debug log on, so
+   that it records the checks before the upgrade.
+2. Upgrade with "keep settings", connect, and read Router checks, in
+   particular those of Churn's folder, its firewall rules, the log's file
+   and the IMEIs.
+3. Run the dry run and tier 3, then the removal and clearing tests, then
+   the tier 4 items the release could affect.
+4. Add the version to the list.
 
 ## Platform
 

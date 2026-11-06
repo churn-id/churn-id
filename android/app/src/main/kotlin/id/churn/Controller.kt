@@ -63,9 +63,10 @@ class RouterStatus(
 
 /**
  * The router checks' results as the router screen shows them: a line for each check that has run, out of [total], and
- * whether one failed.
+ * the lines of those that failed, [failures].
  */
-class CheckReport(val lines: List<String>, val failed: Boolean, val total: Int) {
+class CheckReport(val lines: List<String>, val failures: List<String>, val total: Int) {
+    val failed get() = failures.isNotEmpty()
     val done get() = lines.size == total
 }
 
@@ -446,8 +447,7 @@ class Controller(private val context: Context) {
                             update()
                         }
                     },
-                    // For now a failed check only shows in the debug log.
-                    check = { runChecks(router, folder, CHECKS.filter { it.blocks }) },
+                    check = { runChecks(router, folder, CHECKS.filter { it.blocks }).failures },
                 )
                 // The next step's screen keeps the step's lines, so that the user can still read them.
                 body(swap, folder).copy(log = log.toList(), logStep = step)
@@ -549,12 +549,13 @@ class Controller(private val context: Context) {
         checks: List<Check>,
         progress: (CheckReport) -> Unit = {},
     ): CheckReport {
-        var report = CheckReport(emptyList(), failed = false, checks.size)
+        var report = CheckReport(emptyList(), emptyList(), checks.size)
         for (check in checks) {
             val result = check.run(router, CheckContext(folder, saved.checkNotes))
             val line = line(check, result)
             debugLog.add(line)
-            report = CheckReport(report.lines + line, report.failed || result is CheckResult.Failed, checks.size)
+            val failures = if (result is CheckResult.Failed) report.failures + line else report.failures
+            report = CheckReport(report.lines + line, failures, checks.size)
             progress(report)
         }
         return report
@@ -675,6 +676,7 @@ class Controller(private val context: Context) {
 
     private fun text(progress: Progress) = context.getString(
         when (progress) {
+            Progress.UNTESTED_PLATFORM -> R.string.progress_untested_platform
             Progress.AIRPLANE_MODE_ON -> R.string.progress_airplane_mode_on
             Progress.RADIO_OFF -> R.string.progress_radio_off
             Progress.SLOT2_ON_ESIM -> R.string.progress_slot2_on_esim
@@ -713,6 +715,7 @@ class Controller(private val context: Context) {
             Problem.NO_VPN -> R.string.problem_no_vpn
             Problem.VPN_GONE -> R.string.problem_vpn_gone
             Problem.FIREWALL_NOT_LOADED -> R.string.problem_firewall_not_loaded
+            Problem.CHECK_FAILED -> R.string.problem_check_failed
         },
     )
 
