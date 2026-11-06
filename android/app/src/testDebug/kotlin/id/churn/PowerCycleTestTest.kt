@@ -129,8 +129,8 @@ class PowerCycleTestTest {
         bootIds += fake.bootId
         assertEquals(
             listOf(
-                Progress.NEW_BOOT_ID, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.IMEIS_KEPT,
-                Progress.EARLIER_IMEIS_SAVED, Progress.SHUTTING_DOWN, Progress.NETWORK_LOST,
+                Progress.NEW_BOOT_ID, Progress.SETTINGS_KEPT, Progress.WAITING_FOR_START, Progress.RADIO_OFF,
+                Progress.IMEIS_KEPT, Progress.EARLIER_IMEIS_SAVED, Progress.SHUTTING_DOWN, Progress.NETWORK_LOST,
             ),
             progress,
         )
@@ -138,8 +138,8 @@ class PowerCycleTestTest {
         resume()
         assertEquals(
             listOf(
-                Progress.NEW_BOOT_ID, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.IMEIS_KEPT,
-                Progress.PUT_BACK, Progress.POWER_CYCLES_PASSED,
+                Progress.NEW_BOOT_ID, Progress.SETTINGS_KEPT, Progress.WAITING_FOR_START, Progress.RADIO_OFF,
+                Progress.IMEIS_KEPT, Progress.PUT_BACK, Progress.POWER_CYCLES_PASSED,
             ),
             progress,
         )
@@ -161,7 +161,7 @@ class PowerCycleTestTest {
         run()
         resume()
         resume()
-        assertEquals(setOf("B4", "B5", "B6", "M7"), claims)
+        assertEquals(setOf("B4", "B5", "B6", "M7", "U3"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 3 claim in testing.md", "3" in tiers)
@@ -217,6 +217,40 @@ class PowerCycleTestTest {
         assertEquals(listOf("M7"), powerCycles.testing)
         assertEquals(1, progress.count { it == Progress.IMEIS_KEPT })
         // Put back with the earlier pair written again.
+        assertEquals(before, state())
+        assertNull(saves.last())
+    }
+
+    @Test
+    fun anAirplaneModeThatThePowerOnLostStopsTheTest() {
+        val before = state()
+        run()
+        fake.boot()
+        fake.airplaneMode = false
+        assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals(listOf("U3"), powerCycles.testing)
+        assertTrue(Progress.SETTINGS_KEPT !in progress)
+        // The radio is on, with airplane mode off, so the test changes nothing more.
+        assertEquals(Slot2.SIM2, fake.slot2)
+        assertEquals(0, saves.last()!!.powerOn)
+        powerCycles.putBack(saves.last()!!) { saves += it }
+        assertEquals(before, state())
+        assertNull(saves.last())
+        assertSafe()
+    }
+
+    @Test
+    fun aKillSwitchSettingThatThePowerOnLostStopsTheTest() {
+        val before = state()
+        run()
+        fake.boot()
+        // Only the switch's setting, with airplane mode still on.
+        fake.killSwitchSet = false
+        assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals(listOf("U3"), powerCycles.testing)
+        // Checked at once, while the radio is still on after the power-on, so the test waits for Put the router back.
+        assertEquals(0, saves.last()!!.powerOn)
+        powerCycles.putBack(saves.last()!!) { saves += it }
         assertEquals(before, state())
         assertNull(saves.last())
     }

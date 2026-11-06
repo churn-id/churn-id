@@ -61,6 +61,17 @@ class PowerCycleTest(
                 }
                 report(Progress.NEW_BOOT_ID)
             }
+            // Before the test reads or sets them again: what the last uci commit wrote.
+            part("U3") {
+                val lost = listOfNotNull(
+                    "airplane mode".takeIf { !router.airplaneMode() },
+                    "the Enhanced Kill Switch".takeIf { !router.killSwitchSettings() },
+                )
+                if (lost.isNotEmpty()) {
+                    throw RouterException(Problem.UNEXPECTED_ANSWER, "Not kept: ${lost.joinToString(" and ")}")
+                }
+                report(Progress.SETTINGS_KEPT)
+            }
             part {
                 waitForStart()
                 waitForRadioOff()

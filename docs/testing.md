@@ -221,9 +221,10 @@ where the router emitted nothing at power-on (B8):
    and the test times it from the command (B4, B5). Whether the router's
    screen had gone dark by then, the user sees.
 6. Once the user has switched the router on again and it is on the cable,
-   the boot ID has to be new (B4, B6). The test waits until the router has
-   started and its radio is off, and the router has to have the test pair
-   (M7).
+   the boot ID has to be new (B4, B6), and GL's settings still have
+   airplane mode and the Enhanced Kill Switch on (U3). The test waits until
+   the router has started and its radio is off, and the router has to have
+   the test pair (M7).
 7. It writes, saves and reads back the earlier pair, shuts the router down
    a second time, as in step 5, and checks the next power-on as in step 6,
    with the earlier pair.
