@@ -224,6 +224,15 @@ class Controller(private val context: Context) {
 
     fun setUp(factory: ImeiPair) = job(R.string.setting_up) {
         val router = router()
+        setUpFolder(router, factory, keepIccid = router.currentCardIccid())
+        showRouter()
+    }
+
+    /**
+     * Sets [router] up for Churn with the [factory] IMEIs: Churn's files, kept across firmware upgrades, and the SIM
+     * history cleared but for the card with [keepIccid], as [Router.clearHistory] takes it.
+     */
+    private fun setUpFolder(router: Router, factory: ImeiPair, keepIccid: String?) {
         val folder = router.readChurnFolder()
         updateChurnFiles(router)
         router.keepChurnFolder()
@@ -234,8 +243,7 @@ class Controller(private val context: Context) {
         // Turns the flash log off and clears the SIM history that built up before Churn. The first overwrite of the
         // free space takes minutes, so it waits for the first swap's step 3, and setup takes seconds.
         clearingEsimLog()
-        router.clearHistory(router.currentCardIccid(), overwrite = false)
-        showRouter()
+        router.clearHistory(keepIccid, overwrite = false)
     }
 
     fun refresh() = job(R.string.reading) { showRouter() }
