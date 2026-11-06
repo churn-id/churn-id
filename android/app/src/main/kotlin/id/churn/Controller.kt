@@ -890,6 +890,8 @@ class Controller(private val context: Context) {
             Progress.ICCIDS_GONE -> R.string.progress_iccids_gone
             Progress.NO_ICCIDS -> R.string.progress_no_iccids
             Progress.PARTITION_UNCHECKED -> R.string.progress_partition_unchecked
+            Progress.FREE_SPACE_FILLED -> R.string.progress_free_space_filled
+            Progress.CLEARED_QUICKLY -> R.string.progress_cleared_quickly
             Progress.REMOVAL_PASSED -> R.string.progress_removal_passed
             Progress.PUT_BACK -> R.string.progress_put_back
             Progress.DRY_RUN_PASSED -> R.string.progress_dry_run_passed

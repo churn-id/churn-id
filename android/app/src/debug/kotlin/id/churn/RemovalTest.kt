@@ -3,8 +3,8 @@ package id.churn
 /**
  * Tier 2's removal test (docs/testing.md, "Removal and clearing"): restore.sh run as Remove Churn runs it, the router
  * then set up again as it was, with the card's record, the IMEIs it had and Churn's firewall rules, and the SIM history
- * cleared as step 3 clears it. restore.sh deletes the zero files, so the clearing fills all of the flash's free space:
- * the test runs once for each firmware. Only debug builds have it.
+ * cleared twice as step 3 clears it. restore.sh deletes the zero files, so the first clearing fills all of the flash's
+ * free space: the test runs once for each firmware. Only debug builds have it.
  */
 class RemovalTest(
     router: Router,
@@ -13,7 +13,7 @@ class RemovalTest(
     /** Sets the router up as setup does, with the factory IMEIs, keeping the SIM history of the card with the ICCID. */
     private val setUpFolder: (ImeiPair, String?) -> Unit,
     sleep: (Long) -> Unit = Thread::sleep,
-    now: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val now: () -> Long = { System.nanoTime() / 1_000_000 },
 ) : Swap(router, report, ask = { error("The removal test asks nothing") }, check, sleep, now) {
 
     /** The IDs of the claims that the part of the test under way confirms, which a failure names. */
@@ -210,7 +210,43 @@ class RemovalTest(
             part("H10") { checkGone(imsis, "IMSIs", Progress.IMSIS_GONE, Progress.NO_IMSIS) }
             part("H11") { checkGone(iccids, "ICCIDs", Progress.ICCIDS_GONE, Progress.NO_ICCIDS) }
         }
+        clearAgain(start)
         testing = emptyList()
+    }
+
+    /**
+     * Clears the SIM history again, now with the zero files in place, as at every swap after the first: the overwrite
+     * fills only the free space, about 512 MB, and so takes under a minute.
+     */
+    private fun clearAgain(start: RemovalStart) {
+        var free = 0L
+        var written = 0L
+        var millis = 0L
+        part("H15", "H16") {
+            free = router.overlayFreeKb()
+            val before = router.overlayWrittenKb()
+            report(Progress.CLEARING_HISTORY)
+            val started = now()
+            router.clearHistory(keep(start))
+            millis = now() - started
+            written = router.overlayWrittenKb() - before
+        }
+        // All of the free space and what ext4 writes to keep track of it, but not the zero files' space again.
+        part("H15") {
+            if (written !in free - FREE_SLACK_KB..free + WRITE_SLACK_KB) {
+                throw RouterException(
+                    Problem.UNEXPECTED_ANSWER,
+                    "Clearing again wrote ${written / 1024} MB, with ${free / 1024} MB free",
+                )
+            }
+            report(Progress.FREE_SPACE_FILLED)
+        }
+        part("H16") {
+            if (millis >= MAX_CLEARING_MILLIS) {
+                throw RouterException(Problem.UNEXPECTED_ANSWER, "Clearing again took ${millis / 1000} s")
+            }
+            report(Progress.CLEARED_QUICKLY)
+        }
     }
 
     /**
@@ -278,6 +314,12 @@ class RemovalTest(
 
         /** The size of each zero file, in kB: 64 MB. */
         private const val ZERO_FILE_KB = 65_536
+
+        /** What ext4 writes besides the data at most, for its journal and the fill files' metadata, in kB: 64 MB. */
+        private const val WRITE_SLACK_KB = 65_536
+
+        /** How long a clearing with the zero files in place may take, in milliseconds: a minute. */
+        private const val MAX_CLEARING_MILLIS = 60_000
 
         /** How many digits an IMSI has, as an IMEI does; an ICCID has 18 to 20. */
         private const val IMSI_LENGTH = 15

@@ -135,6 +135,12 @@ class FakeRouter : Shell {
         "user.info Diag_Lib[1]: iccid[8941000000000000023F] imsi[228010000000002]\n" +
         "user.info gl_modem[1]: imei[356090215000002] imei2[356090215000077]\n"
 
+    /** The kB written to the overlay's partition since its file system was made, as ext4 counts them. */
+    var lifetimeWrittenKb = 41_943_040L
+
+    /** How fast the overwrite writes to the flash, in kB/s: on our Mudi 7, 2.9 GB took about 3 minutes. */
+    var flashWriteKbPerSecond = 16_000L
+
     /** The free space the overwrite leaves, in kB: 512 MB, but for an overwrite broken against H15. */
     var overwriteKeepsFreeKb = 524_288L
 
@@ -558,6 +564,9 @@ class FakeRouter : Shell {
             return ok("$count\n${zeroFilesKb + fillFilesKb}\n")
         }
         if (command.startsWith("sync; df -k /overlay")) return ok("$overlayFreeKb\n")
+        if (command.startsWith("sync\ndev=") && command.endsWith("/lifetime_write_kbytes")) {
+            return ok("$lifetimeWrittenKb\n")
+        }
         if (command == "cat /sys/block/mmcblk0/device/life_time /sys/block/mmcblk0/device/pre_eol_info") {
             return ok("$flashLifeTime\n$flashPreEol\n")
         }
@@ -589,6 +598,9 @@ class FakeRouter : Shell {
             // It deletes any fill files first, and keeps all but 512 MB of the free space in zero files. What deleted
             // files held is overwritten.
             fillFilesKb = 0
+            // Writing all of the free space takes its time.
+            lifetimeWrittenKb += overlayFreeKb
+            clock += overlayFreeKb * 1000 / flashWriteKbPerSecond
             freeSpace.clear()
             zeroFilesKb = maxOf(0, zeroFilesKb + overlayFreeKb - overwriteKeepsFreeKb)
             // Only an overwrite broken against H15 gets here: 4 kB files it didn't delete.
