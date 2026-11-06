@@ -447,6 +447,12 @@ class Router(private val shell: Shell) {
         return output.text.lines().map(String::trim).filter(String::isNotEmpty)
     }
 
+    /** The chains of Churn's rules that GL's firewall has in its table. */
+    fun churnChains(): List<String> {
+        val list = FIREWALL_CHAINS.joinToString("; ") { "nft list chain inet fw4 $it >/dev/null 2>&1 && echo $it" }
+        return run(list).text.lines().map(String::trim).filter { it in FIREWALL_CHAINS }
+    }
+
     /** Whether GL's firewall has all the chains of Churn's rules in its table. */
     fun firewallLoaded() =
         run(FIREWALL_CHAINS.joinToString(" && ") { "nft list chain inet fw4 $it >/dev/null" }).status == 0

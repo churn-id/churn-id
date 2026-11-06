@@ -287,6 +287,7 @@
     <string name="progress_log_setting_back">GL\'s setting for saving the system log is as before Churn (F9).</string>
     <string name="progress_log_written">logread writes the system log to its file again (H3).</string>
     <string name="progress_zero_files_gone">Churn\'s zero files and the link to them are gone, and their space is free again (F10).</string>
+    <string name="progress_firewall_gone">Churn\'s firewall rules, their chains and their line in /etc/sysupgrade.conf are gone (F11).</string>
     <string name="progress_set_up_again">The router is set up again, with the card\'s record, the IMEIs it had and Churn\'s firewall rules as before.</string>
     <string name="progress_removal_passed">The removal test passed.</string>
 

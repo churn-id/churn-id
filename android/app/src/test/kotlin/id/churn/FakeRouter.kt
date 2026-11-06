@@ -156,6 +156,21 @@ class FakeRouter : Shell {
      */
     var zeroFilesHeldOpen = false
 
+    /**
+     * For a restore.sh that deletes Churn's firewall rules but leaves their chains, as a reload of GL's firewall does,
+     * against F11. Only the removal test's tests use it.
+     */
+    var restoreKeepsChains = false
+
+    /** For a restore.sh that leaves Churn's firewall rules' file, against F11. Only the removal test's tests use it. */
+    var restoreKeepsFirewallFile = false
+
+    /**
+     * For a restore.sh that leaves the line of Churn's firewall rules in /etc/sysupgrade.conf, against F11. Only the
+     * removal test's tests use it.
+     */
+    var restoreKeepsFirewallLine = false
+
     /** For a restore.sh that leaves Churn's folder, against F8 and F12. Only the removal test's tests use it. */
     var restoreKeepsFolder = false
 
@@ -467,6 +482,10 @@ class FakeRouter : Shell {
             val lines = glDnsRules + listOfNotNull(churns.takeIf { "churn_dns" in loadedChains })
             return Output(if (lines.isEmpty()) 1 else 0, lines.joinToString("") { "$it\n" }.toByteArray(), "")
         }
+        if (command == CHURN_CHAINS) {
+            val chains = listOf("churn_sim", "churn_route", "churn_dns").filter { it in loadedChains }
+            return ok(chains.joinToString("") { "$it\n" })
+        }
         if (command == FIREWALL_LOADED) {
             val all = listOf("churn_sim", "churn_route", "churn_dns").all { it in loadedChains }
             return Output(if (all) 0 else 1, ByteArray(0), "")
@@ -768,10 +787,10 @@ class FakeRouter : Shell {
             zeroFilesKb = 0
         }
         if (!restoreKeepsFillFiles) fillFilesKb = 0
-        files.remove(Router.FIREWALL)
-        loadedChains.clear()
-        sysupgrade = sysupgrade.lines().filter { it != Router.FIREWALL }.joinToString("\n")
-        if (!restoreKeepsFolderLine) sysupgrade = sysupgrade.lines().filter { it != "/etc/churn/" }.joinToString("\n")
+        if (!restoreKeepsFirewallFile) files.remove(Router.FIREWALL)
+        if (!restoreKeepsChains) loadedChains.clear()
+        if (!restoreKeepsFirewallLine) dropUpgradeLine(Router.FIREWALL)
+        if (!restoreKeepsFolderLine) dropUpgradeLine("/etc/churn/")
         if (!restoreKeepsFolder) files.keys.removeAll { it.startsWith("/etc/churn/") }
         if (restoreEndsEarly) return ok("")
         return ok(
@@ -779,6 +798,11 @@ class FakeRouter : Shell {
                 "system log is as before. Churn's zero files, firewall rules and folder are removed. " +
                 "Airplane mode is on.\n",
         )
+    }
+
+    /** Deletes [line] from /etc/sysupgrade.conf, as restore.sh's sed does. */
+    private fun dropUpgradeLine(line: String) {
+        sysupgrade = sysupgrade.lines().filter { it != line }.joinToString("\n")
     }
 
     private fun atOk(line: String? = null) = ok("\n\r\n" + (line?.let { "$it\r\n\r\n" } ?: "") + "OK\r\n\n")
@@ -832,6 +856,9 @@ class FakeRouter : Shell {
         /** How [Router.logFollowers] lists the `logread -f` processes. */
         private val LOG_FOLLOWERS = Regex("""for c in /proc/\[0-9]\*/cmdline; .* \| grep -E '\^\[\^ ]\*logread .*""")
         private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "curl")
+        /** How [Router.churnChains] lists the chains of Churn's rules that GL's firewall has. */
+        private val CHURN_CHAINS = listOf("churn_sim", "churn_route", "churn_dns")
+            .joinToString("; ") { "nft list chain inet fw4 $it >/dev/null 2>&1 && echo $it" }
         private const val FIREWALL_LOADED = "nft list chain inet fw4 churn_sim >/dev/null && " +
             "nft list chain inet fw4 churn_route >/dev/null && nft list chain inet fw4 churn_dns >/dev/null"
 
