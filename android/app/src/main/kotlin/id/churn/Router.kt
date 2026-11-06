@@ -468,6 +468,13 @@ class Router(private val shell: Shell) {
     /** Whether GL's system log to the flash is off, so no new SIM details are written to the flash. */
     fun flashLogOff() = uci(LOG_FILE) == null
 
+    /**
+     * GL's setting for its system log's file as Churn saved it before turning the log off, which restore.sh puts back;
+     * null without a copy.
+     */
+    fun logFileCopy() = readFile("$CHURN/log_file")?.toString(Charsets.UTF_8)?.lineSequence()?.firstOrNull()?.trim()
+        ?.takeIf { it.isNotEmpty() }
+
     /** The command lines of the `logread -f` processes, such as the one that writes GL's system log to its file. */
     fun logFollowers(): List<String> {
         val output = run(LOG_FOLLOWERS)

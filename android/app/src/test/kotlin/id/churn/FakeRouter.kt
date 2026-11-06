@@ -135,6 +135,9 @@ class FakeRouter : Shell {
     /** For a restore.sh that leaves the IMEIs as they are, against F7. Only the removal test's tests use it. */
     var restoreKeepsImeis = false
 
+    /** For a restore.sh that leaves GL's system log off, against F9. Only the removal test's tests use it. */
+    var restoreKeepsLogOff = false
+
     /** For a restore.sh that leaves Churn's folder, against F8 and F12. Only the removal test's tests use it. */
     var restoreKeepsFolder = false
 
@@ -704,7 +707,9 @@ class FakeRouter : Shell {
             savedImeis = null
         }
         files.remove("/etc/churn/card")
-        files.remove("/etc/churn/log_file")?.let { logFile = it.toString(Charsets.UTF_8).trim() }
+        if (!restoreKeepsLogOff) {
+            files.remove("/etc/churn/log_file")?.let { logFile = it.toString(Charsets.UTF_8).trim() }
+        }
         zerosLink = null
         files.remove(Router.FIREWALL)
         loadedChains.clear()

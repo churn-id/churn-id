@@ -873,6 +873,7 @@ class Controller(private val context: Context) {
             Progress.RESTORED -> R.string.progress_restored
             Progress.FACTORY_IMEIS -> R.string.progress_factory_imeis
             Progress.FOLDER_GONE -> R.string.progress_folder_gone
+            Progress.LOG_SETTING_BACK -> R.string.progress_log_setting_back
             Progress.SET_UP_AGAIN -> R.string.progress_set_up_again
             Progress.REMOVAL_PASSED -> R.string.progress_removal_passed
             Progress.PUT_BACK -> R.string.progress_put_back
