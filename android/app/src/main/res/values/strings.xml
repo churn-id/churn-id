@@ -292,6 +292,7 @@
     <string name="progress_connection_kept">The clearing ended with the SSH connection still open, though it printed nothing for minutes (H17).</string>
     <string name="progress_reserve_back">ext4\'s reserve of free space is back as before the clearing (H13).</string>
     <string name="progress_card_files_parse">GL\'s card files and the eSIM manager\'s records parse (H14).</string>
+    <string name="progress_zeros_keep_space">About 512 MB of the flash are free, and the zero files hold the rest of the free space (H15).</string>
     <string name="progress_removal_passed">The removal test passed.</string>
 
     <!-- Why a step stopped -->

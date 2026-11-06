@@ -163,7 +163,9 @@ with no SIM and no profile enabled on the built-in eSIM:
    prints nothing for minutes, and the clearing has to end on the same SSH
    connection (H17). It then checks:
    - that ext4's reserve is as before the clearing (H13);
-   - and that GL's card files and the eSIM manager's records parse (H14).
+   - that GL's card files and the eSIM manager's records parse (H14);
+   - and that about 512 MB are free, with the zero files' folder holding
+     the rest of the free space and no fill files left (H15).
 
 Like step 1, the test leaves airplane mode on and slot 2 on the built-in
 eSIM. A removal test that stops before it set the router up again does so at
