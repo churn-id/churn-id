@@ -119,6 +119,7 @@ val CHECKS = listOf(
     Check("F2", blocks = true, title = R.string.check_folder_kept) { router, context ->
         folderKept(router, context.folder)
     },
+    Check("F3", blocks = false, title = R.string.check_firewall_kept) { router, _ -> firewallKept(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept) { router, context ->
         imeisKept(router, context.folder)
     },
@@ -761,6 +762,13 @@ private fun folderKept(router: Router, folder: ChurnFolder) = when {
     !folder.complete -> CheckResult.NotApplicable(R.string.reason_not_set_up)
     router.upgradeKeeps("${Router.CHURN}/") -> CheckResult.Passed
     else -> CheckResult.Failed("/etc/sysupgrade.conf doesn't list ${Router.CHURN}/.")
+}
+
+/** Whether `/etc/sysupgrade.conf` lists Churn's firewall rules, with the rules on the router. */
+private fun firewallKept(router: Router) = when {
+    router.firewallFile() == null -> CheckResult.NotApplicable(R.string.reason_no_firewall)
+    router.upgradeKeeps(Router.FIREWALL) -> CheckResult.Passed
+    else -> CheckResult.Failed("/etc/sysupgrade.conf doesn't list ${Router.FIREWALL}.")
 }
 
 /**

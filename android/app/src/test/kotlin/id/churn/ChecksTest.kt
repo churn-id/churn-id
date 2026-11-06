@@ -1235,6 +1235,24 @@ class ChecksTest {
     }
 
     @Test
+    fun firewallKeptCheckPassesWithTheRulesListed() {
+        router.installFirewall()
+        assertEquals(CheckResult.Passed, run("F3"))
+    }
+
+    @Test
+    fun firewallKeptCheckFailsWithoutTheRulesListed() {
+        router.installFirewall()
+        fake.sysupgrade = "/etc/config/\n/etc/profile"
+        assertEquals(CheckResult.Failed("/etc/sysupgrade.conf doesn't list /etc/nftables.d/churn.nft."), run("F3"))
+    }
+
+    @Test
+    fun firewallKeptCheckDoesNotApplyWithoutTheRules() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_firewall), run("F3"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2
