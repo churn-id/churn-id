@@ -155,17 +155,28 @@ with no SIM and no profile enabled on the built-in eSIM:
    - the zero files and their link gone, and their space free (F10);
    - and Churn's firewall rules, their chains and their line in
      `/etc/sysupgrade.conf` gone (F11).
-5. It sets the router up again as the setup screen does, with the card's
+5. It reads the ICCIDs and IMSIs that GL's card files, the eSIM manager's
+   records and log, and GL's system log name, with what `logread` wrote
+   since `restore.sh`. It keeps them in memory only, out of the screen and
+   the debug log.
+6. It sets the router up again as the setup screen does, with the card's
    record, the IMEIs it had and Churn's firewall rules, and keeps the
    recorded card's SIM history (F12).
-6. It clears the SIM history as step 3 does, keeping the recorded card's.
+7. It clears the SIM history as step 3 does, keeping the recorded card's.
    With the zero files gone, the overwrite fills all of the free space and
    prints nothing for minutes, and the clearing has to end on the same SSH
    connection (H17). It then checks:
    - that ext4's reserve is as before the clearing (H13);
    - that GL's card files and the eSIM manager's records parse (H14);
-   - and that about 512 MB are free, with the zero files' folder holding
-     the rest of the free space and no fill files left (H15).
+   - that about 512 MB are free, with the zero files' folder holding the
+     rest of the free space and no fill files left (H15);
+   - and that the raw partition holds no copy of the IMSIs (H10) and ICCIDs
+     (H11) from step 5 that no file holds any more, those of the earlier
+     cards. It reads the partition from the flash, after dropping the
+     router's block cache, which takes a few minutes, and a read that finds
+     none of the numbers that files hold counts as failed. If files hold
+     none, as on a router never swapped since setup, whose clearing keeps no
+     card's numbers, H10 and H11 stay unconfirmed.
 
 Like step 1, the test leaves airplane mode on and slot 2 on the built-in
 eSIM. A removal test that stops before it set the router up again does so at
@@ -364,8 +375,8 @@ and 10.
 | H7 | GL doesn't add back pruned cards, also not when airplane mode goes off and on | verified | The card files after airplane mode off and on | 4 |
 | H8 | GL copes with card files that name no card until it records the new one | inferred | Step 3 with a new card, then a power-on and airplane mode off | 4 |
 | H9 | A card used again after a clearing gets GL's defaults, and GL's search finds its APN | verified with the built-in eSIM's profile | Use a cleared card again | 4 |
-| H10 | After a clearing, the raw partition holds no IMSI of an earlier card | verified | Before the clearing, read the earlier cards' numbers from GL's files and log, keeping them only in memory; afterwards, count them on the raw partition and in its files | 2 |
-| H11 | After a clearing, the raw partition holds no ICCID of an earlier card either | verified | Before the clearing, read the earlier cards' numbers from GL's files and log, keeping them only in memory; afterwards, count them on the raw partition and in its files | 2 |
+| H10 | After a clearing, the raw partition holds no IMSI of an earlier card | verified | Before the removal test's clearing, read the earlier cards' numbers from GL's files and logs, keeping them only in memory; afterwards, count them on the raw partition and in its files | 2 |
+| H11 | After a clearing, the raw partition holds no ICCID of an earlier card either | verified | Before the removal test's clearing, read the earlier cards' numbers from GL's files and logs, keeping them only in memory; afterwards, count them on the raw partition and in its files | 2 |
 | H12 | The overlay is ext4 on `mmcblk0p59`, 2.9 GB, and ext4 keeps 4096 blocks back from it in `reserved_clusters` | verified | The overlay's line in `/proc/mounts` and its `reserved_clusters` file | 1, blocks |
 | H13 | The overwrite puts ext4's reserve back at its end, and a trap does when a signal stops it | verified; the trap on a disk image | `reserved_clusters` before and after the removal test's clearing | 2 |
 | H14 | GL's files stay valid while the overwrite fills the partition | verified once | GL's card files and the eSIM manager's records parse after the removal test's clearing | 2 |
