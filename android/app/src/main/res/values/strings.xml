@@ -263,6 +263,12 @@
     <string name="power_cycles_go_on">Go on</string>
     <string name="power_cycles_forget">Forget the power cycle test</string>
     <string name="power_cycles_forget_text">Churn then forgets how the router was before the test, and can\'t put it back any more.</string>
+    <string name="leak_watch">Leak watch</string>
+    <string name="leak_watch_text">The leak watch turns airplane mode off in your place at step 4 of a swap, and counts for a minute what leaves over the SIM, which confirms claims of docs/testing.md that only a SIM online can. Run it once you have switched the router on again where it is to go online, as step 4 says, and never at home, at work or another place you return to. The router has to be as step 3 left it: airplane mode on, and the card in SIM 2 with its IMEIs. Packets other than WireGuard\'s over the SIM turn airplane mode on again and stop the test, and a test that ends leaves the router online, as step 4 does. While it watches, the test adds counters of its own to the router\'s firewall. The debug log, if it is on, keeps every command.</string>
+    <string name="leak_watch_confirm">The router goes online with the card in SIM 2 here and now, as at step 4 of a swap. Go on only where step 4 may happen.</string>
+    <string name="leak_watch_stopped">The leak watch stopped while confirming %1$s.\n\n%2$s</string>
+    <string name="leak_watch_start">Start the leak watch</string>
+    <string name="leak_watch_again">Run it again</string>
 
     <!-- What a step reports -->
     <string name="progress_untested_platform">The router runs a GL firmware or modem firmware we haven\'t tested Churn with. The router checks that swaps rely on passed, so the step goes on.</string>
@@ -332,6 +338,13 @@
     <string name="progress_radio_on_uncommitted">With airplane mode set off but not committed, the modem reported its radio on %1$d s later.</string>
     <string name="progress_radio_off_uncommitted">With airplane mode set on again, still not committed, the modem reported its radio off %1$d s later (U2).</string>
     <string name="progress_power_cycles_passed">The power cycle test passed.</string>
+    <string name="progress_card_ready">The card that step 3 gave its IMEIs answers in SIM 2, the active slot, and the router has its IMEIs.</string>
+    <string name="progress_going_online">Airplane mode is off, so the router goes online with the card. For a minute, the test reads every 2 s what leaves over the SIM.</string>
+    <string name="progress_sim_packets">In that minute, %1$d packets left over the SIM, all of them ones that Churn\'s rules let pass; the rules dropped %2$d (D11).</string>
+    <string name="progress_fragments_unclear">The SIM\'s interfaces sent %1$d packets more than Churn\'s rules let pass, but the router made %2$d fragments of packets meanwhile, which the interfaces count one by one, so D11 stays unconfirmed.</string>
+    <string name="progress_interfaces_changed">One of the SIM\'s interfaces went away while the test watched, or was made anew, so the packets it sent until then are missing from the count, and D11 stays unconfirmed.</string>
+    <string name="progress_nothing_left">Nothing left over the SIM in that minute, not even WireGuard\'s handshake, so D11 stays unconfirmed. Churn\'s rules dropped %1$d packets.</string>
+    <string name="progress_leak_watch_passed">The leak watch passed. The router stays online, as at step 4.</string>
 
     <!-- Why a step stopped -->
     <string name="problem_unexpected_answer">The router gave an answer Churn didn\'t expect, so Churn stopped. Nothing after the last line above is assumed done.</string>
@@ -352,6 +365,8 @@
     <string name="problem_firewall_not_loaded">The router\'s firewall didn\'t load Churn\'s rules, so Churn removed them again and stopped.</string>
     <string name="problem_profile_enabled">A profile is enabled on the built-in eSIM, so the dry run stopped before disabling it: the dry run is for a router with no SIM, and Churn can\'t enable a profile again.</string>
     <string name="problem_card_in_tray">A card answers in the SIM 2 tray, so the test stopped: it is for a router with no SIM.</string>
+    <string name="problem_not_ready">The router isn\'t as step 3 of a swap leaves it, so the leak watch stopped before turning airplane mode off.</string>
+    <string name="problem_leak">Packets other than WireGuard\'s left over the SIM, so the leak watch stopped.</string>
 
     <!-- The notification while a step runs -->
     <string name="notification_channel">SIM swap</string>

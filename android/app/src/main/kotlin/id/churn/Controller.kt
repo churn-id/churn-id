@@ -67,6 +67,13 @@ sealed interface Screen {
         /** Whether the last test stopped before it put the router back as it was. */
         val unfinished: Boolean = false,
     ) : Screen
+
+    /** Tier 4's leak watch, which only debug builds have, with the lines it reported. */
+    data class LeakWatch(
+        val lines: List<String> = emptyList(),
+        val running: Boolean = false,
+        val error: String? = null,
+    ) : Screen
 }
 
 /** The router's state as the router screen shows it; null where the modem didn't answer. */
@@ -424,6 +431,59 @@ class Controller(private val context: Context) {
     fun forgetPowerCycles() {
         saved.powerCycleStart = null
         refresh()
+    }
+
+    /** Shows the leak watch's screen, from the router screen. */
+    fun openLeakWatch() = show(Screen.LeakWatch())
+
+    /**
+     * Runs tier 4's leak watch (docs/testing.md, "Leak watch"), which only debug builds have, with the card that step 3
+     * last gave its IMEIs.
+     */
+    fun startLeakWatch() {
+        started = cable
+        val lines = mutableListOf<String>()
+        fun update() = show(Screen.LeakWatch(lines.toList(), running = true))
+        fun add(line: String) {
+            lines += line
+            debugLog.add("✓ $line")
+            update()
+        }
+        update()
+        stepRunning = true
+        context.startForegroundService(Intent(context, SwapService::class.java))
+        worker.execute {
+            debugLog.start(context.getString(R.string.leak_watch))
+            var test: LeakWatch? = null
+            val next = try {
+                val router = router()
+                val folder = router.readChurnFolder()
+                if (!folder.complete) throw RouterException(Problem.NOT_SET_UP)
+                test = LeakWatch(
+                    router,
+                    report = { add(text(it)) },
+                    measured = { progress, numbers -> add(text(progress, *numbers.toTypedArray())) },
+                    check = { runChecks(router, folder, CHECKS.filter { it.blocks }).failures },
+                )
+                test.run(folder.card)
+                Screen.LeakWatch(lines.toList())
+            } catch (e: UntrustedHostKey) {
+                trustKey(e)
+            } catch (e: Exception) {
+                val error = stopped(e)
+                // The claims of the part that stopped, if it confirms any.
+                val ids = test?.testing.orEmpty().joinToString(", ")
+                Screen.LeakWatch(
+                    lines.toList(),
+                    error = if (ids.isEmpty()) error else context.getString(R.string.leak_watch_stopped, ids, error),
+                )
+            }
+            main.post {
+                stepRunning = false
+                onStepEnd?.invoke()
+            }
+            show(next)
+        }
     }
 
     /** The user's answer to step 3's question on the screen. */
@@ -1024,6 +1084,13 @@ class Controller(private val context: Context) {
             Progress.RADIO_ON_UNCOMMITTED -> R.string.progress_radio_on_uncommitted
             Progress.RADIO_OFF_UNCOMMITTED -> R.string.progress_radio_off_uncommitted
             Progress.POWER_CYCLES_PASSED -> R.string.progress_power_cycles_passed
+            Progress.CARD_READY -> R.string.progress_card_ready
+            Progress.GOING_ONLINE -> R.string.progress_going_online
+            Progress.SIM_PACKETS -> R.string.progress_sim_packets
+            Progress.FRAGMENTS_UNCLEAR -> R.string.progress_fragments_unclear
+            Progress.INTERFACES_CHANGED -> R.string.progress_interfaces_changed
+            Progress.NOTHING_LEFT -> R.string.progress_nothing_left
+            Progress.LEAK_WATCH_PASSED -> R.string.progress_leak_watch_passed
         },
         *args,
     )
@@ -1048,6 +1115,8 @@ class Controller(private val context: Context) {
             Problem.CHECK_FAILED -> R.string.problem_check_failed
             Problem.PROFILE_ENABLED -> R.string.problem_profile_enabled
             Problem.CARD_IN_TRAY -> R.string.problem_card_in_tray
+            Problem.NOT_READY -> R.string.problem_not_ready
+            Problem.LEAK -> R.string.problem_leak
         },
     )
 
