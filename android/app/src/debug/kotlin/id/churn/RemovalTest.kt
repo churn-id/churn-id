@@ -36,6 +36,8 @@ class RemovalTest(
         val start = RemovalStart(factory, folder.card, router.imeis(), router.firewallInPlace())
         // GL's setting for its log's file as restore.sh leaves it: Churn's copy, or without one, as it is.
         val logFile = router.logFileCopy() ?: router.setting(Router.LOG_FILE)
+        val zeros = router.zeroFiles()
+        val free = router.overlayFreeKb()
         save(start)
         try {
             part("F12") {
@@ -77,6 +79,17 @@ class RemovalTest(
                     }
                     report(Progress.LOG_WRITTEN)
                 }
+            }
+            // With the folder, the link to the zero files is gone too.
+            part("F10") {
+                if (router.zeroFiles().count != 0) {
+                    throw RouterException(Problem.UNEXPECTED_ANSWER, "/overlay still has zero files after restore.sh")
+                }
+                // Less what GL and its log wrote since.
+                if (router.overlayFreeKb() < free + zeros.kb - FREE_SLACK_KB) {
+                    throw RouterException(Problem.UNEXPECTED_ANSWER, "The zero files' space isn't free again")
+                }
+                report(Progress.ZERO_FILES_GONE)
             }
             part { setUp(start) }
         } catch (e: Exception) {
@@ -130,6 +143,9 @@ class RemovalTest(
     companion object {
         /** Debug builds have the removal test. */
         const val AVAILABLE = true
+
+        /** How much less free space than the zero files took the overlay may have after restore.sh: 16 MB. */
+        private const val FREE_SLACK_KB = 16_384
 
         /** How restore.sh's last line ends, which only a script that ran to its end prints. */
         const val LAST_LINE_END = "Airplane mode is on."

@@ -144,6 +144,18 @@ class FakeRouter : Shell {
     /** For a restore.sh that leaves GL's system log off, against F9. Only the removal test's tests use it. */
     var restoreKeepsLogOff = false
 
+    /** For a restore.sh that leaves the zero files, against F10. Only the removal test's tests use it. */
+    var restoreKeepsZeroFiles = false
+
+    /** For a restore.sh that leaves the fill files, against F10. Only the removal test's tests use it. */
+    var restoreKeepsFillFiles = false
+
+    /**
+     * For zero files that something holds open as restore.sh deletes them, so that their space doesn't come free,
+     * against F10. Only a broken firmware gets here, and only the removal test's tests use it.
+     */
+    var zeroFilesHeldOpen = false
+
     /** For a restore.sh that leaves Churn's folder, against F8 and F12. Only the removal test's tests use it. */
     var restoreKeepsFolder = false
 
@@ -196,6 +208,21 @@ class FakeRouter : Shell {
 
     /** Where `/etc/churn/zeros` links to, once the free-space overwrite made the link. */
     var zerosLink: String? = null
+
+    /** The kB that Churn's zero files take, once the free-space overwrite made them; the overlay's free space less. */
+    var zeroFilesKb = 0L
+
+    /** The kB of the fill files in /overlay that a clearing that stopped left. */
+    var fillFilesKb = 0L
+
+    /** The kB of deleted files that something still holds open, so that their space isn't free yet. */
+    private var heldKb = 0L
+
+    /** The kB that GL's files took on the overlay since the fake started. */
+    private var writtenKb = 0L
+
+    /** The overlay's free space, in kB. */
+    private val overlayFreeKb get() = OVERLAY_FREE_KB - zeroFilesKb - fillFilesKb - heldKb - writtenKb
 
     /** What `du` counts in Churn's folder, in kB, and whether `sysupgrade -l` follows the link to the zero files. */
     var churnFolderKb = 12L
@@ -465,6 +492,11 @@ class FakeRouter : Shell {
             return ok(overlayType?.let { "$overlayDevice $it $reserve\n" } ?: "\n")
         }
         if (command == "find /etc -type f -mmin -2 2>/dev/null") return ok(etcWritten.joinToString("") { "$it\n" })
+        if (command.startsWith("sync\nset -- /overlay/churn-zeros /overlay/churn-fill.*")) {
+            val count = listOf(zeroFilesKb, fillFilesKb).count { it > 0 }
+            return ok("$count\n${zeroFilesKb + fillFilesKb}\n")
+        }
+        if (command.startsWith("sync; df -k /overlay")) return ok("$overlayFreeKb\n")
         if (command == "cat /sys/block/mmcblk0/device/life_time /sys/block/mmcblk0/device/pre_eol_info") {
             return ok("$flashLifeTime\n$flashPreEol\n")
         }
@@ -493,6 +525,9 @@ class FakeRouter : Shell {
         if ("/overlay/churn-fill." in command) {
             freeSpaceOverwritten = true
             zerosLink = "/overlay/churn-zeros"
+            // It deletes any fill files first, and keeps all but 512 MB of the free space in zero files.
+            fillFilesKb = 0
+            zeroFilesKb += overlayFreeKb - 524_288
             return ok("")
         }
         Regex("""rm -f (.+)""").matchEntire(command)?.let {
@@ -721,9 +756,18 @@ class FakeRouter : Shell {
         if (!restoreKeepsLogOff) {
             files.remove("/etc/churn/log_file")?.let { logFile = it.toString(Charsets.UTF_8).trim() }
         }
-        // The log service's logread opens the file, which the app deleted at its last clearing.
-        logFile?.takeIf { !logreadMissing && !logreadOpensNoFile }?.let { files.putIfAbsent(it, ByteArray(0)) }
+        // The log service's logread opens the file, which the app deleted at its last clearing, and writes the log's
+        // buffer to it: 64 kB, say.
+        logFile?.takeIf { !logreadMissing && !logreadOpensNoFile }?.let {
+            files.putIfAbsent(it, ByteArray(0))
+            writtenKb += 64
+        }
         zerosLink = null
+        if (!restoreKeepsZeroFiles) {
+            if (zeroFilesHeldOpen) heldKb += zeroFilesKb
+            zeroFilesKb = 0
+        }
+        if (!restoreKeepsFillFiles) fillFilesKb = 0
         files.remove(Router.FIREWALL)
         loadedChains.clear()
         sysupgrade = sysupgrade.lines().filter { it != Router.FIREWALL }.joinToString("\n")
@@ -757,6 +801,9 @@ class FakeRouter : Shell {
     companion object {
         const val LOCK = "exec 9>/var/lock/churn.lock && flock 9 && "
         const val LOCATION_ID = "bcpu_p0133_v2c7c"
+        /** The overlay's free space without Churn's zero files, in kB: 2.9 GB, as on our router. */
+        const val OVERLAY_FREE_KB = 2_900_000L
+
         const val SIM_MAP = "/etc/config/cellular/sim_map.json"
         const val APN_HISTORY = "/etc/config/cellular/history_apn_database.json"
         const val ESIM_DB = "/root/esim/db"
