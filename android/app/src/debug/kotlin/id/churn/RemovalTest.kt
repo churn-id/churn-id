@@ -34,6 +34,8 @@ class RemovalTest(
         if (router.cardInSim1Tray()) throw RouterException(Problem.SIM1_CARD)
         report(Progress.SIM1_EMPTY)
         val start = RemovalStart(factory, folder.card, router.imeis(), router.firewallInPlace())
+        // GL's setting for its log's file as restore.sh leaves it: Churn's copy, or without one, as it is.
+        val logFile = router.logFileCopy() ?: router.setting(Router.LOG_FILE)
         save(start)
         try {
             part("F12") {
@@ -59,6 +61,12 @@ class RemovalTest(
                     throw RouterException(Problem.UNEXPECTED_ANSWER, "/etc/sysupgrade.conf still lists Churn's folder")
                 }
                 report(Progress.FOLDER_GONE)
+            }
+            part("F9") {
+                if (router.setting(Router.LOG_FILE) != logFile) {
+                    throw RouterException(Problem.UNEXPECTED_ANSWER, "${Router.LOG_FILE} isn't as before Churn")
+                }
+                report(Progress.LOG_SETTING_BACK)
             }
             part { setUp(start) }
         } catch (e: Exception) {

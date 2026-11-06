@@ -125,7 +125,7 @@ class RemovalTestTest {
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.NO_PROFILE,
                 Progress.SIM1_EMPTY, Progress.RESTORED, Progress.FACTORY_IMEIS, Progress.FOLDER_GONE,
-                Progress.SET_UP_AGAIN, Progress.REMOVAL_PASSED,
+                Progress.LOG_SETTING_BACK, Progress.SET_UP_AGAIN, Progress.REMOVAL_PASSED,
             ),
             progress,
         )
@@ -209,6 +209,24 @@ class RemovalTestTest {
         assertStopsAfterRestoreSh("F8", "F12")
     }
 
+    @Test
+    fun removalTestStopsWhenRestoreShLeavesGlsLogOff() {
+        fake.restoreKeepsLogOff = true
+        assertStopsAfterRestoreSh("F9")
+    }
+
+    @Test
+    fun removalTestLeavesGlsLogAsItIsWithoutChurnsCopy() {
+        // As if GL's log had been off before Churn and turned on since.
+        fake.files.remove("/etc/churn/log_file")
+        fake.logFile = "/etc/sys_log"
+        run()
+        assertEquals(Progress.REMOVAL_PASSED, progress.last())
+        // Set up again as setup does it, which turns the log off and keeps a copy.
+        assertNull(fake.logFile)
+        assertEquals("/etc/sys_log", Router(fake).logFileCopy())
+    }
+
     /**
      * Runs the test with a restore.sh or a firmware broken to fail the check of [ids], and checks that it stops there
      * and sets the router up again at once, since the radio is still off.
@@ -226,7 +244,7 @@ class RemovalTestTest {
     @Test
     fun removalTestConfirmsTier2ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("F7", "F8", "F12"), claims)
+        assertEquals(setOf("F7", "F8", "F9", "F12"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)
