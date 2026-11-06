@@ -17,6 +17,26 @@ class FakeRouter : Shell {
 
     class Card(val iccid: String, val imsi: String, val pinLocked: Boolean = false)
 
+    /** GL's firmware version, the OpenWrt release it is built on, and the modem's firmware revision. */
+    var glVersion = "4.10.0"
+    var openwrtRelease = "23.05.4"
+    var modemRevision = "RG650VEU00ADR02A04G8G"
+
+    /** Commands the firmware doesn't have. Our Mudi 7 has every one Churn runs. */
+    val absentCommands = mutableSetOf<String>()
+
+    /**
+     * Answers to AT commands that replace the modem's own, such as another modem firmware might give, each without its
+     * final `OK`. Only the router checks' tests use them.
+     */
+    val atAnswers = mutableMapOf<String, String>()
+
+    /**
+     * uci settings that replace the router's own, or remove them for null, such as another GL firmware might hold.
+     * Only the router checks' tests use them.
+     */
+    val uciAnswers = mutableMapOf<String, String?>()
+
     /** Milliseconds, advanced by the tests' sleep. */
     var clock = 0L
 
@@ -208,6 +228,13 @@ class FakeRouter : Shell {
             if (radioOnAtReload) radioStuckOn = true
             return ok("")
         }
+        if (command == "cat /etc/glversion && grep '^DISTRIB_RELEASE=' /etc/openwrt_release") {
+            return ok("$glVersion\nDISTRIB_RELEASE='$openwrtRelease'\n")
+        }
+        COMMAND_LOOKUP.matchEntire(command)?.let { lookup ->
+            val names = lookup.groupValues[1].split(" ")
+            return ok(names.filter { it in absentCommands }.joinToString("") { "$it\n" })
+        }
         if (command == "cat /proc/uptime") return ok(if (uptimeBroken) "" else "%.2f 100.00\n".format(uptime))
         if (command == "cat /proc/sys/kernel/random/boot_id") return ok("$bootId\n")
         if (command == "poweroff") {
@@ -299,8 +326,10 @@ class FakeRouter : Shell {
 
     private fun at(command: String): Output {
         if (!modemAnswers) return Output(1, ByteArray(0), "modem not ready")
+        atAnswers[command]?.let { return atOk(it) }
         val imeiWrite = Regex("""AT\+EGMR=1,(7|11),"(\d{15})"""").matchEntire(command)
         return when {
+            command == "ATI" -> atOk("Quectel\r\nRG650V-EU\r\nRevision: $modemRevision")
             command == "AT+CFUN?" -> atOk("+CFUN: $radio")
             command == "AT+EGMR=0,7" -> atOk("+EGMR: \"$imei1\"")
             command == "AT+EGMR=0,11" -> atOk("+EGMR: \"$imei2\"")
@@ -317,6 +346,11 @@ class FakeRouter : Shell {
                 atOk()
             }
             command == "AT+QSIMTYPE=\"slot2\"" -> atOk("+QSIMTYPE: \"slot2\",${slot2.type}")
+            command == "AT+QUIMSUB?" -> atOk("+QUIMSUB: 2,\"SUB2\",\"L\"")
+            // The test commands as our Mudi 7 answered them, shortened.
+            command == "AT+CFUN=?" -> atOk("+CFUN: (0,1,4),(0,1)")
+            command == "AT+QCFG=?" -> atOk("+QCFG: \"rrc\",(0-5)\r\n+QCFG: \"data_interface\",(0,1),(0,1)")
+            command == "AT+QNWCFG=?" -> atOk("+QNWCFG: \"data_path\",(0,1)\r\n+QNWCFG: \"data_roaming\",(0,1)")
             else -> ok("\r\nERROR\r\n")
         }
     }
@@ -374,7 +408,9 @@ class FakeRouter : Shell {
         return ok("{\n\t\"ok\": true,\n\t\"changed\": true\n}\n")
     }
 
-    private fun uciGet(key: String): Output = when (key) {
+    private fun uciGet(key: String): Output = if (key in uciAnswers) {
+        uciAnswers[key]?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
+    } else when (key) {
         "glconfig.general.airplane_mode" -> ok(if (airplaneMode) "1\n" else "0\n")
         "gl_timer.reboot.enable" -> ok(if (scheduledReboot) "1\n" else "0\n")
         "network.modem_cpu.dds_id" -> ok("$activeSlot\n")
@@ -448,6 +484,9 @@ class FakeRouter : Shell {
         private const val KILL_SWITCH_ON = "uci set 'route_policy.@default[0].enabled=0' && " +
             "{ uci -q delete 'network.vpn_to_main' || true; } && uci commit route_policy && uci commit network && " +
             "/etc/init.d/network reload"
+        /** How [Router.missingCommands] looks for commands. */
+        private val COMMAND_LOOKUP =
+            Regex("for c in ([a-z0-9_ ]+); do command -v \\\$c >/dev/null \\|\\| echo \\\$c; done")
         private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "curl")
         private const val FIREWALL_LOADED = "nft list chain inet fw4 churn_sim >/dev/null && " +
             "nft list chain inet fw4 churn_route >/dev/null && nft list chain inet fw4 churn_dns >/dev/null"

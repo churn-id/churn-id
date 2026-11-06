@@ -64,6 +64,9 @@ sealed interface Slot2Card {
     data class Subscription(val iccid: String) : Slot2Card
 }
 
+/** GL's firmware version, the OpenWrt release it is built on, and the modem's model and firmware revision. */
+data class Platform(val gl: String, val openwrt: String, val modem: String, val revision: String)
+
 /** A card, by its ICCID's digits, and the IMEIs Churn gives it. */
 data class Card(val iccid: String, val imeis: ImeiPair)
 
@@ -95,10 +98,10 @@ class ChurnFolder(val factory: ImeiPair?, val card: Card?) {
  */
 class Router(private val shell: Shell) {
 
-    fun airplaneMode() = uci("glconfig.general.airplane_mode") == "1"
+    fun airplaneMode() = uci(AIRPLANE_MODE) == "1"
 
     /** Turns airplane mode [on] or off, also for later power-ons, and reads the setting back. */
-    fun setAirplaneMode(on: Boolean) = uciSet("glconfig.general.airplane_mode", if (on) "1" else "0")
+    fun setAirplaneMode(on: Boolean) = uciSet(AIRPLANE_MODE, if (on) "1" else "0")
 
     /** The modem's radio state, `+CFUN:`: 1 on, 4 off. */
     fun radio() = at("AT+CFUN?").after("+CFUN:")?.toIntOrNull() ?: throw unexpected("AT+CFUN?")
@@ -211,13 +214,38 @@ class Router(private val shell: Shell) {
         )
     }
 
+    /** The firmware and the modem the router runs. */
+    fun platform(): Platform {
+        val versions = run("cat /etc/glversion && grep '^DISTRIB_RELEASE=' /etc/openwrt_release").text.lines()
+        val gl = versions.getOrNull(0)?.trim()?.takeIf { it.matches(VERSION) } ?: throw unexpected("/etc/glversion")
+        val openwrt = versions.getOrNull(1)?.trim()?.removePrefix("DISTRIB_RELEASE=")?.removeSurrounding("'")
+            ?.takeIf { it.matches(VERSION) } ?: throw unexpected("/etc/openwrt_release")
+        // The maker and the model, then the firmware revision.
+        val ati = at("ATI").lines
+        val revision = ati.lastOrNull()?.takeIf { it.startsWith("Revision:") }?.substringAfter(':')?.trim()
+        val modem = ati.dropLast(1).joinToString(" ")
+        if (revision == null || !revision.matches(VERSION) || !modem.matches(Regex("[A-Za-z0-9 ._-]{1,40}"))) {
+            throw unexpected("ATI")
+        }
+        return Platform(gl, openwrt, modem, revision)
+    }
+
+    /** Those of the commands [names] that the router's shell doesn't find. */
+    fun missingCommands(names: List<String>): List<String> {
+        require(names.all { it.matches(Regex("[a-z0-9_]+")) })
+        val output = run("for c in ${names.joinToString(" ")}; do command -v \$c >/dev/null || echo \$c; done")
+        val missing = output.text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        if (output.status != 0 || !names.containsAll(missing)) throw unexpected("command -v", output)
+        return missing
+    }
+
     fun uptimeSeconds() = run("cat /proc/uptime").text.substringBefore(' ').toDoubleOrNull()
         ?: throw unexpected("/proc/uptime")
 
     /** The ID Linux gives the router's current run at power-on, a new one each time. */
     fun bootId() = run("cat $BOOT_ID").text.trim().takeIf { it.matches(UUID) } ?: throw unexpected(BOOT_ID)
 
-    fun scheduledReboot() = uci("gl_timer.reboot.enable") == "1"
+    fun scheduledReboot() = uci(SCHEDULED_REBOOT) == "1"
 
     /**
      * Whether GL's VPN client has a WireGuard tunnel set up, as development.md describes it: a rule in GL's route
@@ -495,6 +523,9 @@ class Router(private val shell: Shell) {
         if (!ok) throw unexpected("set_feature_config", output)
     }
 
+    /** The uci setting [key] as it is, for the router checks; null if it isn't set. */
+    fun setting(key: String) = uci(key)
+
     private fun uci(key: String): String? {
         val output = run("uci -q get ${quote(key)}")
         return if (output.status == 0) output.text.trim() else null
@@ -553,7 +584,14 @@ class Router(private val shell: Shell) {
         /** Churn's folder on the router. */
         const val CHURN = "/etc/churn"
 
+        /** GL's airplane mode, `1` on and `0` off. */
+        const val AIRPLANE_MODE = "glconfig.general.airplane_mode"
+
+        /** GL's scheduled reboot, `1` on and `0` off. */
+        const val SCHEDULED_REBOOT = "gl_timer.reboot.enable"
+
         private val IMEI = Regex("[0-9]{15}")
+        private val VERSION = Regex("[0-9A-Za-z][0-9A-Za-z.+_-]{0,39}")
         private val MD5 = Regex("[0-9a-f]{32}")
         private const val BOOT_ID = "/proc/sys/kernel/random/boot_id"
         private val UUID = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
@@ -573,7 +611,7 @@ class Router(private val shell: Shell) {
         private const val LOG_FILE = "system.@system[0].log_file"
 
         /** GL's uci value for the ICCID of the active card. */
-        private const val MODEM_ICCID = "network.modem_cpu.iccid"
+        const val MODEM_ICCID = "network.modem_cpu.iccid"
 
         private const val SYS_LOG = "/etc/sys_log"
         private const val CELLULAR = "/etc/config/cellular"

@@ -37,6 +37,238 @@ class ChecksTest {
     }
 
     @Test
+    fun platformCheckPassesOnTheFirmwareAndModemWeTested() {
+        assertEquals(CheckResult.Passed, run("P1"))
+    }
+
+    @Test
+    fun platformCheckFailsOnAnotherFirmware() {
+        fake.glVersion = "4.11.0"
+        assertEquals(
+            CheckResult.Failed(
+                "GL firmware 4.11.0 (OpenWrt 23.05.4), modem Quectel RG650V-EU RG650VEU00ADR02A04G8G, " +
+                    "which we haven't tested.",
+            ),
+            run("P1"),
+        )
+    }
+
+    @Test
+    fun platformCheckFailsOnAnotherModemFirmware() {
+        fake.modemRevision = "RG650VEU00ADR02A05G8G"
+        assertTrue(run("P1") is CheckResult.Failed)
+    }
+
+    @Test
+    fun platformCheckFailsOnAnotherOpenWrtRelease() {
+        fake.openwrtRelease = "24.10.0"
+        assertTrue(run("P1") is CheckResult.Failed)
+    }
+
+    @Test
+    fun commandCheckPassesWithEveryCommandChurnRuns() {
+        assertEquals(CheckResult.Passed, run("P2"))
+    }
+
+    @Test
+    fun commandCheckFailsWithoutACommandChurnRuns() {
+        fake.absentCommands += listOf("curl", "nft")
+        assertEquals(CheckResult.Failed("Missing: curl, nft."), run("P2"))
+    }
+
+    @Test
+    fun md5sumCheckPassesWithMd5sum() {
+        assertEquals(CheckResult.Passed, run("P3"))
+    }
+
+    @Test
+    fun md5sumCheckFailsWithoutMd5sum() {
+        fake.absentCommands += "md5sum"
+        assertEquals(CheckResult.Failed("Missing: md5sum."), run("P3"))
+    }
+
+    @Test
+    fun radioCheckPassesWithTheRadioOn() {
+        assertEquals(CheckResult.Passed, run("P4"))
+    }
+
+    @Test
+    fun radioCheckPassesWithTheRadioOff() {
+        fake.airplaneMode = true
+        assertEquals(CheckResult.Passed, run("M1"))
+    }
+
+    @Test
+    fun radioCheckFailsAtAnotherRadioState() {
+        // Minimum functionality, which Churn never sets.
+        fake.atAnswers["AT+CFUN?"] = "+CFUN: 0"
+        assertEquals(CheckResult.Failed("AT+CFUN? answers 0."), run("M1"))
+    }
+
+    @Test
+    fun imeiReadCheckPassesWithTheFactoryImeis() {
+        assertEquals(CheckResult.Passed, run("M2", SET_UP))
+    }
+
+    @Test
+    fun imeiReadCheckPassesWithACardsPair() {
+        fake.imei1 = CARD_IMEIS.imei1
+        fake.imei2 = CARD_IMEIS.imei2
+        assertEquals(CheckResult.Passed, run("M2", SWAPPED))
+    }
+
+    @Test
+    fun imeiReadCheckFailsAtAWrongCheckDigit() {
+        fake.imei2 = "356090215000078"
+        assertEquals(CheckResult.Failed("IMEI 2 has a wrong check digit."), run("M2", SET_UP))
+    }
+
+    @Test
+    fun imeiReadCheckFailsAtAnotherTac() {
+        fake.imei1 = "350000001234562"
+        assertEquals(CheckResult.Failed("IMEI 1 has another TAC than the factory IMEI 1."), run("M2", SET_UP))
+    }
+
+    @Test
+    fun imeiReadCheckDoesNotApplyBeforeSetup() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_not_set_up), run("M2"))
+    }
+
+    @Test
+    fun slot2CheckPassesOnTheTray() {
+        assertEquals(CheckResult.Passed, run("M3"))
+    }
+
+    @Test
+    fun slot2CheckPassesOnTheEsim() {
+        fake.slot2 = Slot2.ESIM
+        assertEquals(CheckResult.Passed, run("M3"))
+    }
+
+    @Test
+    fun slot2CheckFailsAtAnotherAnswer() {
+        fake.atAnswers["AT+QSIMTYPE=\"slot2\""] = "+QSIMTYPE: \"slot2\",2"
+        assertEquals(CheckResult.Failed("Unexpected answer: AT+QSIMTYPE"), run("M3"))
+    }
+
+    @Test
+    fun subscriptionCheckPassesWithSub2() {
+        assertEquals(CheckResult.Passed, run("M4"))
+    }
+
+    @Test
+    fun subscriptionCheckFailsWithAnotherSubscription() {
+        fake.atAnswers["AT+QUIMSUB?"] = "+QUIMSUB: 1,\"SUB1\",\"L\""
+        assertEquals(CheckResult.Failed("AT+QUIMSUB? answers 1,\"SUB1\",\"L\"."), run("M4"))
+    }
+
+    @Test
+    fun settingsCheckPassesWithTheSettingsWeSearched() {
+        assertEquals(CheckResult.Passed, run("M5"))
+    }
+
+    @Test
+    fun settingsCheckFailsAtSettingsWeHaveNotSearched() {
+        fake.atAnswers["AT+QCFG=?"] = "+QCFG: \"rrc\",(0-5)\r\n+QCFG: \"boot_radio\",(0,1)"
+        fake.atAnswers["AT+QNWCFG=?"] = "+QNWCFG: \"data_path\",(0,1)\r\n+QNWCFG: \"radio_at_boot\",(0,1)"
+        assertEquals(
+            CheckResult.Failed("Settings we haven't searched: AT+QCFG \"boot_radio\", AT+QNWCFG \"radio_at_boot\"."),
+            run("M5"),
+        )
+    }
+
+    @Test
+    fun settingsCheckFailsAtAnotherRadioStateList() {
+        fake.atAnswers["AT+CFUN=?"] = "+CFUN: (0,1,4,7),(0,1)"
+        assertEquals(CheckResult.Failed("AT+CFUN=? answers (0,1,4,7),(0,1), not (0,1,4),(0,1)."), run("M5"))
+    }
+
+    @Test
+    fun airplaneModeCheckPassesWithAirplaneModeOff() {
+        assertEquals(CheckResult.Passed, run("U1"))
+    }
+
+    @Test
+    fun airplaneModeCheckPassesWithTheRadioOff() {
+        fake.airplaneMode = true
+        assertEquals(CheckResult.Passed, run("U1"))
+    }
+
+    @Test
+    fun airplaneModeCheckFailsWithTheRadioOn() {
+        fake.airplaneMode = true
+        fake.radioStuckOn = true
+        assertEquals(CheckResult.Failed("Airplane mode is on, but AT+CFUN? answers 1."), run("U1"))
+    }
+
+    @Test
+    fun airplaneModeCheckDoesNotApplyWhileTheRouterStarts() {
+        fake.airplaneMode = true
+        fake.boot()
+        // Past the radio-on window after power-on that we measured, but not yet past the swap's wait.
+        fake.clock += 90_000
+        assertEquals(CheckResult.NotApplicable(R.string.reason_starting), run("U1"))
+    }
+
+    @Test
+    fun airplaneModeCheckFailsAtAnotherValue() {
+        fake.uciAnswers[Router.AIRPLANE_MODE] = "2"
+        assertEquals(CheckResult.Failed("The setting is \"2\"."), run("U1"))
+    }
+
+    @Test
+    fun rebootCheckPassesWithTheRebootOff() {
+        assertEquals(CheckResult.Passed, run("U4"))
+    }
+
+    @Test
+    fun rebootCheckPassesWithTheRebootOn() {
+        fake.scheduledReboot = true
+        assertEquals(CheckResult.Passed, run("U4"))
+    }
+
+    @Test
+    fun rebootCheckFailsWithoutTheSetting() {
+        // As if a firmware upgrade had moved GL's scheduled reboot, which steps 1 and 3 would then miss.
+        fake.uciAnswers[Router.SCHEDULED_REBOOT] = null
+        assertEquals(CheckResult.Failed("The setting is missing."), run("U4"))
+    }
+
+    @Test
+    fun activeCardCheckPassesWithAnIccid() {
+        assertEquals(CheckResult.Passed, run("U5"))
+    }
+
+    @Test
+    fun activeCardCheckDoesNotApplyWithoutAnActiveCard() {
+        fake.modemCpuIccid = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_active_card), run("U5"))
+    }
+
+    @Test
+    fun activeCardCheckFailsAtSomethingElse() {
+        fake.modemCpuIccid = "slot2"
+        assertEquals(CheckResult.Failed("The setting holds 5 characters that aren't an ICCID."), run("U5"))
+    }
+
+    @Test
+    fun activeSlotCheckPassesWithSlot2() {
+        assertEquals(CheckResult.Passed, run("U6"))
+    }
+
+    @Test
+    fun activeSlotCheckPassesWithSlot1() {
+        fake.activeSlot = 1
+        assertEquals(CheckResult.Passed, run("U6"))
+    }
+
+    @Test
+    fun activeSlotCheckFailsAtAnotherValue() {
+        fake.activeSlot = 0
+        assertEquals(CheckResult.Failed("The setting is \"0\"."), run("U6"))
+    }
+
+    @Test
     fun firewallCheckPassesWithChurnsRulesLoaded() {
         router.installFirewall()
         assertEquals(CheckResult.Passed, run("D7"))
@@ -104,8 +336,7 @@ class ChecksTest {
 
     @Test
     fun imeiCheckDoesNotApplyBeforeTheFirstSwap() {
-        val folder = ChurnFolder(FACTORY, card = null)
-        assertEquals(CheckResult.NotApplicable(R.string.reason_no_record), run("F5", folder))
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_record), run("F5", SET_UP))
     }
 
     @Test
@@ -129,6 +360,9 @@ class ChecksTest {
         /** The fake router's IMEIs, as setup records them. */
         val FACTORY = ImeiPair("356090215000002", "356090215000077")
         val CARD_IMEIS = ImeiPair("356090211234563", "356090211235313")
+
+        /** Churn's folder once setup has recorded the fake router's IMEIs. */
+        val SET_UP = ChurnFolder(FACTORY, card = null)
 
         /** Churn's folder once a swap has given the card in the fake router's tray [CARD_IMEIS]. */
         val SWAPPED = ChurnFolder(FACTORY, Card("8941000000000000015", CARD_IMEIS))

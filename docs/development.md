@@ -562,7 +562,7 @@ the eSIM manager's times were two hours behind the system log's, which
 uses the router's time zone, CEST). If the times are local instead, the
 copied lines are off by the time zone's offset. The reads use `dd`,
 `md5sum`, `tail -c` and `wc -c`; whether GL's firmware has `md5sum` is
-untested.
+untested, and the router checks look for it.
 
 ## Still to find out
 
