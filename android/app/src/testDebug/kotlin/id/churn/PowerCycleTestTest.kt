@@ -131,8 +131,9 @@ class PowerCycleTestTest {
         resume()
         bootIds += fake.bootId
         val start = listOf(
-            Progress.NEW_BOOT_ID, Progress.SETTINGS_KEPT, Progress.WAITING_FOR_START, Progress.MODEM_ANSWERED,
-            Progress.RADIO_ON_UNTIL, Progress.RADIO_OFF_FROM, Progress.IMEIS_KEPT,
+            Progress.NEW_BOOT_ID, Progress.SETTINGS_KEPT, Progress.WAITING_FOR_START, Progress.RULES_AT_START,
+            Progress.CHAINS_AT_START, Progress.MODEM_ANSWERED, Progress.RADIO_ON_UNTIL, Progress.RADIO_OFF_FROM,
+            Progress.IMEIS_KEPT,
         )
         assertEquals(
             start + listOf(Progress.EARLIER_IMEIS_SAVED, Progress.SHUTTING_DOWN, Progress.NETWORK_LOST),
@@ -141,8 +142,9 @@ class PowerCycleTestTest {
         progress.clear()
         resume()
         assertEquals(start + listOf(Progress.PUT_BACK, Progress.POWER_CYCLES_PASSED), progress)
-        // The network lost after poweroff, then the modem's first answer and the radio's window, read every 2 s.
-        assertEquals(listOf(9, 30, 56, 58, 9, 30, 56, 58), seconds)
+        // The network lost after poweroff, the rules at once, then the modem's first answer and the radio's window,
+        // read every 2 s.
+        assertEquals(listOf(9, 0, 0, 30, 56, 58, 9, 0, 0, 30, 56, 58), seconds)
         assertEquals(before, state())
         // Kept before the first change, again before each power-off, and forgotten once the router is as it was.
         val first = before.copy(bootId = bootIds[0], powerOn = 1, testImeis = testPair)
@@ -160,7 +162,7 @@ class PowerCycleTestTest {
         run()
         resume()
         resume()
-        assertEquals(setOf("B1", "B2", "B3", "B4", "B5", "B6", "M7", "U3"), claims)
+        assertEquals(setOf("B1", "B2", "B3", "B4", "B5", "B6", "D14", "K10", "M7", "U3"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 3 claim in testing.md", "3" in tiers)
@@ -333,7 +335,7 @@ class PowerCycleTestTest {
         run()
         resume()
         assertTrue(Progress.MODEM_AT_ONCE in progress)
-        assertEquals(0, seconds[1])
+        assertEquals(0, seconds[3])
         assertTrue(Progress.MODEM_ANSWERED !in progress)
         resume()
         assertEquals(Progress.POWER_CYCLES_PASSED, progress.last())
@@ -347,9 +349,45 @@ class PowerCycleTestTest {
         fake.clock += 70_000
         progress.clear()
         resume()
-        val start = progress.dropWhile { it != Progress.WAITING_FOR_START }.drop(1).take(3)
+        val start = progress.dropWhile { it != Progress.WAITING_FOR_START }.drop(3).take(3)
         assertEquals(listOf(Progress.MODEM_AT_ONCE, Progress.RADIO_OFF_AT_FIRST, Progress.RADIO_OFF_FROM), start)
-        assertEquals(listOf(70, 70, 70), seconds.subList(1, 4))
+        assertEquals(listOf(70, 70, 70, 70, 70), seconds.subList(1, 6))
+    }
+
+    @Test
+    fun killSwitchRulesThatThePowerOnDroppedStopTheTest() {
+        fake.bootDropsKillSwitchRules = true
+        val before = state()
+        run()
+        assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals(listOf("K10"), powerCycles.testing)
+        // Checked once the router has started, so the test put the router back at once.
+        assertEquals(before, state())
+        assertNull(saves.last())
+    }
+
+    @Test
+    fun killSwitchRulesInPlaceOnlyLaterAreTimed() {
+        fake.bootDropsKillSwitchRules = true
+        run()
+        fake.boot()
+        // As if GL's route policy set them up a while after the network.
+        shell.after = { if (fake.uptime >= 40) fake.killSwitchInUse = true }
+        resume()
+        // After the first power-off's line, the rules', then the chains' at once.
+        assertEquals(listOf(40, 0), seconds.subList(1, 3))
+    }
+
+    @Test
+    fun churnsRulesThatThePowerOnDidNotLoadStopTheTest() {
+        fake.bootSkipsChurnRules = true
+        val before = state()
+        run()
+        assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals(listOf("D14"), powerCycles.testing)
+        assertTrue(Progress.RULES_AT_START in progress)
+        assertEquals(before, state())
+        assertNull(saves.last())
     }
 
     @Test

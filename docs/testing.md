@@ -224,12 +224,15 @@ where the router emitted nothing at power-on (B8):
    the boot ID has to be new (B4, B6), and GL's settings still have
    airplane mode and the Enhanced Kill Switch on (U3). From then until the
    router has started, 120 s after power-on, the test reads `/proc/uptime`
-   and `AT+CFUN?` every 2 s. The modem is to leave the first reads
-   unanswered (B1), then report its radio on until 58 s after power-on at
-   the latest (B2), and off from then on (B3). A modem that doesn't answer
-   by then, or a radio on later, stops the test; if the phone reaches the
-   router only once the modem answers, or once the radio is off, B1 or B2
-   stays unconfirmed. The router then has to have the test pair (M7).
+   and `AT+CFUN?` every 2 s, and the Enhanced Kill Switch's routing rules
+   and Churn's firewall chains until they are in place. Both have to be in
+   place by then, and the lines say when the test first saw them (K10,
+   D14). The modem is to leave the first reads unanswered (B1), then
+   report its radio on until 58 s after power-on at the latest (B2), and
+   off from then on (B3). A modem that doesn't answer by then, or a radio
+   on later, stops the test; if the phone reaches the router only once the
+   modem answers, or once the radio is off, B1 or B2 stays unconfirmed.
+   The router then has to have the test pair (M7).
 7. It writes, saves and reads back the earlier pair, shuts the router down
    a second time, as in step 5, and checks the next power-on as in step 6,
    with the earlier pair.
@@ -324,7 +327,7 @@ From development.md, "uci settings", and design.md, sections 7 and 10.
 | K7 | The USB-C port `ecm0` is in `br-lan`, so the blackhole at priority 9920 covers a device on it | port verified, coverage inferred | `ip link show ecm0` | 1 |
 | K8 | Turning the switch on takes `/etc/init.d/network reload`, which neither drops the cable nor turns the radio on | open | The connection and `+CFUN: 4` across a reload (tier 2); the RF meter (tier 4) | 2, 4 |
 | K9 | With the switch on and the tunnel disconnected, nothing gets through, also with the tunnel's own Kill Switch off | verified | Disconnect the tunnel and load a website on a device | 4 |
-| K10 | The switch also blocks traffic while the router boots and when a tunnel fails on its own | open | The blocking rules are in place right after a boot (tier 3); traffic during a boot and through a failing tunnel (tier 4) | 3, 4 |
+| K10 | The switch also blocks traffic while the router boots and when a tunnel fails on its own | open | The blocking rules are in place after a boot, and when the app first saw them (tier 3); traffic during a boot and through a failing tunnel (tier 4) | 3, 4 |
 
 ## DNS and the router's own traffic
 
@@ -346,7 +349,7 @@ design.md, sections 7 and 10.
 | D11 | With the rules, nothing but WireGuard leaves over the SIM, from devices too, also with the Enhanced Kill Switch off and the tunnel down, and over IPv6 as over IPv4 | verified for devices over IPv4 with the switch off and the tunnel down; going online and IPv6 inferred | The drop counter grows and a device's website fails (tier 4); watch the cellular interface after airplane mode goes off (tier 4) | 4 |
 | D12 | With the rules, the router's own traffic leaves through the tunnel from the VPN's address, and its lookups go to the VPN's DNS server | verified | A request and a lookup from the router, watched on the tunnel interface | 4 |
 | D13 | The tunnel's IP Masquerading translates the router's own packets to the tunnel's address; without it, the VPN server wouldn't accept them | translation verified, without it inferred | The setting `masq` of the tunnel's WireGuard peer, by its name the IP Masquerading, is on (tier 1); a request from the router with it off (tier 4) | 1, 4 |
-| D14 | GL's firewall loads Churn's rules at boot before the modem goes online | open | The chains are listed right after a boot (tier 3); what leaves over the SIM during a boot with a card (tier 4) | 3, 4 |
+| D14 | GL's firewall loads Churn's rules at boot before the modem goes online | open | The chains are listed after a boot, and when the app first saw them (tier 3); what leaves over the SIM during a boot with a card (tier 4) | 3, 4 |
 | D15 | A rules file that GL's firewall rejects might keep it from loading any rules at the next boot, which is why the app removes such a file | inferred | None: a test could leave the router without a firewall | – |
 | D16 | With the rules, the tunnel comes up after a reboot and after airplane mode off and on, and the clock then syncs through it | verified | Reboot and turn airplane mode off and on; the handshake, the clock and a website | 4 |
 | D17 | With the rules, GL still treats the cellular connection as connected, though its connection check can't ping over the SIM | verified with an earlier version of the rules | GL's connection status after airplane mode goes off | 4 |
