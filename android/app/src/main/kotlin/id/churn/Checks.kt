@@ -112,6 +112,7 @@ val CHECKS = listOf(
     Check("H6", blocks = false, title = R.string.check_esim_log_growth, confirm = ::esimLogGrows),
     Check("H12", blocks = true, title = R.string.check_overlay) { router, _ -> overlayReserve(router) },
     Check("H18", blocks = false, title = R.string.check_flash_wear) { router, _ -> flashWear(router) },
+    Check("H19", blocks = false, title = R.string.check_etc_writes) { router, _ -> etcWritten(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept) { router, context ->
         imeisKept(router, context.folder)
     },
@@ -677,6 +678,30 @@ private fun flashWear(router: Router): CheckResult {
         )
         else -> CheckResult.Passed
     }
+}
+
+/** The files in `/etc` that Churn writes or changes, besides the files in its folder. */
+private val CHURN_ETC_FILES = listOf(
+    Router.FIREWALL,
+    Router.SYSUPGRADE,
+    Router.SIM_MAP,
+    Router.APN_HISTORY,
+    "/etc/config/glconfig",
+    "/etc/config/network",
+    "/etc/config/route_policy",
+    "/etc/config/system",
+)
+
+/**
+ * Whether something other than Churn wrote a file in `/etc` in the last 2 minutes. GL does every minute, so the
+ * clock, which resumes after a power-on from the newest file there, starts about where it stopped.
+ */
+private fun etcWritten(router: Router): CheckResult {
+    if (router.uptimeSeconds() < 120) return CheckResult.NotApplicable(R.string.reason_just_started)
+    val written = router.etcFilesWritten(minutes = 2)
+        .filterNot { it in CHURN_ETC_FILES || it.startsWith("${Router.CHURN}/") }
+    if (written.isNotEmpty()) return CheckResult.Passed
+    return CheckResult.Failed("Nothing but Churn wrote a file in /etc in the last 2 minutes.")
 }
 
 /**

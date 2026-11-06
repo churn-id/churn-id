@@ -1059,6 +1059,38 @@ class ChecksTest {
     }
 
     @Test
+    fun etcCheckPassesWithGlWritingFiles() {
+        assertEquals(CheckResult.Passed, run("H19"))
+    }
+
+    @Test
+    fun etcCheckFailsWithOnlyChurnWritingFiles() {
+        fake.etcWritten = listOf(
+            "/etc/churn/card",
+            "/etc/nftables.d/churn.nft",
+            "/etc/sysupgrade.conf",
+            "/etc/config/cellular/sim_map.json",
+            "/etc/config/cellular/history_apn_database.json",
+            "/etc/config/glconfig",
+            "/etc/config/network",
+            "/etc/config/route_policy",
+            "/etc/config/system",
+        )
+        assertEquals(CheckResult.Failed("Nothing but Churn wrote a file in /etc in the last 2 minutes."), run("H19"))
+        fake.etcWritten = emptyList()
+        assertTrue(run("H19") is CheckResult.Failed)
+    }
+
+    @Test
+    fun etcCheckWaitsFor2MinutesAfterAPowerOn() {
+        fake.boot()
+        fake.clock += 119_000
+        assertEquals(CheckResult.NotApplicable(R.string.reason_just_started), run("H19"))
+        fake.clock += 2_000
+        assertEquals(CheckResult.Passed, run("H19"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2

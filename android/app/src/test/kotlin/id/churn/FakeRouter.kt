@@ -95,6 +95,13 @@ class FakeRouter : Shell {
     var overlayType: String? = "ext4"
     var reservedClusters = 4096L
 
+    /** The files in `/etc` written in the last 2 minutes, as our Mudi 7 listed them with the SIM online. */
+    var etcWritten = listOf(
+        "/etc/config/cellular/slot_map.json",
+        "/etc/gl_modem_traffic/cpu/total_5g",
+        "/etc/gl_modem_traffic/cpu/total_sim2",
+    )
+
     /** The flash's `life_time` and `pre_eol_info`, as our Mudi 7 showed them. */
     var flashLifeTime = "0x01 0x01"
     var flashPreEol = "0x01"
@@ -389,6 +396,7 @@ class FakeRouter : Shell {
             val reserve = reservedClusters.takeIf { overlayType == "ext4" } ?: ""
             return ok(overlayType?.let { "$overlayDevice $it $reserve\n" } ?: "\n")
         }
+        if (command == "find /etc -type f -mmin -2 2>/dev/null") return ok(etcWritten.joinToString("") { "$it\n" })
         if (command == "cat /sys/block/mmcblk0/device/life_time /sys/block/mmcblk0/device/pre_eol_info") {
             return ok("$flashLifeTime\n$flashPreEol\n")
         }

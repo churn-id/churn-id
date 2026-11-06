@@ -259,6 +259,14 @@ class Router(private val shell: Shell) {
         return Overlay(fields[0], fields[1], fields.getOrNull(2)?.toLongOrNull())
     }
 
+    /** The files in `/etc` written in the last [minutes] minutes. */
+    fun etcFilesWritten(minutes: Int): List<String> {
+        // The debug log leaves the names out, in case one names a card. A file that GL replaces while find reads the
+        // folder makes find fail, which doesn't matter here.
+        val output = runPrivately("find /etc -type f -mmin -$minutes 2>/dev/null")
+        return output.text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
     /** The flash's estimates of its wear. */
     fun flashWear(): FlashWear {
         val output = run("cat $FLASH/life_time $FLASH/pre_eol_info")
@@ -813,7 +821,7 @@ class Router(private val shell: Shell) {
         const val DEFAULT_POLICY = "route_policy.@default[0].enabled"
         const val VPN_TO_MAIN = "network.vpn_to_main"
         private const val LOCK = "/var/lock/churn.lock"
-        private const val SYSUPGRADE = "/etc/sysupgrade.conf"
+        const val SYSUPGRADE = "/etc/sysupgrade.conf"
         private const val ESIM_API = "http://127.0.0.1:3456/sdk/v1"
 
         /** GL's uci setting that names the flash file its system log is written to. */
