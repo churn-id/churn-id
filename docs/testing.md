@@ -161,7 +161,8 @@ with no SIM and no profile enabled on the built-in eSIM:
 6. It clears the SIM history as step 3 does, keeping the recorded card's.
    With the zero files gone, the overwrite fills all of the free space and
    prints nothing for minutes, and the clearing has to end on the same SSH
-   connection (H17).
+   connection (H17). It then checks that ext4's reserve is as before the
+   clearing (H13).
 
 Like step 1, the test leaves airplane mode on and slot 2 on the built-in
 eSIM. A removal test that stops before it set the router up again does so at
@@ -363,7 +364,7 @@ and 10.
 | H10 | After a clearing, the raw partition holds no IMSI of an earlier card | verified | Before the clearing, read the earlier cards' numbers from GL's files and log, keeping them only in memory; afterwards, count them on the raw partition and in its files | 2 |
 | H11 | After a clearing, the raw partition holds no ICCID of an earlier card either | verified | Before the clearing, read the earlier cards' numbers from GL's files and log, keeping them only in memory; afterwards, count them on the raw partition and in its files | 2 |
 | H12 | The overlay is ext4 on `mmcblk0p59`, 2.9 GB, and ext4 keeps 4096 blocks back from it in `reserved_clusters` | verified | The overlay's line in `/proc/mounts` and its `reserved_clusters` file | 1, blocks |
-| H13 | The overwrite puts ext4's reserve back at its end, and a trap does when a signal stops it | verified; the trap on a disk image | Read `reserved_clusters` after a clearing | 2 |
+| H13 | The overwrite puts ext4's reserve back at its end, and a trap does when a signal stops it | verified; the trap on a disk image | `reserved_clusters` before and after the removal test's clearing | 2 |
 | H14 | GL's files stay valid while the overwrite fills the partition | verified once | GL's JSON files parse after a clearing | 2 |
 | H15 | The overwrite leaves all but 512 MB of the free space in `/overlay/churn-zeros`, so the next one fills only those 512 MB | verified on disk images | The free space and the folder after a clearing; `lifetime_write_kbytes` in `/sys/fs/ext4/mmcblk0p59/` before and after the next | 2 |
 | H16 | With the zero files in place, an overwrite takes under a minute | inferred from the first overwrite's speed | Time a clearing from the router screen | 2 |

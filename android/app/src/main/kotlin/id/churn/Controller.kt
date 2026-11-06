@@ -881,6 +881,7 @@ class Controller(private val context: Context) {
             Progress.FIREWALL_GONE -> R.string.progress_firewall_gone
             Progress.SET_UP_AGAIN -> R.string.progress_set_up_again
             Progress.CONNECTION_KEPT -> R.string.progress_connection_kept
+            Progress.RESERVE_BACK -> R.string.progress_reserve_back
             Progress.REMOVAL_PASSED -> R.string.progress_removal_passed
             Progress.PUT_BACK -> R.string.progress_put_back
             Progress.DRY_RUN_PASSED -> R.string.progress_dry_run_passed

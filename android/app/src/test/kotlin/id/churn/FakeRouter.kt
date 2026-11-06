@@ -99,6 +99,12 @@ class FakeRouter : Shell {
     /** Set once the app overwrites the overlay's free space. */
     var freeSpaceOverwritten = false
 
+    /**
+     * For an overwrite that leaves ext4's reserve at 0, against H13 in testing.md. Only the removal test's tests use
+     * it.
+     */
+    var overwriteLeavesReserveOff = false
+
     /** The overlay's device and file system, or null for none, and the blocks that ext4 keeps back from it. */
     var overlayDevice = "/dev/mmcblk0p59"
     var overlayType: String? = "ext4"
@@ -547,6 +553,8 @@ class FakeRouter : Shell {
             // It deletes any fill files first, and keeps all but 512 MB of the free space in zero files.
             fillFilesKb = 0
             zeroFilesKb += overlayFreeKb - 524_288
+            // Only an overwrite broken against H13 gets here.
+            if (overwriteLeavesReserveOff) reservedClusters = 0
             return ok("")
         }
         Regex("""rm -f (.+)""").matchEntire(command)?.let {

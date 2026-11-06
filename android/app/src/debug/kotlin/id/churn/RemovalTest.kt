@@ -138,11 +138,23 @@ class RemovalTest(
      * the zero files, so the overwrite fills all of the free space, about 2.9 GB, and takes minutes.
      */
     private fun clear(start: RemovalStart) {
+        val reserve = router.overlay()?.reserve
         // The overwrite prints nothing until it ends, and a connection that closes meanwhile fails the command.
         part("H17") {
             report(Progress.CLEARING_HISTORY)
             router.clearHistory(keep(start))
             report(Progress.CONNECTION_KEPT)
+        }
+        // ext4's reserve, which the overwrite sets to 0 while it fills the partition.
+        part("H13") {
+            val after = router.overlay()?.reserve
+            if (reserve == null || after != reserve) {
+                throw RouterException(
+                    Problem.UNEXPECTED_ANSWER,
+                    "reserved_clusters is $after after the clearing, $reserve before it",
+                )
+            }
+            report(Progress.RESERVE_BACK)
         }
         testing = emptyList()
     }
