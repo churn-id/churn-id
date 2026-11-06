@@ -6,8 +6,9 @@ each one on a real router, so that a new GL firmware, or a claim that was
 wrong all along, shows up before a user depends on it. The claims come
 from [design.md](design.md) and [development.md](development.md).
 
-Status: being built. The app runs the tier 1 checks built so far; the
-other tiers are a plan. The app's unit tests run in CI against a simulated
+Status: being built. The app runs the tier 1 checks, and debug builds
+have the dry run of tier 2; the rest of tier 2 and tiers 3 and 4 are a
+plan. The app's unit tests run in CI against a simulated
 Mudi 7 (`FakeRouter`) built from these claims, so a claim that turns out
 wrong makes the simulation wrong too. *Verified* means we observed it by
 hand on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
@@ -84,6 +85,37 @@ could affect. When GL releases a new firmware:
 3. Run the dry run and tier 3, then the removal and clearing tests, then
    the tier 4 items the release could affect.
 4. Add the version to the list.
+
+## Dry run
+
+Debug builds have a Dry run button on the router screen. It runs steps 1
+and 3 of a swap with the swap's own code on a router with no SIM, both
+trays empty and no profile enabled on the built-in eSIM, as far as the
+steps go without one. With no SIM there is nothing to register, and the
+dry run confirms the tier 2 claims that only a change of the router's
+settings can:
+
+1. It keeps slot 2's setting, the active slot and the IMEIs on the phone,
+   to put them back at the end.
+2. Step 1 up to the shutdown: the scheduled reboot, the VPN and the checks
+   marked *blocks*, airplane mode on and the radio off, and slot 2 on the
+   built-in eSIM. A profile enabled there stops the dry run, which doesn't
+   disable it, since Churn couldn't enable it again.
+3. Step 3 up to the card: the VPN again, the router started, the checks
+   again, the radio off, the SIM 1 tray empty, and the Enhanced Kill
+   Switch and Churn's firewall rules in place.
+4. Slot 2 switched to the SIM 2 tray and made the active slot, where no
+   card may answer, and back to the built-in eSIM. A card in the tray,
+   an eSIM adapter card without an enabled profile too, stops the dry run.
+5. Slot 2's setting and the active slot put back (S2, S3).
+
+Like a swap, the dry run leaves airplane mode and the Enhanced Kill Switch
+on and Churn's firewall rules in place. A dry run that stops puts the
+router back at once if the radio is still off. Otherwise its screen shows
+at the next connection in place of the router screen, until Put the router
+back has done so, once the router has started and its radio is off. The
+screen lists what the dry run did and, if it stopped, the claims it was
+confirming. The debug log keeps every command.
 
 ## Platform
 

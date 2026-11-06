@@ -1,0 +1,286 @@
+package id.churn
+
+import java.io.IOException
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class DryRunTest {
+
+    private val fake = FakeRouter().apply {
+        // A router with no SIM: both trays empty, and no profile enabled on the built-in eSIM.
+        trayCard = null
+        esimProfile = null
+    }
+
+    /** The connection to [fake], which fails every command once [broken] is set, as when the cable is pulled. */
+    private val shell = object : Shell {
+        var broken = false
+        var breakAt: (String) -> Boolean = { false }
+
+        /** Runs after each command that [fake] answered, with the command. */
+        var after: (String) -> Unit = {}
+
+        override fun run(command: String, input: ByteArray?, timeoutSeconds: Long): Output {
+            if (breakAt(command)) broken = true
+            if (broken) throw IOException("Broken pipe")
+            return fake.run(command, input, timeoutSeconds).also { after(command) }
+        }
+    }
+    private val progress = mutableListOf<Progress>()
+
+    /** The claims that the dry run's parts named while they reported. */
+    private val claims = mutableSetOf<String>()
+
+    /** Runs where the dry run runs the router checks, and returns the lines of those that failed. */
+    private var checks = { emptyList<String>() }
+    private val dryRun = dryRun()
+
+    /** What the dry run kept on the phone, after each time it saved. */
+    private val saves = mutableListOf<DryRunStart?>()
+
+    private fun dryRun(): DryRun {
+        lateinit var made: DryRun
+        made = DryRun(
+            Router(shell),
+            report = {
+                progress += it
+                claims += made.testing
+            },
+            check = { checks() },
+            sleep = { fake.clock += it },
+            now = { fake.clock },
+        )
+        return made
+    }
+
+    /** What the dry run puts back, as the router has it now. */
+    private fun state() = DryRunStart(fake.slot2, fake.activeSlot, ImeiPair(fake.imei1, fake.imei2))
+
+    private fun run() = dryRun.run { saves += it }
+
+    private fun assertStops(problem: Problem, run: () -> Unit) {
+        try {
+            run()
+        } catch (e: RouterException) {
+            assertEquals(problem, e.problem)
+            return
+        }
+        throw AssertionError("The dry run didn't stop")
+    }
+
+    private fun assertSafe() {
+        assertEquals(emptyList<String>(), fake.unsafe)
+        assertEquals(emptyList<String>(), fake.unlocked)
+    }
+
+    @Test
+    fun dryRunRunsStepsOneAndThreeAndPutsTheRouterBack() {
+        val before = state()
+        run()
+        assertEquals(
+            listOf(
+                Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.NO_PROFILE,
+                Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
+                Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE,
+                Progress.TRAY_EMPTY, Progress.SLOT2_ON_ESIM, Progress.PUT_BACK, Progress.DRY_RUN_PASSED,
+            ),
+            progress,
+        )
+        assertEquals(before, state())
+        // Kept before the first change, and forgotten once the router is as it was.
+        assertEquals(listOf(before, null), saves)
+        // As a swap leaves them.
+        assertTrue(fake.airplaneMode)
+        assertTrue(Router(fake).firewallInPlace())
+        assertSafe()
+    }
+
+    @Test
+    fun dryRunPutsSlot2BackOnTheEsimAndSlot1BackAsTheActiveSlot() {
+        // As on a router new to Churn, parked by hand.
+        fake.slot2 = Slot2.ESIM
+        fake.activeSlot = 1
+        val before = state()
+        run()
+        assertEquals(before, state())
+        assertEquals(Progress.DRY_RUN_PASSED, progress.last())
+        assertSafe()
+    }
+
+    @Test
+    fun dryRunConfirmsTier2ClaimsOfTestingMd() {
+        run()
+        assertEquals(setOf("S2", "S3"), claims)
+        for (id in claims) {
+            val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
+            assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)
+        }
+    }
+
+    @Test
+    fun dryRunStopsAtAnEnabledProfileWithoutDisablingIt() {
+        fake.esimProfile = "8944000000000000123F"
+        val before = state()
+        assertStops(Problem.PROFILE_ENABLED) { run() }
+        assertEquals("8944000000000000123F", fake.esimProfile)
+        assertEquals(before, state())
+        assertEquals(listOf(before, null), saves)
+        assertEquals(listOf("S2", "S3"), dryRun.testing)
+        assertSafe()
+    }
+
+    @Test
+    fun dryRunStopsAtACardInTheTrayBeforeWritingAnything() {
+        fake.trayCard = FakeRouter.Card("8941000000000000015F", "228010000000001")
+        fake.slot2 = Slot2.ESIM
+        val before = state()
+        assertStops(Problem.CARD_IN_TRAY) { run() }
+        assertEquals(before, state())
+        assertEquals(listOf(before, null), saves)
+        assertTrue(fake.commands.none { it.contains("AT+EGMR=1") })
+        assertSafe()
+    }
+
+    @Test
+    fun dryRunStopsAtAnAdapterCardWithoutAProfileToo() {
+        // A 9eSIM card with no profile enabled, which step 3 counts as no card.
+        fake.trayCard = FakeRouter.Card("89111111111111111111", "111111111111111")
+        val before = state()
+        assertStops(Problem.CARD_IN_TRAY) { run() }
+        assertEquals(before, state())
+    }
+
+    @Test
+    fun dryRunStopsWhenSlot2DoesNotSwitch() {
+        // GL answers, but slot 2 stays on the eSIM.
+        val toTray = """{"location_id":"${FakeRouter.LOCATION_ID}","bus":"cpu","slot":2,"data":{"failover":""" +
+            """{"slot_type":[{"type":0,"slot":1},{"type":0,"slot":2}]}}}"""
+        fake.answers["ubus -t 30 call cellular.modem set_feature_config '$toTray'"] = "{\"ok\": true}"
+        val before = state()
+        assertStops(Problem.SLOT_NOT_SWITCHED) { run() }
+        assertEquals(listOf("S2", "S3"), dryRun.testing)
+        assertTrue(Progress.TRAY_EMPTY !in progress)
+        assertEquals(before.copy(slot2 = Slot2.ESIM), state())
+    }
+
+    @Test
+    fun dryRunStopsBeforeItChangesAnythingAtAnActiveSlotItDoesNotKnow() {
+        fake.activeSlot = 0
+        assertStops(Problem.UNEXPECTED_ANSWER) { run() }
+        assertEquals(emptyList<DryRunStart?>(), saves)
+        assertEquals(emptyList<String>(), fake.changes)
+    }
+
+    @Test
+    fun aDryRunThatChangedNothingStopsWithNothingToPutBack() {
+        checks = { listOf("✗ A check (D7)\nFailed: one thing") }
+        val before = state()
+        assertStops(Problem.CHECK_FAILED) { run() }
+        assertEquals(emptyList<String>(), fake.changes)
+        assertEquals(listOf(before, null), saves)
+    }
+
+    @Test
+    fun aDryRunWhoseRadioCameOnLeavesTheRouterToPutBackLater() {
+        fake.radioOnAtReload = true
+        val before = state()
+        assertStops(Problem.RADIO_ON) { run() }
+        // Nothing changed since the radio came on, at the firewall's reload.
+        assertEquals("firewall", fake.changes.last().substringBefore(" at "))
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertEquals(listOf<DryRunStart?>(before), saves)
+        fake.radioOnAtReload = false
+        fake.radioStuckOn = false
+        dryRun().putBack(saves.last()!!) { saves += it }
+        assertEquals(before, state())
+        assertNull(saves.last())
+    }
+
+    @Test
+    fun aDryRunCutOffIsPutBackOnceTheRouterHasStartedAgain() {
+        fake.slot2 = Slot2.ESIM
+        fake.activeSlot = 1
+        val before = state()
+        // At the switch back to the eSIM, after the tray.
+        shell.breakAt = { fake.slot2 == Slot2.SIM2 && "{\"type\":1,\"slot\":2}" in it }
+        try {
+            run()
+            throw AssertionError("The dry run didn't stop")
+        } catch (_: IOException) {
+        }
+        assertEquals(listOf<DryRunStart?>(before), saves)
+        // Unplugged and switched off and on, with airplane mode turned off meanwhile, then connected anew.
+        shell.broken = false
+        shell.breakAt = { false }
+        fake.airplaneMode = false
+        fake.boot()
+        progress.clear()
+        dryRun().putBack(saves.last()!!) { saves += it }
+        assertEquals(before, state())
+        assertNull(saves.last())
+        assertEquals(
+            listOf(Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.PUT_BACK),
+            progress,
+        )
+        assertTrue(fake.uptime >= 120)
+        assertSafe()
+    }
+
+    @Test
+    fun putBackWritesTheEarlierImeisBack() {
+        val before = state()
+        fake.airplaneMode = true
+        Router(fake).writeImeis(ImeiPair("356090211234563", "356090211235313"))
+        dryRun().putBack(before) { saves += it }
+        assertEquals(before, state())
+        assertEquals(listOf<DryRunStart?>(null), saves)
+        // Saved to the modem's flash.
+        fake.boot()
+        assertEquals(before, state())
+        assertSafe()
+    }
+
+    @Test
+    fun putBackLeavesARouterAsItWasAlone() {
+        val before = state()
+        dryRun().putBack(before) { saves += it }
+        assertEquals(emptyList<String>(), fake.changes)
+        assertEquals(listOf<DryRunStart?>(null), saves)
+        assertEquals(Progress.PUT_BACK, progress.last())
+    }
+
+    @Test
+    fun putBackSwitchesNothingOnceTheRadioIsOnAfterTheImeis() {
+        val before = state()
+        fake.airplaneMode = true
+        Router(fake).writeImeis(ImeiPair("356090211234563", "356090211235313"))
+        fake.slot2 = Slot2.ESIM
+        shell.after = { if ("AT+QPRTPARA=1" in it) fake.radioStuckOn = true }
+        assertStops(Problem.RADIO_ON) { dryRun().putBack(before) { saves += it } }
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertEquals(emptyList<DryRunStart?>(), saves)
+    }
+
+    @Test
+    fun aDryRunStoppedAtTheTrayPutsSlot1BackAsTheActiveSlot() {
+        // As on a router new to Churn, with slot 2 on the tray, here with a card in it.
+        fake.activeSlot = 1
+        fake.trayCard = FakeRouter.Card("8941000000000000015F", "228010000000001")
+        val before = state()
+        assertStops(Problem.CARD_IN_TRAY) { run() }
+        // The tray made slot 2 the active slot, the one change left to put back.
+        assertEquals(before, state())
+        assertEquals(listOf(before, null), saves)
+    }
+
+    @Test
+    fun dryRunSwitchesSlot2BackToTheEsimBeforeItPutsTheRouterBack() {
+        val settings = mutableListOf(fake.slot2)
+        shell.after = { if (fake.slot2 != settings.last()) settings += fake.slot2 }
+        run()
+        // Step 1, the tray, back to the eSIM, and put back.
+        assertEquals(listOf(Slot2.SIM2, Slot2.ESIM, Slot2.SIM2, Slot2.ESIM, Slot2.SIM2), settings)
+    }
+}

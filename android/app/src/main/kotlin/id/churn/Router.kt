@@ -31,7 +31,7 @@ class EsimLog(val clock: Long, val size: Long, val head: String, val start: Long
 enum class Problem {
     UNEXPECTED_ANSWER, RADIO_ON, SCHEDULED_REBOOT, IMEIS_NOT_KEPT, SLOT_NOT_SWITCHED, PROFILE_STILL_ENABLED,
     NO_CARD, SIM1_CARD, CARD_CHANGED, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN, VPN_GONE, FIREWALL_NOT_LOADED,
-    CHECK_FAILED,
+    CHECK_FAILED, PROFILE_ENABLED, CARD_IN_TRAY,
 }
 
 /** [detail] is what the router said, for the log; it never holds a password. */

@@ -81,6 +81,7 @@ class MainActivity : Activity() {
             // The router screen drawn again, such as with a check that failed, stays where the user scrolled to.
             is Screen.Home -> home(screen, keepScroll = last is Screen.Home)
             is Screen.Swapping -> swapping(screen)
+            is Screen.DryRun -> dryRun(screen)
         }
     }
 
@@ -192,6 +193,7 @@ class MainActivity : Activity() {
         }
         button(R.string.show_rules) { showRules() }
         button(R.string.router_checks) { showChecks() }
+        if (DryRun.AVAILABLE) button(R.string.dry_run) { controller.openDryRun() }
         button(R.string.restore) {
             val factory = status.factory
             confirm(getString(R.string.restore_text, factory.imei1, factory.imei2)) { controller.restore() }
@@ -254,6 +256,29 @@ class MainActivity : Activity() {
             Step.GO_ONLINE -> button(R.string.step4_done) { controller.advance(Step.GO_ONLINE) }
         }
         if (screen.step != Step.GO_ONLINE) button(R.string.cancel_swap) { controller.cancelSwap() }
+    }
+
+    private fun dryRun(screen: Screen.DryRun) = page(keepScreenOn = screen.running) {
+        heading(getString(R.string.dry_run))
+        paragraph(getString(if (screen.unfinished) R.string.dry_run_unfinished else R.string.dry_run_text))
+        screen.lines.forEach { paragraph("✓ $it") }
+        if (screen.running) {
+            addView(ProgressBar(context))
+            return@page
+        }
+        screen.error?.let { warning(it) }
+        if (screen.unfinished) {
+            button(R.string.dry_run_put_back) { controller.putBack() }
+            button(R.string.dry_run_forget) {
+                confirm(getString(R.string.dry_run_forget_text)) { controller.forgetDryRun() }
+            }
+        } else {
+            button(if (screen.lines.isEmpty()) R.string.dry_run_start else R.string.dry_run_again) {
+                askForNotifications()
+                controller.startDryRun()
+            }
+            button(R.string.dry_run_back) { controller.refresh() }
+        }
     }
 
     /** Updates the Connect screen's line alone, so that what the user is typing stays. */

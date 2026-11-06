@@ -229,6 +229,18 @@
     <string name="try_again">Try again</string>
     <string name="cancel_swap">Cancel the swap</string>
 
+    <!-- Tier 2's dry run, which only debug builds have -->
+    <string name="dry_run">Dry run</string>
+    <string name="dry_run_text">The dry run runs steps 1 and 3 of a swap on a router with no SIM, as far as they go without one, and so confirms claims of docs/testing.md that only a change of the router\'s settings can. Both trays must be empty and no profile enabled on the built-in eSIM. The dry run keeps the radio off and puts slot 2 and the active slot back as they were. Like a swap, it turns airplane mode and the Enhanced Kill Switch on and puts Churn\'s firewall rules in place, and leaves them so. The debug log, if it is on, keeps every command.</string>
+    <string name="dry_run_unfinished">The last dry run stopped before it put the router back as it was, so slot 2, the active slot or the IMEIs may still be as the dry run left them. Put the router back, or forget the dry run if you have put the router back yourself.</string>
+    <string name="dry_run_stopped">The dry run stopped while confirming %1$s.\n\n%2$s</string>
+    <string name="dry_run_start">Start the dry run</string>
+    <string name="dry_run_again">Run it again</string>
+    <string name="dry_run_put_back">Put the router back</string>
+    <string name="dry_run_forget">Forget the dry run</string>
+    <string name="dry_run_forget_text">Churn then forgets how the router was before the dry run, and can\'t put it back any more.</string>
+    <string name="dry_run_back">Back</string>
+
     <!-- What a step reports -->
     <string name="progress_untested_platform">The router runs a GL firmware or modem firmware we haven\'t tested Churn with. The router checks that swaps rely on passed, so the step goes on.</string>
     <string name="progress_airplane_mode_on">Airplane mode is on.</string>
@@ -249,6 +261,9 @@
     <string name="progress_same_card">The card is still the same.</string>
     <string name="progress_new_imeis">The card\'s IMEIs are written and read back.</string>
     <string name="progress_clearing_history">Clearing the router\'s SIM history. This can take a few minutes.</string>
+    <string name="progress_tray_empty">No card answers in the SIM 2 tray.</string>
+    <string name="progress_put_back">Slot 2, the active slot and the IMEIs are as they were before the dry run.</string>
+    <string name="progress_dry_run_passed">The dry run passed.</string>
 
     <!-- Why a step stopped -->
     <string name="problem_unexpected_answer">The router gave an answer Churn didn\'t expect, so Churn stopped. Nothing after the last line above is assumed done.</string>
@@ -267,6 +282,8 @@
     <string name="problem_vpn_gone">No WireGuard VPN is set up on the router any more, so Churn stopped while the new card is still off. The router has no internet over a SIM now, so set one up in GL\'s web interface from a WireGuard configuration file (rule 5), then tap Try again.</string>
     <string name="problem_check_failed">A router check that swaps rely on failed, so Churn stopped before changing slot 2: the router doesn\'t work the way Churn\'s commands expect, as after a firmware upgrade. Churn can swap on this router again once the check passes. Router checks, on the router screen, shows every check\'s result.</string>
     <string name="problem_firewall_not_loaded">The router\'s firewall didn\'t load Churn\'s rules, so Churn removed them again and stopped.</string>
+    <string name="problem_profile_enabled">A profile is enabled on the built-in eSIM, so the dry run stopped before disabling it: the dry run is for a router with no SIM, and Churn can\'t enable a profile again.</string>
+    <string name="problem_card_in_tray">A card answers in the SIM 2 tray, so the dry run stopped: it is for a router with no SIM.</string>
 
     <!-- The notification while a step runs -->
     <string name="notification_channel">SIM swap</string>

@@ -17,12 +17,18 @@ enum class Step {
     GO_ONLINE,
 }
 
-/** What a step reports as it goes. */
+/** What a step, or tier 2's dry run, reports as it goes. */
 enum class Progress {
     UNTESTED_PLATFORM, AIRPLANE_MODE_ON, RADIO_OFF, SLOT2_ON_ESIM, NO_PROFILE, DISABLING_AGAIN, PROFILE_DISABLED,
     WAITING_FOR_START, SIM1_EMPTY, KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND,
-    SLOT2_BACK_ON_SIM2, SAME_CARD, NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN,
+    SLOT2_BACK_ON_SIM2, SAME_CARD, NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN, TRAY_EMPTY, PUT_BACK, DRY_RUN_PASSED,
 }
+
+/**
+ * What tier 2's dry run puts back (docs/testing.md, "Dry run"): slot 2's setting, the active slot and the IMEIs as they
+ * were before it.
+ */
+data class DryRunStart(val slot2: Slot2, val activeSlot: Int, val imeis: ImeiPair)
 
 /**
  * The router's part of steps 1 and 3. Each run starts from the beginning and checks every state it relies on,
@@ -42,9 +48,10 @@ open class Swap(
 
     /**
      * Step 1, up to the shutdown: radio off, slot 2 on the built-in eSIM with no profile enabled. The IMEIs stay the
-     * old card's until step 3 (design.md, section 4).
+     * old card's until step 3 (design.md, section 4). Without [disableProfile], for the dry run, an enabled profile
+     * stops the step instead: the dry run puts back what it changes, and Churn can't enable a profile again.
      */
-    fun prepare() {
+    fun prepare(disableProfile: Boolean = true) {
         // A reboot is a power-on, so with a SIM inside it registers wherever it happens.
         if (router.scheduledReboot()) throw RouterException(Problem.SCHEDULED_REBOOT)
         // Rule 5. Checked before anything changes, while the old card can still reach the internet to set one up.
@@ -54,7 +61,12 @@ open class Swap(
         waitForRadioOff()
         setSlot2(Slot2.ESIM)
         report(Progress.SLOT2_ON_ESIM)
-        disableEsimProfile()
+        if (disableProfile) {
+            disableEsimProfile()
+        } else {
+            if (enabledProfile() != null) throw RouterException(Problem.PROFILE_ENABLED)
+            report(Progress.NO_PROFILE)
+        }
         checkRadioOff()
     }
 
