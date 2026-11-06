@@ -111,6 +111,7 @@ val CHECKS = listOf(
     Check("H5", blocks = false, title = R.string.check_esim_log_time) { router, _ -> esimLogInUtc(router) },
     Check("H6", blocks = false, title = R.string.check_esim_log_growth, confirm = ::esimLogGrows),
     Check("H12", blocks = true, title = R.string.check_overlay) { router, _ -> overlayReserve(router) },
+    Check("H18", blocks = false, title = R.string.check_flash_wear) { router, _ -> flashWear(router) },
     Check("F5", blocks = false, title = R.string.check_imeis_kept) { router, context ->
         imeisKept(router, context.folder)
     },
@@ -656,6 +657,26 @@ private fun overlayReserve(router: Router): CheckResult {
         },
     )
     return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/**
+ * Whether the flash rates its own wear, without a warning that its life or its spare blocks are running out. The
+ * debug log keeps its estimates from every connection.
+ */
+private fun flashWear(router: Router): CheckResult {
+    val wear = router.flashWear()
+    fun hex(value: Int) = "0x" + value.toString(16).padStart(2, '0')
+    return when {
+        wear.lifeTime.any { it !in 1..11 } || wear.preEol !in 1..3 -> CheckResult.Failed(
+            "The flash gives no estimate of its wear: life_time ${wear.lifeTime.joinToString(" ") { hex(it) }}, " +
+                "pre_eol_info ${hex(wear.preEol)}.",
+        )
+        11 in wear.lifeTime -> CheckResult.Failed("The flash reports its life used up.")
+        wear.preEol > 1 -> CheckResult.Failed(
+            "The flash reports ${if (wear.preEol == 2) 80 else 90}% of its spare blocks used.",
+        )
+        else -> CheckResult.Passed
+    }
 }
 
 /**

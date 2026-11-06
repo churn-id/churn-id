@@ -75,6 +75,14 @@ data class Platform(val gl: String, val openwrt: String, val modem: String, val 
 data class Overlay(val device: String, val type: String, val reserve: Long?)
 
 /**
+ * The flash's own estimates of its wear, its `life_time` and `pre_eol_info` in the eMMC standard. [lifeTime] holds, for
+ * each of its two kinds of blocks, the share of its life used, from 1 for up to 10% to 10 for up to 100%, and 11 once
+ * past it. [preEol] says how many of its spare blocks are used: 1 for a normal number, 2 for 80%, 3 for 90%. 0 stands
+ * for no estimate.
+ */
+data class FlashWear(val lifeTime: List<Int>, val preEol: Int)
+
+/**
  * A program listening on the UDP [port], as `netstat` names it, the user ID it runs as, and the file that dnsmasq
  * reads its servers from, or null for none.
  */
@@ -249,6 +257,14 @@ class Router(private val shell: Shell) {
         val fields = output.text.trim().split(' ')
         if (fields.size < 2) return null
         return Overlay(fields[0], fields[1], fields.getOrNull(2)?.toLongOrNull())
+    }
+
+    /** The flash's estimates of its wear. */
+    fun flashWear(): FlashWear {
+        val output = run("cat $FLASH/life_time $FLASH/pre_eol_info")
+        val match = FLASH_WEAR.matchEntire(output.text.trim()) ?: throw unexpected("The flash's wear", output)
+        val (typeA, typeB, preEol) = match.destructured
+        return FlashWear(listOf(typeA.toInt(16), typeB.toInt(16)), preEol.toInt(16))
     }
 
     /** The firmware and the modem the router runs. */
@@ -776,6 +792,12 @@ class Router(private val shell: Shell) {
             	echo "${'$'}{local##*:}|${'$'}{program#*/}|${'$'}uid|${'$'}servers"
             done 2>/dev/null | sort -u
         """.trimIndent()
+
+        /** The kernel's folder for the eMMC flash, which holds its estimates of its wear. */
+        private const val FLASH = "/sys/block/mmcblk0/device"
+
+        /** How the kernel writes the flash's `life_time` and `pre_eol_info`, one after the other. */
+        private val FLASH_WEAR = Regex("""0x([0-9a-f]{2}) 0x([0-9a-f]{2})\s+0x([0-9a-f]{2})""")
 
         /** The overlay's device and file system type, and the blocks that ext4 keeps back from it. */
         private val OVERLAY = """

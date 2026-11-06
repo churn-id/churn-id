@@ -170,6 +170,7 @@
     <string name="check_esim_log_time">GL\'s eSIM manager begins its log\'s lines with the time in UTC</string>
     <string name="check_esim_log_growth">GL\'s eSIM manager\'s log has only grown since the last connection, unless Churn cleared it</string>
     <string name="check_overlay">The overlay is ext4 on mmcblk0p59, and ext4 keeps its usual 4096 blocks back from it</string>
+    <string name="check_flash_wear">The flash rates its own wear, and gives no warning that it is wearing out</string>
     <string name="check_imeis_kept">The card Churn recorded still has the IMEIs Churn gave it</string>
     <string name="reason_not_set_up">Churn hasn\'t set up this router yet.</string>
     <string name="reason_starting">The router started less than 2 minutes ago, so the radio may still be on.</string>

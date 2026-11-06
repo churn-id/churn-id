@@ -1014,6 +1014,51 @@ class ChecksTest {
     }
 
     @Test
+    fun flashWearCheckPassesWithTheFlashRatingItsWear() {
+        fake.flashLifeTime = "0x02 0x0a"
+        assertEquals(CheckResult.Passed, run("H18"))
+    }
+
+    @Test
+    fun flashWearCheckFailsWithoutAnEstimateOfItsLife() {
+        fake.flashLifeTime = "0x00 0x01"
+        assertEquals(
+            CheckResult.Failed("The flash gives no estimate of its wear: life_time 0x00 0x01, pre_eol_info 0x01."),
+            run("H18"),
+        )
+        fake.flashLifeTime = "0x01 0x0c"
+        assertTrue(run("H18").toString().contains("no estimate"))
+    }
+
+    @Test
+    fun flashWearCheckFailsWithoutAStateOfItsSpareBlocks() {
+        fake.flashPreEol = "0x00"
+        assertTrue(run("H18").toString().contains("no estimate"))
+        fake.flashPreEol = "0x04"
+        assertTrue(run("H18").toString().contains("no estimate"))
+    }
+
+    @Test
+    fun flashWearCheckFailsWithTheFlashPastItsLife() {
+        fake.flashLifeTime = "0x0b 0x03"
+        assertEquals(CheckResult.Failed("The flash reports its life used up."), run("H18"))
+    }
+
+    @Test
+    fun flashWearCheckFailsWithTheSpareBlocksRunningOut() {
+        fake.flashPreEol = "0x02"
+        assertEquals(CheckResult.Failed("The flash reports 80% of its spare blocks used."), run("H18"))
+        fake.flashPreEol = "0x03"
+        assertEquals(CheckResult.Failed("The flash reports 90% of its spare blocks used."), run("H18"))
+    }
+
+    @Test
+    fun flashWearCheckFailsAtAnAnswerItCannotRead() {
+        fake.flashLifeTime = "0x01"
+        assertTrue(run("H18").toString().contains("Unexpected answer: The flash's wear"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2

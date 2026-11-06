@@ -95,6 +95,10 @@ class FakeRouter : Shell {
     var overlayType: String? = "ext4"
     var reservedClusters = 4096L
 
+    /** The flash's `life_time` and `pre_eol_info`, as our Mudi 7 showed them. */
+    var flashLifeTime = "0x01 0x01"
+    var flashPreEol = "0x01"
+
     /** The enabled profile's ICCID as `AT+ICCID` gives it, or null for none. */
     var esimProfile: String? = "8944000000000000123F"
 
@@ -384,6 +388,9 @@ class FakeRouter : Shell {
         if (OVERLAY.matches(command)) {
             val reserve = reservedClusters.takeIf { overlayType == "ext4" } ?: ""
             return ok(overlayType?.let { "$overlayDevice $it $reserve\n" } ?: "\n")
+        }
+        if (command == "cat /sys/block/mmcblk0/device/life_time /sys/block/mmcblk0/device/pre_eol_info") {
+            return ok("$flashLifeTime\n$flashPreEol\n")
         }
         if (command == "/etc/init.d/log reload") {
             if (radioOnAtReload) radioStuckOn = true
