@@ -512,8 +512,11 @@ depends on slot 2: only the eSIM's one or two short bursts while slot 2 is
 on the built-in eSIM with no profile enabled, but more than 8 s of RF while
 it is on an enabled eSIM profile or on a card in the SIM 2 tray. The modem
 doesn't answer AT commands for a while after power-on, so the app keeps
-asking. Step 3 of the swap changes nothing before `/proc/uptime` shows
-120 s and the modem answers `+CFUN: 4`.
+asking. Once it answers, it repeats each command before its answer for a
+while, as GL's channel to the cards always does (verified about 70 s after a
+power-on, and gone 146 s after it), so the app leaves a first line that is
+the command out of every answer. Step 3 of the swap changes nothing before
+`/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
 
 ## The debug log
 

@@ -22,6 +22,9 @@ class FakeRouter : Shell {
     var openwrtRelease = "23.05.4"
     var modemRevision = "RG650VEU00ADR02A04G8G"
 
+    /** For the modem repeating each AT command before its answer, as for a while after power-on (verified). */
+    var modemEchoes = false
+
     /** Commands the firmware doesn't have. Our Mudi 7 has every one Churn runs. */
     val absentCommands = mutableSetOf<String>()
 
@@ -289,7 +292,10 @@ class FakeRouter : Shell {
     }
 
     private fun answer(command: String, input: ByteArray?): Output {
-        Regex("""gl_modem -B cpu AT '(.*)' </dev/null""").matchEntire(command)?.let { return at(it.groupValues[1]) }
+        Regex("""gl_modem -B cpu AT '(.*)' </dev/null""").matchEntire(command)?.let {
+            val answer = at(it.groupValues[1])
+            return if (modemEchoes && answer.status == 0) ok(it.groupValues[1] + "\r\r\n" + answer.text) else answer
+        }
         Regex("""ubus -t 35 call modem.CPU.AT get_result_AT '(.*)'""").matchEntire(command)?.let {
             val request = JSONObject(it.groupValues[1])
             return cardAt(request.getInt("sub_id"), request.getString("cmd"))
@@ -513,7 +519,8 @@ class FakeRouter : Shell {
             else -> esimProfile?.let { Card(it, "260010000000001") }
                 ?: Card(Router.PLACEHOLDER_ICCID, Router.TEST_IMSI)
         }
-        val data = when {
+        // GL's channel repeats each command before the card's answer (verified).
+        val data = command + "\r\r\n" + when {
             card == null -> "\r\n+CME ERROR: 10\r\n"
             command == "AT+CPIN?" -> "\r\n+CPIN: ${if (card.pinLocked) "SIM PIN" else "READY"}\r\n\r\nOK\r\n"
             command == "AT+ICCID" -> "\r\n+ICCID: ${card.iccid}\r\n\r\nOK\r\n"

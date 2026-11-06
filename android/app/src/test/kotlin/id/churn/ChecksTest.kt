@@ -58,6 +58,26 @@ class ChecksTest {
     }
 
     @Test
+    fun platformCheckPassesWhileTheModemRepeatsEachCommand() {
+        // As for a while after power-on.
+        fake.modemEchoes = true
+        assertEquals(CheckResult.Passed, run("P1"))
+    }
+
+    @Test
+    fun everyCheckGivesTheSameResultWhileTheModemRepeatsEachCommand() {
+        writeFolder(SWAPPED.card)
+        router.writeImeis(CARD_IMEIS)
+        fun results() = CHECKS.map { check ->
+            notes.map.clear()
+            check.run(router, CheckContext(SWAPPED, notes))
+        }
+        val withoutEcho = results()
+        fake.modemEchoes = true
+        assertEquals(withoutEcho, results())
+    }
+
+    @Test
     fun platformCheckFailsOnAnotherFirmware() {
         fake.glVersion = "4.11.0"
         assertEquals(

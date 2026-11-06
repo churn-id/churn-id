@@ -37,17 +37,23 @@ enum class Problem {
 class RouterException(val problem: Problem, val detail: String? = null) :
     Exception(if (detail == null) problem.name else "${problem.name}: $detail")
 
-/** The modem's answer to an AT command: the lines before the final `OK`. */
+/** The modem's answer to an AT command: the lines before the final `OK`, without the command's echo. */
 class AtAnswer(val lines: List<String>) {
 
     /** The rest of the first line that starts with [prefix], such as `+CFUN:`, trimmed. */
     fun after(prefix: String) = lines.firstOrNull { it.startsWith(prefix) }?.substring(prefix.length)?.trim()
 
     companion object {
-        /** Null unless [output] ends with `OK`, as every accepted answer must. */
-        fun parse(output: String): AtAnswer? {
+        /**
+         * The answer to [command] that [output] holds; null unless it ends with `OK`, as every accepted answer must.
+         * For a while after power-on the modem repeats each command before its answer, as GL's channel to the cards
+         * always does, so a first line that is [command] is left out.
+         */
+        fun parse(command: String, output: String): AtAnswer? {
             val lines = output.lines().map { it.trim() }.filter { it.isNotEmpty() }
-            return if (lines.lastOrNull() == "OK") AtAnswer(lines.dropLast(1)) else null
+            if (lines.lastOrNull() != "OK") return null
+            val answer = lines.dropLast(1)
+            return AtAnswer(if (answer.firstOrNull() == command) answer.drop(1) else answer)
         }
     }
 }
@@ -686,7 +692,7 @@ class Router(private val shell: Shell) {
     /** An AT command through GL's `gl_modem`, under Churn's lock. */
     fun at(command: String): AtAnswer {
         val output = run(locked("gl_modem -B cpu AT ${quote(command)} </dev/null"))
-        return AtAnswer.parse(output.text) ?: throw unexpected(command, output)
+        return AtAnswer.parse(command, output.text) ?: throw unexpected(command, output)
     }
 
     /**
@@ -701,7 +707,7 @@ class Router(private val shell: Shell) {
             ?: throw unexpected(command, output)
         // 3GPP TS 27.007's error 10: SIM not inserted.
         if (data.lines().any { it.trim() == "+CME ERROR: 10" }) return null
-        return AtAnswer.parse(data) ?: throw unexpected(command, output)
+        return AtAnswer.parse(command, data) ?: throw unexpected(command, output)
     }
 
     /** Null if slot 2's card doesn't answer [command]. A broken connection still throws. */

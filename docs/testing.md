@@ -234,6 +234,7 @@ From development.md, "After power-on", and design.md, section 6.
 | B16 | With no profile enabled, the eSIM shows GSMA TS.48's generic test profile, IMSI `001010123456063` | verified | Read the IMSI while slot 2 is on the eSIM with the placeholder ICCID, as after step 1 | 1 |
 | B17 | Every unit shows that test profile | inferred | None: it needs a second router | – |
 | B18 | The eSIM's short bursts carry no IMEI over LTE and 5G, where a device gives it only once the network has authenticated it, which no network can do for the test profile | inferred | None known: it needs the network's side | – |
+| B19 | Once the modem answers after power-on, it repeats each AT command before its answer for a while | verified about 70 s after a power-on, and gone 146 s after it | None needed: the app leaves the repeated command out of every answer, and a unit test runs every check with and without it | – |
 
 ## SIM history
 
