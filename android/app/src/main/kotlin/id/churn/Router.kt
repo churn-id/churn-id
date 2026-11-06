@@ -621,6 +621,9 @@ class Router(private val shell: Shell) {
         if (!readFile(path).contentEquals(content)) throw unexpected(path)
     }
 
+    /** Whether `/etc/sysupgrade.conf` lists [path], so that a firmware upgrade that keeps settings keeps it. */
+    fun upgradeKeeps(path: String) = run("grep -qxF $path $SYSUPGRADE").status == 0
+
     /** Lists Churn's folder in `/etc/sysupgrade.conf`, so a firmware upgrade keeps it. */
     fun keepChurnFolder() = keep("$CHURN/")
 

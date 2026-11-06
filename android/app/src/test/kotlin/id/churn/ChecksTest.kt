@@ -1216,6 +1216,25 @@ class ChecksTest {
     }
 
     @Test
+    fun folderKeptCheckPassesWithTheFolderListed() {
+        router.keepChurnFolder()
+        assertEquals(CheckResult.Passed, run("F2", SET_UP))
+    }
+
+    @Test
+    fun folderKeptCheckFailsWithoutTheFolderListed() {
+        assertEquals(CheckResult.Failed("/etc/sysupgrade.conf doesn't list /etc/churn/."), run("F2", SET_UP))
+        // Only the exact line counts.
+        fake.sysupgrade += "\n/etc/churn\n"
+        assertTrue(run("F2", SET_UP) is CheckResult.Failed)
+    }
+
+    @Test
+    fun folderKeptCheckDoesNotApplyBeforeSetup() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_not_set_up), run("F2"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2

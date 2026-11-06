@@ -116,6 +116,9 @@ val CHECKS = listOf(
     Check("F1", blocks = true, title = R.string.check_churn_folder) { router, context ->
         churnFolderModes(router, context.folder)
     },
+    Check("F2", blocks = true, title = R.string.check_folder_kept) { router, context ->
+        folderKept(router, context.folder)
+    },
     Check("F5", blocks = false, title = R.string.check_imeis_kept) { router, context ->
         imeisKept(router, context.folder)
     },
@@ -751,6 +754,13 @@ private fun churnFileProblem(entry: FolderEntry): String? {
             (if (size.first == size.last) "${size.first}." else "${size.first} to ${size.last}.")
         else -> null
     }
+}
+
+/** Whether `/etc/sysupgrade.conf` lists Churn's folder, so that a firmware upgrade that keeps settings keeps it. */
+private fun folderKept(router: Router, folder: ChurnFolder) = when {
+    !folder.complete -> CheckResult.NotApplicable(R.string.reason_not_set_up)
+    router.upgradeKeeps("${Router.CHURN}/") -> CheckResult.Passed
+    else -> CheckResult.Failed("/etc/sysupgrade.conf doesn't list ${Router.CHURN}/.")
 }
 
 /**
