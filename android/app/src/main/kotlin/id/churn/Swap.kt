@@ -26,7 +26,7 @@ enum class Progress {
     RESTORED, FACTORY_IMEIS, FOLDER_GONE, LOG_SETTING_BACK, LOG_WRITTEN, ZERO_FILES_GONE, FIREWALL_GONE,
     SET_UP_AGAIN, CONNECTION_KEPT, RESERVE_BACK, CARD_FILES_PARSE, ZEROS_KEEP_SPACE, READING_PARTITION, IMSIS_GONE,
     NO_IMSIS, ICCIDS_GONE, NO_ICCIDS, PARTITION_UNCHECKED, FREE_SPACE_FILLED, CLEARED_QUICKLY, REMOVAL_PASSED,
-    NETWORK_LOST, NEW_BOOT_ID, POWER_CYCLES_PASSED,
+    NETWORK_LOST, NEW_BOOT_ID, TEST_PAIR_SAVED, IMEIS_KEPT, EARLIER_IMEIS_SAVED, POWER_CYCLES_PASSED,
 }
 
 /**
@@ -55,7 +55,8 @@ data class RemovalStart(val factory: ImeiPair, val card: Card?, val imeis: ImeiP
 /**
  * What tier 3's power cycle test puts back and keeps across its power-offs (docs/testing.md, "Power cycles"): slot 2's
  * setting, the active slot and the IMEIs as they were before it, the ID of the router's run that the last power-off
- * ended, [bootId], and the power-on that the test waits for, [powerOn]: 1 or 2, or 0 for none.
+ * ended, [bootId], the power-on that the test waits for, [powerOn]: 1 or 2, or 0 for none, and the test pair of IMEIs
+ * saved before the first power-off, [testImeis].
  */
 data class PowerCycleStart(
     override val slot2: Slot2,
@@ -63,6 +64,7 @@ data class PowerCycleStart(
     override val imeis: ImeiPair,
     val bootId: String? = null,
     val powerOn: Int = 0,
+    val testImeis: ImeiPair? = null,
 ) : TestStart
 
 /**

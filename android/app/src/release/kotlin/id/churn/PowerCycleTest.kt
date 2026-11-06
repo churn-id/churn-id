@@ -1,5 +1,7 @@
 package id.churn
 
+import java.security.SecureRandom
+
 /** Release builds have no power cycle test, which starts in debug builds (docs/testing.md, "Tiers"). */
 @Suppress("UNUSED_PARAMETER")
 class PowerCycleTest(
@@ -12,7 +14,8 @@ class PowerCycleTest(
 
     val testing = emptyList<String>()
 
-    fun run(save: (PowerCycleStart?) -> Unit): Unit = throw UnsupportedOperationException()
+    fun run(factory: ImeiPair, random: SecureRandom, save: (PowerCycleStart?) -> Unit): Unit =
+        throw UnsupportedOperationException()
 
     fun resume(start: PowerCycleStart, save: (PowerCycleStart?) -> Unit): Unit = throw UnsupportedOperationException()
 

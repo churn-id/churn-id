@@ -70,6 +70,12 @@ class FakeRouter : Shell {
 
     /** For a modem that refuses IMEI writes. */
     var imeiWritesRefused = false
+
+    /**
+     * For an `AT+QPRTPARA=1` that doesn't save the written IMEIs, against M7 in testing.md. Only the power cycle test's
+     * tests use it.
+     */
+    var imeiSaveIgnored = false
     var imei1 = "356090215000002"
     var imei2 = "356090215000077"
 
@@ -663,7 +669,7 @@ class FakeRouter : Shell {
                 atOk()
             }
             command == "AT+QPRTPARA=1" -> {
-                savedImeis = null
+                if (!imeiSaveIgnored) savedImeis = null
                 atOk()
             }
             command == "AT+QSIMTYPE=\"slot2\"" -> atOk("+QSIMTYPE: \"slot2\",${slot2.type}")
