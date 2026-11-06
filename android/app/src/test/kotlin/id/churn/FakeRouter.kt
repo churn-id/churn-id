@@ -60,7 +60,34 @@ class FakeRouter : Shell {
     /** The ID Linux gives the current run, a new one at every power-on, in Linux's format. */
     var bootId = UUID.randomUUID().toString()
 
+    /** GL's airplane mode as committed, which a power-on starts with. */
     var airplaneMode = false
+
+    /** Airplane mode as set but not committed, which `uci get` returns and GL follows already (U2); null for none. */
+    private var stagedAirplaneMode: Boolean? = null
+
+    /**
+     * For a GL that switches airplane mode only at the commit, against U2 in testing.md. Only the power cycle test's
+     * tests use it.
+     */
+    var airplaneModeNeedsCommit = false
+
+    /**
+     * How long GL's cellular manager takes to follow airplane mode set without the commit, in milliseconds. Only the
+     * power cycle test's tests set it.
+     */
+    var stagedAirplaneModeMillis = 0L
+
+    /** When airplane mode was last set without the commit, by [clock], and as GL's cellular manager had it before. */
+    private var stagedAt = 0L
+    private var inUseBeforeStaging = false
+
+    /** Airplane mode as GL's cellular manager has it. */
+    private val airplaneModeInUse: Boolean
+        get() {
+            val staged = stagedAirplaneMode?.takeUnless { airplaneModeNeedsCommit } ?: return airplaneMode
+            return if (clock - stagedAt < stagedAirplaneModeMillis) inUseBeforeStaging else staged
+        }
 
     /** For the radio that never turns off. */
     var radioStuckOn = false
@@ -344,7 +371,7 @@ class FakeRouter : Shell {
     val radio
         get() = when {
             radioStuckOn || uptime < radioWindowEnd || radioBurst?.contains(uptime) == true -> 1
-            airplaneMode -> 4
+            airplaneModeInUse -> 4
             else -> 1
         }
 
@@ -436,6 +463,7 @@ class FakeRouter : Shell {
             imei2 = it.imei2
         }
         savedImeis = null
+        stagedAirplaneMode = null
         bootedAt = clock
         bootId = UUID.randomUUID().toString()
         poweredOff = false
@@ -475,6 +503,13 @@ class FakeRouter : Shell {
         val airplaneModeSet = Regex("""uci set 'glconfig.general.airplane_mode=([01])' && uci commit 'glconfig'""")
         airplaneModeSet.matchEntire(command)?.let {
             airplaneMode = it.groupValues[1] == "1"
+            stagedAirplaneMode = null
+            return ok("")
+        }
+        Regex("""uci set 'glconfig.general.airplane_mode=([01])'""").matchEntire(command)?.let {
+            inUseBeforeStaging = airplaneModeInUse
+            stagedAt = clock
+            stagedAirplaneMode = it.groupValues[1] == "1"
             return ok("")
         }
         if (command == "ip rule show") return ok(ipRules())
@@ -773,7 +808,7 @@ class FakeRouter : Shell {
     private fun uciGet(key: String): Output = if (key in uciAnswers) {
         uciAnswers[key]?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
     } else when (key) {
-        "glconfig.general.airplane_mode" -> ok(if (airplaneMode) "1\n" else "0\n")
+        "glconfig.general.airplane_mode" -> ok(if (stagedAirplaneMode ?: airplaneMode) "1\n" else "0\n")
         "gl_timer.reboot.enable" -> ok(if (scheduledReboot) "1\n" else "0\n")
         "network.modem_cpu.dds_id" -> ok("$activeSlot\n")
         "system.@system[0].log_file" -> logFile?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
@@ -843,14 +878,14 @@ class FakeRouter : Shell {
             "10.0.0.0/30 dev rmnet_data0 proto kernel scope link src 10.0.0.2\n"
         val lan = "169.254.21.0/24 dev ecm0 proto kernel scope link src 169.254.21.1\n" +
             "192.168.8.0/24 dev br-lan proto kernel scope link src 192.168.8.1\n"
-        return if (airplaneMode) lan else sim + lan
+        return if (airplaneModeInUse) lan else sim + lan
     }
 
     /** `ifstatus` of the network interface [name], shortened, as OpenWrt's netifd gives it. */
     private fun interfaceStatus(name: String): Output {
         val (up, device) = when (name) {
             vpnTunnel -> tunnelUp to name
-            "modem_cpu" -> !airplaneMode to simDevice
+            "modem_cpu" -> !airplaneModeInUse to simDevice
             else -> return Output(1, "Interface $name not found\n".toByteArray(), "")
         }
         val status = JSONObject().put("up", up).put("pending", false).put("available", true)
@@ -864,7 +899,7 @@ class FakeRouter : Shell {
 
     private fun change(what: String) {
         changes += "$what at ${uptime.toInt()} s"
-        if (!airplaneMode || radio != 4) unsafe += what
+        if (!airplaneModeInUse || radio != 4) unsafe += what
     }
 
     /**

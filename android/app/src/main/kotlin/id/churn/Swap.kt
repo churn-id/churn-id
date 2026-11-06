@@ -27,8 +27,8 @@ enum class Progress {
     SET_UP_AGAIN, CONNECTION_KEPT, RESERVE_BACK, CARD_FILES_PARSE, ZEROS_KEEP_SPACE, READING_PARTITION, IMSIS_GONE,
     NO_IMSIS, ICCIDS_GONE, NO_ICCIDS, PARTITION_UNCHECKED, FREE_SPACE_FILLED, CLEARED_QUICKLY, REMOVAL_PASSED,
     NETWORK_LOST, NEW_BOOT_ID, TEST_PAIR_SAVED, SETTINGS_KEPT, RULES_AT_START, CHAINS_AT_START, MODEM_ANSWERED,
-    MODEM_AT_ONCE, RADIO_ON_UNTIL, RADIO_OFF_AT_FIRST, RADIO_OFF_FROM, IMEIS_KEPT, EARLIER_IMEIS_SAVED,
-    POWER_CYCLES_PASSED,
+    MODEM_AT_ONCE, RADIO_ON_UNTIL, RADIO_OFF_AT_FIRST, RADIO_OFF_FROM, IMEIS_KEPT, EARLIER_IMEIS_SAVED, TRAYS_EMPTY,
+    RADIO_ON_UNCOMMITTED, RADIO_OFF_UNCOMMITTED, POWER_CYCLES_PASSED,
 }
 
 /**
@@ -389,7 +389,7 @@ open class Swap(
      * Checks [condition] every few seconds until it holds, for up to [seconds]. An answer that doesn't parse
      * counts as "not yet", since the modem doesn't answer for a while after power-on.
      */
-    private fun poll(seconds: Int, condition: () -> Boolean): Boolean {
+    protected fun poll(seconds: Int, condition: () -> Boolean): Boolean {
         val deadline = now() + seconds * 1_000L
         while (true) {
             try {

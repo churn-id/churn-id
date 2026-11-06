@@ -236,7 +236,11 @@ where the router emitted nothing at power-on (B8):
 7. It writes, saves and reads back the earlier pair, shuts the router down
    a second time, as in step 5, and checks the next power-on as in step 6,
    with the earlier pair.
-8. It puts slot 2's setting and the active slot back.
+8. With no card answering in either tray, it sets airplane mode off and on
+   again without the commit, and times how long the modem takes to report
+   its radio on and then off, at most 30 s each (U2). It then commits
+   airplane mode on, as before.
+9. It puts slot 2's setting and the active slot back.
 
 Like a swap, the test leaves airplane mode and the Enhanced Kill Switch on
 and Churn's firewall rules in place. While the router is off, the test's
