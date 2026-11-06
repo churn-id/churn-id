@@ -29,10 +29,21 @@ enum class Progress {
 }
 
 /**
+ * The router's state before a test of docs/testing.md that puts it back as it was: slot 2's setting, the active slot
+ * and the IMEIs.
+ */
+interface TestStart {
+    val slot2: Slot2
+    val activeSlot: Int
+    val imeis: ImeiPair
+}
+
+/**
  * What tier 2's dry run puts back (docs/testing.md, "Dry run"): slot 2's setting, the active slot and the IMEIs as they
  * were before it.
  */
-data class DryRunStart(val slot2: Slot2, val activeSlot: Int, val imeis: ImeiPair)
+data class DryRunStart(override val slot2: Slot2, override val activeSlot: Int, override val imeis: ImeiPair) :
+    TestStart
 
 /**
  * What tier 2's removal test sets the router up again with (docs/testing.md, "Removal and clearing"): the [factory]
@@ -221,6 +232,40 @@ open class Swap(
         val cardIccid = raw ?: throw RouterException(Problem.NO_CARD)
         return Imei.iccidDigits(cardIccid) ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+ICCID")
     }
+
+    /**
+     * Step 3 with an empty SIM 2 tray, for the tests of docs/testing.md: slot 2 on the tray and made the active slot,
+     * where no card may answer. A card there stops the test.
+     */
+    protected fun emptyTray() {
+        val iccid = try {
+            cardInTray()
+        } catch (e: RouterException) {
+            if (e.problem != Problem.NO_CARD) throw e
+            // Or an eSIM adapter card without an enabled profile, which step 3 counts as no card. The built-in eSIM's
+            // placeholder is the dry run's check of E4.
+            router.slot2Iccid()?.takeIf { it != Router.PLACEHOLDER_ICCID }
+        }
+        if (iccid != null) throw RouterException(Problem.CARD_IN_TRAY)
+        report(Progress.TRAY_EMPTY)
+    }
+
+    /** Whether the router's IMEIs, slot 2's setting and the active slot are [start]'s. */
+    protected fun asItWas(start: TestStart) =
+        router.imeis() == start.imeis && router.slot2() == start.slot2 && activeSlot() == start.activeSlot
+
+    /** Puts [start]'s IMEIs, slot 2's setting and active slot back, with the radio off, as it must be already. */
+    protected fun restore(start: TestStart) {
+        if (router.imeis() != start.imeis) {
+            router.writeImeis(start.imeis)
+            checkRadioOff()
+        }
+        setSlot2(start.slot2)
+        if (activeSlot() != start.activeSlot) activate(start.activeSlot, start.slot2)
+    }
+
+    protected fun activeSlot() = router.activeSlot()?.toIntOrNull()?.takeIf { it in 1..2 }
+        ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "network.modem_cpu.dds_id")
 
     protected fun turnAirplaneModeOn() {
         if (!router.airplaneMode()) router.setAirplaneMode(true)

@@ -89,23 +89,6 @@ class DryRun(
     }
 
     /**
-     * Step 3 with an empty SIM 2 tray: slot 2 on the tray and made the active slot, where no card may answer. A card
-     * there stops the dry run.
-     */
-    private fun emptyTray() {
-        val iccid = try {
-            cardInTray()
-        } catch (e: RouterException) {
-            if (e.problem != Problem.NO_CARD) throw e
-            // Or an eSIM adapter card without an enabled profile, which step 3 counts as no card. The built-in
-            // eSIM's placeholder is the next part's.
-            router.slot2Iccid()?.takeIf { it != Router.PLACEHOLDER_ICCID }
-        }
-        if (iccid != null) throw RouterException(Problem.CARD_IN_TRAY)
-        report(Progress.TRAY_EMPTY)
-    }
-
-    /**
      * Writes a pair as step 3 writes a new card's, but another than [earlier], and then [earlier] again, each read back
      * at once and with the radio still off after it.
      */
@@ -131,23 +114,6 @@ class DryRun(
         }
         report(Progress.ANSWERS_MATCHED)
     }
-
-    /** Whether the router's IMEIs, slot 2's setting and the active slot are [start]'s. */
-    private fun asItWas(start: DryRunStart) =
-        router.imeis() == start.imeis && router.slot2() == start.slot2 && activeSlot() == start.activeSlot
-
-    /** Puts [start]'s IMEIs, slot 2's setting and active slot back, with the radio off, as it must be already. */
-    private fun restore(start: DryRunStart) {
-        if (router.imeis() != start.imeis) {
-            router.writeImeis(start.imeis)
-            checkRadioOff()
-        }
-        setSlot2(start.slot2)
-        if (activeSlot() != start.activeSlot) activate(start.activeSlot, start.slot2)
-    }
-
-    private fun activeSlot() = router.activeSlot()?.toIntOrNull()?.takeIf { it in 1..2 }
-        ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "network.modem_cpu.dds_id")
 
     companion object {
         /** Debug builds have the dry run. */
