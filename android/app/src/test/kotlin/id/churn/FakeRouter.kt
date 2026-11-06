@@ -87,6 +87,12 @@ class FakeRouter : Shell {
     /** For a `logread` that goes on writing `/etc/sys_log` once the setting is deleted and the log service reloaded. */
     var logreadStuck = false
 
+    /**
+     * For a `logread` that runs but doesn't open the file [logFile] names, against H3. Only the removal test's tests
+     * use it.
+     */
+    var logreadOpensNoFile = false
+
     /** The ICCID GL recorded for the active card (`network.modem_cpu.iccid`), as GL stores it, or null for none. */
     var modemCpuIccid: String? = "8941000000000000015F"
 
@@ -382,6 +388,11 @@ class FakeRouter : Shell {
         if (command == "poweroff") {
             poweredOff = true
             return ok("")
+        }
+        Regex("""\[ -e '([^']+)' ]""").matchEntire(command)?.let {
+            val path = it.groupValues[1]
+            val found = path in files || files.keys.any { key -> key.startsWith("$path/") }
+            return Output(if (found) 0 else 1, ByteArray(0), "")
         }
         Regex("""if \[ -e (\S+) ]; then cat \S+; else exit 3; fi""").matchEntire(command)?.let {
             val file = files[it.groupValues[1]] ?: return Output(3, ByteArray(0), "")
@@ -710,6 +721,8 @@ class FakeRouter : Shell {
         if (!restoreKeepsLogOff) {
             files.remove("/etc/churn/log_file")?.let { logFile = it.toString(Charsets.UTF_8).trim() }
         }
+        // The log service's logread opens the file, which the app deleted at its last clearing.
+        logFile?.takeIf { !logreadMissing && !logreadOpensNoFile }?.let { files.putIfAbsent(it, ByteArray(0)) }
         zerosLink = null
         files.remove(Router.FIREWALL)
         loadedChains.clear()

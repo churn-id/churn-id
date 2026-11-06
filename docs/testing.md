@@ -149,7 +149,8 @@ profile enabled on the built-in eSIM:
 4. It checks what `restore.sh` did: the factory IMEIs back, with the radio
    still off (F7); Churn's folder, the card's record in it and the
    folder's line in `/etc/sysupgrade.conf` gone (F8, F12); and GL's
-   `log_file` setting as Churn's copy had it (F9).
+   `log_file` setting as Churn's copy had it (F9), with a `logread`
+   writing that file again (H3).
 5. It sets the router up again as the setup screen does, with the card's
    record, the IMEIs it had and Churn's firewall rules, and keeps the
    recorded card's SIM history (F12).
@@ -161,6 +162,11 @@ place of the router screen, until Set the router up again has done so,
 once the router has started and its radio is off. The screen lists what
 the test did and, if it stopped, the claims it was confirming. The debug
 log keeps every command.
+
+From `restore.sh` until the router is set up again, GL's log goes to the
+flash, as before Churn, and names any card used since the router started.
+Setting the router up again turns that off and deletes the file, and the
+next clearing overwrites what was written.
 
 ## Platform
 

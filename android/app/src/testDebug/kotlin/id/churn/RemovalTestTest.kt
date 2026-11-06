@@ -125,7 +125,7 @@ class RemovalTestTest {
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.NO_PROFILE,
                 Progress.SIM1_EMPTY, Progress.RESTORED, Progress.FACTORY_IMEIS, Progress.FOLDER_GONE,
-                Progress.LOG_SETTING_BACK, Progress.SET_UP_AGAIN, Progress.REMOVAL_PASSED,
+                Progress.LOG_SETTING_BACK, Progress.LOG_WRITTEN, Progress.SET_UP_AGAIN, Progress.REMOVAL_PASSED,
             ),
             progress,
         )
@@ -216,6 +216,28 @@ class RemovalTestTest {
     }
 
     @Test
+    fun removalTestStopsWhenNoLogreadWritesGlsLogAfterRestoreSh() {
+        fake.logreadMissing = true
+        // A file that no logread writes.
+        fake.files["/etc/sys_log"] = "old\n".toByteArray()
+        assertStopsAfterRestoreSh("H3")
+    }
+
+    @Test
+    fun removalTestStopsWhenLogreadOpensNoFileAfterRestoreSh() {
+        fake.logreadOpensNoFile = true
+        assertStopsAfterRestoreSh("H3")
+    }
+
+    @Test
+    fun removalTestSkipsH3WithGlsLogOffBeforeChurn() {
+        fake.files.remove("/etc/churn/log_file")
+        run()
+        assertTrue(Progress.LOG_WRITTEN !in progress)
+        assertEquals(Progress.REMOVAL_PASSED, progress.last())
+    }
+
+    @Test
     fun removalTestLeavesGlsLogAsItIsWithoutChurnsCopy() {
         // As if GL's log had been off before Churn and turned on since.
         fake.files.remove("/etc/churn/log_file")
@@ -244,7 +266,7 @@ class RemovalTestTest {
     @Test
     fun removalTestConfirmsTier2ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("F7", "F8", "F9", "F12"), claims)
+        assertEquals(setOf("F7", "F8", "F9", "F12", "H3"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)
