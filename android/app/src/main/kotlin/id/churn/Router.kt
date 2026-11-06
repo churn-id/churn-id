@@ -475,6 +475,9 @@ class Router(private val shell: Shell) {
     fun logFileCopy() = readFile("$CHURN/log_file")?.toString(Charsets.UTF_8)?.lineSequence()?.firstOrNull()?.trim()
         ?.takeIf { it.isNotEmpty() }
 
+    /** Whether a file, a folder or a link is at [path]. */
+    fun exists(path: String) = run("[ -e ${quote(path)} ]").status == 0
+
     /** The command lines of the `logread -f` processes, such as the one that writes GL's system log to its file. */
     fun logFollowers(): List<String> {
         val output = run(LOG_FOLLOWERS)

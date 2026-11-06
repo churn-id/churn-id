@@ -575,8 +575,11 @@ private fun testProfile(router: Router): CheckResult {
     return CheckResult.Failed("The placeholder ICCID came with another IMSI than TS.48's generic test profile's.")
 }
 
-/** Whether GL's system log goes to the file that `log_file` names, through a `logread -f -F` that writes it. */
-private fun flashLogWritten(router: Router): CheckResult {
+/**
+ * Whether GL's system log goes to the file that `log_file` names, through a `logread -f -F` that writes it. The
+ * removal test checks it too, after restore.sh.
+ */
+internal fun flashLogWritten(router: Router): CheckResult {
     val file = router.setting(Router.LOG_FILE) ?: return CheckResult.NotApplicable(R.string.reason_flash_log_off)
     val writes = router.logFollowers().any { line -> "-F" to file in line.split(' ').zipWithNext() }
     return if (writes) CheckResult.Passed else CheckResult.Failed("No logread -f -F writes ${file.take(60)}.")

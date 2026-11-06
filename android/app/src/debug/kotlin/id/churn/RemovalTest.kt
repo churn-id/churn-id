@@ -68,6 +68,16 @@ class RemovalTest(
                 }
                 report(Progress.LOG_SETTING_BACK)
             }
+            // Where restore.sh leaves GL's log on. logread opens the file as the log service starts it, and the app
+            // deleted it at the last clearing.
+            if (logFile != null) {
+                part("H3") {
+                    if (flashLogWritten(router) != CheckResult.Passed || !router.exists(logFile)) {
+                        throw RouterException(Problem.UNEXPECTED_ANSWER, "logread doesn't write $logFile")
+                    }
+                    report(Progress.LOG_WRITTEN)
+                }
+            }
             part { setUp(start) }
         } catch (e: Exception) {
             // As far as the router lets it: one that doesn't answer, or whose radio isn't off, waits for setUpAgain.
