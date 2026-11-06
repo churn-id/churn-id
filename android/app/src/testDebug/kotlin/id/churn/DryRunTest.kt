@@ -83,7 +83,7 @@ class DryRunTest {
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.NO_PROFILE,
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
-                Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE,
+                Progress.NETWORK_RELOADED, Progress.FIREWALL_RELOADED, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE,
                 Progress.TRAY_EMPTY, Progress.SLOT2_ON_ESIM, Progress.PUT_BACK, Progress.DRY_RUN_PASSED,
             ),
             progress,
@@ -112,7 +112,7 @@ class DryRunTest {
     @Test
     fun dryRunConfirmsTier2ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("S2", "S3"), claims)
+        assertEquals(setOf("S2", "S3", "K8", "D19"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)
@@ -183,12 +183,37 @@ class DryRunTest {
     }
 
     @Test
+    fun dryRunReloadsTheNetworkAndTheFirewallThoughBothAreInPlace() {
+        fake.airplaneMode = true
+        Router(fake).installFirewall()
+        fake.commands.clear()
+        run()
+        assertTrue(fake.commands.any { it.endsWith("/etc/init.d/network reload") })
+        assertTrue("fw4 reload" in fake.commands)
+        assertEquals(Progress.DRY_RUN_PASSED, progress.last())
+    }
+
+    @Test
+    fun aReloadThatDropsTheCableStopsTheDryRun() {
+        val before = state()
+        shell.breakAt = { it.endsWith("/etc/init.d/network reload") }
+        try {
+            run()
+            throw AssertionError("The dry run didn't stop")
+        } catch (_: IOException) {
+        }
+        assertEquals(listOf("K8", "D19"), dryRun.testing)
+        assertEquals(listOf<DryRunStart?>(before), saves)
+    }
+
+    @Test
     fun aDryRunWhoseRadioCameOnLeavesTheRouterToPutBackLater() {
         fake.radioOnAtReload = true
         val before = state()
         assertStops(Problem.RADIO_ON) { run() }
-        // Nothing changed since the radio came on, at the firewall's reload.
-        assertEquals("firewall", fake.changes.last().substringBefore(" at "))
+        assertEquals(listOf("K8", "D19"), dryRun.testing)
+        // Nothing changed since the radio came on, at the network's reload.
+        assertEquals("Enhanced Kill Switch", fake.changes.last().substringBefore(" at "))
         assertEquals(Slot2.ESIM, fake.slot2)
         assertEquals(listOf<DryRunStart?>(before), saves)
         fake.radioOnAtReload = false

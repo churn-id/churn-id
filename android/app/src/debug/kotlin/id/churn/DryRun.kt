@@ -26,7 +26,8 @@ class DryRun(
         save(start)
         try {
             part("S2", "S3") { prepare(disableProfile = false) }
-            part { startNewImeis() }
+            // Whether either reload drops the cable or turns the radio on is open in development.md.
+            part("K8", "D19") { startNewImeis(reload = true) }
             part("S2", "S3") { emptyTray() }
             part("S2", "S3") {
                 setSlot2(Slot2.ESIM)

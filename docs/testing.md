@@ -103,7 +103,10 @@ settings can:
    disable it, since Churn couldn't enable it again.
 3. Step 3 up to the card: the VPN again, the router started, the checks
    again, the radio off, the SIM 1 tray empty, and the Enhanced Kill
-   Switch and Churn's firewall rules in place.
+   Switch and Churn's firewall rules in place. Both reload even if the
+   switch is on and the rules are in place, and the connection and the
+   radio's state across each reload show whether it drops the cable or
+   turns the radio on (K8, D19).
 4. Slot 2 switched to the SIM 2 tray and made the active slot, where no
    card may answer, and back to the built-in eSIM. A card in the tray,
    an eSIM adapter card without an enabled profile too, stops the dry run.

@@ -21,7 +21,8 @@ enum class Step {
 enum class Progress {
     UNTESTED_PLATFORM, AIRPLANE_MODE_ON, RADIO_OFF, SLOT2_ON_ESIM, NO_PROFILE, DISABLING_AGAIN, PROFILE_DISABLED,
     WAITING_FOR_START, SIM1_EMPTY, KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND,
-    SLOT2_BACK_ON_SIM2, SAME_CARD, NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN, TRAY_EMPTY, PUT_BACK, DRY_RUN_PASSED,
+    SLOT2_BACK_ON_SIM2, SAME_CARD, NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN, NETWORK_RELOADED, FIREWALL_RELOADED,
+    TRAY_EMPTY, PUT_BACK, DRY_RUN_PASSED,
 }
 
 /**
@@ -92,7 +93,7 @@ open class Swap(
      * on the built-in eSIM.
      */
     fun giveNewImeis(factory: ImeiPair, record: Card?, places: PlaceCards, random: SecureRandom): Card? {
-        startNewImeis()
+        startNewImeis(reload = false)
         val card = try {
             writeCardsImeis(factory, record, places, random) ?: return null
         } catch (e: RouterException) {
@@ -113,9 +114,10 @@ open class Swap(
     /**
      * Step 3 up to the card in the tray, all while slot 2 is still on the built-in eSIM: airplane mode on, the router
      * started, the checks passed, the radio off, the SIM 1 tray empty, and the Enhanced Kill Switch and Churn's
-     * firewall rules in place.
+     * firewall rules in place. With [reload], for the dry run, the network and the firewall reload even if the switch
+     * is on and the rules are in place.
      */
-    protected fun startNewImeis() {
+    protected fun startNewImeis(reload: Boolean) {
         // Before the wait, in case the user turned it off, so that the radio goes off after its burst at power-on.
         turnAirplaneModeOn()
         // Rule 5, checked again in case the VPN was deleted since step 1. Slot 2 is still on the eSIM, so the step can
@@ -132,8 +134,8 @@ open class Swap(
         // Step 4 lets the router go online, so the Enhanced Kill Switch and Churn's firewall rules must be in place
         // by then (rule 5). Turning the switch on takes a network reload, and adding the rules a firewall reload.
         // Either might turn the radio on, so both come while slot 2 is still on the eSIM.
-        turnKillSwitchOn()
-        putFirewallInPlace()
+        turnKillSwitchOn(reload)
+        putFirewallInPlace(reload)
     }
 
     /** Waits until the router has started, when its radio's burst at power-on is over. */
@@ -223,22 +225,28 @@ open class Swap(
         report(Progress.RADIO_OFF)
     }
 
-    /** Turns GL's Enhanced Kill Switch on if it is off, and checks that the radio is still off afterwards. */
-    private fun turnKillSwitchOn() {
-        if (!router.enhancedKillSwitch()) {
+    /**
+     * Turns GL's Enhanced Kill Switch on if it is off, or with [reload] in any case, and checks that the radio is still
+     * off afterwards.
+     */
+    private fun turnKillSwitchOn(reload: Boolean) {
+        if (reload || !router.enhancedKillSwitch()) {
             router.turnEnhancedKillSwitchOn()
             checkRadioOff()
         }
-        report(Progress.KILL_SWITCH_ON)
+        report(if (reload) Progress.NETWORK_RELOADED else Progress.KILL_SWITCH_ON)
     }
 
-    /** Puts Churn's firewall rules in place if they aren't, and checks that the radio is still off afterwards. */
-    private fun putFirewallInPlace() {
-        if (!router.firewallInPlace()) {
+    /**
+     * Puts Churn's firewall rules in place if they aren't, or with [reload] in any case, and checks that the radio is
+     * still off afterwards.
+     */
+    private fun putFirewallInPlace(reload: Boolean) {
+        if (reload || !router.firewallInPlace()) {
             router.installFirewall()
             checkRadioOff()
         }
-        report(Progress.FIREWALL)
+        report(if (reload) Progress.FIREWALL_RELOADED else Progress.FIREWALL)
     }
 
     protected fun checkRadioOff() {

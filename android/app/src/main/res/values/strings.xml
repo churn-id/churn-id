@@ -261,6 +261,8 @@
     <string name="progress_same_card">The card is still the same.</string>
     <string name="progress_new_imeis">The card\'s IMEIs are written and read back.</string>
     <string name="progress_clearing_history">Clearing the router\'s SIM history. This can take a few minutes.</string>
+    <string name="progress_network_reloaded">The Enhanced Kill Switch is on, and its network reload kept the cable and the radio off (K8).</string>
+    <string name="progress_firewall_reloaded">Churn\'s firewall rules are in place, and fw4 reload kept the cable and the radio off (D19).</string>
     <string name="progress_tray_empty">No card answers in the SIM 2 tray.</string>
     <string name="progress_put_back">Slot 2, the active slot and the IMEIs are as they were before the dry run.</string>
     <string name="progress_dry_run_passed">The dry run passed.</string>
