@@ -91,6 +91,17 @@ class RemovalTest(
                 }
                 report(Progress.ZERO_FILES_GONE)
             }
+            part("F11") {
+                val left = listOfNotNull(
+                    router.churnChains().takeIf { it.isNotEmpty() }?.joinToString(" "),
+                    Router.FIREWALL.takeIf { router.firewallFile() != null },
+                    "its line in /etc/sysupgrade.conf".takeIf { router.upgradeKeeps(Router.FIREWALL) },
+                )
+                if (left.isNotEmpty()) {
+                    throw RouterException(Problem.UNEXPECTED_ANSWER, "Churn's rules left: ${left.joinToString(", ")}")
+                }
+                report(Progress.FIREWALL_GONE)
+            }
             part { setUp(start) }
         } catch (e: Exception) {
             // As far as the router lets it: one that doesn't answer, or whose radio isn't off, waits for setUpAgain.

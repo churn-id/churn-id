@@ -146,12 +146,15 @@ profile enabled on the built-in eSIM:
    and whether Churn's firewall rules are in place.
 3. It runs `restore.sh`, as Remove Churn does, which prints its last line
    only if it ran to its end (F12).
-4. It checks what `restore.sh` did: the factory IMEIs back, with the radio
-   still off (F7); Churn's folder, the card's record in it and the
-   folder's line in `/etc/sysupgrade.conf` gone (F8, F12); and GL's
-   `log_file` setting as Churn's copy had it (F9), with a `logread`
-   writing that file again (H3); and the zero files and the link to them
-   gone, with their space free again (F10).
+4. It checks what `restore.sh` did:
+   - the factory IMEIs back, with the radio still off (F7);
+   - Churn's folder, the card's record in it and the folder's line in
+     `/etc/sysupgrade.conf` gone (F8, F12);
+   - GL's `log_file` setting as Churn's copy had it (F9), with a `logread`
+     writing that file again (H3);
+   - the zero files and their link gone, and their space free (F10);
+   - and Churn's firewall rules, their chains and their line in
+     `/etc/sysupgrade.conf` gone (F11).
 5. It sets the router up again as the setup screen does, with the card's
    record, the IMEIs it had and Churn's firewall rules, and keeps the
    recorded card's SIM history (F12).

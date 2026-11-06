@@ -125,8 +125,8 @@ class RemovalTestTest {
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.NO_PROFILE,
                 Progress.SIM1_EMPTY, Progress.RESTORED, Progress.FACTORY_IMEIS, Progress.FOLDER_GONE,
-                Progress.LOG_SETTING_BACK, Progress.LOG_WRITTEN, Progress.ZERO_FILES_GONE, Progress.SET_UP_AGAIN,
-                Progress.REMOVAL_PASSED,
+                Progress.LOG_SETTING_BACK, Progress.LOG_WRITTEN, Progress.ZERO_FILES_GONE, Progress.FIREWALL_GONE,
+                Progress.SET_UP_AGAIN, Progress.REMOVAL_PASSED,
             ),
             progress,
         )
@@ -259,6 +259,24 @@ class RemovalTestTest {
     }
 
     @Test
+    fun removalTestStopsWhenRestoreShLeavesChurnsChains() {
+        fake.restoreKeepsChains = true
+        assertStopsAfterRestoreSh("F11")
+    }
+
+    @Test
+    fun removalTestStopsWhenRestoreShLeavesTheFirewallFile() {
+        fake.restoreKeepsFirewallFile = true
+        assertStopsAfterRestoreSh("F11")
+    }
+
+    @Test
+    fun removalTestStopsWhenRestoreShLeavesTheFirewallInTheUpgrade() {
+        fake.restoreKeepsFirewallLine = true
+        assertStopsAfterRestoreSh("F11")
+    }
+
+    @Test
     fun removalTestPassesWithoutZeroFiles() {
         // As before the first clearing with an overwrite.
         fake.zeroFilesKb = 0
@@ -296,7 +314,7 @@ class RemovalTestTest {
     @Test
     fun removalTestConfirmsTier2ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("F7", "F8", "F9", "F10", "F12", "H3"), claims)
+        assertEquals(setOf("F7", "F8", "F9", "F10", "F11", "F12", "H3"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)
