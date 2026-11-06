@@ -116,7 +116,9 @@ settings can:
 6. Where step 3 writes a card's pair, a random test pair with the TACs
    and the spacing of the factory IMEIs written and read back, and then
    the earlier pair, each with the radio still off after it (M6).
-7. Slot 2 switched back to the built-in eSIM, and its setting and the
+7. Airplane mode, the radio and both IMEIs read 20 times in a row while
+   GL's services run, every answer checked (P5).
+8. Slot 2 switched back to the built-in eSIM, and its setting and the
    active slot put back (S2, S3).
 
 Like a swap, the dry run leaves airplane mode and the Enhanced Kill Switch
@@ -137,7 +139,7 @@ From development.md, "Sending AT commands", and design.md, section 6.
 | P2 | The firmware has `flock`, `curl`, `ubus`, `fw4` and `nft` | verified | `command -v` for each | 1, blocks |
 | P3 | The firmware has `md5sum`, which the debug log uses | inferred | `command -v md5sum` | 1 |
 | P4 | AT commands work through `gl_modem -B cpu AT` | verified | `AT+CFUN?` answers, ending with `OK` | 1, blocks |
-| P5 | `gl_modem` keeps Churn's commands apart from those of GL's daemons | inferred | Read the radio and both IMEIs many times in a row while GL's services run, and check every answer | 2 |
+| P5 | `gl_modem` keeps Churn's commands apart from those of GL's daemons | inferred | Read the radio and both IMEIs 20 times in a row while GL's services run, and check every answer | 2 |
 
 ## Phone and cable
 

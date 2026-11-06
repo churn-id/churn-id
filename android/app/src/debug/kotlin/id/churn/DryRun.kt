@@ -45,6 +45,7 @@ class DryRun(
             }
             // Where step 3 writes a card's pair.
             part("M6") { writeTestImeis(start.imeis, factory, random) }
+            part("P5") { readRepeatedly(start.imeis) }
             part("S2", "S3") {
                 setSlot2(Slot2.ESIM)
                 report(Progress.SLOT2_ON_ESIM)
@@ -117,6 +118,20 @@ class DryRun(
         report(Progress.EARLIER_IMEIS)
     }
 
+    /**
+     * Reads airplane mode, the radio and both IMEIs [READS] times in a row, while GL's services run, and checks every
+     * answer: one with another command's answer mixed in shows as another state or pair.
+     */
+    private fun readRepeatedly(imeis: ImeiPair) {
+        for (read in 1..READS) {
+            checkRadioOff()
+            if (router.imeis() != imeis) {
+                throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+EGMR=0: read $read of $READS gave another pair")
+            }
+        }
+        report(Progress.ANSWERS_MATCHED)
+    }
+
     /** Whether the router's IMEIs, slot 2's setting and the active slot are [start]'s. */
     private fun asItWas(start: DryRunStart) =
         router.imeis() == start.imeis && router.slot2() == start.slot2 && activeSlot() == start.activeSlot
@@ -137,5 +152,8 @@ class DryRun(
     companion object {
         /** Debug builds have the dry run. */
         const val AVAILABLE = true
+
+        /** How many times P5's part reads, as progress_answers_matched and testing.md say. */
+        private const val READS = 20
     }
 }

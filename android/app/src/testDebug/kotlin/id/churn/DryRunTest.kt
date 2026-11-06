@@ -100,7 +100,8 @@ class DryRunTest {
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
                 Progress.NETWORK_RELOADED, Progress.FIREWALL_RELOADED, Progress.SLOT1_ACTIVE, Progress.SLOT2_ON_SIM2,
                 Progress.SLOT2_ACTIVE, Progress.TRAY_EMPTY, Progress.ESIM_SILENT, Progress.TEST_IMEIS,
-                Progress.EARLIER_IMEIS, Progress.SLOT2_ON_ESIM, Progress.PUT_BACK, Progress.DRY_RUN_PASSED,
+                Progress.EARLIER_IMEIS, Progress.ANSWERS_MATCHED, Progress.SLOT2_ON_ESIM, Progress.PUT_BACK,
+                Progress.DRY_RUN_PASSED,
             ),
             progress,
         )
@@ -132,7 +133,7 @@ class DryRunTest {
     @Test
     fun dryRunConfirmsTier2ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("S2", "S3", "K8", "D19", "U6", "E4", "M6"), claims)
+        assertEquals(setOf("S2", "S3", "K8", "D19", "U6", "E4", "M6", "P5"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)
@@ -222,6 +223,35 @@ class DryRunTest {
         assertStops(Problem.RADIO_ON) { run() }
         assertEquals(listOf("M6"), dryRun.testing)
         assertSafe()
+    }
+
+    @Test
+    fun dryRunReadsTheRadioAndBothImeis20TimesInARow() {
+        val reads = mutableListOf<String>()
+        shell.after = { if (dryRun.testing == listOf("P5")) reads += it }
+        run()
+        assertEquals(20, reads.count { "AT+CFUN?" in it })
+        assertEquals(20, reads.count { "AT+EGMR=0,7" in it })
+        assertEquals(20, reads.count { "AT+EGMR=0,11" in it })
+    }
+
+    @Test
+    fun dryRunStopsAtAnotherPairInTheRepeatedReads() {
+        // At the last read only, as if another command's answer were mixed into gl_modem's.
+        var reads = 0
+        shell.after = {
+            if (dryRun.testing == listOf("P5") && "AT+EGMR=0,7" in it) {
+                when (++reads) {
+                    19 -> fake.atAnswers["AT+EGMR=0,7"] = "+EGMR: \"${fake.imei2}\""
+                    20 -> fake.atAnswers.remove("AT+EGMR=0,7")
+                }
+            }
+        }
+        val before = state()
+        assertStops(Problem.UNEXPECTED_ANSWER) { run() }
+        assertEquals(listOf("P5"), dryRun.testing)
+        assertEquals(before, state())
+        assertEquals(listOf(before, null), saves)
     }
 
     @Test

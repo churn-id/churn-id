@@ -268,6 +268,7 @@
     <string name="progress_esim_silent">Nor does the built-in eSIM, with slot 2 on the tray (E4).</string>
     <string name="progress_test_imeis">A test pair of IMEIs is written and read back (M6).</string>
     <string name="progress_earlier_imeis">The earlier IMEIs are written and read back.</string>
+    <string name="progress_answers_matched">Airplane mode, the radio and both IMEIs read the same 20 times in a row (P5).</string>
     <string name="progress_put_back">Slot 2, the active slot and the IMEIs are as they were before the dry run.</string>
     <string name="progress_dry_run_passed">The dry run passed.</string>
 

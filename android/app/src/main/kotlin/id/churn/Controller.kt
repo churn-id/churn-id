@@ -782,6 +782,7 @@ class Controller(private val context: Context) {
             Progress.ESIM_SILENT -> R.string.progress_esim_silent
             Progress.TEST_IMEIS -> R.string.progress_test_imeis
             Progress.EARLIER_IMEIS -> R.string.progress_earlier_imeis
+            Progress.ANSWERS_MATCHED -> R.string.progress_answers_matched
             Progress.PUT_BACK -> R.string.progress_put_back
             Progress.DRY_RUN_PASSED -> R.string.progress_dry_run_passed
         },
