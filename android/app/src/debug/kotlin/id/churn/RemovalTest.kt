@@ -50,6 +50,16 @@ class RemovalTest(
                 checkRadioOff()
                 report(Progress.FACTORY_IMEIS)
             }
+            // With the folder, Churn's record of the card is gone too.
+            part("F8", "F12") {
+                if (router.churnFolderListing() != null) {
+                    throw RouterException(Problem.UNEXPECTED_ANSWER, "${Router.CHURN} is still there after restore.sh")
+                }
+                if (router.upgradeKeeps("${Router.CHURN}/")) {
+                    throw RouterException(Problem.UNEXPECTED_ANSWER, "/etc/sysupgrade.conf still lists Churn's folder")
+                }
+                report(Progress.FOLDER_GONE)
+            }
             part { setUp(start) }
         } catch (e: Exception) {
             // As far as the router lets it: one that doesn't answer, or whose radio isn't off, waits for setUpAgain.

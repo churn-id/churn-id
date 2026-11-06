@@ -283,6 +283,7 @@
     <string name="progress_dry_run_passed">The dry run passed.</string>
     <string name="progress_restored">restore.sh ran to its end (F12).</string>
     <string name="progress_factory_imeis">The factory IMEIs are back, and the radio is still off (F7).</string>
+    <string name="progress_folder_gone">Churn\'s folder, with the card\'s record in it, and its line in /etc/sysupgrade.conf are gone (F8, F12).</string>
     <string name="progress_set_up_again">The router is set up again, with the card\'s record, the IMEIs it had and Churn\'s firewall rules as before.</string>
     <string name="progress_removal_passed">The removal test passed.</string>
 

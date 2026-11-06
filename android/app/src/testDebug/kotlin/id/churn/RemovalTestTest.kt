@@ -124,8 +124,8 @@ class RemovalTestTest {
         assertEquals(
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.NO_PROFILE,
-                Progress.SIM1_EMPTY, Progress.RESTORED, Progress.FACTORY_IMEIS, Progress.SET_UP_AGAIN,
-                Progress.REMOVAL_PASSED,
+                Progress.SIM1_EMPTY, Progress.RESTORED, Progress.FACTORY_IMEIS, Progress.FOLDER_GONE,
+                Progress.SET_UP_AGAIN, Progress.REMOVAL_PASSED,
             ),
             progress,
         )
@@ -169,14 +169,7 @@ class RemovalTestTest {
     @Test
     fun removalTestStopsWhenRestoreShEndsBeforeItsLastLine() {
         fake.restoreEndsEarly = true
-        val before = state()
-        assertStops(Problem.UNEXPECTED_ANSWER) { run() }
-        assertEquals(listOf("F12"), test.testing)
-        // Set up again at once, since the radio is still off.
-        assertEquals(before, state())
-        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true), null), saves)
-        assertEquals(Progress.SET_UP_AGAIN, progress.last())
-        assertSafe()
+        assertStopsAfterRestoreSh("F12")
     }
 
     @Test
@@ -191,12 +184,7 @@ class RemovalTestTest {
     @Test
     fun removalTestStopsWhenRestoreShLeavesOtherImeis() {
         fake.restoreKeepsImeis = true
-        val before = state()
-        assertStops(Problem.UNEXPECTED_ANSWER) { run() }
-        assertEquals(listOf("F7"), test.testing)
-        assertEquals(before, state())
-        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true), null), saves)
-        assertSafe()
+        assertStopsAfterRestoreSh("F7")
     }
 
     @Test
@@ -210,9 +198,35 @@ class RemovalTestTest {
     }
 
     @Test
+    fun removalTestStopsWhenRestoreShLeavesChurnsFolder() {
+        fake.restoreKeepsFolder = true
+        assertStopsAfterRestoreSh("F8", "F12")
+    }
+
+    @Test
+    fun removalTestStopsWhenRestoreShLeavesTheFolderInTheUpgrade() {
+        fake.restoreKeepsFolderLine = true
+        assertStopsAfterRestoreSh("F8", "F12")
+    }
+
+    /**
+     * Runs the test with a restore.sh or a firmware broken to fail the check of [ids], and checks that it stops there
+     * and sets the router up again at once, since the radio is still off.
+     */
+    private fun assertStopsAfterRestoreSh(vararg ids: String) {
+        val before = state()
+        assertStops(Problem.UNEXPECTED_ANSWER) { run() }
+        assertEquals(ids.toList(), test.testing)
+        assertEquals(before, state())
+        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true), null), saves)
+        assertEquals(Progress.SET_UP_AGAIN, progress.last())
+        assertSafe()
+    }
+
+    @Test
     fun removalTestConfirmsTier2ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("F7", "F12"), claims)
+        assertEquals(setOf("F7", "F8", "F12"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)

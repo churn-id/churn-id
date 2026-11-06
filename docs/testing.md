@@ -147,7 +147,8 @@ profile enabled on the built-in eSIM:
 3. It runs `restore.sh`, as Remove Churn does, which prints its last line
    only if it ran to its end (F12).
 4. It checks what `restore.sh` did: the factory IMEIs back, with the radio
-   still off (F7).
+   still off (F7); and Churn's folder, the card's record in it and the
+   folder's line in `/etc/sysupgrade.conf` gone (F8, F12).
 5. It sets the router up again as the setup screen does, with the card's
    record, the IMEIs it had and Churn's firewall rules, and keeps the
    recorded card's SIM history (F12).
@@ -368,7 +369,7 @@ From development.md, "Files on the router", and design.md, section 5.
 | F5 | GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | At every connection, while the recorded card answers in slot 2, the IMEIs are its recorded pair (tier 1); after an upgrade, they are the ones from before it (tier 3) | 1, 3 |
 | F6 | A firmware upgrade with "keep settings" keeps `/etc/churn/`, the link `zeros` in it included, Churn's firewall rules and the log's file off | open | Upgrade, then check the folder, the link, the rules and `log_file` | 3 |
 | F7 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then read the IMEIs and the radio, and write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
-| F8 | `restore.sh` then deletes Churn's record of the card | inferred | Run it, then check that `/etc/churn/card` is gone (tier 2) | 2 |
+| F8 | `restore.sh` then deletes Churn's record of the card | inferred | Run it, then check that `/etc/churn/card` is gone, with the folder (tier 2) | 2 |
 | F9 | `restore.sh` then sets GL's `log_file` back from Churn's copy, and deletes the copy | inferred | Run it, then check the setting and the copy (tier 2) | 2 |
 | F10 | `restore.sh` then deletes `/overlay/churn-zeros`, the link to it and any fill files | inferred | Run it, then check that the folder and the link are gone and the free space is back (tier 2) | 2 |
 | F11 | `restore.sh` then removes Churn's firewall rules and their line in `/etc/sysupgrade.conf` | inferred | Run it, then check that the chains, the file and the line are gone (tier 2) | 2 |
