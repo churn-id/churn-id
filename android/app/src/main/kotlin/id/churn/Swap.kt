@@ -28,7 +28,8 @@ enum class Progress {
     NO_IMSIS, ICCIDS_GONE, NO_ICCIDS, PARTITION_UNCHECKED, FREE_SPACE_FILLED, CLEARED_QUICKLY, REMOVAL_PASSED,
     NETWORK_LOST, NEW_BOOT_ID, TEST_PAIR_SAVED, SETTINGS_KEPT, RULES_AT_START, CHAINS_AT_START, MODEM_ANSWERED,
     MODEM_AT_ONCE, RADIO_ON_UNTIL, RADIO_OFF_AT_FIRST, RADIO_OFF_FROM, IMEIS_KEPT, EARLIER_IMEIS_SAVED, TRAYS_EMPTY,
-    RADIO_ON_UNCOMMITTED, RADIO_OFF_UNCOMMITTED, POWER_CYCLES_PASSED,
+    RADIO_ON_UNCOMMITTED, RADIO_OFF_UNCOMMITTED, POWER_CYCLES_PASSED, CARD_READY, GOING_ONLINE, SIM_PACKETS,
+    FRAGMENTS_UNCLEAR, INTERFACES_CHANGED, NOTHING_LEFT, LEAK_WATCH_PASSED,
 }
 
 /**
@@ -190,7 +191,7 @@ open class Swap(
      * Stops the step if a router check that swaps rely on fails, since Churn's commands can't be trusted then. On a
      * firmware or modem we haven't tested, the step goes on once they all pass, with a note.
      */
-    private fun runChecks() {
+    protected fun runChecks() {
         val failed = check()
         if (failed.isNotEmpty()) throw RouterException(Problem.CHECK_FAILED, failed.joinToString("\n\n"))
         // As in the check of P1, a version the app can't read counts as untested, and doesn't stop the step.

@@ -7,8 +7,9 @@ wrong all along, shows up before a user depends on it. The claims come
 from [design.md](design.md) and [development.md](development.md).
 
 Status: being built. The app runs the tier 1 checks, and debug builds
-have tier 2's dry run and removal and clearing tests and tier 3's power
-cycle test; tier 4 is a plan. The app's unit tests run in CI against a
+have tier 2's dry run and removal and clearing tests, tier 3's power cycle
+test and tier 4's leak watch; the rest of tier 4 is done by hand. The
+app's unit tests run in CI against a
 simulated Mudi 7 (`FakeRouter`) built from these claims, so a claim that
 turns out wrong makes the simulation wrong too. *Verified* means we
 observed it by hand on a Mudi 7 with GL firmware 4.10.0 and a Quectel
@@ -59,8 +60,9 @@ to the router:
   screen lists the checks that failed. On firmware we haven't tested, a
   swap goes ahead if every blocking check passes, with a note on the
   step's screen that the firmware is untested.
-- Tier 1 runs for every user. Tiers 2 and 3 start in debug builds; tier 2
-  may later be offered to users. Tiers 3 and 4 are for the maintainer.
+- Tier 1 runs for every user. Tiers 2 and 3, and tier 4's leak watch,
+  start in debug builds; tier 2 may later be offered to users. Tiers 3 and
+  4 are for the maintainer.
 - A test that clears the SIM history writes about 0.5 GB to the flash,
   or 2.9 GB without the zero files (development.md, "Clearing the SIM
   history"), and a test that runs `restore.sh` deletes the zero files and
@@ -252,6 +254,47 @@ so, once the router has started and its radio is off. The screen lists
 what the test did and, if it stopped, the claims it was confirming. The
 debug log keeps every command.
 
+## Leak watch
+
+Debug builds also have a Leak watch button on the router screen, for the
+tier 4 claims about going online. The test turns airplane mode off in the
+user's place at step 4 of a swap, so it runs where step 4 may happen, once
+the router has been switched on again there (rule 1):
+
+1. It commits airplane mode on if it isn't, and checks the router as step
+   3 does up to the card: the VPN, the router started, the checks marked
+   *blocks*, the radio off and the SIM 1 tray empty.
+2. The card that step 3 last gave its IMEIs, as Churn's folder records
+   it, has to answer in the SIM 2 tray, with slot 2 on it as the active
+   slot, and the router has to have the card's IMEIs. The Enhanced Kill
+   Switch and Churn's firewall rules have to be in place. Anything else
+   stops the test before airplane mode goes off.
+3. It adds a table of its own to the router's firewall, `inet
+   churn_watch`, in place of any that an earlier watch left, with counters
+   of the packets that try to leave over the SIM, before Churn's rules, and
+   of those that got past them, by IP version. A reload of GL's firewall
+   changes only GL's table, so it keeps them (inferred), and a power-off
+   deletes them.
+4. Still in airplane mode, it reads the packets that each `rmnet_data*`
+   interface sent, the counters, and the fragments that the router made
+   of packets since it started, from `/proc/net/snmp` and
+   `/proc/net/snmp6`.
+5. It commits airplane mode off and reads the same every 2 s for 60 s.
+   Every packet that got past Churn's rules passed the counters before it
+   left, so the interfaces can't have sent more, but for the fragments
+   that the router made of such packets, which they count one by one.
+   More than that, packets that Churn's rules didn't see, stops the test
+   (D11).
+6. It deletes its table and leaves the router online, as step 4 does.
+
+The lines name how many packets left over the SIM in that minute and how
+many Churn's rules dropped. If the router made fragments meanwhile, one of
+the SIM's interfaces went away or was made anew, or nothing left at all,
+D11 stays unconfirmed, and the lines say so. A test that stops once
+airplane mode is off commits it on again and deletes its table. The
+screen lists what the test did and, if it stopped, the claims it was
+confirming. The debug log keeps every command.
+
 ## Platform
 
 From development.md, "Sending AT commands", and design.md, section 6.
@@ -350,7 +393,7 @@ design.md, sections 7 and 10.
 | D8 | The SIM's data interfaces match `rmnet_data*`, online and in airplane mode | verified | The interfaces in `/sys/class/net` and the one `ifstatus modem_cpu` names | 1, blocks |
 | D9 | WireGuard sends with the mark `0x8000`, and on output no other packets carry it | verified | `wg show all fwmark` (tier 1); the rules' counters across airplane mode off and on (tier 4) | 1, 4 |
 | D10 | The main dnsmasq runs as the user ID the rules name | verified, and checked by the app | `id -u dnsmasq` answers, and Churn's rules, while on the router, name the same user ID | 1 |
-| D11 | With the rules, nothing but WireGuard leaves over the SIM, from devices too, also with the Enhanced Kill Switch off and the tunnel down, and over IPv6 as over IPv4 | verified for devices over IPv4 with the switch off and the tunnel down; going online and IPv6 inferred | The drop counter grows and a device's website fails (tier 4); watch the cellular interface after airplane mode goes off (tier 4) | 4 |
+| D11 | With the rules, nothing but WireGuard leaves over the SIM, from devices too, also with the Enhanced Kill Switch off and the tunnel down, and over IPv6 as over IPv4 | verified for devices over IPv4 with the switch off and the tunnel down; going online and IPv6 inferred | The drop counter grows and a device's website fails (tier 4); the leak watch's counts after airplane mode goes off (tier 4) | 4 |
 | D12 | With the rules, the router's own traffic leaves through the tunnel from the VPN's address, and its lookups go to the VPN's DNS server | verified | A request and a lookup from the router, watched on the tunnel interface | 4 |
 | D13 | The tunnel's IP Masquerading translates the router's own packets to the tunnel's address; without it, the VPN server wouldn't accept them | translation verified, without it inferred | The setting `masq` of the tunnel's WireGuard peer, by its name the IP Masquerading, is on (tier 1); a request from the router with it off (tier 4) | 1, 4 |
 | D14 | GL's firewall loads Churn's rules at boot before the modem goes online | open | The chains are listed after a boot, and when the app first saw them (tier 3); what leaves over the SIM during a boot with a card (tier 4) | 3, 4 |
