@@ -343,16 +343,29 @@ class FakeRouter : Shell {
     /** The radio state the modem reports. For some seconds after power-on it is on, whatever the settings. */
     val radio
         get() = when {
-            radioStuckOn || uptime < 58 -> 1
+            radioStuckOn || uptime < radioWindowEnd || radioBurst?.contains(uptime) == true -> 1
             airplaneMode -> 4
             else -> 1
         }
 
+    /** The end of the radio-on window after power-on, in seconds of uptime: the latest we measured, as B2 says. */
+    var radioWindowEnd = 58.0
+
+    /**
+     * For a radio that comes on again after the window, while the router starts, against B3 in testing.md. Only the
+     * power cycle test's tests use it.
+     */
+    var radioBurst: ClosedFloatingPointRange<Double>? = null
+
+    /** When the modem first answers after power-on, in seconds of uptime, for [modemAnswers]. */
+    var modemAnswersFrom = 30.0
+
     /**
      * The modem doesn't answer for a while after power-on (development.md, "After power-on"); 30 s is our guess, not
-     * a measurement. The swap sends no modem command before 120 s, so only a swap that sends one too early gets here.
+     * a measurement. The swap sends no modem command before 120 s, so only a swap that sends one too early gets here,
+     * or the power cycle test, which watches the modem from the moment it reaches the router.
      */
-    private val modemAnswers get() = uptime >= 30
+    private val modemAnswers get() = uptime >= modemAnswersFrom
 
     /**
      * GL's records of [cards], given by their ICCIDs as GL stores them, in the files and formats of our Mudi 7: the

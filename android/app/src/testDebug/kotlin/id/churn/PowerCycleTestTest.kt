@@ -22,10 +22,13 @@ class PowerCycleTestTest {
         var broken = false
         var breakAt: (String) -> Boolean = { false }
 
+        /** Runs after each command that [fake] answered, with the command. */
+        var after: (String) -> Unit = {}
+
         override fun run(command: String, input: ByteArray?, timeoutSeconds: Long): Output {
             if (breakAt(command)) broken = true
             if (broken) throw IOException("Broken pipe")
-            return fake.run(command, input, timeoutSeconds)
+            return fake.run(command, input, timeoutSeconds).also { after(command) }
         }
     }
     private val progress = mutableListOf<Progress>()
@@ -127,23 +130,19 @@ class PowerCycleTestTest {
         progress.clear()
         resume()
         bootIds += fake.bootId
+        val start = listOf(
+            Progress.NEW_BOOT_ID, Progress.SETTINGS_KEPT, Progress.WAITING_FOR_START, Progress.MODEM_ANSWERED,
+            Progress.RADIO_ON_UNTIL, Progress.RADIO_OFF_FROM, Progress.IMEIS_KEPT,
+        )
         assertEquals(
-            listOf(
-                Progress.NEW_BOOT_ID, Progress.SETTINGS_KEPT, Progress.WAITING_FOR_START, Progress.RADIO_OFF,
-                Progress.IMEIS_KEPT, Progress.EARLIER_IMEIS_SAVED, Progress.SHUTTING_DOWN, Progress.NETWORK_LOST,
-            ),
+            start + listOf(Progress.EARLIER_IMEIS_SAVED, Progress.SHUTTING_DOWN, Progress.NETWORK_LOST),
             progress,
         )
         progress.clear()
         resume()
-        assertEquals(
-            listOf(
-                Progress.NEW_BOOT_ID, Progress.SETTINGS_KEPT, Progress.WAITING_FOR_START, Progress.RADIO_OFF,
-                Progress.IMEIS_KEPT, Progress.PUT_BACK, Progress.POWER_CYCLES_PASSED,
-            ),
-            progress,
-        )
-        assertEquals(listOf(9, 9), seconds)
+        assertEquals(start + listOf(Progress.PUT_BACK, Progress.POWER_CYCLES_PASSED), progress)
+        // The network lost after poweroff, then the modem's first answer and the radio's window, read every 2 s.
+        assertEquals(listOf(9, 30, 56, 58, 9, 30, 56, 58), seconds)
         assertEquals(before, state())
         // Kept before the first change, again before each power-off, and forgotten once the router is as it was.
         val first = before.copy(bootId = bootIds[0], powerOn = 1, testImeis = testPair)
@@ -161,7 +160,7 @@ class PowerCycleTestTest {
         run()
         resume()
         resume()
-        assertEquals(setOf("B4", "B5", "B6", "M7", "U3"), claims)
+        assertEquals(setOf("B1", "B2", "B3", "B4", "B5", "B6", "M7", "U3"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 3 claim in testing.md", "3" in tiers)
@@ -329,12 +328,93 @@ class PowerCycleTestTest {
     }
 
     @Test
+    fun aModemThatAnswersAtOnceLeavesB1Unconfirmed() {
+        fake.modemAnswersFrom = 0.0
+        run()
+        resume()
+        assertTrue(Progress.MODEM_AT_ONCE in progress)
+        assertEquals(0, seconds[1])
+        assertTrue(Progress.MODEM_ANSWERED !in progress)
+        resume()
+        assertEquals(Progress.POWER_CYCLES_PASSED, progress.last())
+    }
+
+    @Test
+    fun aRouterReachedAfterTheWindowLeavesB1AndB2Unconfirmed() {
+        run()
+        fake.boot()
+        // As when the user switched the router on long before the phone reached it.
+        fake.clock += 70_000
+        progress.clear()
+        resume()
+        val start = progress.dropWhile { it != Progress.WAITING_FOR_START }.drop(1).take(3)
+        assertEquals(listOf(Progress.MODEM_AT_ONCE, Progress.RADIO_OFF_AT_FIRST, Progress.RADIO_OFF_FROM), start)
+        assertEquals(listOf(70, 70, 70), seconds.subList(1, 4))
+    }
+
+    @Test
+    fun aModemThatNeverAnswersStopsTheTest() {
+        run()
+        fake.modemAnswersFrom = 1_000.0
+        assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals(listOf("B1"), powerCycles.testing)
+        // The modem doesn't answer, so the test can't put the router back yet.
+        assertEquals(0, saves.last()!!.powerOn)
+    }
+
+    @Test
+    fun aRadioWindowPast58SecondsStopsTheTest() {
+        fake.radioWindowEnd = 70.0
+        val before = state()
+        run()
+        assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals(listOf("B2"), powerCycles.testing)
+        assertTrue(Progress.RADIO_ON_UNTIL !in progress)
+        // Checked once the router has started, with its radio off, so the test put the router back at once.
+        assertEquals(before, state())
+        assertNull(saves.last())
+    }
+
+    @Test
+    fun aRadioOnAgainAfterTheWindowStopsTheTest() {
+        fake.radioBurst = 90.0..95.0
+        val before = state()
+        run()
+        assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals(listOf("B3"), powerCycles.testing)
+        assertEquals(Progress.RADIO_ON_UNTIL, progress.last { it != Progress.PUT_BACK })
+        assertEquals(before, state())
+        assertNull(saves.last())
+    }
+
+    @Test
+    fun aRadioOnAt120SecondsStopsTheTest() {
+        fake.radioBurst = 120.0..130.0
+        run()
+        assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals(listOf("B3"), powerCycles.testing)
+        assertEquals(0, saves.last()!!.powerOn)
+    }
+
+    @Test
+    fun aRadioUnansweredAt120SecondsStopsTheTest() {
+        run()
+        fake.boot()
+        // The modem stops answering AT+CFUN? after its window.
+        shell.after = { if (fake.uptime >= 100) fake.atAnswers["AT+CFUN?"] = "+CFUN: ?" }
+        assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals(listOf("B3"), powerCycles.testing)
+        assertEquals(0, saves.last()!!.powerOn)
+    }
+
+    @Test
     fun aTestWhoseRadioIsOnAfterAPowerOnLeavesTheRouterToPutBackLater() {
         val before = state()
         run()
         fake.boot()
         fake.radioStuckOn = true
-        assertStops(Problem.RADIO_ON) { resume() }
+        assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals(listOf("B2"), powerCycles.testing)
         assertEquals(0, saves.last()!!.powerOn)
         // Still on the empty tray, which the test changes nothing more on.
         assertEquals(Slot2.SIM2, fake.slot2)

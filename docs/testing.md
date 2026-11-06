@@ -222,9 +222,14 @@ where the router emitted nothing at power-on (B8):
    screen had gone dark by then, the user sees.
 6. Once the user has switched the router on again and it is on the cable,
    the boot ID has to be new (B4, B6), and GL's settings still have
-   airplane mode and the Enhanced Kill Switch on (U3). The test waits until
-   the router has started and its radio is off, and the router has to have
-   the test pair (M7).
+   airplane mode and the Enhanced Kill Switch on (U3). From then until the
+   router has started, 120 s after power-on, the test reads `/proc/uptime`
+   and `AT+CFUN?` every 2 s. The modem is to leave the first reads
+   unanswered (B1), then report its radio on until 58 s after power-on at
+   the latest (B2), and off from then on (B3). A modem that doesn't answer
+   by then, or a radio on later, stops the test; if the phone reaches the
+   router only once the modem answers, or once the radio is off, B1 or B2
+   stays unconfirmed. The router then has to have the test pair (M7).
 7. It writes, saves and reads back the earlier pair, shuts the router down
    a second time, as in step 5, and checks the next power-on as in step 6,
    with the earlier pair.
