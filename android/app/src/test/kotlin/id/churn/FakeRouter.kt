@@ -126,6 +126,12 @@ class FakeRouter : Shell {
      */
     var esimAnswersOnTray = false
 
+    /**
+     * For a shell that stops reading restore.sh, without an error, once the script deleted Churn's folder and itself,
+     * against F12 in testing.md. Only the removal test's test uses it.
+     */
+    var restoreEndsEarly = false
+
     /** The card in the SIM 1 tray, which Churn never uses. */
     var tray1Card: Card? = null
     var scheduledReboot = false
@@ -396,6 +402,7 @@ class FakeRouter : Shell {
             return ok("")
         }
         if (command == "fw4 reload") return fw4Reload()
+        if (command == "sh /etc/churn/restore.sh") return restore()
         if (command == "rm -f ${Router.FIREWALL} && fw4 reload") {
             files.remove(Router.FIREWALL)
             return fw4Reload()
@@ -663,6 +670,40 @@ class FakeRouter : Shell {
     private fun change(what: String) {
         changes += "$what at ${uptime.toInt()} s"
         if (!airplaneMode || radio != 4) unsafe += what
+    }
+
+    /**
+     * restore.sh as [Router.restoreFactoryImeis] runs it, by its effects as the script in the app's assets has them:
+     * airplane mode on, the factory IMEIs written and saved, Churn's record of the card deleted, GL's setting for the
+     * system log put back, the zero files deleted, Churn's firewall rules removed and, last, Churn's folder deleted.
+     */
+    private fun restore(): Output {
+        // Only an app that runs restore.sh on a router it didn't set up gets here.
+        val factory = files["/etc/churn/factory"]?.toString(Charsets.UTF_8)?.lines()?.takeIf { it.size >= 2 }
+            ?: return Output(1, ByteArray(0), "Can't read /etc/churn/factory.\n")
+        airplaneMode = true
+        // Only a modem whose radio stays on gets here.
+        if (radio != 4) return Output(1, ByteArray(0), "The radio didn't turn off, so the IMEIs are unchanged.\n")
+        change("IMEI 7")
+        imei1 = factory[0]
+        change("IMEI 11")
+        imei2 = factory[1]
+        savedImeis = null
+        files.remove("/etc/churn/card")
+        files.remove("/etc/churn/log_file")?.let { logFile = it.toString(Charsets.UTF_8).trim() }
+        zerosLink = null
+        files.remove(Router.FIREWALL)
+        loadedChains.clear()
+        for (line in listOf(Router.FIREWALL, "/etc/churn/")) {
+            sysupgrade = sysupgrade.lines().filter { it != line }.joinToString("\n")
+        }
+        files.keys.removeAll { it.startsWith("/etc/churn/") }
+        if (restoreEndsEarly) return ok("")
+        return ok(
+            "The factory IMEIs are back: IMEI 1 ${factory[0]}, IMEI 2 ${factory[1]}. GL's setting for saving the " +
+                "system log is as before. Churn's zero files, firewall rules and folder are removed. " +
+                "Airplane mode is on.\n",
+        )
     }
 
     private fun atOk(line: String? = null) = ok("\n\r\n" + (line?.let { "$it\r\n\r\n" } ?: "") + "OK\r\n\n")

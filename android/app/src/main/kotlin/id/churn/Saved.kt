@@ -107,6 +107,37 @@ class Saved(context: Context) {
             }
         }
 
+    /**
+     * What tier 2's removal test sets the router up again with, while one runs or after one stopped before it set the
+     * router up again; null otherwise.
+     */
+    var removalStart: RemovalStart?
+        get() {
+            val factory = pair(REMOVAL_FACTORY1, REMOVAL_FACTORY2)
+            val imeis = pair(REMOVAL_IMEI1, REMOVAL_IMEI2)
+            val card = pair(REMOVAL_CARD_IMEI1, REMOVAL_CARD_IMEI2)?.let { cardImeis ->
+                preferences.getString(REMOVAL_CARD_ICCID, null)?.let { Card(it, cardImeis) }
+            }
+            if (factory == null || imeis == null) return null
+            return RemovalStart(factory, card, imeis, preferences.getBoolean(REMOVAL_FIREWALL, false))
+        }
+        set(value) = save {
+            val keys = listOf(
+                REMOVAL_FACTORY1, REMOVAL_FACTORY2, REMOVAL_CARD_ICCID, REMOVAL_CARD_IMEI1, REMOVAL_CARD_IMEI2,
+                REMOVAL_IMEI1, REMOVAL_IMEI2, REMOVAL_FIREWALL,
+            )
+            keys.forEach { remove(it) }
+            if (value != null) {
+                putString(REMOVAL_FACTORY1, value.factory.imei1).putString(REMOVAL_FACTORY2, value.factory.imei2)
+                value.card?.let { card ->
+                    putString(REMOVAL_CARD_ICCID, card.iccid)
+                    putString(REMOVAL_CARD_IMEI1, card.imeis.imei1).putString(REMOVAL_CARD_IMEI2, card.imeis.imei2)
+                }
+                putString(REMOVAL_IMEI1, value.imeis.imei1).putString(REMOVAL_IMEI2, value.imeis.imei2)
+                putBoolean(REMOVAL_FIREWALL, value.firewall)
+            }
+        }
+
     /** What the router checks keep from one connection to the next. */
     val checkNotes = object : CheckNotes {
         override fun get(key: String) = preferences.getString(NOTE + key, null)
@@ -160,5 +191,13 @@ class Saved(context: Context) {
         const val DRY_RUN_ACTIVE_SLOT = "dry_run_active_slot"
         const val DRY_RUN_IMEI1 = "dry_run_imei1"
         const val DRY_RUN_IMEI2 = "dry_run_imei2"
+        const val REMOVAL_FACTORY1 = "removal_factory1"
+        const val REMOVAL_FACTORY2 = "removal_factory2"
+        const val REMOVAL_CARD_ICCID = "removal_card_iccid"
+        const val REMOVAL_CARD_IMEI1 = "removal_card_imei1"
+        const val REMOVAL_CARD_IMEI2 = "removal_card_imei2"
+        const val REMOVAL_IMEI1 = "removal_imei1"
+        const val REMOVAL_IMEI2 = "removal_imei2"
+        const val REMOVAL_FIREWALL = "removal_firewall"
     }
 }
