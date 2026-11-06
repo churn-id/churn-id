@@ -406,15 +406,17 @@ class Controller(private val context: Context) {
      * Runs tier 3's power cycle test (docs/testing.md, "Power cycles"), which only debug builds have, up to its first
      * power-off.
      */
-    fun startPowerCycles() = runPowerCycles(CONNECT_WAIT_SECONDS) { test -> test.run { saved.powerCycleStart = it } }
+    fun startPowerCycles() = runPowerCycles(CONNECT_WAIT_SECONDS) { test, folder ->
+        test.run(folder.factory!!, SecureRandom()) { saved.powerCycleStart = it }
+    }
 
     /** Goes on with the power cycle test once the user has switched the router on again, as at step 3. */
-    fun resumePowerCycles() = runPowerCycles(BOOT_WAIT_SECONDS, keepLines = true) { test ->
+    fun resumePowerCycles() = runPowerCycles(BOOT_WAIT_SECONDS, keepLines = true) { test, _ ->
         saved.powerCycleStart?.let { start -> test.resume(start) { saved.powerCycleStart = it } }
     }
 
     /** Puts the router back as it was before the power cycle test that stopped, or instead of going on with it. */
-    fun putBackPowerCycles() = runPowerCycles(BOOT_WAIT_SECONDS) { test ->
+    fun putBackPowerCycles() = runPowerCycles(BOOT_WAIT_SECONDS) { test, _ ->
         saved.powerCycleStart?.let { start -> test.putBack(start) { saved.powerCycleStart = it } }
     }
 
@@ -673,7 +675,11 @@ class Controller(private val context: Context) {
      * Runs [body], a part of the power cycle test or its putting back, as [runDryRun] runs the dry run, waiting up to
      * [waitSeconds] for the router. With [keepLines], the screen keeps the lines from before the last power-off.
      */
-    private fun runPowerCycles(waitSeconds: Int, keepLines: Boolean = false, body: (PowerCycleTest) -> Unit) {
+    private fun runPowerCycles(
+        waitSeconds: Int,
+        keepLines: Boolean = false,
+        body: (PowerCycleTest, ChurnFolder) -> Unit,
+    ) {
         started = cable
         val lines = if (keepLines) (screen as? Screen.PowerCycles)?.lines.orEmpty().toMutableList() else mutableListOf()
         fun update() = show(Screen.PowerCycles(lines.toList(), running = true))
@@ -701,7 +707,7 @@ class Controller(private val context: Context) {
                     check = { runChecks(router, folder, CHECKS.filter { it.blocks }).failures },
                     awaitNetworkLost = { millis -> connection?.awaitCableLost(millis) != false },
                 )
-                body(test)
+                body(test, folder)
                 powerCycleScreen(lines)
             } catch (e: UntrustedHostKey) {
                 trustKey(e)
@@ -1003,6 +1009,9 @@ class Controller(private val context: Context) {
             Progress.DRY_RUN_PASSED -> R.string.progress_dry_run_passed
             Progress.NETWORK_LOST -> R.string.progress_network_lost
             Progress.NEW_BOOT_ID -> R.string.progress_new_boot_id
+            Progress.TEST_PAIR_SAVED -> R.string.progress_test_pair_saved
+            Progress.IMEIS_KEPT -> R.string.progress_imeis_kept
+            Progress.EARLIER_IMEIS_SAVED -> R.string.progress_earlier_imeis_saved
             Progress.POWER_CYCLES_PASSED -> R.string.progress_power_cycles_passed
         },
         *args,

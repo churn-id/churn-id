@@ -1,5 +1,7 @@
 package id.churn
 
+import java.security.SecureRandom
+
 /**
  * Tier 3's power cycle test (docs/testing.md, "Power cycles"): the router switched off with poweroff and on again by
  * the user, twice, with both trays empty and slot 2 on the empty SIM 2 tray, where it emits nothing at power-on, and
@@ -22,11 +24,12 @@ class PowerCycleTest(
         private set
 
     /**
-     * Starts the test, up to the first power-off. [save] gets what the test puts back and keeps across the power-offs,
-     * before the first change and again before each power-off, and null once the router is as it was again. A test
-     * that stops puts the router back if the radio is still off, and otherwise leaves that to [putBack].
+     * Starts the test, up to the first power-off, with a test pair of IMEIs from [random] with the TACs and the spacing
+     * of the [factory] IMEIs. [save] gets what the test puts back and keeps across the power-offs, before the first
+     * change and again before each power-off, and null once the router is as it was again. A test that stops puts the
+     * router back if the radio is still off, and otherwise leaves that to [putBack].
      */
-    fun run(save: (PowerCycleStart?) -> Unit) {
+    fun run(factory: ImeiPair, random: SecureRandom, save: (PowerCycleStart?) -> Unit) {
         val start = PowerCycleStart(router.slot2(), activeSlot(), router.imeis())
         save(start)
         stopping(start, save) {
@@ -34,7 +37,14 @@ class PowerCycleTest(
             part { startNewImeis(reload = false) }
             // With both trays empty and slot 2 on the empty SIM 2 tray, the router emits nothing at power-on.
             part { emptyTray() }
-            powerOff(start, powerOn = 1, save)
+            val test = generateSequence { Imei.random(random, factory) }.first { it != start.imeis }
+            // Right before the power-off: without the save, a reboot 5 s after a write brought the earlier IMEIs back.
+            part("M7") {
+                router.writeImeis(test)
+                checkRadioOff()
+                report(Progress.TEST_PAIR_SAVED)
+            }
+            powerOff(start.copy(testImeis = test), powerOn = 1, save)
         }
     }
 
@@ -55,7 +65,20 @@ class PowerCycleTest(
                 waitForStart()
                 waitForRadioOff()
             }
+            part("M7") {
+                // The test pair after the first power-on, and the earlier pair after the second.
+                val saved = if (start.powerOn == 1) start.testImeis else start.imeis
+                if (router.imeis() != saved) {
+                    throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+EGMR=0: not the pair saved before poweroff")
+                }
+                report(Progress.IMEIS_KEPT)
+            }
             if (start.powerOn == 1) {
+                part("M7") {
+                    router.writeImeis(start.imeis)
+                    checkRadioOff()
+                    report(Progress.EARLIER_IMEIS_SAVED)
+                }
                 powerOff(start, powerOn = 2, save)
             } else {
                 part { restore(start) }

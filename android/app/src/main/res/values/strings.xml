@@ -253,7 +253,7 @@
 
     <!-- Tier 3's power cycle test, which only debug builds have -->
     <string name="power_cycles">Power cycles</string>
-    <string name="power_cycles_text">The power cycle test shuts the router down twice and checks each power-on, which confirms claims of docs/testing.md that only a power-on can. You switch the router on again each time. Both trays must be empty: the test puts slot 2 on the SIM 2 tray, where the router emitted nothing at power-on with both trays empty, and at the end puts slot 2, the active slot and the IMEIs back as they were. Like a swap, it turns airplane mode and the Enhanced Kill Switch on and puts Churn\'s firewall rules in place, and leaves them so. The debug log, if it is on, keeps every command.</string>
+    <string name="power_cycles_text">The power cycle test shuts the router down twice and checks each power-on, which confirms claims of docs/testing.md that only a power-on can. You switch the router on again each time. Both trays must be empty: the test puts slot 2 on the SIM 2 tray, where the router emitted nothing at power-on with both trays empty. It saves a test pair of IMEIs across the first power-on, and at the end puts slot 2, the active slot and the IMEIs back as they were. Like a swap, it turns airplane mode and the Enhanced Kill Switch on and puts Churn\'s firewall rules in place, and leaves them so. The debug log, if it is on, keeps every command.</string>
     <string name="power_cycles_confirm">The test shuts the router down twice and waits for you to switch it on again each time. Until it has put the router back as it was, the router screen shows this screen.</string>
     <string name="power_cycles_waiting">Once the router is off, switch it on again with Churn open and both trays still empty. The test goes on as soon as the router shows up on the cable, or when you tap Go on. To put the router back as it was instead, tap Put the router back before you switch the router on.</string>
     <string name="power_cycles_unfinished">The last power cycle test stopped before it put the router back as it was, so slot 2, the active slot or the IMEIs may still be as the test left them. Put the router back, or forget the test if you have put the router back yourself.</string>
@@ -317,6 +317,9 @@
     <string name="progress_removal_passed">The removal test passed.</string>
     <string name="progress_network_lost">The phone lost the router\'s network %1$d s after poweroff (B5).</string>
     <string name="progress_new_boot_id">The router has a new boot ID, so poweroff shut it down and it started anew (B4, B6).</string>
+    <string name="progress_test_pair_saved">A test pair of IMEIs is written, saved and read back.</string>
+    <string name="progress_imeis_kept">The router has the IMEIs saved before poweroff (M7).</string>
+    <string name="progress_earlier_imeis_saved">The earlier IMEIs are written, saved and read back.</string>
     <string name="progress_power_cycles_passed">The power cycle test passed.</string>
 
     <!-- Why a step stopped -->

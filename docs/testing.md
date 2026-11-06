@@ -213,16 +213,21 @@ where the router emitted nothing at power-on (B8):
 3. Slot 2 switched to the SIM 2 tray and made the active slot, where no
    card may answer. A card in the tray, an eSIM adapter card without an
    enabled profile too, stops the test before the router shuts down.
-4. It keeps the router's boot ID on the phone and sends `poweroff`. The
-   phone has to lose the router's network within 120 s, and the test
-   times it from the command (B4, B5). Whether the router's screen had
-   gone dark by then, the user sees.
-5. Once the user has switched the router on again and it is on the cable,
-   the boot ID has to be new (B4, B6), and the test waits until the
-   router has started and its radio is off.
-6. It shuts the router down a second time, as in step 4, and checks the
-   next power-on as in step 5.
-7. It puts slot 2's setting, the active slot and the IMEIs back.
+4. Right before the power-off, a random test pair with the TACs and the
+   spacing of the factory IMEIs written, saved and read back, with the
+   radio still off (M7).
+5. It keeps the router's boot ID and the test pair on the phone and sends
+   `poweroff`. The phone has to lose the router's network within 120 s,
+   and the test times it from the command (B4, B5). Whether the router's
+   screen had gone dark by then, the user sees.
+6. Once the user has switched the router on again and it is on the cable,
+   the boot ID has to be new (B4, B6). The test waits until the router has
+   started and its radio is off, and the router has to have the test pair
+   (M7).
+7. It writes, saves and reads back the earlier pair, shuts the router down
+   a second time, as in step 5, and checks the next power-on as in step 6,
+   with the earlier pair.
+8. It puts slot 2's setting and the active slot back.
 
 Like a swap, the test leaves airplane mode and the Enhanced Kill Switch on
 and Churn's firewall rules in place. While the router is off, the test's

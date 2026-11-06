@@ -1,6 +1,7 @@
 package id.churn
 
 import java.io.IOException
+import java.security.SecureRandom
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -74,7 +75,20 @@ class PowerCycleTestTest {
     /** What the test puts back, as the router has it now. */
     private fun state() = PowerCycleStart(fake.slot2, fake.activeSlot, ImeiPair(fake.imei1, fake.imei2))
 
-    private fun run() = powerCycles.run { saves += it }
+    /** The factory IMEIs, which the router still has. */
+    private val factory = ImeiPair(fake.imei1, fake.imei2)
+
+    /** The test pair's serials: first the router's own pair, which tests no write, then another. */
+    private val random = Serials(500_000, 123_456)
+
+    /** The test pair that [random] gives. */
+    private val testPair = Imei.random(Serials(123_456), factory)
+
+    private fun run() = powerCycles.run(factory, random) { saves += it }
+
+    /** The IMEIs that the commands sent to [fake] wrote as IMEI [item], 7 or 11, in turn. */
+    private fun imeiWrites(item: Int) =
+        fake.commands.mapNotNull { Regex("""AT\+EGMR=1,$item,"(\d{15})"""").find(it)?.groupValues?.get(1) }
 
     /** Switches the router on again and goes on with the test, as once the router shows up on the cable. */
     private fun resume(test: PowerCycleTest = powerCycles) {
@@ -106,7 +120,7 @@ class PowerCycleTestTest {
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
                 Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE,
-                Progress.TRAY_EMPTY, Progress.SHUTTING_DOWN, Progress.NETWORK_LOST,
+                Progress.TRAY_EMPTY, Progress.TEST_PAIR_SAVED, Progress.SHUTTING_DOWN, Progress.NETWORK_LOST,
             ),
             progress,
         )
@@ -115,8 +129,8 @@ class PowerCycleTestTest {
         bootIds += fake.bootId
         assertEquals(
             listOf(
-                Progress.NEW_BOOT_ID, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SHUTTING_DOWN,
-                Progress.NETWORK_LOST,
+                Progress.NEW_BOOT_ID, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.IMEIS_KEPT,
+                Progress.EARLIER_IMEIS_SAVED, Progress.SHUTTING_DOWN, Progress.NETWORK_LOST,
             ),
             progress,
         )
@@ -124,21 +138,16 @@ class PowerCycleTestTest {
         resume()
         assertEquals(
             listOf(
-                Progress.NEW_BOOT_ID, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.PUT_BACK,
-                Progress.POWER_CYCLES_PASSED,
+                Progress.NEW_BOOT_ID, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.IMEIS_KEPT,
+                Progress.PUT_BACK, Progress.POWER_CYCLES_PASSED,
             ),
             progress,
         )
         assertEquals(listOf(9, 9), seconds)
         assertEquals(before, state())
         // Kept before the first change, again before each power-off, and forgotten once the router is as it was.
-        assertEquals(
-            listOf(
-                before, before.copy(bootId = bootIds[0], powerOn = 1), before.copy(bootId = bootIds[1], powerOn = 2),
-                null,
-            ),
-            saves,
-        )
+        val first = before.copy(bootId = bootIds[0], powerOn = 1, testImeis = testPair)
+        assertEquals(listOf(before, first, first.copy(bootId = bootIds[1], powerOn = 2), null), saves)
         assertEquals(2, fake.commands.count { it == "poweroff" })
         assertTrue(fake.uptime >= 120)
         // As a swap leaves them.
@@ -152,7 +161,7 @@ class PowerCycleTestTest {
         run()
         resume()
         resume()
-        assertEquals(setOf("B4", "B5", "B6"), claims)
+        assertEquals(setOf("B4", "B5", "B6", "M7"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 3 claim in testing.md", "3" in tiers)
@@ -172,11 +181,53 @@ class PowerCycleTestTest {
     }
 
     @Test
+    fun powerCycleTestSavesATestPairAndThenTheEarlierPairEachBeforeAPowerOff() {
+        val before = state()
+        run()
+        assertEquals(listOf(testPair.imei1), imeiWrites(7))
+        assertEquals(listOf(testPair.imei2), imeiWrites(11))
+        resume()
+        assertEquals(listOf(testPair.imei1, before.imeis.imei1), imeiWrites(7))
+        assertEquals(listOf(testPair.imei2, before.imeis.imei2), imeiWrites(11))
+        resume()
+        assertEquals(before, state())
+        assertSafe()
+    }
+
+    @Test
+    fun aTestPairThatThePowerOnLostStopsTheTest() {
+        fake.imeiSaveIgnored = true
+        val before = state()
+        run()
+        assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals(listOf("M7"), powerCycles.testing)
+        assertTrue(Progress.IMEIS_KEPT !in progress)
+        assertEquals(before, state())
+        assertNull(saves.last())
+    }
+
+    @Test
+    fun anEarlierPairThatTheSecondPowerOnLostStopsTheTest() {
+        val before = state()
+        run()
+        // The earlier pair isn't saved after the first power-on, so the second brings the test pair back.
+        fake.imeiSaveIgnored = true
+        resume()
+        assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals(listOf("M7"), powerCycles.testing)
+        assertEquals(1, progress.count { it == Progress.IMEIS_KEPT })
+        // Put back with the earlier pair written again.
+        assertEquals(before, state())
+        assertNull(saves.last())
+    }
+
+    @Test
     fun powerCycleTestStopsAtACardInTheTrayBeforeThePowerOff() {
         fake.trayCard = FakeRouter.Card("8941000000000000015F", "228010000000001")
         val before = state()
         assertStops(Problem.CARD_IN_TRAY) { run() }
         assertTrue("poweroff" !in fake.commands)
+        assertTrue(fake.commands.none { it.contains("AT+EGMR=1") })
         assertEquals(before, state())
         assertEquals(listOf(before, null), saves)
         assertSafe()
@@ -298,5 +349,12 @@ class PowerCycleTestTest {
         test().putBack(saves.last()!!) { saves += it }
         assertEquals(before, state())
         assertNull(saves.last())
+    }
+
+    /** Gives [values] in turn, as the serials of test pairs. */
+    private class Serials(private vararg val values: Int) : SecureRandom() {
+        private var next = 0
+
+        override fun nextInt(bound: Int) = values[next++]
     }
 }
