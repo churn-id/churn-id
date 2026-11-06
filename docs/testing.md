@@ -107,10 +107,13 @@ settings can:
    switch is on and the rules are in place, and the connection and the
    radio's state across each reload show whether it drops the cable or
    turns the radio on (K8, D19).
-4. Slot 2 switched to the SIM 2 tray and made the active slot, where no
+4. Slot 1 made the active slot, so that step 3 makes slot 2 the active
+   slot again, as on a router new to Churn, and `dds_id` follows both
+   switches (U6).
+5. Slot 2 switched to the SIM 2 tray and made the active slot, where no
    card may answer, and back to the built-in eSIM. A card in the tray,
    an eSIM adapter card without an enabled profile too, stops the dry run.
-5. Slot 2's setting and the active slot put back (S2, S3).
+6. Slot 2's setting and the active slot put back (S2, S3).
 
 Like a swap, the dry run leaves airplane mode and the Enhanced Kill Switch
 on and Churn's firewall rules in place. A dry run that stops puts the

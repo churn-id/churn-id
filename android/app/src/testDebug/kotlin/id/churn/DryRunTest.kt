@@ -58,6 +58,10 @@ class DryRunTest {
     /** What the dry run puts back, as the router has it now. */
     private fun state() = DryRunStart(fake.slot2, fake.activeSlot, ImeiPair(fake.imei1, fake.imei2))
 
+    /** The slots that the commands sent to [fake] made the active slot, in turn. */
+    private fun activations() =
+        fake.commands.mapNotNull { Regex(""""current_sim":(\d)""").find(it)?.groupValues?.get(1) }
+
     private fun run() = dryRun.run { saves += it }
 
     private fun assertStops(problem: Problem, run: () -> Unit) {
@@ -83,11 +87,14 @@ class DryRunTest {
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.NO_PROFILE,
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
-                Progress.NETWORK_RELOADED, Progress.FIREWALL_RELOADED, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE,
-                Progress.TRAY_EMPTY, Progress.SLOT2_ON_ESIM, Progress.PUT_BACK, Progress.DRY_RUN_PASSED,
+                Progress.NETWORK_RELOADED, Progress.FIREWALL_RELOADED, Progress.SLOT1_ACTIVE, Progress.SLOT2_ON_SIM2,
+                Progress.SLOT2_ACTIVE, Progress.TRAY_EMPTY, Progress.SLOT2_ON_ESIM, Progress.PUT_BACK,
+                Progress.DRY_RUN_PASSED,
             ),
             progress,
         )
+        // Slot 1 first, so that step 3 makes slot 2 the active slot.
+        assertEquals(listOf("1", "2"), activations())
         assertEquals(before, state())
         // Kept before the first change, and forgotten once the router is as it was.
         assertEquals(listOf(before, null), saves)
@@ -106,13 +113,15 @@ class DryRunTest {
         run()
         assertEquals(before, state())
         assertEquals(Progress.DRY_RUN_PASSED, progress.last())
+        // Slot 1 is the active slot already, so only step 3 and the put-back switch it.
+        assertEquals(listOf("2", "1"), activations())
         assertSafe()
     }
 
     @Test
     fun dryRunConfirmsTier2ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("S2", "S3", "K8", "D19"), claims)
+        assertEquals(setOf("S2", "S3", "K8", "D19", "U6"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)
@@ -160,9 +169,19 @@ class DryRunTest {
         fake.answers["ubus -t 30 call cellular.modem set_feature_config '$toTray'"] = "{\"ok\": true}"
         val before = state()
         assertStops(Problem.SLOT_NOT_SWITCHED) { run() }
-        assertEquals(listOf("S2", "S3"), dryRun.testing)
+        assertEquals(listOf("S2", "S3", "U6"), dryRun.testing)
         assertTrue(Progress.TRAY_EMPTY !in progress)
-        assertEquals(before.copy(slot2 = Slot2.ESIM), state())
+        // Putting the router back stopped at the same switch, before the active slot, so it waits for putBack.
+        assertEquals(before.copy(slot2 = Slot2.ESIM, activeSlot = 1), state())
+        assertEquals(listOf<DryRunStart?>(before), saves)
+    }
+
+    @Test
+    fun dryRunStopsWhenDdsIdDoesNotFollowTheActiveSlot() {
+        fake.uciAnswers["network.modem_cpu.dds_id"] = "2"
+        assertStops(Problem.SLOT_NOT_SWITCHED) { run() }
+        assertEquals(listOf("U6", "S3"), dryRun.testing)
+        assertTrue(Progress.SLOT1_ACTIVE !in progress)
     }
 
     @Test

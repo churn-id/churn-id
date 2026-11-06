@@ -775,6 +775,7 @@ class Controller(private val context: Context) {
             Progress.SHUTTING_DOWN -> R.string.progress_shutting_down
             Progress.NETWORK_RELOADED -> R.string.progress_network_reloaded
             Progress.FIREWALL_RELOADED -> R.string.progress_firewall_reloaded
+            Progress.SLOT1_ACTIVE -> R.string.progress_slot1_active
             Progress.TRAY_EMPTY -> R.string.progress_tray_empty
             Progress.PUT_BACK -> R.string.progress_put_back
             Progress.DRY_RUN_PASSED -> R.string.progress_dry_run_passed
