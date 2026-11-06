@@ -871,6 +871,7 @@ class Controller(private val context: Context) {
             Progress.EARLIER_IMEIS -> R.string.progress_earlier_imeis
             Progress.ANSWERS_MATCHED -> R.string.progress_answers_matched
             Progress.RESTORED -> R.string.progress_restored
+            Progress.FACTORY_IMEIS -> R.string.progress_factory_imeis
             Progress.SET_UP_AGAIN -> R.string.progress_set_up_again
             Progress.REMOVAL_PASSED -> R.string.progress_removal_passed
             Progress.PUT_BACK -> R.string.progress_put_back

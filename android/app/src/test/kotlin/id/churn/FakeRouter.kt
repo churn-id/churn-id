@@ -132,6 +132,9 @@ class FakeRouter : Shell {
      */
     var restoreEndsEarly = false
 
+    /** For a restore.sh that leaves the IMEIs as they are, against F7. Only the removal test's tests use it. */
+    var restoreKeepsImeis = false
+
     /** The card in the SIM 1 tray, which Churn never uses. */
     var tray1Card: Card? = null
     var scheduledReboot = false
@@ -684,11 +687,13 @@ class FakeRouter : Shell {
         airplaneMode = true
         // Only a modem whose radio stays on gets here.
         if (radio != 4) return Output(1, ByteArray(0), "The radio didn't turn off, so the IMEIs are unchanged.\n")
-        change("IMEI 7")
-        imei1 = factory[0]
-        change("IMEI 11")
-        imei2 = factory[1]
-        savedImeis = null
+        if (!restoreKeepsImeis) {
+            change("IMEI 7")
+            imei1 = factory[0]
+            change("IMEI 11")
+            imei2 = factory[1]
+            savedImeis = null
+        }
         files.remove("/etc/churn/card")
         files.remove("/etc/churn/log_file")?.let { logFile = it.toString(Charsets.UTF_8).trim() }
         zerosLink = null

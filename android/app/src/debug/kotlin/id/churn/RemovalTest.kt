@@ -42,6 +42,14 @@ class RemovalTest(
                 }
                 report(Progress.RESTORED)
             }
+            // Saved too, which only a reboot shows (tier 3).
+            part("F7") {
+                if (router.imeis() != start.factory) {
+                    throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+EGMR=0: other IMEIs after restore.sh")
+                }
+                checkRadioOff()
+                report(Progress.FACTORY_IMEIS)
+            }
             part { setUp(start) }
         } catch (e: Exception) {
             // As far as the router lets it: one that doesn't answer, or whose radio isn't off, waits for setUpAgain.
