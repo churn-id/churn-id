@@ -28,6 +28,7 @@
     "fccid",
     "framebuffer",
     "fwmark",
+    "getline",
     "glblock",
     "glconfig",
     "glversion",

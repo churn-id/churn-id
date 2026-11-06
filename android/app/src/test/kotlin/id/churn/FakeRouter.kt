@@ -397,8 +397,32 @@ class FakeRouter : Shell {
     /** For a router that splits each of WireGuard's packets into two fragments on the SIM. */
     var fragmentsWireguard = false
 
+    /** For a tunnel to a VPN server's IPv6 address. */
+    var tunnelOverIpv6 = false
+
     /** For a SIM interface that is made anew as the router goes online, which restarts its count. */
     var remakesInterface = false
+
+    /**
+     * For packets with WireGuard's mark that aren't WireGuard's, sent as the router goes online, which get past Churn's
+     * rules, against D9 in testing.md. Only the leak watch's tests use it.
+     */
+    var markedGoingOnline = 0L
+
+    /** For WireGuard's packets without the mark, which Churn's rules drop, against D9. */
+    var wireguardUnmarked = false
+
+    /** How long after the router goes online GL's VPN client makes the tunnel's interface anew, if it does. */
+    var tunnelRemadeAfter: Long? = null
+
+    /** For WireGuard sending a packet while each read of the SIM's traffic is under way. */
+    var wireguardWhileRead = false
+
+    /** For an uplink over the Ethernet port besides the SIM. */
+    var wiredUplink = false
+
+    /** For a main routing table that keeps the SIM's default route in airplane mode. */
+    var keepsSimRoute = false
 
     /**
      * When the router last went online, by [clock], or null while it is offline. The SIM's traffic is counted up to
@@ -413,6 +437,13 @@ class FakeRouter : Shell {
 
     /** The fragments the router made of IPv4 packets since it started, as `/proc/net/snmp` counts them. */
     var fragmentsMade = 0L
+
+    /** The bytes that WireGuard sent to the tunnel's peer, without their IP and UDP headers, and the tunnel's index. */
+    private var wireguardBytes = 0L
+    private var tunnelIndex = 40
+
+    /** The reads of the SIM's traffic while the router was online. */
+    private var readsWhileOnline = 0
 
     val commands = mutableListOf<String>()
     val changes = mutableListOf<String>()
@@ -796,7 +827,15 @@ class FakeRouter : Shell {
     private fun countTraffic() {
         val online = !airplaneModeInUse
         val since = onlineAt
-        if (online && since != null) wireguard(wireguardMessages(clock - since) - wireguardMessages(trafficAt - since))
+        if (online && since != null) {
+            val remade = tunnelRemadeAfter?.let { since + it }?.takeIf { it > trafficAt && it <= clock }
+            if (remade != null) {
+                wireguard(wireguardMessages(remade - since) - wireguardMessages(trafficAt - since))
+                tunnelIndex++
+                wireguardBytes = 0
+            }
+            wireguard(wireguardMessages(clock - since) - wireguardMessages(maxOf(trafficAt, remade ?: 0L) - since))
+        }
         if (online && since == null) goOnline()
         if (!online) onlineAt = null
         trafficAt = clock
@@ -806,12 +845,19 @@ class FakeRouter : Shell {
     private fun wireguardMessages(millis: Long) =
         if (millis < handshakeMillis) 0L else 1 + (millis - handshakeMillis) * wireguardPerSecond / 1000
 
-    /** Counts [messages] of WireGuard's, sent over IPv4, with the mark that lets them past Churn's rules. */
+    /** Counts [messages] of WireGuard's, with the mark that lets them past Churn's rules. */
     private fun wireguard(messages: Long) {
-        val bytes = messages * (wireguardMessageBytes + IPV4_UDP_HEADERS)
+        val bytes = messages * (wireguardMessageBytes + if (tunnelOverIpv6) IPV6_UDP_HEADERS else IPV4_UDP_HEADERS)
+        // WireGuard counts them once the firewall has them, whatever it does with them.
+        wireguardBytes += messages * wireguardMessageBytes
+        leakCounters?.let { it.tried = it.tried.plus(messages, bytes) }
+        if (wireguardUnmarked) return
         leakCounters?.let {
-            it.tried = it.tried.plus(messages, bytes)
-            it.passed4 = it.passed4.plus(messages, bytes)
+            if (tunnelOverIpv6) {
+                it.passed6 = it.passed6.plus(messages, bytes)
+            } else {
+                it.passed4 = it.passed4.plus(messages, bytes)
+            }
         }
         if (fragmentsWireguard) fragmentsMade += 2 * messages
         send(if (fragmentsWireguard) 2 * messages else messages)
@@ -824,8 +870,12 @@ class FakeRouter : Shell {
             simIndexes[simDevice] = 99
             simSent[simDevice] = 0
         }
-        leakCounters?.let { it.tried = it.tried.plus(droppedGoingOnline, droppedGoingOnline * PING_BYTES) }
-        send(unseenGoingOnline)
+        val tried = droppedGoingOnline + markedGoingOnline
+        leakCounters?.let {
+            it.tried = it.tried.plus(tried, tried * PING_BYTES)
+            it.passed4 = it.passed4.plus(markedGoingOnline, markedGoingOnline * PING_BYTES)
+        }
+        send(markedGoingOnline + unseenGoingOnline)
     }
 
     /** Counts [packets] that left over the SIM's interface that GL's cellular interface uses. */
@@ -840,16 +890,23 @@ class FakeRouter : Shell {
         val counters = leakCounters ?: return Output(1, ByteArray(0), "Error: No such file or directory")
         fun counter(count: Count, name: String) =
             "counter packets ${count.packets} bytes ${count.bytes} comment \"$name\""
-        val text = SIM_INTERFACES.joinToString("") { "$it/ifindex ${simIndexes[it]}\n" } +
-            SIM_INTERFACES.joinToString("") { "$it/statistics/tx_packets ${simSent[it]}\n" } +
+        fun wireguardLine(at: String) = vpnTunnel?.takeIf { tunnelUp }
+            ?.let { "wireguard $at $it:$tunnelIndex $wireguardBytes\n" } ?: ""
+        val devices = SIM_INTERFACES.joinToString("") { "$it/ifindex ${simIndexes[it]}\n" } +
+            SIM_INTERFACES.joinToString("") { "$it/statistics/tx_packets ${simSent[it]}\n" } + wireguardLine("before")
+        // WireGuard's packet comes before nft's listing at one read, and after it at the next.
+        val during = wireguardWhileRead && onlineAt != null
+        val early = during && readsWhileOnline++ % 2 == 0
+        if (early) wireguard(1)
+        val listing = devices +
             "table inet churn_watch {\n\tchain tried {\n" +
             "\t\ttype filter hook postrouting priority filter - 1; policy accept;\n" +
             "\t\toifname \"rmnet_data*\" ${counter(counters.tried, "tried")}\n\t}\n\n\tchain passed {\n" +
             "\t\ttype filter hook postrouting priority filter + 1; policy accept;\n" +
             "\t\toifname \"rmnet_data*\" meta nfproto ipv4 ${counter(counters.passed4, "passed4")}\n" +
-            "\t\toifname \"rmnet_data*\" meta nfproto ipv6 ${counter(counters.passed6, "passed6")}\n\t}\n}\n" +
-            "fragments $fragmentsMade\nfragments 0\n"
-        return ok(text)
+            "\t\toifname \"rmnet_data*\" meta nfproto ipv6 ${counter(counters.passed6, "passed6")}\n\t}\n}\n"
+        if (during && !early) wireguard(1)
+        return ok(listing + wireguardLine("after") + "fragments $fragmentsMade\nfragments 0\n")
     }
 
     private fun at(command: String): Output {
@@ -1010,7 +1067,9 @@ class FakeRouter : Shell {
             "10.0.0.0/30 dev rmnet_data0 proto kernel scope link src 10.0.0.2\n"
         val lan = "169.254.21.0/24 dev ecm0 proto kernel scope link src 169.254.21.1\n" +
             "192.168.8.0/24 dev br-lan proto kernel scope link src 192.168.8.1\n"
-        return if (airplaneModeInUse) lan else sim + lan
+        val wan = "default via 192.168.1.1 dev eth0 proto static src 192.168.1.2 metric 10\n".takeIf { wiredUplink }
+        val kept = sim.lines().first().takeIf { keepsSimRoute }?.let { "$it\n" }
+        return (if (airplaneModeInUse) kept.orEmpty() + lan else sim + lan) + wan.orEmpty()
     }
 
     /** `ifstatus` of the network interface [name], shortened, as OpenWrt's netifd gives it. */
@@ -1168,8 +1227,9 @@ class FakeRouter : Shell {
         /** The SIM's data interfaces among them, which `rmnet_data*` matches. */
         private val SIM_INTERFACES = NETWORK_DEVICES.filter { it.startsWith("rmnet_data") }
 
-        /** The bytes of an IPv4 and a UDP header, which nft counts and WireGuard doesn't. */
+        /** The bytes of an IP and a UDP header, over IPv4 and over IPv6, which nft counts and WireGuard doesn't. */
         private const val IPV4_UDP_HEADERS = 28
+        private const val IPV6_UDP_HEADERS = 48
 
         /** The bytes of a ping as BusyBox's ping sends it by default, with 56 bytes of data. */
         private const val PING_BYTES = 84

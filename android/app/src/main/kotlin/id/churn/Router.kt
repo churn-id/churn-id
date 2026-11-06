@@ -124,15 +124,22 @@ data class Count(val packets: Long, val bytes: Long)
  * The SIM's traffic as the leak watch reads it at one moment: the packets each of the SIM's data interfaces sent, by
  * its name and index, such as `rmnet_data0:12`, [sent]; what the leak watch's counters in the router's firewall
  * counted of the packets that tried to leave over the SIM, before Churn's rules, [tried], and of those that got past
- * them, over IPv4, [passed4], and over IPv6, [passed6]; and the fragments that the router made of packets since it
- * started, [fragments]. The interfaces' counts are read first: a packet passes the firewall before it leaves, so
- * every packet they counted that passed the firewall was counted there too.
+ * them, over IPv4, [passed4], and over IPv6, [passed6]; the bytes that each WireGuard interface sent to its peers, by
+ * its name and index, without their IP and UDP headers, read right before the counters, [wireguardBefore], and right
+ * after them, [wireguardAfter]; and the fragments that the router made of packets since it started, [fragments].
+ *
+ * The interfaces' counts are read first: a packet passes the firewall before it leaves, so every packet they counted
+ * that passed the firewall was counted there too. WireGuard counts a packet once the firewall has passed it on, so
+ * [wireguardBefore] holds no more of WireGuard's packets than the counters, and [wireguardAfter] all of those they
+ * hold.
  */
 data class SimTraffic(
     val sent: Map<String, Long>,
     val tried: Count,
     val passed4: Count,
     val passed6: Count,
+    val wireguardBefore: Map<String, Long>,
+    val wireguardAfter: Map<String, Long>,
     val fragments: Long,
 )
 
@@ -441,11 +448,15 @@ class Router(private val shell: Shell) {
             throw unexpected("the SIM's traffic", output)
         }
         fun count(name: String) = counts[name] ?: throw unexpected("nft list table inet $LEAK_TABLE", output)
+        fun wireguard(at: String) = matches(Regex("""wireguard $at (\S+:\d*) (\d+)"""))
+            .associate { it[1] to it[2].toLong() }
         return SimTraffic(
             sent.mapKeys { (name) -> "$name:${indexes[name]}" },
             count("tried"),
             count("passed4"),
             count("passed6"),
+            wireguard("before"),
+            wireguard("after"),
             fragments.sum(),
         )
     }
@@ -1092,13 +1103,24 @@ class Router(private val shell: Shell) {
         private val LEAK_COUNTER = Regex("""counter packets (\d+) bytes (\d+) comment "(\w+)"""")
 
         /**
-         * Prints the index of each of the SIM's data interfaces and the packets it sent, then the leak watch's table,
-         * then the fragments that the router made of IPv4 and of IPv6 packets since it started.
+         * Prints the index of each of the SIM's data interfaces and the packets it sent; the leak watch's table, with
+         * the bytes that each WireGuard interface sent before and after it, by the interface's name and index, summed
+         * over its peers, whose keys stay on the router; and the fragments that the router made of IPv4 and of IPv6
+         * packets since it started.
          */
         private val SIM_TRAFFIC = """
             cd /sys/class/net || exit 1
             awk 'FNR == 1 { print FILENAME, ${'$'}1 }' rmnet_data*/ifindex rmnet_data*/statistics/tx_packets
+            wireguard() {
+            	t=${'$'}(wg show all transfer) || exit 1
+            	echo "${'$'}t" | awk -v at="${'$'}1" '
+            		NF == 4 { tx[${'$'}1] += ${'$'}4 }
+            		END { for (i in tx) { f = i "/ifindex"; x = ""; getline x < f; print "wireguard", at, i ":" x, tx[i] } }
+            	'
+            }
+            wireguard before
             nft list table inet $LEAK_TABLE || exit 1
+            wireguard after
             awk '
             	${'$'}1 != "Ip:" { next }
             	c { print "fragments", ${'$'}c; exit }
