@@ -49,6 +49,9 @@ to the router:
   passed, failed or not applicable, with the IDs of its claims, and while
   the checks run, how many are done. While the debug log is on, the
   results are a section of it too. The app sends them nowhere by itself.
+  The check of H6 keeps a note on the phone from one connection to the
+  next: the size of GL's eSIM manager's log and an MD5 sum of its first
+  64 bytes, which the app forgets when it clears the SIM history.
 - A failed check shows a note on the router screen. A check marked
   *blocks* will also stop a swap when it fails, because the app's commands
   can't be trusted then. For now, its result before steps 1 and 3 goes
@@ -218,7 +221,7 @@ From development.md, "After power-on", and design.md, section 6.
 | B3 | 120 s after power-on, with `+CFUN: 4`, is a safe point for step 3 to change slot 2 | inferred | The end of the window above, on each firmware | 3 |
 | B4 | `poweroff` over SSH shuts the router down | verified | Steps 1 and 3 of a swap, or a tier 3 test that ends with it | 3 |
 | B5 | After `poweroff` the phone loses the router's network within 120 s, and only once the router is off | open | Steps 1 and 3 of a swap, watching the router's screen: the app shows the next step about when the screen goes dark | 3 |
-| B6 | `/proc/sys/kernel/random/boot_id` holds a UUID that is new at every power-on | inferred | Read it (tier 1); read it again after a reboot (tier 3) | 1, blocks; 3 |
+| B6 | `/proc/sys/kernel/random/boot_id` holds a UUID that is new at every power-on | inferred | Read it: a UUID in Linux's format (tier 1); read it again after a reboot (tier 3) | 1, blocks; 3 |
 | B7 | The router emits nothing while it shuts down in airplane mode, with slot 2 on the eSIM or on a card in the tray | verified | RF meter | 4 |
 | B8 | With both trays empty and slot 2 on the SIM 2 tray, a power-on emits nothing, with airplane mode on or off | verified | RF meter | 4 |
 | B9 | A card in slot 2 emits for more than 8 s at every power-on while slot 2 is set to it, whatever airplane mode and GL's switches say, slot 1 selected included | verified with an eSIM profile | RF meter | 4 |
@@ -228,9 +231,10 @@ From development.md, "After power-on", and design.md, section 6.
 | B13 | Switching slot 2 to a normal SIM card afterwards in airplane mode emits nothing | inferred | RF meter during step 3 | 4 |
 | B14 | A card in slot 1 emits for more than 8 s at every power-on | verified | RF meter | 4 |
 | B15 | The modem tells whether the SIM 1 tray holds a card while slot 2 is the active slot, also in airplane mode | verified | Step 3 with a card in the SIM 1 tray stops before anything changes, and goes on once the card is out | 4 |
-| B16 | With no profile enabled, the eSIM shows GSMA TS.48's generic test profile, IMSI `001010123456063` | verified | Read the IMSI after step 1 | 1 |
+| B16 | With no profile enabled, the eSIM shows GSMA TS.48's generic test profile, IMSI `001010123456063` | verified | Read the IMSI while slot 2 is on the eSIM with the placeholder ICCID, as after step 1 | 1 |
 | B17 | Every unit shows that test profile | inferred | None: it needs a second router | – |
 | B18 | The eSIM's short bursts carry no IMEI over LTE and 5G, where a device gives it only once the network has authenticated it, which no network can do for the test profile | inferred | None known: it needs the network's side | – |
+| B19 | Once the modem answers after power-on, it repeats each AT command before its answer for a while | verified about 70 s after a power-on, and gone 146 s after it | None needed: the app leaves the repeated command out of every answer, and a unit test runs every check with and without it | – |
 
 ## SIM history
 
@@ -242,9 +246,9 @@ and 10.
 | H1 | GL writes its system log to the file `system.@system[0].log_file` names, and the log pairs cards' ICCIDs with their IMSIs and names the cells they used | verified | The setting and a running `logread -f -F` (tier 1); the log's lines (tier 4) | 1, 4 |
 | H2 | Deleting `log_file`, committing and reloading the log service ends the `logread` that writes the file | verified | No `logread -f` process afterwards | 1 |
 | H3 | Setting `log_file` back and reloading the log service makes `logread` write the file again | open | Run `restore.sh`, check the process and the file; setting the router up again turns the file off | 2 |
-| H4 | GL's card files and the eSIM manager's records have the formats development.md lists | verified | Both card files parse, and every member name and `iccid` in them is an ICCID | 1 |
-| H5 | GL's eSIM manager writes its log to `/root/esim/log.txt`, beginning each line with the time in UTC | verified for the file; inferred for UTC | Compare the time of the log's last line with `date -u` right after the eSIM manager writes one | 1 |
-| H6 | The eSIM manager's log only grows until something empties it | inferred | Note the log's size and first bytes at two connections a day apart | 1 |
+| H4 | GL's card files and the eSIM manager's records have the formats development.md lists | verified | Both card files and the eSIM manager's records parse, and every member name and `iccid` in them is an ICCID | 1 |
+| H5 | GL's eSIM manager writes its log to `/root/esim/log.txt`, beginning each line with the time in UTC | verified for the file; inferred for UTC | The time that the log's last line with a time begins with is within 2 minutes of when the log was last written (`date -r`) | 1 |
+| H6 | The eSIM manager's log only grows until something empties it | inferred | At each connection, the log is at least as long as at the last one and begins as it did, unless the app cleared it since | 1 |
 | H7 | GL doesn't add back pruned cards, also not when airplane mode goes off and on | verified | The card files after airplane mode off and on | 4 |
 | H8 | GL copes with card files that name no card until it records the new one | inferred | Step 3 with a new card, then a power-on and airplane mode off | 4 |
 | H9 | A card used again after a clearing gets GL's defaults, and GL's search finds its APN | verified with the built-in eSIM's profile | Use a cleared card again | 4 |
@@ -256,8 +260,8 @@ and 10.
 | H15 | The overwrite leaves all but 512 MB of the free space in `/overlay/churn-zeros`, so the next one fills only those 512 MB | verified on disk images | The free space and the folder after a clearing; `lifetime_write_kbytes` in `/sys/fs/ext4/mmcblk0p59/` before and after the next | 2 |
 | H16 | With the zero files in place, an overwrite takes under a minute | inferred from the first overwrite's speed | Time a clearing from the router screen | 2 |
 | H17 | The SSH connection stays open through the overwrite, which prints nothing for minutes | inferred | Clear the history from the router screen | 2 |
-| H18 | The flash rates its own wear, and reported under 10% used on our router after our tests | verified | `life_time` and `pre_eol_info` in `/sys/block/mmcblk0/device/`, recorded at every connection | 1 |
-| H19 | GL writes files in `/etc` every minute, so with the log's file off, the clock after a power-on still resumes from about the time of the power-off | verified with the SIM online | The files written in `/etc` within a minute, in airplane mode too | 1 |
+| H18 | The flash rates its own wear, and reported under 10% used on our router after our tests | verified | `life_time` and `pre_eol_info` in `/sys/block/mmcblk0/device/`, which the debug log records at every connection; the check also fails once the flash warns that its life or its spare blocks are running out | 1 |
+| H19 | GL writes files in `/etc` every minute, so with the log's file off, the clock after a power-on still resumes from about the time of the power-off | verified with the SIM online | The files in `/etc` that something other than Churn wrote in the last 2 minutes, from 2 minutes after a power-on, in airplane mode too | 1 |
 
 ## Churn's files and firmware upgrades
 
@@ -265,10 +269,10 @@ From development.md, "Files on the router", and design.md, section 5.
 
 | ID | Claim | Status | Check | Tier |
 | --- | --- | --- | --- | --- |
-| F1 | `/etc/churn/` and its files have the modes and contents development.md lists | contents verified by the app, modes inferred | Modes and sizes; the app itself rewrites `README.txt` and `restore.sh` at every connection where they differ from its copies | 1, blocks |
+| F1 | `/etc/churn/` and its files have the modes and contents development.md lists | contents verified by the app, modes inferred | Modes, owners and the records' sizes, and that only root may read any other file there; the app itself rewrites `README.txt` and `restore.sh` at every connection where they differ from its copies | 1, blocks |
 | F2 | `/etc/churn/` is listed in `/etc/sysupgrade.conf` | verified by the app | The line is there | 1, blocks |
 | F3 | With the firewall rules, `/etc/nftables.d/churn.nft` is listed in `/etc/sysupgrade.conf` | inferred | The line is there | 1 |
-| F4 | `/etc/churn/zeros` links to `/overlay/churn-zeros`, and `du`, `grep -r`, `cp` and the `find` and `tar` that an upgrade runs take only the link | verified with BusyBox 1.36.1 on a PC | After a clearing, `ls -l /etc/churn` shows the link and `du -sh /etc` stays small; `sysupgrade -l` lists the link but no zero file | 1 |
+| F4 | `/etc/churn/zeros` links to `/overlay/churn-zeros`, and `du`, `grep -r`, `cp` and the `find` and `tar` that an upgrade runs take only the link | verified with BusyBox 1.36.1 on a PC | After a clearing, `readlink` gives the link's target, `du -sk /etc/churn` counts under 1 MB, and `sysupgrade -l` lists the link but no zero file | 1 |
 | F5 | GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | At every connection, while the recorded card answers in slot 2, the IMEIs are its recorded pair (tier 1); after an upgrade, they are the ones from before it (tier 3) | 1, 3 |
 | F6 | A firmware upgrade with "keep settings" keeps `/etc/churn/`, the link `zeros` in it included, Churn's firewall rules and the log's file off | open | Upgrade, then check the folder, the link, the rules and `log_file` | 3 |
 | F7 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |

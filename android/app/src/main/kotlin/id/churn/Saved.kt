@@ -85,6 +85,15 @@ class Saved(context: Context) {
         listOf(STEP, BOOT_ID, CARD_BEFORE_SWAP, FIRST_SWAP, PLACE_CARD_IN, CARD_TO_DESTROY).forEach { remove(it) }
     }
 
+    /** What the router checks keep from one connection to the next. */
+    val checkNotes = object : CheckNotes {
+        override fun get(key: String) = preferences.getString(NOTE + key, null)
+
+        override fun set(key: String, value: String?) = save {
+            if (value == null) remove(NOTE + key) else putString(NOTE + key, value)
+        }
+    }
+
     /** Whether the user has the app keep its debug log. */
     var debugLog: Boolean
         get() = preferences.getBoolean(DEBUG_LOG, false)
@@ -124,5 +133,6 @@ class Saved(context: Context) {
         const val CARD_TO_DESTROY = "card_to_destroy"
         const val BOOT_ID = "boot_id"
         const val DEBUG_LOG = "debug_log"
+        const val NOTE = "check_note_"
     }
 }

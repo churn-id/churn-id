@@ -22,6 +22,9 @@ class FakeRouter : Shell {
     var openwrtRelease = "23.05.4"
     var modemRevision = "RG650VEU00ADR02A04G8G"
 
+    /** For the modem repeating each AT command before its answer, as for a while after power-on (verified). */
+    var modemEchoes = false
+
     /** Commands the firmware doesn't have. Our Mudi 7 has every one Churn runs. */
     val absentCommands = mutableSetOf<String>()
 
@@ -78,11 +81,33 @@ class FakeRouter : Shell {
     /** GL's uci setting naming the flash file its system log goes to; null once the app turns the log off. */
     var logFile: String? = "/etc/sys_log"
 
+    /** For a log service that doesn't start the `logread` that writes [logFile]. */
+    var logreadMissing = false
+
+    /** For a `logread` that goes on writing `/etc/sys_log` once the setting is deleted and the log service reloaded. */
+    var logreadStuck = false
+
     /** The ICCID GL recorded for the active card (`network.modem_cpu.iccid`), as GL stores it, or null for none. */
     var modemCpuIccid: String? = "8941000000000000015F"
 
     /** Set once the app overwrites the overlay's free space. */
     var freeSpaceOverwritten = false
+
+    /** The overlay's device and file system, or null for none, and the blocks that ext4 keeps back from it. */
+    var overlayDevice = "/dev/mmcblk0p59"
+    var overlayType: String? = "ext4"
+    var reservedClusters = 4096L
+
+    /** The files in `/etc` written in the last 2 minutes, as our Mudi 7 listed them with the SIM online. */
+    var etcWritten = listOf(
+        "/etc/config/cellular/slot_map.json",
+        "/etc/gl_modem_traffic/cpu/total_5g",
+        "/etc/gl_modem_traffic/cpu/total_sim2",
+    )
+
+    /** The flash's `life_time` and `pre_eol_info`, as our Mudi 7 showed them. */
+    var flashLifeTime = "0x01 0x01"
+    var flashPreEol = "0x01"
 
     /** The enabled profile's ICCID as `AT+ICCID` gives it, or null for none. */
     var esimProfile: String? = "8944000000000000123F"
@@ -128,6 +153,20 @@ class FakeRouter : Shell {
     var usbBridge: String? = "br-lan"
     var poweredOff = false
     val files = mutableMapOf<String, ByteArray>()
+
+    /** The modes that the app gave [files], as chmod takes them, such as 600. */
+    val modes = mutableMapOf<String, String>()
+
+    /** Churn's folder's mode, as `ls` shows it, and the user ID that owns the folder and its files. */
+    var churnFolderMode = "drwx------"
+    var churnOwner = 0
+
+    /** Where `/etc/churn/zeros` links to, once the free-space overwrite made the link. */
+    var zerosLink: String? = null
+
+    /** What `du` counts in Churn's folder, in kB, and whether `sysupgrade -l` follows the link to the zero files. */
+    var churnFolderKb = 12L
+    var upgradeFollowsLinks = false
     var sysupgrade = "/etc/config/\n/etc/profile"
 
     /** The user ID of GL's main DNS server, 453 on our Mudi 7. */
@@ -201,10 +240,17 @@ class FakeRouter : Shell {
         files["/etc/sys_log"] = cards.joinToString("") { "user.info Diag_Lib[1]: iccid[$it]\n" }.toByteArray()
     }
 
-    /** Adds [text] to GL's eSIM manager's log, after the time in UTC, as the eSIM manager writes it (inferred). */
+    /** The time zone of the times in GL's eSIM manager's log: UTC (inferred). */
+    var esimLogZone: ZoneOffset = ZoneOffset.UTC
+
+    /** When GL's eSIM manager last wrote its log, by [time]. */
+    private var esimLogWritten = 0L
+
+    /** Adds [text] to GL's eSIM manager's log, after the time in [esimLogZone], as the eSIM manager writes it. */
     fun esimLogs(text: String) {
-        val stamp = ESIM_TIME.format(Instant.ofEpochSecond(time).atOffset(ZoneOffset.UTC))
+        val stamp = ESIM_TIME.format(Instant.ofEpochSecond(time).atOffset(esimLogZone))
         files[ESIM_LOG] = (files[ESIM_LOG] ?: ByteArray(0)) + "$stamp $text\r\n".toByteArray()
+        esimLogWritten = time
     }
 
     /** The cards GL's `sim_map.json` still names. */
@@ -246,7 +292,10 @@ class FakeRouter : Shell {
     }
 
     private fun answer(command: String, input: ByteArray?): Output {
-        Regex("""gl_modem -B cpu AT '(.*)' </dev/null""").matchEntire(command)?.let { return at(it.groupValues[1]) }
+        Regex("""gl_modem -B cpu AT '(.*)' </dev/null""").matchEntire(command)?.let {
+            val answer = at(it.groupValues[1])
+            return if (modemEchoes && answer.status == 0) ok(it.groupValues[1] + "\r\r\n" + answer.text) else answer
+        }
         Regex("""ubus -t 35 call modem.CPU.AT get_result_AT '(.*)'""").matchEntire(command)?.let {
             val request = JSONObject(it.groupValues[1])
             return cardAt(request.getInt("sub_id"), request.getString("cmd"))
@@ -313,7 +362,16 @@ class FakeRouter : Shell {
         }
         Regex("""umask 077 && .* && cat > (\S+)\.new && chmod (\d+) .*""").matchEntire(command)?.let {
             files[it.groupValues[1]] = input!!
+            modes[it.groupValues[1]] = it.groupValues[2]
             return ok("")
+        }
+        if (command == "[ -d /etc/churn ] || exit 3; ls -lnd /etc/churn && ls -lnA /etc/churn") return churnListing()
+        if (command.startsWith("[ -L /etc/churn/zeros ] || exit 3\n")) {
+            val target = zerosLink ?: return Output(3, ByteArray(0), "")
+            // As find lists them for an upgrade, through the folder that sysupgrade.conf names.
+            val kept = listOf("/etc/churn/zeros").filter { "/etc/churn/" in sysupgrade.lines() }
+            val zeroFiles = kept.map { "$it/0" }.filter { upgradeFollowsLinks }
+            return ok("$target\n$churnFolderKb\n" + (kept + zeroFiles).joinToString("") { "$it\n" })
         }
         Regex("""grep -qxF (\S+) /etc/sysupgrade.conf.*""").matchEntire(command)?.let {
             val line = it.groupValues[1]
@@ -352,6 +410,25 @@ class FakeRouter : Shell {
             logFile = null
             return ok("")
         }
+        if (LOG_FOLLOWERS.matches(command)) {
+            // As OpenWrt's log service starts it (inferred).
+            val logread = (logFile ?: "/etc/sys_log".takeIf { logreadStuck })?.takeIf { !logreadMissing }
+                ?.let { "/sbin/logread -f -F $it -p /var/run/logread.0.pid" }
+            return Output(if (logread == null) 1 else 0, (logread?.let { "$it\n" } ?: "").toByteArray(), "")
+        }
+        if (command == "[ -s $ESIM_LOG ] || exit 3; date -r $ESIM_LOG +%s; tail -n 20 $ESIM_LOG") {
+            val log = files[ESIM_LOG]?.takeIf { it.isNotEmpty() } ?: return Output(3, ByteArray(0), "")
+            val tail = log.toString(Charsets.UTF_8).split("\n").takeLast(21).joinToString("\n")
+            return ok("$esimLogWritten\n$tail")
+        }
+        if (OVERLAY.matches(command)) {
+            val reserve = reservedClusters.takeIf { overlayType == "ext4" } ?: ""
+            return ok(overlayType?.let { "$overlayDevice $it $reserve\n" } ?: "\n")
+        }
+        if (command == "find /etc -type f -mmin -2 2>/dev/null") return ok(etcWritten.joinToString("") { "$it\n" })
+        if (command == "cat /sys/block/mmcblk0/device/life_time /sys/block/mmcblk0/device/pre_eol_info") {
+            return ok("$flashLifeTime\n$flashPreEol\n")
+        }
         if (command == "/etc/init.d/log reload") {
             if (radioOnAtReload) radioStuckOn = true
             return ok("")
@@ -376,6 +453,7 @@ class FakeRouter : Shell {
         // The free-space overwrite writes /overlay/churn-fill.* parts, kept as zero files; its effect is not in the files.
         if ("/overlay/churn-fill." in command) {
             freeSpaceOverwritten = true
+            zerosLink = "/overlay/churn-zeros"
             return ok("")
         }
         Regex("""rm -f (.+)""").matchEntire(command)?.let {
@@ -439,9 +517,10 @@ class FakeRouter : Shell {
             slot2 == Slot2.SIM2 -> trayCard
             clock < esimReloadsUntil -> null
             else -> esimProfile?.let { Card(it, "260010000000001") }
-                ?: Card(Router.PLACEHOLDER_ICCID, "001010123456789")
+                ?: Card(Router.PLACEHOLDER_ICCID, Router.TEST_IMSI)
         }
-        val data = when {
+        // GL's channel repeats each command before the card's answer (verified).
+        val data = command + "\r\r\n" + when {
             card == null -> "\r\n+CME ERROR: 10\r\n"
             command == "AT+CPIN?" -> "\r\n+CPIN: ${if (card.pinLocked) "SIM PIN" else "READY"}\r\n\r\nOK\r\n"
             command == "AT+ICCID" -> "\r\n+ICCID: ${card.iccid}\r\n\r\nOK\r\n"
@@ -582,6 +661,19 @@ class FakeRouter : Shell {
 
     private fun atOk(line: String? = null) = ok("\n\r\n" + (line?.let { "$it\r\n\r\n" } ?: "") + "OK\r\n\n")
 
+    /** Churn's folder and its files as BusyBox's `ls -ln` lists them, with any time. */
+    private fun churnListing(): Output {
+        val names = files.keys.filter { it.startsWith("/etc/churn/") }.map { it.removePrefix("/etc/churn/") }
+        if (names.isEmpty() && zerosLink == null) return Output(3, ByteArray(0), "")
+        fun line(mode: String, size: Int, name: String) =
+            "%-10s %4d %-8d %-8d %8d Nov  5 21:00 %s\n".format(mode, 1, churnOwner, 0, size, name)
+        val modeNames = mapOf("600" to "-rw-------", "700" to "-rwx------")
+        val text = line(churnFolderMode, 4096, "/etc/churn") + names.sorted().joinToString("") { name ->
+            line(modeNames[modes["/etc/churn/$name"]] ?: "-rw-r--r--", files.getValue("/etc/churn/$name").size, name)
+        } + (zerosLink?.let { line("lrwxrwxrwx", it.length, "zeros -> $it") } ?: "")
+        return ok(text)
+    }
+
     private fun ok(text: String) = Output(0, text.toByteArray(), "")
 
     companion object {
@@ -609,6 +701,11 @@ class FakeRouter : Shell {
         /** How [Router.dnsServers] reads what listens on the DNS servers' ports. */
         private val DNS_SERVERS =
             Regex("""netstat -lnup \| while .* udp\*:53 \| udp\*:2153\) .* \| sort -u""", RegexOption.DOT_MATCHES_ALL)
+        /** How [Router.overlay] reads the overlay's line in `/proc/mounts` and its reserve. */
+        private val OVERLAY = Regex("""set -- .* /proc/mounts\)\necho .*/reserved_clusters 2>/dev/null\)""")
+
+        /** How [Router.logFollowers] lists the `logread -f` processes. */
+        private val LOG_FOLLOWERS = Regex("""for c in /proc/\[0-9]\*/cmdline; .* \| grep -E '\^\[\^ ]\*logread .*""")
         private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "curl")
         private const val FIREWALL_LOADED = "nft list chain inet fw4 churn_sim >/dev/null && " +
             "nft list chain inet fw4 churn_route >/dev/null && nft list chain inet fw4 churn_dns >/dev/null"

@@ -1,6 +1,7 @@
 package id.churn
 
 import java.io.File
+import java.time.ZoneOffset
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -10,6 +11,17 @@ class ChecksTest {
 
     private val fake = FakeRouter()
     private val router = Router(fake)
+
+    /** The notes the checks keep on the phone. */
+    private val notes = object : CheckNotes {
+        val map = mutableMapOf<String, String>()
+
+        override fun get(key: String) = map[key]
+
+        override fun set(key: String, value: String?) {
+            if (value == null) map.remove(key) else map[key] = value
+        }
+    }
 
     @Test
     fun everyCheckConfirmsTier1ClaimsOfTestingMd() {
@@ -34,12 +46,35 @@ class ChecksTest {
         }
         // Just switched on, the modem doesn't answer yet.
         fake.boot()
-        assertEquals(CheckResult.Failed("Unexpected answer: AT+CFUN?: modem not ready"), check.run(router, NO_FOLDER))
+        assertEquals(
+            CheckResult.Failed("Unexpected answer: AT+CFUN?: modem not ready"),
+            check.run(router, CheckContext(NO_FOLDER, notes)),
+        )
     }
 
     @Test
     fun platformCheckPassesOnTheFirmwareAndModemWeTested() {
         assertEquals(CheckResult.Passed, run("P1"))
+    }
+
+    @Test
+    fun platformCheckPassesWhileTheModemRepeatsEachCommand() {
+        // As for a while after power-on.
+        fake.modemEchoes = true
+        assertEquals(CheckResult.Passed, run("P1"))
+    }
+
+    @Test
+    fun everyCheckGivesTheSameResultWhileTheModemRepeatsEachCommand() {
+        writeFolder(SWAPPED.card)
+        router.writeImeis(CARD_IMEIS)
+        fun results() = CHECKS.map { check ->
+            notes.map.clear()
+            check.run(router, CheckContext(SWAPPED, notes))
+        }
+        val withoutEcho = results()
+        fake.modemEchoes = true
+        assertEquals(withoutEcho, results())
     }
 
     @Test
@@ -782,6 +817,520 @@ class ChecksTest {
     }
 
     @Test
+    fun bootIdCheckPassesWithAUuid() {
+        assertEquals(CheckResult.Passed, run("B6"))
+    }
+
+    @Test
+    fun bootIdCheckFailsWithoutAUuid() {
+        fake.bootId = "0"
+        assertEquals(CheckResult.Failed("Unexpected answer: /proc/sys/kernel/random/boot_id"), run("B6"))
+    }
+
+    @Test
+    fun testProfileCheckPassesWithNoProfileEnabled() {
+        fake.slot2 = Slot2.ESIM
+        fake.esimProfile = null
+        assertEquals(CheckResult.Passed, run("B16"))
+    }
+
+    @Test
+    fun testProfileCheckFailsAtAnotherTestImsi() {
+        fake.slot2 = Slot2.ESIM
+        fake.esimProfile = null
+        fake.answers[cardCommand("AT+CIMI")] = cardAnswer("\r\n001010123456789\r\n\r\nOK\r\n")
+        assertEquals(
+            CheckResult.Failed("The placeholder ICCID came with another IMSI than TS.48's generic test profile's."),
+            run("B16"),
+        )
+    }
+
+    @Test
+    fun testProfileCheckDoesNotApplyWithAProfileEnabled() {
+        fake.slot2 = Slot2.ESIM
+        assertEquals(CheckResult.NotApplicable(R.string.reason_profile_enabled), run("B16"))
+    }
+
+    @Test
+    fun testProfileCheckDoesNotApplyWhileTheChipDoesNotAnswer() {
+        fake.slot2 = Slot2.ESIM
+        fake.answers[cardCommand("AT+ICCID")] = cardAnswer("\r\n+CME ERROR: 10\r\n")
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_slot2_card), run("B16"))
+    }
+
+    @Test
+    fun testProfileCheckDoesNotApplyOnTheTray() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_slot2_on_tray), run("B16"))
+    }
+
+    @Test
+    fun flashLogCheckPassesWhileLogreadWritesTheFile() {
+        assertEquals(CheckResult.Passed, run("H1"))
+    }
+
+    @Test
+    fun flashLogCheckFailsWithoutLogread() {
+        fake.logreadMissing = true
+        assertEquals(CheckResult.Failed("No logread -f -F writes /etc/sys_log."), run("H1"))
+    }
+
+    @Test
+    fun flashLogCheckDoesNotApplyWithTheLogInRam() {
+        fake.logFile = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_flash_log_off), run("H1"))
+    }
+
+    @Test
+    fun logreadCheckPassesWithTheLogInRam() {
+        fake.logFile = null
+        assertEquals(CheckResult.Passed, run("H2"))
+    }
+
+    @Test
+    fun logreadCheckFailsIfLogreadStillWritesTheFile() {
+        fake.logFile = null
+        fake.logreadStuck = true
+        assertEquals(CheckResult.Failed("logread still writes /etc/sys_log."), run("H2"))
+    }
+
+    @Test
+    fun logreadCheckDoesNotApplyWithTheLogOnTheFlash() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_flash_log_on), run("H2"))
+    }
+
+    @Test
+    fun cardFileCheckPassesWithGlsFormats() {
+        fake.recordCards("8941000000000000015F", Router.PLACEHOLDER_ICCID)
+        assertEquals(CheckResult.Passed, run("H4"))
+    }
+
+    @Test
+    fun cardFileCheckFailsAtAFileThatDoesNotParse() {
+        fake.recordCards("8941000000000000015F")
+        fake.files[Router.SIM_MAP] = "{".toByteArray()
+        assertEquals(CheckResult.Failed("Not in the format development.md lists: sim_map.json."), run("H4"))
+    }
+
+    @Test
+    fun cardFileCheckFailsAtACardFileMemberThatIsNotAnIccid() {
+        fake.recordCards("8941000000000000015F")
+        fake.files[Router.SIM_MAP] = """{"default": {"manual": false}}""".toByteArray()
+        fake.files[Router.APN_HISTORY] = """{"apns": [{"iccid": "", "apn": "internet"}]}""".toByteArray()
+        assertEquals(
+            CheckResult.Failed("Not in the format development.md lists: sim_map.json, history_apn_database.json."),
+            run("H4"),
+        )
+    }
+
+    @Test
+    fun cardFileCheckFailsAtAnEsimRecordInAnotherFormat() {
+        fake.recordCards("8941000000000000015F", Router.PLACEHOLDER_ICCID)
+        val record = fake.files.keys.first { it.startsWith(Router.ESIM_RECORDS) }
+        fake.files[record] = """{"records": {"8941000000000000015F": {"apn": ""}}}""".toByteArray()
+        assertEquals(
+            CheckResult.Failed("Not in the format development.md lists: 1 of the eSIM manager's records."),
+            run("H4"),
+        )
+    }
+
+    @Test
+    fun cardFileCheckDoesNotApplyWithoutCardFiles() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_card_files), run("H4"))
+    }
+
+    @Test
+    fun esimLogCheckPassesWithTimesInUtc() {
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        assertEquals(CheckResult.Passed, run("H5"))
+    }
+
+    @Test
+    fun esimLogCheckFailsWithLocalTimes() {
+        fake.esimLogZone = ZoneOffset.ofHours(2)
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        assertEquals(CheckResult.Failed("The log's last line is timed 120 minutes ahead of UTC."), run("H5"))
+    }
+
+    @Test
+    fun esimLogCheckFailsWithoutTimes() {
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        fake.files[FakeRouter.ESIM_LOG] = "IpaReopen\r\n".toByteArray()
+        assertEquals(CheckResult.Failed("None of the log's last 20 lines begins with a time."), run("H5"))
+    }
+
+    @Test
+    fun esimLogCheckDoesNotApplyToAnEmptyLog() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_esim_log_empty), run("H5"))
+    }
+
+    @Test
+    fun esimLogGrowthCheckNotesTheLogAtTheFirstConnection() {
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        assertEquals(CheckResult.NotApplicable(R.string.reason_first_note), run("H6"))
+        assertTrue(ESIM_LOG_NOTE in notes.map)
+    }
+
+    @Test
+    fun esimLogGrowthCheckPassesWhileTheLogGrows() {
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        run("H6")
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        assertEquals(CheckResult.Passed, run("H6"))
+    }
+
+    @Test
+    fun esimLogGrowthCheckPassesWithoutALog() {
+        run("H6")
+        assertEquals(CheckResult.Passed, run("H6"))
+    }
+
+    @Test
+    fun esimLogGrowthCheckNotesTheLogAnewAfterABrokenNote() {
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        notes.map[ESIM_LOG_NOTE] = "0"
+        assertEquals(CheckResult.NotApplicable(R.string.reason_first_note), run("H6"))
+    }
+
+    @Test
+    fun esimLogGrowthCheckFailsIfTheLogWasEmptied() {
+        fake.esimLogs("Debug esim: (ipa:130) IpaReopen")
+        run("H6")
+        fake.files.remove(FakeRouter.ESIM_LOG)
+        fake.esimLogs("Debug esim: (ipa:383) IpaDisableProfile")
+        val emptied = "Since the last connection, the log was emptied or cut, though the app didn't clear it."
+        assertEquals(CheckResult.Failed(emptied), run("H6"))
+    }
+
+    @Test
+    fun overlayCheckPassesOnExt4WithItsReserve() {
+        assertEquals(CheckResult.Passed, run("H12"))
+    }
+
+    @Test
+    fun overlayCheckFailsWithTheReserveAt0() {
+        fake.reservedClusters = 0
+        assertEquals(CheckResult.Failed("ext4 keeps 0 blocks back from it, not 4096."), run("H12"))
+    }
+
+    @Test
+    fun overlayCheckFailsOnAnotherPartition() {
+        fake.overlayDevice = "/dev/mmcblk0p60"
+        assertEquals(CheckResult.Failed("The overlay is on /dev/mmcblk0p60."), run("H12"))
+    }
+
+    @Test
+    fun overlayCheckFailsOnAnotherFileSystem() {
+        fake.overlayType = "f2fs"
+        assertEquals(
+            CheckResult.Failed("The overlay is f2fs, not ext4. ext4 has no reserved_clusters file for it."),
+            run("H12"),
+        )
+    }
+
+    @Test
+    fun overlayCheckFailsWithoutAnOverlay() {
+        fake.overlayType = null
+        assertEquals(CheckResult.Failed("Nothing is mounted on /overlay."), run("H12"))
+    }
+
+    @Test
+    fun flashWearCheckPassesWithTheFlashRatingItsWear() {
+        fake.flashLifeTime = "0x02 0x0a"
+        assertEquals(CheckResult.Passed, run("H18"))
+    }
+
+    @Test
+    fun flashWearCheckFailsWithoutAnEstimateOfItsLife() {
+        fake.flashLifeTime = "0x00 0x01"
+        assertEquals(
+            CheckResult.Failed("The flash gives no estimate of its wear: life_time 0x00 0x01, pre_eol_info 0x01."),
+            run("H18"),
+        )
+        fake.flashLifeTime = "0x01 0x0c"
+        assertTrue(run("H18").toString().contains("no estimate"))
+    }
+
+    @Test
+    fun flashWearCheckFailsWithoutAStateOfItsSpareBlocks() {
+        fake.flashPreEol = "0x00"
+        assertTrue(run("H18").toString().contains("no estimate"))
+        fake.flashPreEol = "0x04"
+        assertTrue(run("H18").toString().contains("no estimate"))
+    }
+
+    @Test
+    fun flashWearCheckFailsWithTheFlashPastItsLife() {
+        fake.flashLifeTime = "0x0b 0x03"
+        assertEquals(CheckResult.Failed("The flash reports its life used up."), run("H18"))
+    }
+
+    @Test
+    fun flashWearCheckFailsWithTheSpareBlocksRunningOut() {
+        fake.flashPreEol = "0x02"
+        assertEquals(CheckResult.Failed("The flash reports 80% of its spare blocks used."), run("H18"))
+        fake.flashPreEol = "0x03"
+        assertEquals(CheckResult.Failed("The flash reports 90% of its spare blocks used."), run("H18"))
+    }
+
+    @Test
+    fun flashWearCheckFailsAtAnAnswerItCannotRead() {
+        fake.flashLifeTime = "0x01"
+        assertTrue(run("H18").toString().contains("Unexpected answer: The flash's wear"))
+    }
+
+    @Test
+    fun etcCheckPassesWithGlWritingFiles() {
+        assertEquals(CheckResult.Passed, run("H19"))
+    }
+
+    @Test
+    fun etcCheckFailsWithOnlyChurnWritingFiles() {
+        fake.etcWritten = listOf(
+            "/etc/churn/card",
+            "/etc/nftables.d/churn.nft",
+            "/etc/sysupgrade.conf",
+            "/etc/config/cellular/sim_map.json",
+            "/etc/config/cellular/history_apn_database.json",
+            "/etc/config/glconfig",
+            "/etc/config/network",
+            "/etc/config/route_policy",
+            "/etc/config/system",
+        )
+        assertEquals(CheckResult.Failed("Nothing but Churn wrote a file in /etc in the last 2 minutes."), run("H19"))
+        fake.etcWritten = emptyList()
+        assertTrue(run("H19") is CheckResult.Failed)
+    }
+
+    @Test
+    fun etcCheckWaitsFor2MinutesAfterAPowerOn() {
+        fake.boot()
+        fake.clock += 119_000
+        assertEquals(CheckResult.NotApplicable(R.string.reason_just_started), run("H19"))
+        fake.clock += 2_000
+        assertEquals(CheckResult.Passed, run("H19"))
+    }
+
+    /** Writes Churn's folder as setup does, and with [card] as step 3 records it. */
+    private fun writeFolder(card: Card? = null) {
+        router.writeChurnFile("README.txt", "Churn's folder\n".toByteArray())
+        router.writeChurnFile("factory", "${FACTORY.imei1}\n${FACTORY.imei2}\n".toByteArray())
+        router.writeChurnFile("restore.sh", "#!/bin/sh\n".toByteArray(), executable = true)
+        card?.let(router::recordCard)
+    }
+
+    @Test
+    fun churnFolderCheckPassesWithTheFolderAsChurnWritesIt() {
+        writeFolder()
+        assertEquals(CheckResult.Passed, run("F1", SET_UP))
+        // After a swap with the overwrite, and with what earlier versions of the app left.
+        writeFolder(SWAPPED.card)
+        router.writeChurnFile("log_file", "/etc/sys_log\n".toByteArray())
+        router.writeChurnFile("secret", ByteArray(32))
+        fake.zerosLink = "/overlay/churn-zeros"
+        assertEquals(CheckResult.Passed, run("F1", SWAPPED))
+    }
+
+    @Test
+    fun churnFolderCheckPassesWithAnIccidOf18To20Digits() {
+        writeFolder(Card("894100000000000001", CARD_IMEIS))
+        assertEquals(CheckResult.Passed, run("F1", SWAPPED))
+        writeFolder(Card("89410000000000000015", CARD_IMEIS))
+        assertEquals(CheckResult.Passed, run("F1", SWAPPED))
+    }
+
+    @Test
+    fun churnFolderCheckDoesNotApplyBeforeSetup() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_not_set_up), run("F1"))
+    }
+
+    @Test
+    fun churnFolderCheckFailsWithoutTheFolder() {
+        assertEquals(CheckResult.Failed("Churn's folder is missing."), run("F1", SET_UP))
+    }
+
+    @Test
+    fun churnFolderCheckFailsWithAFolderOthersCanRead() {
+        writeFolder()
+        fake.churnFolderMode = "drwxr-xr-x"
+        assertEquals(CheckResult.Failed("The folder has mode drwxr-xr-x, not drwx------."), run("F1", SET_UP))
+    }
+
+    @Test
+    fun churnFolderCheckFailsWithAFileOthersCanRead() {
+        writeFolder(SWAPPED.card)
+        fake.modes["/etc/churn/card"] = "644"
+        assertEquals(CheckResult.Failed("card has mode -rw-r--r--, not -rw-------."), run("F1", SWAPPED))
+        fake.modes["/etc/churn/card"] = "600"
+        fake.modes["/etc/churn/restore.sh"] = "600"
+        assertEquals(CheckResult.Failed("restore.sh has mode -rw-------, not -rwx------."), run("F1", SWAPPED))
+        writeFolder()
+        router.writeChurnFile("log_file", "/etc/sys_log\n".toByteArray(), executable = true)
+        router.writeChurnFile("README.txt", "Churn's folder\n".toByteArray(), executable = true)
+        assertEquals(
+            CheckResult.Failed(
+                "README.txt has mode -rwx------, not -rw-------. log_file has mode -rwx------, not -rw-------.",
+            ),
+            run("F1", SET_UP),
+        )
+    }
+
+    @Test
+    fun churnFolderCheckFailsWithAnotherFileOthersCanRead() {
+        writeFolder()
+        fake.files["/etc/churn/notes"] = "x\n".toByteArray()
+        assertEquals(CheckResult.Failed("notes has mode -rw-r--r--."), run("F1", SET_UP))
+        fake.modes["/etc/churn/notes"] = "700"
+        assertEquals(CheckResult.Passed, run("F1", SET_UP))
+    }
+
+    @Test
+    fun churnFolderCheckFailsWithAMissingFile() {
+        writeFolder()
+        fake.files.remove("/etc/churn/restore.sh")
+        assertEquals(CheckResult.Failed("restore.sh is missing."), run("F1", SET_UP))
+        writeFolder()
+        fake.files.remove("/etc/churn/README.txt")
+        assertEquals(CheckResult.Failed("README.txt is missing."), run("F1", SET_UP))
+        writeFolder()
+        fake.files.remove("/etc/churn/factory")
+        assertEquals(CheckResult.Failed("factory is missing."), run("F1", SET_UP))
+    }
+
+    @Test
+    fun churnFolderCheckFailsAtAListingItCannotRead() {
+        writeFolder()
+        val listing = "[ -d /etc/churn ] || exit 3; ls -lnd /etc/churn && ls -lnA /etc/churn"
+        fake.answers[listing] = "ls: unknown option\n"
+        assertEquals(CheckResult.Failed("Unexpected answer: /etc/churn"), run("F1", SET_UP))
+        // Without the folder's own line first.
+        fake.answers[listing] = "-rw-------    1 0        0              32 Nov  5 21:00 factory\n"
+        assertEquals(CheckResult.Failed("Unexpected answer: /etc/churn"), run("F1", SET_UP))
+    }
+
+    @Test
+    fun churnFolderCheckFailsWithAnotherOwner() {
+        writeFolder()
+        fake.churnOwner = 1000
+        assertEquals(
+            CheckResult.Failed(
+                "/etc/churn belongs to user ID 1000. README.txt belongs to user ID 1000. " +
+                    "factory belongs to user ID 1000. restore.sh belongs to user ID 1000.",
+            ),
+            run("F1", SET_UP),
+        )
+    }
+
+    @Test
+    fun churnFolderCheckFailsWithRecordsOfOtherSizes() {
+        writeFolder()
+        fake.files["/etc/churn/factory"] = "${FACTORY.imei1}\n${FACTORY.imei2}\n\n".toByteArray()
+        assertEquals(CheckResult.Failed("factory is 33 bytes, not 32."), run("F1", SET_UP))
+        fake.files["/etc/churn/factory"] = "${FACTORY.imei1}\n${FACTORY.imei2}".toByteArray()
+        assertEquals(CheckResult.Failed("factory is 31 bytes, not 32."), run("F1", SET_UP))
+        writeFolder(SWAPPED.card)
+        fake.files["/etc/churn/card"] = "894100000000000001\n${CARD_IMEIS.imei1}\n${CARD_IMEIS.imei2}".toByteArray()
+        assertEquals(CheckResult.Failed("card is 50 bytes, not 51 to 53."), run("F1", SWAPPED))
+        fake.files["/etc/churn/card"] =
+            "89410000000000000015\n${CARD_IMEIS.imei1}\n${CARD_IMEIS.imei2}\n\n".toByteArray()
+        assertEquals(CheckResult.Failed("card is 54 bytes, not 51 to 53."), run("F1", SWAPPED))
+    }
+
+    @Test
+    fun folderKeptCheckPassesWithTheFolderListed() {
+        router.keepChurnFolder()
+        assertEquals(CheckResult.Passed, run("F2", SET_UP))
+    }
+
+    @Test
+    fun folderKeptCheckFailsWithoutTheFolderListed() {
+        assertEquals(CheckResult.Failed("/etc/sysupgrade.conf doesn't list /etc/churn/."), run("F2", SET_UP))
+        // Only the exact line counts.
+        fake.sysupgrade += "\n/etc/churn\n"
+        assertTrue(run("F2", SET_UP) is CheckResult.Failed)
+    }
+
+    @Test
+    fun folderKeptCheckDoesNotApplyBeforeSetup() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_not_set_up), run("F2"))
+    }
+
+    @Test
+    fun firewallKeptCheckPassesWithTheRulesListed() {
+        router.installFirewall()
+        assertEquals(CheckResult.Passed, run("F3"))
+    }
+
+    @Test
+    fun firewallKeptCheckFailsWithoutTheRulesListed() {
+        router.installFirewall()
+        fake.sysupgrade = "/etc/config/\n/etc/profile"
+        assertEquals(CheckResult.Failed("/etc/sysupgrade.conf doesn't list /etc/nftables.d/churn.nft."), run("F3"))
+    }
+
+    @Test
+    fun firewallKeptCheckDoesNotApplyWithoutTheRules() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_firewall), run("F3"))
+    }
+
+    @Test
+    fun zerosLinkCheckPassesWithOnlyTheLinkTaken() {
+        router.keepChurnFolder()
+        fake.zerosLink = "/overlay/churn-zeros"
+        assertEquals(CheckResult.Passed, run("F4"))
+        fake.churnFolderKb = 1023
+        assertEquals(CheckResult.Passed, run("F4"))
+    }
+
+    @Test
+    fun zerosLinkCheckDoesNotApplyWithoutTheLink() {
+        router.keepChurnFolder()
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_zeros), run("F4"))
+    }
+
+    @Test
+    fun zerosLinkCheckFailsWithTheLinkLeadingElsewhere() {
+        router.keepChurnFolder()
+        fake.zerosLink = "/tmp/churn-zeros"
+        assertEquals(CheckResult.Failed("The link leads to /tmp/churn-zeros."), run("F4"))
+    }
+
+    @Test
+    fun zerosLinkCheckFailsWithDuFollowingTheLink() {
+        router.keepChurnFolder()
+        fake.zerosLink = "/overlay/churn-zeros"
+        fake.churnFolderKb = 1024
+        assertEquals(CheckResult.Failed("du counts 1024 kB in Churn's folder."), run("F4"))
+    }
+
+    @Test
+    fun zerosLinkCheckFailsWithAnUpgradeKeepingZeroFiles() {
+        router.keepChurnFolder()
+        fake.zerosLink = "/overlay/churn-zeros"
+        fake.upgradeFollowsLinks = true
+        assertEquals(CheckResult.Failed("sysupgrade -l lists zero files too."), run("F4"))
+    }
+
+    @Test
+    fun zerosLinkCheckFailsWithAnUpgradeLeavingOutTheLink() {
+        fake.zerosLink = "/overlay/churn-zeros"
+        assertEquals(CheckResult.Failed("sysupgrade -l doesn't list the link."), run("F4"))
+    }
+
+    @Test
+    fun zerosLinkCheckFailsAtAnAnswerItCannotRead() {
+        fake.zerosLink = "/overlay/churn-zeros"
+        val command = listOf(
+            "[ -L /etc/churn/zeros ] || exit 3",
+            "readlink /etc/churn/zeros || exit 1",
+            "du -sk /etc/churn 2>/dev/null | cut -f 1",
+            "sysupgrade -l 2>/dev/null | grep -e '^/etc/churn/zeros' -e '^/overlay/churn-zeros'",
+            "true",
+        ).joinToString("\n")
+        fake.answers[command] = "/overlay/churn-zeros\n"
+        assertTrue(run("F4").toString().contains("Unexpected answer: The link to the zero files"))
+    }
+
+    @Test
     fun imeiCheckPassesWithTheRecordedCardsPair() {
         fake.imei1 = CARD_IMEIS.imei1
         fake.imei2 = CARD_IMEIS.imei2
@@ -817,7 +1366,8 @@ class ChecksTest {
     }
 
     /** Runs the check of the claim with [id] on the router, whose Churn folder is [folder]. */
-    private fun run(id: String, folder: ChurnFolder = NO_FOLDER) = CHECKS.single { id in it.ids }.run(router, folder)
+    private fun run(id: String, folder: ChurnFolder = NO_FOLDER) =
+        CHECKS.single { id in it.ids }.run(router, CheckContext(folder, notes))
 
     /** How the router sends the AT [command] to slot 2's card. */
     private fun cardCommand(command: String) = "ubus -t 35 call modem.CPU.AT get_result_AT " +

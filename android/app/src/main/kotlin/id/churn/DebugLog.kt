@@ -5,6 +5,27 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.Locale
 
+/** The times that the lines of GL's eSIM manager's log start with, such as `Sun Oct 11 11:17:08 2026`. */
+object EsimTime {
+    private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+    /** A line of the log that starts with its time: the time's parts, then the rest of the line. */
+    val LINE = Regex("""[A-Z][a-z]{2} (${MONTHS.joinToString("|")}) +(\d{1,2}) (\d{2}):(\d{2}):(\d{2}) (\d{4}) (.*)""")
+
+    /** The time that [line] starts with, in seconds since 1970, taken as UTC (inferred). */
+    fun of(line: MatchResult): Long {
+        val (month, day, hour, minute, second, year) = line.destructured
+        return LocalDateTime.of(
+            year.toInt(),
+            MONTHS.indexOf(month) + 1,
+            day.toInt(),
+            hour.toInt(),
+            minute.toInt(),
+            second.toInt(),
+        ).toEpochSecond(ZoneOffset.UTC)
+    }
+}
+
 /**
  * The debug log, which the user can have Churn keep so that a problem can be looked into afterwards (design.md,
  * section 7). While it is [on], it records every command the app sends to the router with the router's answer, what
@@ -52,8 +73,8 @@ class DebugLog(
             val log = router.esimLog(from, head, MAX)
             var time = at
             val lines = log.text.lines().map { it.trim() }.filter { it.isNotEmpty() }.map { line ->
-                val match = LINE.matchEntire(line)
-                if (match != null) time = at + (clockOf(match) - clock)
+                val match = EsimTime.LINE.matchEntire(line)
+                if (match != null) time = at + (EsimTime.of(match) - clock)
                 time to (match?.groupValues?.last() ?: line)
             }
             return lines to copy(from = log.size, head = log.head)
@@ -61,27 +82,6 @@ class DebugLog(
 
         companion object {
             private const val MAX = 100_000
-
-            private val MONTHS =
-                listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
-            /** A line of GL's eSIM manager's log, which starts with its time, such as `Sun Oct 11 11:17:08 2026`. */
-            private val LINE = Regex(
-                """[A-Z][a-z]{2} (${MONTHS.joinToString("|")}) +(\d{1,2}) (\d{2}):(\d{2}):(\d{2}) (\d{4}) (.*)""",
-            )
-
-            /** The time that [line] starts with, in seconds since 1970. */
-            private fun clockOf(line: MatchResult): Long {
-                val (month, day, hour, minute, second, year) = line.destructured
-                return LocalDateTime.of(
-                    year.toInt(),
-                    MONTHS.indexOf(month) + 1,
-                    day.toInt(),
-                    hour.toInt(),
-                    minute.toInt(),
-                    second.toInt(),
-                ).toEpochSecond(ZoneOffset.UTC)
-            }
         }
     }
 
@@ -228,7 +228,7 @@ class DebugLog(
          */
         private val NO_CARD = mapOf(
             Router.PLACEHOLDER_ICCID to "[built-in eSIM placeholder ICCID]",
-            "001010123456063" to "[built-in eSIM test IMSI]",
+            Router.TEST_IMSI to "[built-in eSIM test IMSI]",
         )
 
         /**

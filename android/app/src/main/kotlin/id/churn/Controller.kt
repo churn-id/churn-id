@@ -223,6 +223,7 @@ class Controller(private val context: Context) {
         }
         // Turns the flash log off and clears the SIM history that built up before Churn. The first overwrite of the
         // free space takes minutes, so it waits for the first swap's step 3, and setup takes seconds.
+        clearingEsimLog()
         router.clearHistory(router.currentCardIccid(), overwrite = false)
         showRouter()
     }
@@ -250,6 +251,7 @@ class Controller(private val context: Context) {
 
     fun clearHistory() = job(R.string.clearing_history, keepAlive = true) {
         val router = router()
+        clearingEsimLog()
         router.clearHistory(router.currentCardIccid())
         showRouter()
     }
@@ -428,7 +430,10 @@ class Controller(private val context: Context) {
                     router,
                     report = {
                         // The clearing empties GL's eSIM manager's log.
-                        if (it == Progress.CLEARING_HISTORY) debugLog.copyEsim()
+                        if (it == Progress.CLEARING_HISTORY) {
+                            debugLog.copyEsim()
+                            clearingEsimLog()
+                        }
                         report(text(it))
                     },
                     ask = { question ->
@@ -546,13 +551,18 @@ class Controller(private val context: Context) {
     ): CheckReport {
         var report = CheckReport(emptyList(), failed = false, checks.size)
         for (check in checks) {
-            val result = check.run(router, folder)
+            val result = check.run(router, CheckContext(folder, saved.checkNotes))
             val line = line(check, result)
             debugLog.add(line)
             report = CheckReport(report.lines + line, report.failed || result is CheckResult.Failed, checks.size)
             progress(report)
         }
         return report
+    }
+
+    /** Forgets the note of GL's eSIM manager's log, as a clearing of the SIM history empties the log. */
+    private fun clearingEsimLog() {
+        saved.checkNotes[ESIM_LOG_NOTE] = null
     }
 
     /** [check]'s [result], as the router screen and the debug log show it. */

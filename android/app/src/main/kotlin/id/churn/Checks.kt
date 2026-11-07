@@ -1,5 +1,8 @@
 package id.churn
 
+import kotlin.math.abs
+import org.json.JSONObject
+
 /**
  * A check of the router that only reads, tier 1 in docs/testing.md. It confirms the claims there with the IDs [ids],
  * such as `D7`, and one that [blocks] confirms a claim that Churn's commands can't be trusted without. [title] says
@@ -9,16 +12,34 @@ class Check(
     vararg val ids: String,
     val blocks: Boolean,
     val title: Int,
-    private val confirm: (Router, ChurnFolder) -> CheckResult,
+    private val confirm: (Router, CheckContext) -> CheckResult,
 ) {
 
-    /** Runs the check on [router], whose Churn folder is [folder]. An answer the check doesn't expect fails it. */
-    fun run(router: Router, folder: ChurnFolder) = try {
-        confirm(router, folder)
+    /** Runs the check on [router], with what [context] holds. An answer the check doesn't expect fails it. */
+    fun run(router: Router, context: CheckContext) = try {
+        confirm(router, context)
     } catch (e: RouterException) {
         CheckResult.Failed("Unexpected answer: ${e.detail ?: e.problem}")
     }
 }
+
+/**
+ * What a check knows besides what it reads: the router's Churn [folder], as the app read it when it connected, and
+ * the [notes] that checks keep on the phone.
+ */
+class CheckContext(val folder: ChurnFolder, val notes: CheckNotes)
+
+/** What checks keep on the phone from one connection to the next, by key; null for none. */
+interface CheckNotes {
+    operator fun get(key: String): String?
+    operator fun set(key: String, value: String?)
+}
+
+/**
+ * The note of the check of H6: the size of GL's eSIM manager's log and the MD5 sum of its first bytes, up to 64. The
+ * app forgets it when it clears the router's SIM history, which empties the log.
+ */
+const val ESIM_LOG_NOTE = "esim_log"
 
 /** What a [Check] found. */
 sealed interface CheckResult {
@@ -42,7 +63,9 @@ val CHECKS = listOf(
     Check("P2", blocks = true, title = R.string.check_commands) { router, _ -> commandsFound(router, CHURN_COMMANDS) },
     Check("P3", blocks = false, title = R.string.check_md5sum) { router, _ -> commandsFound(router, listOf("md5sum")) },
     Check("P4", "M1", blocks = true, title = R.string.check_radio_answer) { router, _ -> radioAnswered(router) },
-    Check("M2", blocks = true, title = R.string.check_imeis_read, confirm = ::imeisRead),
+    Check("M2", blocks = true, title = R.string.check_imeis_read) { router, context ->
+        imeisRead(router, context.folder)
+    },
     Check("M3", blocks = true, title = R.string.check_slot2_answer) { router, _ ->
         // An answer other than the SIM 2 tray or the eSIM fails it.
         router.slot2()
@@ -76,7 +99,31 @@ val CHECKS = listOf(
     Check("E2", blocks = false, title = R.string.check_iccid_padding) { router, _ -> iccidPadding(router) },
     Check("E3", blocks = false, title = R.string.check_esim_placeholder) { router, _ -> esimPlaceholder(router) },
     Check("E5", blocks = false, title = R.string.check_esim_manager) { router, _ -> esimManagerBlocked(router) },
-    Check("F5", blocks = false, title = R.string.check_imeis_kept, confirm = ::imeisKept),
+    Check("B6", blocks = true, title = R.string.check_boot_id) { router, _ ->
+        // An ID other than a UUID fails it.
+        router.bootId()
+        CheckResult.Passed
+    },
+    Check("B16", blocks = false, title = R.string.check_test_profile) { router, _ -> testProfile(router) },
+    Check("H1", blocks = false, title = R.string.check_flash_log) { router, _ -> flashLogWritten(router) },
+    Check("H2", blocks = false, title = R.string.check_flash_log_stopped) { router, _ -> flashLogStopped(router) },
+    Check("H4", blocks = false, title = R.string.check_card_files) { router, _ -> cardFileFormats(router) },
+    Check("H5", blocks = false, title = R.string.check_esim_log_time) { router, _ -> esimLogInUtc(router) },
+    Check("H6", blocks = false, title = R.string.check_esim_log_growth, confirm = ::esimLogGrows),
+    Check("H12", blocks = true, title = R.string.check_overlay) { router, _ -> overlayReserve(router) },
+    Check("H18", blocks = false, title = R.string.check_flash_wear) { router, _ -> flashWear(router) },
+    Check("H19", blocks = false, title = R.string.check_etc_writes) { router, _ -> etcWritten(router) },
+    Check("F1", blocks = true, title = R.string.check_churn_folder) { router, context ->
+        churnFolderModes(router, context.folder)
+    },
+    Check("F2", blocks = true, title = R.string.check_folder_kept) { router, context ->
+        folderKept(router, context.folder)
+    },
+    Check("F3", blocks = false, title = R.string.check_firewall_kept) { router, _ -> firewallKept(router) },
+    Check("F4", blocks = false, title = R.string.check_zeros_link) { router, _ -> zerosLinked(router) },
+    Check("F5", blocks = false, title = R.string.check_imeis_kept) { router, context ->
+        imeisKept(router, context.folder)
+    },
 )
 
 /** Whether the router runs a firmware and a modem we tested Churn with. */
@@ -516,6 +563,232 @@ private fun esimManagerBlocked(router: Router): CheckResult {
     }
     val all = listOfNotNull(port) + problems
     return if (all.isEmpty()) CheckResult.Passed else CheckResult.Failed(all.joinToString(" "))
+}
+
+/** Whether the built-in eSIM shows the IMSI of GSMA TS.48's generic test profile with its placeholder ICCID. */
+private fun testProfile(router: Router): CheckResult {
+    if (router.slot2() != Slot2.ESIM) return CheckResult.NotApplicable(R.string.reason_slot2_on_tray)
+    val iccid = router.slot2Iccid() ?: return CheckResult.NotApplicable(R.string.reason_no_slot2_card)
+    if (iccid != Router.PLACEHOLDER_ICCID) return CheckResult.NotApplicable(R.string.reason_profile_enabled)
+    val imsi = router.slot2Imsi() ?: return CheckResult.NotApplicable(R.string.reason_no_slot2_card)
+    if (imsi == Router.TEST_IMSI) return CheckResult.Passed
+    return CheckResult.Failed("The placeholder ICCID came with another IMSI than TS.48's generic test profile's.")
+}
+
+/** Whether GL's system log goes to the file that `log_file` names, through a `logread -f -F` that writes it. */
+private fun flashLogWritten(router: Router): CheckResult {
+    val file = router.setting(Router.LOG_FILE) ?: return CheckResult.NotApplicable(R.string.reason_flash_log_off)
+    val writes = router.logFollowers().any { line -> "-F" to file in line.split(' ').zipWithNext() }
+    return if (writes) CheckResult.Passed else CheckResult.Failed("No logread -f -F writes ${file.take(60)}.")
+}
+
+/** Whether, with `log_file` deleted, as Churn leaves it, no `logread -f -F` writes a file any more. */
+private fun flashLogStopped(router: Router): CheckResult {
+    if (!router.flashLogOff()) return CheckResult.NotApplicable(R.string.reason_flash_log_on)
+    val files = router.logFollowers().mapNotNull { line ->
+        line.split(' ').zipWithNext().firstOrNull { it.first == "-F" }?.second
+    }
+    if (files.isEmpty()) return CheckResult.Passed
+    return CheckResult.Failed("logread still writes ${files.joinToString(", ") { it.take(60) }}.")
+}
+
+/**
+ * Whether GL's card files and the eSIM manager's records parse and name each card by its ICCID, in the formats
+ * development.md lists. The result names no card, and no record's file, whose name is the chip's ID.
+ */
+private fun cardFileFormats(router: Router): CheckResult {
+    val files = router.cardFiles()
+    if (files.isEmpty()) return CheckResult.NotApplicable(R.string.reason_no_card_files)
+    val wrong = files.filter { (path, json) -> json == null || !inCardFileFormat(path, json) }.keys
+    if (wrong.isEmpty()) return CheckResult.Passed
+    val records = wrong.count { it.startsWith(Router.ESIM_RECORDS) }
+    val names = wrong.filter { !it.startsWith(Router.ESIM_RECORDS) }.map { it.substringAfterLast('/') } +
+        listOfNotNull("$records of the eSIM manager's records".takeIf { records > 0 })
+    return CheckResult.Failed("Not in the format development.md lists: ${names.joinToString(", ")}.")
+}
+
+/** Whether [json], the card file or eSIM record at [path], is in the format development.md lists. */
+private fun inCardFileFormat(path: String, json: JSONObject): Boolean {
+    fun isIccid(value: Any?) = value is String && Imei.iccidDigits(value) != null
+    fun membersByIccid(members: JSONObject?, entry: (JSONObject) -> Boolean) = members != null &&
+        members.keys().asSequence().all { isIccid(it) && members.optJSONObject(it)?.let(entry) == true }
+    return when (path) {
+        Router.SIM_MAP -> membersByIccid(json) { true }
+        Router.APN_HISTORY -> json.optJSONArray("apns")
+            ?.let { apns -> (0 until apns.length()).all { isIccid(apns.optJSONObject(it)?.opt("iccid")) } } == true
+        else -> membersByIccid(json.optJSONObject("records")) { isIccid(it.opt("iccid")) }
+    }
+}
+
+/**
+ * Whether GL's eSIM manager begins its log's lines with the time in UTC: the last line that begins with a time begins
+ * with about the time the log was last written, by the router's clock. The result tells only how far apart they are.
+ */
+private fun esimLogInUtc(router: Router): CheckResult {
+    val (lines, written) = router.esimLogEnd() ?: return CheckResult.NotApplicable(R.string.reason_esim_log_empty)
+    val time = lines.asReversed().firstNotNullOfOrNull { EsimTime.LINE.matchEntire(it) }?.let(EsimTime::of)
+        ?: return CheckResult.Failed("None of the log's last 20 lines begins with a time.")
+    val minutes = (time - written) / 60
+    // A line written over a few seconds, or just before a minute turns, is still on time.
+    if (minutes in -2..2) return CheckResult.Passed
+    val direction = if (minutes > 0) "ahead of" else "behind"
+    return CheckResult.Failed("The log's last line is timed ${abs(minutes)} minutes $direction UTC.")
+}
+
+/**
+ * Whether GL's eSIM manager's log has only grown since the last connection, as the debug log expects, unless the app
+ * cleared the router's SIM history since: it is at least as long as then, and begins as it did.
+ */
+private fun esimLogGrows(router: Router, context: CheckContext): CheckResult {
+    val note = context.notes[ESIM_LOG_NOTE]?.split(' ')
+    val size = note?.getOrNull(0)?.toLongOrNull()
+    val head = note?.getOrNull(1)?.takeIf { it.matches(Regex("[0-9a-f]{32}")) }
+    val log = router.esimLog(from = size ?: 0, head = head ?: "", max = 0)
+    context.notes[ESIM_LOG_NOTE] = "${log.size} ${log.head}"
+    if (size == null || head == null) return CheckResult.NotApplicable(R.string.reason_first_note)
+    if (log.start == size) return CheckResult.Passed
+    return CheckResult.Failed("Since the last connection, the log was emptied or cut, though the app didn't clear it.")
+}
+
+/**
+ * Whether the overlay is ext4 on `mmcblk0p59`, and ext4 keeps 4096 blocks back from it: the reserve that the
+ * free-space overwrite sets to 0 for its run and back at its end.
+ */
+private fun overlayReserve(router: Router): CheckResult {
+    val overlay = router.overlay() ?: return CheckResult.Failed("Nothing is mounted on /overlay.")
+    val problems = listOfNotNull(
+        "The overlay is on ${overlay.device.take(40)}.".takeIf { overlay.device != "/dev/mmcblk0p59" },
+        "The overlay is ${overlay.type.take(20)}, not ext4.".takeIf { overlay.type != "ext4" },
+        when (overlay.reserve) {
+            4096L -> null
+            null -> "ext4 has no reserved_clusters file for it."
+            else -> "ext4 keeps ${overlay.reserve} blocks back from it, not 4096."
+        },
+    )
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/**
+ * Whether the flash rates its own wear, without a warning that its life or its spare blocks are running out. The
+ * debug log keeps its estimates from every connection.
+ */
+private fun flashWear(router: Router): CheckResult {
+    val wear = router.flashWear()
+    fun hex(value: Int) = "0x" + value.toString(16).padStart(2, '0')
+    return when {
+        wear.lifeTime.any { it !in 1..11 } || wear.preEol !in 1..3 -> CheckResult.Failed(
+            "The flash gives no estimate of its wear: life_time ${wear.lifeTime.joinToString(" ") { hex(it) }}, " +
+                "pre_eol_info ${hex(wear.preEol)}.",
+        )
+        11 in wear.lifeTime -> CheckResult.Failed("The flash reports its life used up.")
+        wear.preEol > 1 -> CheckResult.Failed(
+            "The flash reports ${if (wear.preEol == 2) 80 else 90}% of its spare blocks used.",
+        )
+        else -> CheckResult.Passed
+    }
+}
+
+/** The files in `/etc` that Churn writes or changes, besides the files in its folder. */
+private val CHURN_ETC_FILES = listOf(
+    Router.FIREWALL,
+    Router.SYSUPGRADE,
+    Router.SIM_MAP,
+    Router.APN_HISTORY,
+    "/etc/config/glconfig",
+    "/etc/config/network",
+    "/etc/config/route_policy",
+    "/etc/config/system",
+)
+
+/**
+ * Whether something other than Churn wrote a file in `/etc` in the last 2 minutes. GL does every minute, so the
+ * clock, which resumes after a power-on from the newest file there, starts about where it stopped.
+ */
+private fun etcWritten(router: Router): CheckResult {
+    if (router.uptimeSeconds() < 120) return CheckResult.NotApplicable(R.string.reason_just_started)
+    val written = router.etcFilesWritten(minutes = 2)
+        .filterNot { it in CHURN_ETC_FILES || it.startsWith("${Router.CHURN}/") }
+    if (written.isNotEmpty()) return CheckResult.Passed
+    return CheckResult.Failed("Nothing but Churn wrote a file in /etc in the last 2 minutes.")
+}
+
+/** The mode of each file that Churn writes in its folder, as `ls` shows it. */
+private val CHURN_FILE_MODES = mapOf(
+    "README.txt" to "-rw-------",
+    "card" to "-rw-------",
+    "factory" to "-rw-------",
+    "log_file" to "-rw-------",
+    "restore.sh" to "-rwx------",
+    "zeros" to "lrwxrwxrwx",
+)
+
+/** The files in Churn's folder from setup on. */
+private val CHURN_FILES_SET_UP = listOf("README.txt", "factory", "restore.sh")
+
+/** The sizes of Churn's records in bytes: the factory IMEIs, and an ICCID of 18 to 20 digits with its IMEIs. */
+private val CHURN_RECORD_SIZES = mapOf("factory" to 32L..32L, "card" to 51L..53L)
+
+/**
+ * Whether Churn's folder and its files belong to root and have the modes and sizes development.md lists. Another file
+ * there, such as the `secret` of earlier versions or one that a write stopped halfway left, only root may read.
+ */
+private fun churnFolderModes(router: Router, folder: ChurnFolder): CheckResult {
+    if (!folder.complete) return CheckResult.NotApplicable(R.string.reason_not_set_up)
+    val (self, entries) = router.churnFolderListing() ?: return CheckResult.Failed("Churn's folder is missing.")
+    val names = entries.map { it.name }
+    val folderProblem = "The folder has mode ${self.mode}, not drwx------.".takeIf { self.mode != "drwx------" }
+    val problems = listOfNotNull(folderProblem) +
+        CHURN_FILES_SET_UP.filter { it !in names }.map { "$it is missing." } +
+        (listOf(self) + entries).filter { it.uid != 0 }.map { "${it.name.take(40)} belongs to user ID ${it.uid}." } +
+        entries.mapNotNull(::churnFileProblem)
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/** What is wrong with [entry] of Churn's folder, if anything, other than its owner. */
+private fun churnFileProblem(entry: FolderEntry): String? {
+    val name = entry.name.take(40)
+    val mode = CHURN_FILE_MODES[entry.name]
+    val size = CHURN_RECORD_SIZES[entry.name]
+    return when {
+        mode == null -> "$name has mode ${entry.mode}.".takeUnless { entry.mode.matches(Regex("-..[-x]------")) }
+        entry.mode != mode -> "$name has mode ${entry.mode}, not $mode."
+        size != null && entry.size !in size -> "$name is ${entry.size} bytes, not " +
+            (if (size.first == size.last) "${size.first}." else "${size.first} to ${size.last}.")
+        else -> null
+    }
+}
+
+/** Whether `/etc/sysupgrade.conf` lists Churn's folder, so that a firmware upgrade that keeps settings keeps it. */
+private fun folderKept(router: Router, folder: ChurnFolder) = when {
+    !folder.complete -> CheckResult.NotApplicable(R.string.reason_not_set_up)
+    router.upgradeKeeps("${Router.CHURN}/") -> CheckResult.Passed
+    else -> CheckResult.Failed("/etc/sysupgrade.conf doesn't list ${Router.CHURN}/.")
+}
+
+/** Whether `/etc/sysupgrade.conf` lists Churn's firewall rules, with the rules on the router. */
+private fun firewallKept(router: Router) = when {
+    router.firewallFile() == null -> CheckResult.NotApplicable(R.string.reason_no_firewall)
+    router.upgradeKeeps(Router.FIREWALL) -> CheckResult.Passed
+    else -> CheckResult.Failed("/etc/sysupgrade.conf doesn't list ${Router.FIREWALL}.")
+}
+
+/**
+ * Whether Churn's folder links to the zero files in `/overlay/churn-zeros`, and `du` and a firmware upgrade that keeps
+ * settings take only the link: `du` counts under 1 MB in the folder, and `sysupgrade -l` lists the link but no zero
+ * file.
+ */
+private fun zerosLinked(router: Router): CheckResult {
+    val link = router.zerosLink() ?: return CheckResult.NotApplicable(R.string.reason_no_zeros)
+    val problems = listOfNotNull(
+        "The link leads to ${link.target.take(60)}.".takeIf { link.target != "/overlay/churn-zeros" },
+        "du counts ${link.folderKb} kB in Churn's folder.".takeIf { link.folderKb >= 1024 },
+        when {
+            "${Router.CHURN}/zeros" !in link.kept -> "sysupgrade -l doesn't list the link."
+            link.kept.size > 1 -> "sysupgrade -l lists zero files too."
+            else -> null
+        },
+    )
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
 }
 
 /**

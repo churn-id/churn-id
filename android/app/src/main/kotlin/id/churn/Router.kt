@@ -22,9 +22,10 @@ class Output(val status: Int?, val stdout: ByteArray, val stderr: String) {
 
 /**
  * A part of GL's eSIM manager's log, [text], read when the log was [size] bytes long, its first bytes, up to 64, had
- * the MD5 sum [head], and the router's clock showed [clock], in seconds since 1970.
+ * the MD5 sum [head], and the router's clock showed [clock], in seconds since 1970. The read took the log from
+ * [start]: from where it was asked to, if the log began as before, or else from its beginning.
  */
-class EsimLog(val clock: Long, val size: Long, val head: String, val text: String)
+class EsimLog(val clock: Long, val size: Long, val head: String, val start: Long, val text: String)
 
 /** Why a step stopped. Nothing it did after the last confirmed answer is assumed done. */
 enum class Problem {
@@ -36,17 +37,23 @@ enum class Problem {
 class RouterException(val problem: Problem, val detail: String? = null) :
     Exception(if (detail == null) problem.name else "${problem.name}: $detail")
 
-/** The modem's answer to an AT command: the lines before the final `OK`. */
+/** The modem's answer to an AT command: the lines before the final `OK`, without the command's echo. */
 class AtAnswer(val lines: List<String>) {
 
     /** The rest of the first line that starts with [prefix], such as `+CFUN:`, trimmed. */
     fun after(prefix: String) = lines.firstOrNull { it.startsWith(prefix) }?.substring(prefix.length)?.trim()
 
     companion object {
-        /** Null unless [output] ends with `OK`, as every accepted answer must. */
-        fun parse(output: String): AtAnswer? {
+        /**
+         * The answer to [command] that [output] holds; null unless it ends with `OK`, as every accepted answer must.
+         * For a while after power-on the modem repeats each command before its answer, as GL's channel to the cards
+         * always does, so a first line that is [command] is left out.
+         */
+        fun parse(command: String, output: String): AtAnswer? {
             val lines = output.lines().map { it.trim() }.filter { it.isNotEmpty() }
-            return if (lines.lastOrNull() == "OK") AtAnswer(lines.dropLast(1)) else null
+            if (lines.lastOrNull() != "OK") return null
+            val answer = lines.dropLast(1)
+            return AtAnswer(if (answer.firstOrNull() == command) answer.drop(1) else answer)
         }
     }
 }
@@ -66,6 +73,33 @@ sealed interface Slot2Card {
 
 /** GL's firmware version, the OpenWrt release it is built on, and the modem's model and firmware revision. */
 data class Platform(val gl: String, val openwrt: String, val modem: String, val revision: String)
+
+/**
+ * The file system mounted on `/overlay`: its [device], as `/proc/mounts` names it, its [type], and the blocks that
+ * ext4 keeps back from it, [reserve], or null without ext4's `reserved_clusters` file for it.
+ */
+data class Overlay(val device: String, val type: String, val reserve: Long?)
+
+/**
+ * The flash's own estimates of its wear, its `life_time` and `pre_eol_info` in the eMMC standard. [lifeTime] holds, for
+ * each of its two kinds of blocks, the share of its life used, from 1 for up to 10% to 10 for up to 100%, and 11 once
+ * past it. [preEol] says how many of its spare blocks are used: 1 for a normal number, 2 for 80%, 3 for 90%. 0 stands
+ * for no estimate.
+ */
+data class FlashWear(val lifeTime: List<Int>, val preEol: Int)
+
+/**
+ * An entry of a folder as `ls -ln` lists it: its [mode], such as `-rw-------`, the user ID of its owner, [uid], its
+ * [size] in bytes and its [name].
+ */
+data class FolderEntry(val mode: String, val uid: Int?, val size: Long?, val name: String)
+
+/**
+ * Churn's link to the zero files and what tools make of it: where it leads, [target], how many kB `du` counts in
+ * Churn's folder, [folderKb], and the paths of the link or the zero files that `sysupgrade -l` lists, [kept], as a
+ * firmware upgrade that keeps settings would keep them.
+ */
+data class ZerosLink(val target: String, val folderKb: Long, val kept: List<String>)
 
 /**
  * A program listening on the UDP [port], as `netstat` names it, the user ID it runs as, and the file that dnsmasq
@@ -215,9 +249,49 @@ class Router(private val shell: Shell) {
             clock = clock,
             size = size,
             head = md5,
+            start = start,
             // The cut leaves a part of a line, which could hold a part of an ICCID.
             text = if (size - start > max) text.substringAfter('\n', missingDelimiterValue = "") else text,
         )
+    }
+
+    /**
+     * The last 20 lines of GL's eSIM manager's log, and when the log was last written, in seconds since 1970; null
+     * for an empty log. Read privately: the lines can name profiles, and the time is the time of day.
+     */
+    fun esimLogEnd(): Pair<List<String>, Long>? {
+        val log = "$ESIM/log.txt"
+        val output = runPrivately("[ -s $log ] || exit 3; date -r $log +%s; tail -n 20 $log")
+        if (output.status == 3) return null
+        val lines = output.text.lines()
+        val written = lines[0].trim().toLongOrNull()
+        if (output.status != 0 || written == null) throw unexpected("GL's eSIM manager's log")
+        return lines.drop(1).map { it.trim() }.filter { it.isNotEmpty() } to written
+    }
+
+    /** The file system mounted on `/overlay`; null if none is. */
+    fun overlay(): Overlay? {
+        val output = run(OVERLAY)
+        output.check("/proc/mounts")
+        val fields = output.text.trim().split(' ')
+        if (fields.size < 2) return null
+        return Overlay(fields[0], fields[1], fields.getOrNull(2)?.toLongOrNull())
+    }
+
+    /** The files in `/etc` written in the last [minutes] minutes. */
+    fun etcFilesWritten(minutes: Int): List<String> {
+        // The debug log leaves the names out, in case one names a card. A file that GL replaces while find reads the
+        // folder makes find fail, which doesn't matter here.
+        val output = runPrivately("find /etc -type f -mmin -$minutes 2>/dev/null")
+        return output.text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
+    /** The flash's estimates of its wear. */
+    fun flashWear(): FlashWear {
+        val output = run("cat $FLASH/life_time $FLASH/pre_eol_info")
+        val match = FLASH_WEAR.matchEntire(output.text.trim()) ?: throw unexpected("The flash's wear", output)
+        val (typeA, typeB, preEol) = match.destructured
+        return FlashWear(listOf(typeA.toInt(16), typeB.toInt(16)), preEol.toInt(16))
     }
 
     /** The firmware and the modem the router runs. */
@@ -390,6 +464,14 @@ class Router(private val shell: Shell) {
     /** Whether GL's system log to the flash is off, so no new SIM details are written to the flash. */
     fun flashLogOff() = uci(LOG_FILE) == null
 
+    /** The command lines of the `logread -f` processes, such as the one that writes GL's system log to its file. */
+    fun logFollowers(): List<String> {
+        val output = run(LOG_FOLLOWERS)
+        // grep exits with 1 when no process matches.
+        if (output.status != 0 && output.status != 1) throw unexpected("logread", output)
+        return output.text.lines().filter(String::isNotBlank)
+    }
+
     /**
      * Removes the record GL keeps of past SIMs on the flash: it turns GL's system log to the flash off (saving the
      * original setting first, so [restoreFactoryImeis] can put it back), deletes the log files, keeps only the card
@@ -403,8 +485,8 @@ class Router(private val shell: Shell) {
         val keep = keepIccid?.let(::iccidKey)
         turnFlashLogOff()
         run("rm -f $SYS_LOG $SYS_LOG.old").check("delete the system log")
-        pruneSimMap("$CELLULAR/sim_map.json", keep)
-        pruneApnHistory("$CELLULAR/history_apn_database.json", keep)
+        pruneSimMap(SIM_MAP, keep)
+        pruneApnHistory(APN_HISTORY, keep)
         pruneEsimRecords(keep)
         // Earlier versions of the app derived each card's IMEIs from it, which networks' records then find.
         run("rm -f $CHURN/secret").check("delete the secret")
@@ -451,10 +533,7 @@ class Router(private val shell: Shell) {
 
     /** Deletes the eSIM manager's record files that don't name [keep], and empties its log. */
     private fun pruneEsimRecords(keep: String?) {
-        // GL names each file by the chip's 32-digit id; other names are left alone rather than passed to the shell.
-        val files = run("find $ESIM/db -maxdepth 1 -type f 2>/dev/null").text.lines()
-            .filter { it.matches(Regex("$ESIM/db/[A-Za-z0-9._-]+")) }
-        for (file in files) {
+        for (file in esimRecordFiles()) {
             val content = readFile(file)?.toString(Charsets.UTF_8) ?: continue
             if (keep == null || !content.contains(keep)) run("rm -f $file").check("remove an eSIM record")
         }
@@ -467,6 +546,20 @@ class Router(private val shell: Shell) {
      * On our Mudi 7 it took about 3 minutes; the timeout allows for a slower flash.
      */
     private fun overwriteFreeSpace() = run(OVERWRITE_FREE_SPACE, timeoutSeconds = 900).check("overwrite the free space")
+
+    /**
+     * GL's card files and the eSIM manager's records, by path, each as JSON, or null if it doesn't parse; a file that
+     * isn't there is left out. Read privately: they hold SIM PINs, APN passwords and activation codes.
+     */
+    fun cardFiles(): Map<String, JSONObject?> = (listOf(SIM_MAP, APN_HISTORY) + esimRecordFiles()).mapNotNull { path ->
+        readFile(path)?.let { path to runCatching { JSONObject(it.toString(Charsets.UTF_8)) }.getOrNull() }
+    }.toMap()
+
+    /** The eSIM manager's record files, one per chip. */
+    private fun esimRecordFiles() =
+        // GL names each file by the chip's 32-digit id; other names are left alone rather than passed to the shell.
+        run("find $ESIM_RECORDS -maxdepth 1 -type f 2>/dev/null").text.lines()
+            .filter { it.matches(Regex("$ESIM_RECORDS/[A-Za-z0-9._-]+")) }
 
     private fun readJson(path: String) =
         readFile(path)?.let { runCatching { JSONObject(it.toString(Charsets.UTF_8)) }.getOrNull() }
@@ -489,6 +582,32 @@ class Router(private val shell: Shell) {
         val factory = readChurnLines("factory", IMEI, IMEI)?.let { ImeiPair(it[0], it[1]) }
         val card = readChurnLines("card", ICCID, IMEI, IMEI)?.let { Card(it[0], ImeiPair(it[1], it[2])) }
         return ChurnFolder(factory, card)
+    }
+
+    /** Churn's folder and the entries in it, as `ls` lists them; null without the folder. */
+    fun churnFolderListing(): Pair<FolderEntry, List<FolderEntry>>? {
+        // The debug log leaves the listing out: its times say when swaps ran.
+        val output = runPrivately("[ -d $CHURN ] || exit 3; ls -lnd $CHURN && ls -lnA $CHURN")
+        if (output.status == 3) return null
+        val entries = output.text.lines().mapNotNull { line ->
+            val fields = line.trim().split(Regex("\\s+"), limit = 9)
+            fields.takeIf { it.size == 9 }?.let {
+                FolderEntry(it[0], it[2].toIntOrNull(), it[4].toLongOrNull(), it[8].substringBefore(" -> "))
+            }
+        }
+        val folder = entries.firstOrNull()
+        if (output.status != 0 || folder?.name != CHURN) throw unexpected(CHURN)
+        return folder to entries.drop(1)
+    }
+
+    /** Churn's link to the zero files; null without the link. */
+    fun zerosLink(): ZerosLink? {
+        val output = run(ZEROS_LINK)
+        if (output.status == 3) return null
+        val lines = output.text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        val kb = lines.getOrNull(1)?.toLongOrNull()
+        if (output.status != 0 || kb == null) throw unexpected("The link to the zero files", output)
+        return ZerosLink(lines[0], kb, lines.drop(2))
     }
 
     /** Records [card] in Churn's folder as the card step 3 last gave IMEIs. */
@@ -524,6 +643,9 @@ class Router(private val shell: Shell) {
         ).check(path)
         if (!readFile(path).contentEquals(content)) throw unexpected(path)
     }
+
+    /** Whether `/etc/sysupgrade.conf` lists [path], so that a firmware upgrade that keeps settings keeps it. */
+    fun upgradeKeeps(path: String) = run("grep -qxF $path $SYSUPGRADE").status == 0
 
     /** Lists Churn's folder in `/etc/sysupgrade.conf`, so a firmware upgrade keeps it. */
     fun keepChurnFolder() = keep("$CHURN/")
@@ -570,7 +692,7 @@ class Router(private val shell: Shell) {
     /** An AT command through GL's `gl_modem`, under Churn's lock. */
     fun at(command: String): AtAnswer {
         val output = run(locked("gl_modem -B cpu AT ${quote(command)} </dev/null"))
-        return AtAnswer.parse(output.text) ?: throw unexpected(command, output)
+        return AtAnswer.parse(command, output.text) ?: throw unexpected(command, output)
     }
 
     /**
@@ -585,7 +707,7 @@ class Router(private val shell: Shell) {
             ?: throw unexpected(command, output)
         // 3GPP TS 27.007's error 10: SIM not inserted.
         if (data.lines().any { it.trim() == "+CME ERROR: 10" }) return null
-        return AtAnswer.parse(data) ?: throw unexpected(command, output)
+        return AtAnswer.parse(command, data) ?: throw unexpected(command, output)
     }
 
     /** Null if slot 2's card doesn't answer [command]. A broken connection still throws. */
@@ -679,6 +801,9 @@ class Router(private val shell: Shell) {
         /** The start of a test network's IMSI, which the built-in eSIM shows with no profile enabled. */
         const val TEST_NETWORK = "00101"
 
+        /** The IMSI of GSMA TS.48's generic test profile, which the built-in eSIM shows with no profile enabled. */
+        const val TEST_IMSI = "001010123456063"
+
         /**
          * The first digits of a country code that no real network's IMSI starts with: 0, which test networks such as
          * 001/01 use, and 1, which no country has. A 9eSIM adapter card shows 111111111111111.
@@ -724,22 +849,57 @@ class Router(private val shell: Shell) {
             done 2>/dev/null | sort -u
         """.trimIndent()
 
+        /**
+         * Where Churn's link to the zero files leads, how many kB `du` counts in Churn's folder, and the paths of the
+         * link or the zero files that `sysupgrade -l` lists, one per line.
+         */
+        private val ZEROS_LINK = """
+            [ -L $CHURN/zeros ] || exit 3
+            readlink $CHURN/zeros || exit 1
+            du -sk $CHURN 2>/dev/null | cut -f 1
+            sysupgrade -l 2>/dev/null | grep -e '^$CHURN/zeros' -e '^/overlay/churn-zeros'
+            true
+        """.trimIndent()
+
+        /** The kernel's folder for the eMMC flash, which holds its estimates of its wear. */
+        private const val FLASH = "/sys/block/mmcblk0/device"
+
+        /** How the kernel writes the flash's `life_time` and `pre_eol_info`, one after the other. */
+        private val FLASH_WEAR = Regex("""0x([0-9a-f]{2}) 0x([0-9a-f]{2})\s+0x([0-9a-f]{2})""")
+
+        /** The overlay's device and file system type, and the blocks that ext4 keeps back from it. */
+        private val OVERLAY = """
+            set -- ${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1, ${'$'}3; exit }' /proc/mounts)
+            echo ${'$'}1 ${'$'}2 ${'$'}(cat /sys/fs/ext4/${'$'}{1##*/}/reserved_clusters 2>/dev/null)
+        """.trimIndent()
+
+        /** The command line of each `logread -f` process, its arguments separated by spaces. */
+        private const val LOG_FOLLOWERS = "for c in /proc/[0-9]*/cmdline; do tr '\\000' ' ' < \$c; echo; done " +
+            "2>/dev/null | grep -E '^[^ ]*logread .*-f'"
+
         /** GL's two settings of the Enhanced Kill Switch: `0`, and absent, while it is on. */
         const val DEFAULT_POLICY = "route_policy.@default[0].enabled"
         const val VPN_TO_MAIN = "network.vpn_to_main"
         private const val LOCK = "/var/lock/churn.lock"
-        private const val SYSUPGRADE = "/etc/sysupgrade.conf"
+        const val SYSUPGRADE = "/etc/sysupgrade.conf"
         private const val ESIM_API = "http://127.0.0.1:3456/sdk/v1"
 
         /** GL's uci setting that names the flash file its system log is written to. */
-        private const val LOG_FILE = "system.@system[0].log_file"
+        const val LOG_FILE = "system.@system[0].log_file"
 
         /** GL's uci value for the ICCID of the active card. */
         const val MODEM_ICCID = "network.modem_cpu.iccid"
 
         private const val SYS_LOG = "/etc/sys_log"
         private const val CELLULAR = "/etc/config/cellular"
+
+        /** GL's card files: its settings for each card, and the APN that worked for each. */
+        const val SIM_MAP = "$CELLULAR/sim_map.json"
+        const val APN_HISTORY = "$CELLULAR/history_apn_database.json"
         private const val ESIM = "/root/esim"
+
+        /** The folder of the eSIM manager's records, a file per chip. */
+        const val ESIM_RECORDS = "$ESIM/db"
 
         /**
          * Fills the overlay's free space with zeros, then frees 512 MB of it again. ext4 keeps back free space that

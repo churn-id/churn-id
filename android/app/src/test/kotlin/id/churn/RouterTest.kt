@@ -16,11 +16,23 @@ class RouterTest {
     @Test
     fun parsesTheModemsAnswers() {
         // As gl_modem printed them on our Mudi 7.
-        assertEquals("1", AtAnswer.parse("\n\r\n+CFUN: 1\r\n\r\nOK\r\n\n")!!.after("+CFUN:"))
-        assertEquals("\"slot2\",0", AtAnswer.parse("\r\n+QSIMTYPE: \"slot2\",0\r\n\r\nOK\r\n")!!.after("+QSIMTYPE:"))
-        assertNull(AtAnswer.parse("\r\n+CME ERROR: 10\r\n"))
-        assertNull(AtAnswer.parse("\r\nERROR\r\n"))
-        assertNull(AtAnswer.parse(""))
+        assertEquals("1", AtAnswer.parse("AT+CFUN?", "\n\r\n+CFUN: 1\r\n\r\nOK\r\n\n")!!.after("+CFUN:"))
+        val slot2 = AtAnswer.parse("AT+QSIMTYPE=\"slot2\"", "\r\n+QSIMTYPE: \"slot2\",0\r\n\r\nOK\r\n")
+        assertEquals("\"slot2\",0", slot2!!.after("+QSIMTYPE:"))
+        assertNull(AtAnswer.parse("AT+CPIN?", "\r\n+CME ERROR: 10\r\n"))
+        assertNull(AtAnswer.parse("AT+CFUN?", "\r\nERROR\r\n"))
+        assertNull(AtAnswer.parse("AT+CFUN?", ""))
+    }
+
+    @Test
+    fun leavesTheModemsEchoOutOfItsAnswers() {
+        // As gl_modem printed it on our Mudi 7 a minute after power-on, and GL's channel to the cards always does.
+        val modem = listOf("Quectel", "RG650V-EU", "Revision: RG650VEU00ADR02A04G8G")
+        val echoed = "ATI\r\r\nQuectel\r\nRG650V-EU\r\nRevision: RG650VEU00ADR02A04G8G\r\n\r\nOK\r\n"
+        assertEquals(modem, AtAnswer.parse("ATI", echoed)!!.lines)
+        assertEquals(modem, AtAnswer.parse("ATI", echoed.removePrefix("ATI\r\r\n"))!!.lines)
+        // Only a line that is the command itself.
+        assertEquals(listOf("ATI0", "Quectel"), AtAnswer.parse("ATI", "ATI0\r\nQuectel\r\nOK\r\n")!!.lines)
     }
 
     @Test
