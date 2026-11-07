@@ -230,6 +230,7 @@
     <string name="cancel_swap">Cancel the swap</string>
 
     <!-- What a step reports -->
+    <string name="progress_untested_platform">The router runs a GL firmware or modem firmware we haven\'t tested Churn with. The router checks that swaps rely on passed, so the step goes on.</string>
     <string name="progress_airplane_mode_on">Airplane mode is on.</string>
     <string name="progress_radio_off">The radio is off.</string>
     <string name="progress_slot2_on_esim">Slot 2 is on the built-in eSIM.</string>
@@ -264,6 +265,7 @@
     <string name="problem_kill_switch_off">The Enhanced Kill Switch didn\'t come on.</string>
     <string name="problem_no_vpn">No WireGuard VPN is set up on the router. Set one up in GL\'s web interface first (rule 5).</string>
     <string name="problem_vpn_gone">No WireGuard VPN is set up on the router any more, so Churn stopped while the new card is still off. The router has no internet over a SIM now, so set one up in GL\'s web interface from a WireGuard configuration file (rule 5), then tap Try again.</string>
+    <string name="problem_check_failed">A router check that swaps rely on failed, so Churn stopped before changing slot 2: the router doesn\'t work the way Churn\'s commands expect, as after a firmware upgrade. Churn can swap on this router again once the check passes. Router checks, on the router screen, shows every check\'s result.</string>
     <string name="problem_firewall_not_loaded">The router\'s firewall didn\'t load Churn\'s rules, so Churn removed them again and stopped.</string>
 
     <!-- The notification while a step runs -->
