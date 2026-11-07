@@ -108,6 +108,9 @@ data class ZerosLink(val target: String, val folderKb: Long, val kept: List<Stri
  */
 data class ZeroFiles(val count: Int, val kb: Long)
 
+/** How often a number is on the overlay's raw partition, [raw], and in the files on it, [files]. */
+data class NumberCount(val raw: Int, val files: Int)
+
 /**
  * A program listening on the UDP [port], as `netstat` names it, the user ID it runs as, and the file that dnsmasq
  * reads its servers from, or null for none.
@@ -644,10 +647,52 @@ class Router(private val shell: Shell) {
         return ZeroFiles(numbers[0].toInt(), numbers[1])
     }
 
+    /**
+     * The runs of 15 and of 18 to 20 digits, such as ICCIDs, IMSIs and IMEIs, in GL's card files, the eSIM manager's
+     * records and log, and the system log's files at [logFile], if any. Read privately, since they name cards.
+     */
+    fun numbersInCardFilesAndLogs(logFile: String?): Set<String> {
+        // A path that would need quoting is left out rather than passed to the shell.
+        val logs = listOfNotNull(logFile, logFile?.let { "$it.old" }).filter { it.matches(PATH) }
+        val paths = listOf(SIM_MAP, APN_HISTORY, "$ESIM/log.txt") + esimRecordFiles() + logs
+        return paths.flatMap { path ->
+            val text = readFile(path)?.toString(Charsets.ISO_8859_1) ?: return@flatMap emptyList()
+            DIGITS.findAll(text).map { it.value }.filter { it.length == 15 || it.length in 18..20 }.toList()
+        }.toSet()
+    }
+
+    /**
+     * How often each of [numbers] is on the overlay's raw partition and in the files on it, as a whole run of digits.
+     * The router drops its block cache before it reads the partition, so that the reads come from the flash, and
+     * again afterwards, since ext4 can make new blocks from cached ones, old data included. The numbers go to the
+     * router as input, which the debug log leaves out, and only counts come back. Reading the 2.9 GB takes minutes.
+     */
+    fun countOnPartition(numbers: List<String>): List<NumberCount> {
+        val output = run(COUNT_NUMBERS, numbers.joinToString("") { "$it\n" }.toByteArray(), timeoutSeconds = 900)
+        val counts = output.text.lines().filter { it.isNotBlank() }.map { line ->
+            val fields = line.trim().split(' ').mapNotNull { it.toIntOrNull() }
+            if (fields.size != 2) throw unexpected("Counting the numbers on the partition", output)
+            NumberCount(fields[0], fields[1])
+        }
+        if (output.status != 0 || counts.size != numbers.size) throw unexpected("Counting the numbers", output)
+        return counts
+    }
+
     /** The overlay's free space in kB, after a sync, as the free-space overwrite counts it. */
     fun overlayFreeKb(): Long {
         val output = run(OVERLAY_FREE)
         return output.text.trim().toLongOrNull()?.takeIf { output.status == 0 } ?: throw unexpected("df", output)
+    }
+
+    /**
+     * The kB written to the overlay's partition since its file system was made, after a sync, as ext4 counts them in
+     * `lifetime_write_kbytes`.
+     */
+    fun overlayWrittenKb(): Long {
+        val output = run(OVERLAY_WRITTEN)
+        val kb = output.text.trim().toLongOrNull()
+        if (output.status != 0 || kb == null) throw unexpected("lifetime_write_kbytes", output)
+        return kb
     }
 
     /** Records [card] in Churn's folder as the card step 3 last gave IMEIs. */
@@ -913,6 +958,47 @@ class Router(private val shell: Shell) {
 
         /** The overlay's free space in kB, as the free-space overwrite counts it. */
         private val OVERLAY_FREE = "sync; df -k /overlay | awk 'END { print ${'$'}(NF - 4) - ${'$'}(NF - 3) }'"
+
+        /** The kB written to the overlay's partition since its file system was made, after a sync. */
+        private val OVERLAY_WRITTEN = """
+            sync
+            dev=${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1; exit }' /proc/mounts)
+            cat /sys/fs/ext4/${'$'}{dev##*/}/lifetime_write_kbytes
+        """.trimIndent()
+
+        /**
+         * Counts each number of its input, one per line, on the overlay's raw partition and in the files on it, as a
+         * whole run of digits, and prints the two counts for each, in the input's order. The zero files hold only
+         * zeros, so it skips them. The numbers stay in /tmp, which is in RAM, until it ends.
+         */
+        private val COUNT_NUMBERS = """
+            t=/tmp/churn-numbers
+            trap 'rm -f ${'$'}t ${'$'}t.raw ${'$'}t.files' EXIT
+            trap 'exit 1' HUP INT TERM PIPE
+            (umask 077 && cat > ${'$'}t)
+            dev=${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1; exit }' /proc/mounts)
+            [ -b "${'$'}dev" ] || exit 1
+            sync
+            echo 3 > /proc/sys/vm/drop_caches
+            tr -cs '0-9' '\n' < ${'$'}dev | grep -x -F -f ${'$'}t > ${'$'}t.raw
+            find /overlay -xdev -type f 2>/dev/null | grep -v '^/overlay/churn-zeros/' | while IFS= read -r f; do
+            	tr -cs '0-9' '\n' < "${'$'}f"
+            	echo
+            done | grep -x -F -f ${'$'}t > ${'$'}t.files
+            sync
+            echo 3 > /proc/sys/vm/drop_caches
+            awk '
+            	FILENAME == ARGV[1] { n[++k] = ${'$'}0; next }
+            	FILENAME == ARGV[2] { r[${'$'}0]++; next }
+            	{ f[${'$'}0]++ }
+            	END { for (i = 1; i <= k; i++) print r[n[i]] + 0, f[n[i]] + 0 }
+            ' ${'$'}t ${'$'}t.raw ${'$'}t.files
+        """.trimIndent()
+
+        /** A path the shell takes as it is, without quoting. */
+        private val PATH = Regex("/[A-Za-z0-9._/-]+")
+
+        private val DIGITS = Regex("[0-9]+")
 
         /** The kernel's folder for the eMMC flash, which holds its estimates of its wear. */
         private const val FLASH = "/sys/block/mmcblk0/device"

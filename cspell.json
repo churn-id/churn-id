@@ -38,6 +38,8 @@
     "hotspot",
     "iccid",
     "ICCID",
+    "iccids",
+    "ICCIDS",
     "ifstatus",
     "imei",
     "IMEI",
@@ -45,6 +47,8 @@
     "IMEISV",
     "imsi",
     "IMSI",
+    "imsis",
+    "IMSIS",
     "inet",
     "inputmethod",
     "kbytes",
@@ -100,9 +104,11 @@
     "skuid",
     "sshj",
     "sysupgrade",
+    "tacs",
     "ubus",
     "userauth",
     "wgclient",
-    "wlan"
+    "wlan",
+    "xdev"
   ]
 }

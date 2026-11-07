@@ -241,7 +241,7 @@
     <string name="dry_run_forget_text">Churn then forgets how the router was before the dry run, and can\'t put it back any more.</string>
     <string name="dry_run_back">Back</string>
     <string name="removal_test">Removal and clearing</string>
-    <string name="removal_test_text">The removal test runs Churn\'s restore.sh, as Remove Churn does, checks what it did, and sets the router up again as it was, with the card\'s record, the IMEIs it had and Churn\'s firewall rules. It confirms claims of docs/testing.md about restore.sh, and runs once for each firmware: restore.sh deletes the zero files, so the next clearing fills all of the flash\'s free space, about 2.9 GB. No profile may be enabled on the built-in eSIM, and the SIM 1 tray must be empty. The test leaves airplane mode on. The debug log, if it is on, keeps every command.</string>
+    <string name="removal_test_text">The removal test runs Churn\'s restore.sh, as Remove Churn does, checks what it did, and sets the router up again as it was, with the card\'s record, the IMEIs it had and Churn\'s firewall rules. It then clears the SIM history twice, as step 3 does. It confirms claims of docs/testing.md about restore.sh and the clearing, and runs once for each firmware: restore.sh deletes the zero files, so the first clearing fills all of the flash\'s free space, about 2.9 GB, which takes minutes, as does reading all of the partition afterwards. No profile may be enabled on the built-in eSIM, and the SIM 1 tray must be empty. The test leaves airplane mode on. The debug log, if it is on, keeps every command.</string>
     <string name="removal_test_confirm">restore.sh deletes Churn\'s folder, and the test then writes it anew. If the test stops in between, the router screen shows this screen until the router is set up again.</string>
     <string name="removal_test_unfinished">The last removal test stopped before it set the router up again, so the router may still have the factory IMEIs and no Churn folder or firewall rules. Set the router up again, or forget the test if you have set the router up yourself.</string>
     <string name="removal_test_stopped">The removal test stopped while confirming %1$s.\n\n%2$s</string>
@@ -289,6 +289,18 @@
     <string name="progress_zero_files_gone">Churn\'s zero files and the link to them are gone, and their space is free again (F10).</string>
     <string name="progress_firewall_gone">Churn\'s firewall rules, their chains and their line in /etc/sysupgrade.conf are gone (F11).</string>
     <string name="progress_set_up_again">The router is set up again, with the card\'s record, the IMEIs it had and Churn\'s firewall rules as before.</string>
+    <string name="progress_connection_kept">The clearing ended with the SSH connection still open, though it printed nothing for minutes (H17).</string>
+    <string name="progress_reserve_back">ext4\'s reserve of free space is back as before the clearing (H13).</string>
+    <string name="progress_card_files_parse">GL\'s card files and the eSIM manager\'s records parse (H14).</string>
+    <string name="progress_zeros_keep_space">About 512 MB of the flash are free, and the zero files hold the rest of the free space (H15).</string>
+    <string name="progress_reading_partition">Counting the cards\' ICCIDs and IMSIs on the raw partition and in its files. Reading the partition takes a few minutes.</string>
+    <string name="progress_imsis_gone">No IMSI that the clearing deleted is left on the raw partition (H10).</string>
+    <string name="progress_no_imsis">GL\'s card files and logs named no IMSI that the clearing deleted, so H10 stays unconfirmed.</string>
+    <string name="progress_iccids_gone">No ICCID that the clearing deleted is left on the raw partition (H11).</string>
+    <string name="progress_no_iccids">GL\'s card files and logs named no ICCID that the clearing deleted, so H11 stays unconfirmed.</string>
+    <string name="progress_partition_unchecked">No file holds any of the cards\' ICCIDs and IMSIs any more, so a failed read of the raw partition couldn\'t be told, and H10 and H11 stay unconfirmed.</string>
+    <string name="progress_free_space_filled">Clearing again wrote about as much as the free space, so the zero files spared the rest of the flash (H15).</string>
+    <string name="progress_cleared_quickly">With the zero files in place, clearing again took under a minute (H16).</string>
     <string name="progress_removal_passed">The removal test passed.</string>
 
     <!-- Why a step stopped -->
