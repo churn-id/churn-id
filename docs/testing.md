@@ -7,13 +7,13 @@ wrong all along, shows up before a user depends on it. The claims come
 from [design.md](design.md) and [development.md](development.md).
 
 Status: being built. The app runs the tier 1 checks, and debug builds
-have tier 2's dry run and removal and clearing tests; tiers 3 and 4
-are a plan. The app's unit tests run in CI against a simulated
-Mudi 7 (`FakeRouter`) built from these claims, so a claim that turns out
-wrong makes the simulation wrong too. *Verified* means we observed it by
-hand on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
-*inferred* means not yet tested; *open* means one of the open questions in
-design.md or development.md.
+have tier 2's dry run and removal and clearing tests and tier 3's power
+cycle test; tier 4 is a plan. The app's unit tests run in CI against a
+simulated Mudi 7 (`FakeRouter`) built from these claims, so a claim that
+turns out wrong makes the simulation wrong too. *Verified* means we
+observed it by hand on a Mudi 7 with GL firmware 4.10.0 and a Quectel
+RG650V-EU modem; *inferred* means not yet tested; *open* means one of the
+open questions in design.md or development.md.
 
 Each claim has an ID, a letter for its section and a number, such as M3.
 The app's checks, commit messages and pull requests name claims by their
@@ -196,6 +196,62 @@ flash, as before Churn, and names any card used since the router started.
 Setting the router up again turns that off and deletes the file, and the
 test's first clearing overwrites what was written.
 
+## Power cycles
+
+Debug builds also have a Power cycles button on the router screen, for
+the tier 3 claims that only a power-on can confirm. The test shuts the
+router down twice, and the user switches it on again each time. It runs
+at home with both trays empty, and with slot 2 on the empty SIM 2 tray,
+where the router emitted nothing at power-on (B8):
+
+1. It keeps slot 2's setting, the active slot and the IMEIs on the phone,
+   to put them back at the end.
+2. Step 3 up to the card, as in the dry run but without its reloads: the
+   VPN, the router started, the checks marked *blocks*, the radio off, the
+   SIM 1 tray empty, and the Enhanced Kill Switch and Churn's firewall
+   rules in place.
+3. Slot 2 switched to the SIM 2 tray and made the active slot, where no
+   card may answer. A card in the tray, an eSIM adapter card without an
+   enabled profile too, stops the test before the router shuts down.
+4. Right before the power-off, a random test pair with the TACs and the
+   spacing of the factory IMEIs written, saved and read back, with the
+   radio still off (M7).
+5. It keeps the router's boot ID and the test pair on the phone and sends
+   `poweroff`. The phone has to lose the router's network within 120 s,
+   and the test times it from the command (B4, B5). Whether the router's
+   screen had gone dark by then, the user sees.
+6. Once the user has switched the router on again and it is on the cable,
+   the boot ID has to be new (B4, B6), and GL's settings still have
+   airplane mode and the Enhanced Kill Switch on (U3). From then until the
+   router has started, 120 s after power-on, the test reads `/proc/uptime`
+   and `AT+CFUN?` every 2 s, and the Enhanced Kill Switch's routing rules
+   and Churn's firewall chains until they are in place. Both have to be in
+   place by then, and the lines say when the test first saw them (K10,
+   D14). The modem is to leave the first reads unanswered (B1), then
+   report its radio on until 58 s after power-on at the latest (B2), and
+   off from then on (B3). A modem that doesn't answer by then, or a radio
+   on later, stops the test; if the phone reaches the router only once the
+   modem answers, or once the radio is off, B1 or B2 stays unconfirmed.
+   The router then has to have the test pair (M7).
+7. It writes, saves and reads back the earlier pair, shuts the router down
+   a second time, as in step 5, and checks the next power-on as in step 6,
+   with the earlier pair.
+8. With no card answering in either tray, it sets airplane mode off and on
+   again without the commit, and times how long the modem takes to report
+   its radio on and then off, at most 30 s each (U2). It then commits
+   airplane mode on, as before.
+9. It puts slot 2's setting and the active slot back.
+
+Like a swap, the test leaves airplane mode and the Enhanced Kill Switch on
+and Churn's firewall rules in place. While the router is off, the test's
+screen waits in place of the router screen, and goes on once the router is
+on the cable again, or puts the router back instead. A test that stops
+puts the router back at once if the radio is still off. Otherwise its
+screen shows at the next connection, until Put the router back has done
+so, once the router has started and its radio is off. The screen lists
+what the test did and, if it stopped, the claims it was confirming. The
+debug log keeps every command.
+
 ## Platform
 
 From development.md, "Sending AT commands", and design.md, section 6.
@@ -275,7 +331,7 @@ From development.md, "uci settings", and design.md, sections 7 and 10.
 | K7 | The USB-C port `ecm0` is in `br-lan`, so the blackhole at priority 9920 covers a device on it | port verified, coverage inferred | `ip link show ecm0` | 1 |
 | K8 | Turning the switch on takes `/etc/init.d/network reload`, which neither drops the cable nor turns the radio on | open | The connection and `+CFUN: 4` across a reload (tier 2); the RF meter (tier 4) | 2, 4 |
 | K9 | With the switch on and the tunnel disconnected, nothing gets through, also with the tunnel's own Kill Switch off | verified | Disconnect the tunnel and load a website on a device | 4 |
-| K10 | The switch also blocks traffic while the router boots and when a tunnel fails on its own | open | The blocking rules are in place right after a boot (tier 3); traffic during a boot and through a failing tunnel (tier 4) | 3, 4 |
+| K10 | The switch also blocks traffic while the router boots and when a tunnel fails on its own | open | The blocking rules are in place after a boot, and when the app first saw them (tier 3); traffic during a boot and through a failing tunnel (tier 4) | 3, 4 |
 
 ## DNS and the router's own traffic
 
@@ -297,7 +353,7 @@ design.md, sections 7 and 10.
 | D11 | With the rules, nothing but WireGuard leaves over the SIM, from devices too, also with the Enhanced Kill Switch off and the tunnel down, and over IPv6 as over IPv4 | verified for devices over IPv4 with the switch off and the tunnel down; going online and IPv6 inferred | The drop counter grows and a device's website fails (tier 4); watch the cellular interface after airplane mode goes off (tier 4) | 4 |
 | D12 | With the rules, the router's own traffic leaves through the tunnel from the VPN's address, and its lookups go to the VPN's DNS server | verified | A request and a lookup from the router, watched on the tunnel interface | 4 |
 | D13 | The tunnel's IP Masquerading translates the router's own packets to the tunnel's address; without it, the VPN server wouldn't accept them | translation verified, without it inferred | The setting `masq` of the tunnel's WireGuard peer, by its name the IP Masquerading, is on (tier 1); a request from the router with it off (tier 4) | 1, 4 |
-| D14 | GL's firewall loads Churn's rules at boot before the modem goes online | open | The chains are listed right after a boot (tier 3); what leaves over the SIM during a boot with a card (tier 4) | 3, 4 |
+| D14 | GL's firewall loads Churn's rules at boot before the modem goes online | open | The chains are listed after a boot, and when the app first saw them (tier 3); what leaves over the SIM during a boot with a card (tier 4) | 3, 4 |
 | D15 | A rules file that GL's firewall rejects might keep it from loading any rules at the next boot, which is why the app removes such a file | inferred | None: a test could leave the router without a firewall | – |
 | D16 | With the rules, the tunnel comes up after a reboot and after airplane mode off and on, and the clock then syncs through it | verified | Reboot and turn airplane mode off and on; the handshake, the clock and a website | 4 |
 | D17 | With the rules, GL still treats the cellular connection as connected, though its connection check can't ping over the SIM | verified with an earlier version of the rules | GL's connection status after airplane mode goes off | 4 |
@@ -347,8 +403,8 @@ From development.md, "After power-on", and design.md, section 6.
 | B1 | The modem doesn't answer AT commands for a while after power-on | verified | Poll `/proc/uptime` and `AT+CFUN?` from the moment the app reconnects | 3 |
 | B2 | At every power-on the modem reports its radio on (`+CFUN: 1`) for about 12 s whatever airplane mode says, ending 58 s after power-on at the latest | verified | The polling above: `+CFUN: 1` while the modem answers that early, then the first `+CFUN: 4` | 3 |
 | B3 | 120 s after power-on, with `+CFUN: 4`, is a safe point for step 3 to change slot 2 | inferred | The end of the window above, on each firmware | 3 |
-| B4 | `poweroff` over SSH shuts the router down | verified | Steps 1 and 3 of a swap, or a tier 3 test that ends with it | 3 |
-| B5 | After `poweroff` the phone loses the router's network within 120 s, and only once the router is off | open | Steps 1 and 3 of a swap, watching the router's screen: the app shows the next step about when the screen goes dark | 3 |
+| B4 | `poweroff` over SSH shuts the router down | verified | The power cycle test: the phone loses the router's network, and the boot ID is new once the router is on again | 3 |
+| B5 | After `poweroff` the phone loses the router's network within 120 s, and only once the router is off | open | The power cycle test times it from the command, while the user watches the router's screen go dark | 3 |
 | B6 | `/proc/sys/kernel/random/boot_id` holds a UUID that is new at every power-on | inferred | Read it: a UUID in Linux's format (tier 1); read it again after a reboot (tier 3) | 1, blocks; 3 |
 | B7 | The router emits nothing while it shuts down in airplane mode, with slot 2 on the eSIM or on a card in the tray | verified | RF meter | 4 |
 | B8 | With both trays empty and slot 2 on the SIM 2 tray, a power-on emits nothing, with airplane mode on or off | verified | RF meter | 4 |
