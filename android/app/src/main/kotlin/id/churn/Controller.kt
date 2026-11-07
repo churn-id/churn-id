@@ -38,6 +38,15 @@ sealed interface Screen {
         /** Step 3's question, which the running step waits for the user to answer. */
         val question: Question? = null,
     ) : Screen
+
+    /** Tier 2's dry run, which only debug builds have, with the lines it reported. */
+    data class DryRun(
+        val lines: List<String> = emptyList(),
+        val running: Boolean = false,
+        val error: String? = null,
+        /** Whether the last dry run stopped before it put the router back as it was. */
+        val unfinished: Boolean = false,
+    ) : Screen
 }
 
 /** The router's state as the router screen shows it; null where the modem didn't answer. */
@@ -325,6 +334,25 @@ class Controller(private val context: Context) {
         }
     }
 
+    /** Shows the dry run's screen, from the router screen. */
+    fun openDryRun() = show(Screen.DryRun())
+
+    /** Runs tier 2's dry run (docs/testing.md, "Dry run"), which only debug builds have. */
+    fun startDryRun() = runDryRun { dryRun, folder ->
+        dryRun.run(folder.factory!!, SecureRandom()) { saved.dryRunStart = it }
+    }
+
+    /** Puts the router back as it was before the dry run that stopped. */
+    fun putBack() = runDryRun { dryRun, _ ->
+        saved.dryRunStart?.let { start -> dryRun.putBack(start) { saved.dryRunStart = it } }
+    }
+
+    /** Forgets the dry run that stopped, for a router the user has put back as it was. */
+    fun forgetDryRun() {
+        saved.dryRunStart = null
+        refresh()
+    }
+
     /** The user's answer to step 3's question on the screen. */
     fun answer(answer: Answer) {
         answers.offer(answer)
@@ -468,6 +496,56 @@ class Controller(private val context: Context) {
         }
     }
 
+    /**
+     * Runs [body], the dry run or its putting back, on the worker thread, with the foreground service keeping the app
+     * alive meanwhile.
+     */
+    private fun runDryRun(body: (DryRun, ChurnFolder) -> Unit) {
+        started = cable
+        val lines = mutableListOf<String>()
+        fun update() = show(Screen.DryRun(lines.toList(), running = true))
+        update()
+        stepRunning = true
+        context.startForegroundService(Intent(context, SwapService::class.java))
+        worker.execute {
+            debugLog.start(context.getString(R.string.dry_run))
+            var dryRun: DryRun? = null
+            val next = try {
+                val router = router()
+                val folder = router.readChurnFolder()
+                if (!folder.complete) throw RouterException(Problem.NOT_SET_UP)
+                dryRun = DryRun(
+                    router,
+                    report = {
+                        val line = text(it)
+                        lines += line
+                        debugLog.add("✓ $line")
+                        update()
+                    },
+                    check = { runChecks(router, folder, CHECKS.filter { it.blocks }).failures },
+                )
+                body(dryRun, folder)
+                Screen.DryRun(lines.toList(), unfinished = saved.dryRunStart != null)
+            } catch (e: UntrustedHostKey) {
+                trustKey(e)
+            } catch (e: Exception) {
+                val error = stopped(e)
+                // The claims of the part that stopped, if it confirms any.
+                val ids = dryRun?.testing.orEmpty().joinToString(", ")
+                Screen.DryRun(
+                    lines.toList(),
+                    error = if (ids.isEmpty()) error else context.getString(R.string.dry_run_stopped, ids, error),
+                    unfinished = saved.dryRunStart != null,
+                )
+            }
+            main.post {
+                stepRunning = false
+                onStepEnd?.invoke()
+            }
+            show(next)
+        }
+    }
+
     /** The router, connecting first if needed, and waiting up to [waitSeconds] for it to come up. */
     private fun router(waitSeconds: Int = CONNECT_WAIT_SECONDS): Router {
         openConnection()?.let { return Router(debugLog.record(it)) }
@@ -524,6 +602,8 @@ class Controller(private val context: Context) {
         val next = when {
             !folder.complete -> setUpScreen(router, note)
             step != null -> Screen.Swapping(step)
+            // Until the router is as it was before the dry run, which only debug builds have.
+            saved.dryRunStart != null -> Screen.DryRun(unfinished = true)
             else -> home(router, folder, note)
         }
         show(next)
@@ -695,6 +775,16 @@ class Controller(private val context: Context) {
             Progress.NEW_IMEIS -> R.string.progress_new_imeis
             Progress.CLEARING_HISTORY -> R.string.progress_clearing_history
             Progress.SHUTTING_DOWN -> R.string.progress_shutting_down
+            Progress.NETWORK_RELOADED -> R.string.progress_network_reloaded
+            Progress.FIREWALL_RELOADED -> R.string.progress_firewall_reloaded
+            Progress.SLOT1_ACTIVE -> R.string.progress_slot1_active
+            Progress.TRAY_EMPTY -> R.string.progress_tray_empty
+            Progress.ESIM_SILENT -> R.string.progress_esim_silent
+            Progress.TEST_IMEIS -> R.string.progress_test_imeis
+            Progress.EARLIER_IMEIS -> R.string.progress_earlier_imeis
+            Progress.ANSWERS_MATCHED -> R.string.progress_answers_matched
+            Progress.PUT_BACK -> R.string.progress_put_back
+            Progress.DRY_RUN_PASSED -> R.string.progress_dry_run_passed
         },
     )
 
@@ -716,6 +806,8 @@ class Controller(private val context: Context) {
             Problem.VPN_GONE -> R.string.problem_vpn_gone
             Problem.FIREWALL_NOT_LOADED -> R.string.problem_firewall_not_loaded
             Problem.CHECK_FAILED -> R.string.problem_check_failed
+            Problem.PROFILE_ENABLED -> R.string.problem_profile_enabled
+            Problem.CARD_IN_TRAY -> R.string.problem_card_in_tray
         },
     )
 

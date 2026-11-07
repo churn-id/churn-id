@@ -85,6 +85,28 @@ class Saved(context: Context) {
         listOf(STEP, BOOT_ID, CARD_BEFORE_SWAP, FIRST_SWAP, PLACE_CARD_IN, CARD_TO_DESTROY).forEach { remove(it) }
     }
 
+    /**
+     * The router's state before tier 2's dry run, while one runs or after one stopped before it put the router back as
+     * it was; null otherwise.
+     */
+    var dryRunStart: DryRunStart?
+        get() {
+            val slot2 = preferences.getString(DRY_RUN_SLOT2, null)?.let { name ->
+                Slot2.entries.firstOrNull { it.name == name }
+            }
+            val active = preferences.getInt(DRY_RUN_ACTIVE_SLOT, 0)
+            val imeis = pair(DRY_RUN_IMEI1, DRY_RUN_IMEI2)
+            return if (slot2 == null || active == 0 || imeis == null) null else DryRunStart(slot2, active, imeis)
+        }
+        set(value) = save {
+            if (value == null) {
+                listOf(DRY_RUN_SLOT2, DRY_RUN_ACTIVE_SLOT, DRY_RUN_IMEI1, DRY_RUN_IMEI2).forEach { remove(it) }
+            } else {
+                putString(DRY_RUN_SLOT2, value.slot2.name).putInt(DRY_RUN_ACTIVE_SLOT, value.activeSlot)
+                putString(DRY_RUN_IMEI1, value.imeis.imei1).putString(DRY_RUN_IMEI2, value.imeis.imei2)
+            }
+        }
+
     /** What the router checks keep from one connection to the next. */
     val checkNotes = object : CheckNotes {
         override fun get(key: String) = preferences.getString(NOTE + key, null)
@@ -134,5 +156,9 @@ class Saved(context: Context) {
         const val BOOT_ID = "boot_id"
         const val DEBUG_LOG = "debug_log"
         const val NOTE = "check_note_"
+        const val DRY_RUN_SLOT2 = "dry_run_slot2"
+        const val DRY_RUN_ACTIVE_SLOT = "dry_run_active_slot"
+        const val DRY_RUN_IMEI1 = "dry_run_imei1"
+        const val DRY_RUN_IMEI2 = "dry_run_imei2"
     }
 }

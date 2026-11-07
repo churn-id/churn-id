@@ -17,22 +17,30 @@ enum class Step {
     GO_ONLINE,
 }
 
-/** What a step reports as it goes. */
+/** What a step, or tier 2's dry run, reports as it goes. */
 enum class Progress {
     UNTESTED_PLATFORM, AIRPLANE_MODE_ON, RADIO_OFF, SLOT2_ON_ESIM, NO_PROFILE, DISABLING_AGAIN, PROFILE_DISABLED,
     WAITING_FOR_START, SIM1_EMPTY, KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND,
-    SLOT2_BACK_ON_SIM2, SAME_CARD, NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN,
+    SLOT2_BACK_ON_SIM2, SAME_CARD, NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN, NETWORK_RELOADED, FIREWALL_RELOADED,
+    SLOT1_ACTIVE, TRAY_EMPTY, ESIM_SILENT, TEST_IMEIS, EARLIER_IMEIS, ANSWERS_MATCHED, PUT_BACK, DRY_RUN_PASSED,
 }
+
+/**
+ * What tier 2's dry run puts back (docs/testing.md, "Dry run"): slot 2's setting, the active slot and the IMEIs as they
+ * were before it.
+ */
+data class DryRunStart(val slot2: Slot2, val activeSlot: Int, val imeis: ImeiPair)
 
 /**
  * The router's part of steps 1 and 3. Each run starts from the beginning and checks every state it relies on,
  * so a step that stopped is simply run again. [ask] shows step 3's question and waits for the user's answer. [check]
  * runs the router checks that a swap relies on, those that block in testing.md, and returns the lines of those that
- * failed. Both steps run them before they change slot 2, step 3 once the router has started.
+ * failed. Both steps run them before they change slot 2, step 3 once the router has started. Tier 2's dry run in
+ * docs/testing.md builds on the steps' parts.
  */
-class Swap(
-    private val router: Router,
-    private val report: (Progress) -> Unit,
+open class Swap(
+    protected val router: Router,
+    protected val report: (Progress) -> Unit,
     private val ask: (Question) -> Answer,
     private val check: () -> List<String> = { emptyList() },
     private val sleep: (Long) -> Unit = Thread::sleep,
@@ -41,9 +49,10 @@ class Swap(
 
     /**
      * Step 1, up to the shutdown: radio off, slot 2 on the built-in eSIM with no profile enabled. The IMEIs stay the
-     * old card's until step 3 (design.md, section 4).
+     * old card's until step 3 (design.md, section 4). Without [disableProfile], for the dry run, an enabled profile
+     * stops the step instead: the dry run puts back what it changes, and Churn can't enable a profile again.
      */
-    fun prepare() {
+    fun prepare(disableProfile: Boolean = true) {
         // A reboot is a power-on, so with a SIM inside it registers wherever it happens.
         if (router.scheduledReboot()) throw RouterException(Problem.SCHEDULED_REBOOT)
         // Rule 5. Checked before anything changes, while the old card can still reach the internet to set one up.
@@ -53,7 +62,12 @@ class Swap(
         waitForRadioOff()
         setSlot2(Slot2.ESIM)
         report(Progress.SLOT2_ON_ESIM)
-        disableEsimProfile()
+        if (disableProfile) {
+            disableEsimProfile()
+        } else {
+            if (enabledProfile() != null) throw RouterException(Problem.PROFILE_ENABLED)
+            report(Progress.NO_PROFILE)
+        }
         checkRadioOff()
     }
 
@@ -79,29 +93,7 @@ class Swap(
      * on the built-in eSIM.
      */
     fun giveNewImeis(factory: ImeiPair, record: Card?, places: PlaceCards, random: SecureRandom): Card? {
-        // Before the wait, in case the user turned it off, so that the radio goes off after its burst at power-on.
-        turnAirplaneModeOn()
-        // Rule 5, checked again in case the VPN was deleted since step 1. Slot 2 is still on the eSIM, so the step can
-        // stop here and run again once one is set up, and the user learns it before the wait.
-        if (!router.vpnSetUp()) throw RouterException(Problem.VPN_GONE)
-        report(Progress.WAITING_FOR_START)
-        // At every power-on the radio is on for some 12 s, ending 51 to 58 s after power-on in our measurements,
-        // whatever airplane mode says (design.md, section 6). Slot 2 stays on the eSIM until well after that.
-        if (!poll(BOOT_TIMEOUT_SECONDS) { router.uptimeSeconds() >= SETTLED_UPTIME_SECONDS }) {
-            throw RouterException(Problem.NOT_STARTED)
-        }
-        runChecks()
-        waitForRadioOff()
-        // A card in the SIM 1 tray registers at every power-on, whatever airplane mode says (design.md, section 6), so
-        // at step 4 it would go out with the new card and link the two. Slot 2 is still on the eSIM, so the step can
-        // stop here and run again once the user has taken the card out.
-        if (router.cardInSim1Tray()) throw RouterException(Problem.SIM1_CARD)
-        report(Progress.SIM1_EMPTY)
-        // Step 4 lets the router go online, so the Enhanced Kill Switch and Churn's firewall rules must be in place
-        // by then (rule 5). Turning the switch on takes a network reload, and adding the rules a firewall reload.
-        // Either might turn the radio on, so both come while slot 2 is still on the eSIM.
-        turnKillSwitchOn()
-        putFirewallInPlace()
+        startNewImeis(reload = false)
         val card = try {
             writeCardsImeis(factory, record, places, random) ?: return null
         } catch (e: RouterException) {
@@ -117,6 +109,43 @@ class Swap(
         // The clearing reloads GL's log service and fills the flash for a moment.
         checkRadioOff()
         return card
+    }
+
+    /**
+     * Step 3 up to the card in the tray, all while slot 2 is still on the built-in eSIM: airplane mode on, the router
+     * started, the checks passed, the radio off, the SIM 1 tray empty, and the Enhanced Kill Switch and Churn's
+     * firewall rules in place. With [reload], for the dry run, the network and the firewall reload even if the switch
+     * is on and the rules are in place.
+     */
+    protected fun startNewImeis(reload: Boolean) {
+        // Before the wait, in case the user turned it off, so that the radio goes off after its burst at power-on.
+        turnAirplaneModeOn()
+        // Rule 5, checked again in case the VPN was deleted since step 1. Slot 2 is still on the eSIM, so the step can
+        // stop here and run again once one is set up, and the user learns it before the wait.
+        if (!router.vpnSetUp()) throw RouterException(Problem.VPN_GONE)
+        waitForStart()
+        runChecks()
+        waitForRadioOff()
+        // A card in the SIM 1 tray registers at every power-on, whatever airplane mode says (design.md, section 6), so
+        // at step 4 it would go out with the new card and link the two. Slot 2 is still on the eSIM, so the step can
+        // stop here and run again once the user has taken the card out.
+        if (router.cardInSim1Tray()) throw RouterException(Problem.SIM1_CARD)
+        report(Progress.SIM1_EMPTY)
+        // Step 4 lets the router go online, so the Enhanced Kill Switch and Churn's firewall rules must be in place
+        // by then (rule 5). Turning the switch on takes a network reload, and adding the rules a firewall reload.
+        // Either might turn the radio on, so both come while slot 2 is still on the eSIM.
+        turnKillSwitchOn(reload)
+        putFirewallInPlace(reload)
+    }
+
+    /** Waits until the router has started, when its radio's burst at power-on is over. */
+    protected fun waitForStart() {
+        report(Progress.WAITING_FOR_START)
+        // At every power-on the radio is on for some 12 s, ending 51 to 58 s after power-on in our measurements,
+        // whatever airplane mode says (design.md, section 6). Slot 2 stays on the eSIM until well after that.
+        if (!poll(BOOT_TIMEOUT_SECONDS) { router.uptimeSeconds() >= SETTLED_UPTIME_SECONDS }) {
+            throw RouterException(Problem.NOT_STARTED)
+        }
     }
 
     /**
@@ -169,16 +198,10 @@ class Swap(
      * Switches slot 2 to the SIM 2 tray and returns the ICCID of the card there, digits only. With [again], for the
      * switch back after step 3's question, the log says only that slot 2 is back on the tray.
      */
-    private fun cardInTray(again: Boolean = false): String {
+    protected fun cardInTray(again: Boolean = false): String {
         setSlot2(Slot2.SIM2)
         report(if (again) Progress.SLOT2_BACK_ON_SIM2 else Progress.SLOT2_ON_SIM2)
-        if (router.activeSlot() != "2") {
-            router.activateSlot2(Slot2.SIM2)
-            if (!poll(SWITCH_TIMEOUT_SECONDS) { router.activeSlot() == "2" }) {
-                throw RouterException(Problem.SLOT_NOT_SWITCHED)
-            }
-            checkRadioOff()
-        }
+        if (router.activeSlot() != "2") activate(slot = 2, Slot2.SIM2)
         if (!again) report(Progress.SLOT2_ACTIVE)
         // The card answers a moment after the switch.
         var raw: String? = null
@@ -190,46 +213,61 @@ class Swap(
         return Imei.iccidDigits(cardIccid) ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+ICCID")
     }
 
-    private fun turnAirplaneModeOn() {
+    protected fun turnAirplaneModeOn() {
         if (!router.airplaneMode()) router.setAirplaneMode(true)
         report(Progress.AIRPLANE_MODE_ON)
     }
 
-    private fun waitForRadioOff() {
+    protected fun waitForRadioOff() {
         // GL's cellular manager turns the radio off right after airplane mode is set. If it doesn't, the router is
         // in a state we don't understand, so the step stops.
         if (!poll(RADIO_TIMEOUT_SECONDS) { router.radio() == RADIO_OFF }) throw RouterException(Problem.RADIO_ON)
         report(Progress.RADIO_OFF)
     }
 
-    /** Turns GL's Enhanced Kill Switch on if it is off, and checks that the radio is still off afterwards. */
-    private fun turnKillSwitchOn() {
-        if (!router.enhancedKillSwitch()) {
+    /**
+     * Turns GL's Enhanced Kill Switch on if it is off, or with [reload] in any case, and checks that the radio is still
+     * off afterwards.
+     */
+    private fun turnKillSwitchOn(reload: Boolean) {
+        if (reload || !router.enhancedKillSwitch()) {
             router.turnEnhancedKillSwitchOn()
             checkRadioOff()
         }
-        report(Progress.KILL_SWITCH_ON)
+        report(if (reload) Progress.NETWORK_RELOADED else Progress.KILL_SWITCH_ON)
     }
 
-    /** Puts Churn's firewall rules in place if they aren't, and checks that the radio is still off afterwards. */
-    private fun putFirewallInPlace() {
-        if (!router.firewallInPlace()) {
+    /**
+     * Puts Churn's firewall rules in place if they aren't, or with [reload] in any case, and checks that the radio is
+     * still off afterwards.
+     */
+    private fun putFirewallInPlace(reload: Boolean) {
+        if (reload || !router.firewallInPlace()) {
             router.installFirewall()
             checkRadioOff()
         }
-        report(Progress.FIREWALL)
+        report(if (reload) Progress.FIREWALL_RELOADED else Progress.FIREWALL)
     }
 
-    private fun checkRadioOff() {
+    protected fun checkRadioOff() {
         if (!router.airplaneMode() || router.radio() != RADIO_OFF) throw RouterException(Problem.RADIO_ON)
     }
 
-    private fun setSlot2(slot2: Slot2) {
+    protected fun setSlot2(slot2: Slot2) {
         if (router.slot2() != slot2) {
             router.setSlot2(slot2)
             if (!poll(SWITCH_TIMEOUT_SECONDS) { router.slot2() == slot2 }) {
                 throw RouterException(Problem.SLOT_NOT_SWITCHED)
             }
+        }
+        checkRadioOff()
+    }
+
+    /** Makes [slot] the active slot, with slot 2 set to [slot2], and checks that the radio is still off. */
+    protected fun activate(slot: Int, slot2: Slot2) {
+        router.activateSlot(slot, slot2)
+        if (!poll(SWITCH_TIMEOUT_SECONDS) { router.activeSlot() == "$slot" }) {
+            throw RouterException(Problem.SLOT_NOT_SWITCHED)
         }
         checkRadioOff()
     }
