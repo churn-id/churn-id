@@ -7,8 +7,8 @@ wrong all along, shows up before a user depends on it. The claims come
 from [design.md](design.md) and [development.md](development.md).
 
 Status: being built. The app runs the tier 1 checks, and debug builds
-have the dry run of tier 2; the rest of tier 2 and tiers 3 and 4 are a
-plan. The app's unit tests run in CI against a simulated
+have the dry run and the removal test of tier 2; its clearing tests and
+tiers 3 and 4 are a plan. The app's unit tests run in CI against a simulated
 Mudi 7 (`FakeRouter`) built from these claims, so a claim that turns out
 wrong makes the simulation wrong too. *Verified* means we observed it by
 hand on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
@@ -128,6 +128,49 @@ at the next connection in place of the router screen, until Put the router
 back has done so, once the router has started and its radio is off. The
 screen lists what the dry run did and, if it stopped, the claims it was
 confirming. The debug log keeps every command.
+
+## Removal and clearing
+
+Debug builds also have a Removal and clearing button on the router
+screen, for the tier 2 claims that only running `restore.sh` can confirm.
+`restore.sh` deletes the zero files, so that the next clearing fills all
+of the flash's free space, and the test runs once for each firmware,
+after the dry run. Like the dry run, it needs a router with no SIM and no
+profile enabled on the built-in eSIM:
+
+1. Step 1 up to the shutdown, as in the dry run, and the SIM 1 tray
+   empty, so that a power-on before the router is set up again registers
+   nowhere.
+2. It keeps on the phone what setting the router up again takes: the
+   factory IMEIs, Churn's record of the card, the IMEIs the router has,
+   and whether Churn's firewall rules are in place.
+3. It runs `restore.sh`, as Remove Churn does, which prints its last line
+   only if it ran to its end (F12).
+4. It checks what `restore.sh` did:
+   - the factory IMEIs back, with the radio still off (F7);
+   - Churn's folder, the card's record in it and the folder's line in
+     `/etc/sysupgrade.conf` gone (F8, F12);
+   - GL's `log_file` setting as Churn's copy had it (F9), with a `logread`
+     writing that file again (H3);
+   - the zero files and their link gone, and their space free (F10);
+   - and Churn's firewall rules, their chains and their line in
+     `/etc/sysupgrade.conf` gone (F11).
+5. It sets the router up again as the setup screen does, with the card's
+   record, the IMEIs it had and Churn's firewall rules, and keeps the
+   recorded card's SIM history (F12).
+
+Like step 1, the test leaves airplane mode on and slot 2 on the built-in
+eSIM. A removal test that stops sets the router up again at once if the
+radio is still off. Otherwise its screen shows at the next connection in
+place of the router screen, until Set the router up again has done so,
+once the router has started and its radio is off. The screen lists what
+the test did and, if it stopped, the claims it was confirming. The debug
+log keeps every command.
+
+From `restore.sh` until the router is set up again, GL's log goes to the
+flash, as before Churn, and names any card used since the router started.
+Setting the router up again turns that off and deletes the file, and the
+next clearing overwrites what was written.
 
 ## Platform
 
@@ -336,10 +379,10 @@ From development.md, "Files on the router", and design.md, section 5.
 | F4 | `/etc/churn/zeros` links to `/overlay/churn-zeros`, and `du`, `grep -r`, `cp` and the `find` and `tar` that an upgrade runs take only the link | verified with BusyBox 1.36.1 on a PC | After a clearing, `readlink` gives the link's target, `du -sk /etc/churn` counts under 1 MB, and `sysupgrade -l` lists the link but no zero file | 1 |
 | F5 | GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | At every connection, while the recorded card answers in slot 2, the IMEIs are its recorded pair (tier 1); after an upgrade, they are the ones from before it (tier 3) | 1, 3 |
 | F6 | A firmware upgrade with "keep settings" keeps `/etc/churn/`, the link `zeros` in it included, Churn's firewall rules and the log's file off | open | Upgrade, then check the folder, the link, the rules and `log_file` | 3 |
-| F7 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
-| F8 | `restore.sh` then deletes Churn's record of the card | inferred | Run it, then check that `/etc/churn/card` is gone (tier 2) | 2 |
-| F9 | `restore.sh` then sets GL's `log_file` back from Churn's copy, and deletes the copy | inferred | Run it, then check the setting and the copy (tier 2) | 2 |
-| F10 | `restore.sh` then deletes `/overlay/churn-zeros`, the link to it and any fill files | inferred | Run it, then check that the folder and the link are gone and the free space is back (tier 2) | 2 |
+| F7 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then read the IMEIs and the radio, and write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
+| F8 | `restore.sh` then deletes Churn's record of the card | inferred | Run it, then check that `/etc/churn/card` is gone, with the folder (tier 2) | 2 |
+| F9 | `restore.sh` then sets GL's `log_file` back from Churn's copy, and deletes the copy | inferred | Run it, then compare the setting with the copy read before; the copy goes with the folder (tier 2) | 2 |
+| F10 | `restore.sh` then deletes `/overlay/churn-zeros`, the link to it and any fill files | inferred | Run it, then check that the folder, any fill files and the link are gone, and that the free space grew by what they took, less 16 MB for what GL writes meanwhile (tier 2) | 2 |
 | F11 | `restore.sh` then removes Churn's firewall rules and their line in `/etc/sysupgrade.conf` | inferred | Run it, then check that the chains, the file and the line are gone (tier 2) | 2 |
 | F12 | `restore.sh` last deletes `/etc/churn/` and its line in `/etc/sysupgrade.conf`, and still runs to its end | running to its end verified with BusyBox 1.36.1 on a PC, the rest inferred | Run it, then check that the folder and the line are gone and that it printed its last message, and write the folder back (tier 2) | 2 |
 | F13 | A factory reset deletes `/etc/churn/`, Churn's firewall rules and its zero files | inferred | Factory reset. It also resets GL's settings, so it is the last test to run | 4 |

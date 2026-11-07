@@ -47,6 +47,15 @@ sealed interface Screen {
         /** Whether the last dry run stopped before it put the router back as it was. */
         val unfinished: Boolean = false,
     ) : Screen
+
+    /** Tier 2's removal test, which only debug builds have, with the lines it reported. */
+    data class RemovalTest(
+        val lines: List<String> = emptyList(),
+        val running: Boolean = false,
+        val error: String? = null,
+        /** Whether the last removal test stopped before it set the router up again. */
+        val unfinished: Boolean = false,
+    ) : Screen
 }
 
 /** The router's state as the router screen shows it; null where the modem didn't answer. */
@@ -224,6 +233,15 @@ class Controller(private val context: Context) {
 
     fun setUp(factory: ImeiPair) = job(R.string.setting_up) {
         val router = router()
+        setUpFolder(router, factory, keepIccid = router.currentCardIccid())
+        showRouter()
+    }
+
+    /**
+     * Sets [router] up for Churn with the [factory] IMEIs: Churn's files, kept across firmware upgrades, and the SIM
+     * history cleared but for the card with [keepIccid], as [Router.clearHistory] takes it.
+     */
+    private fun setUpFolder(router: Router, factory: ImeiPair, keepIccid: String?) {
         val folder = router.readChurnFolder()
         updateChurnFiles(router)
         router.keepChurnFolder()
@@ -234,8 +252,7 @@ class Controller(private val context: Context) {
         // Turns the flash log off and clears the SIM history that built up before Churn. The first overwrite of the
         // free space takes minutes, so it waits for the first swap's step 3, and setup takes seconds.
         clearingEsimLog()
-        router.clearHistory(router.currentCardIccid(), overwrite = false)
-        showRouter()
+        router.clearHistory(keepIccid, overwrite = false)
     }
 
     fun refresh() = job(R.string.reading) { showRouter() }
@@ -350,6 +367,23 @@ class Controller(private val context: Context) {
     /** Forgets the dry run that stopped, for a router the user has put back as it was. */
     fun forgetDryRun() {
         saved.dryRunStart = null
+        refresh()
+    }
+
+    /** Shows the removal test's screen, from the router screen. */
+    fun openRemovalTest() = show(Screen.RemovalTest())
+
+    /** Runs tier 2's removal test (docs/testing.md, "Removal and clearing"), which only debug builds have. */
+    fun startRemovalTest() = runRemovalTest { test -> test.run { saved.removalStart = it } }
+
+    /** Sets the router up again as it was before the removal test that stopped. */
+    fun setUpAgain() = runRemovalTest { test ->
+        saved.removalStart?.let { start -> test.setUpAgain(start) { saved.removalStart = it } }
+    }
+
+    /** Forgets the removal test that stopped, for a router the user has set up again. */
+    fun forgetRemovalTest() {
+        saved.removalStart = null
         refresh()
     }
 
@@ -546,6 +580,56 @@ class Controller(private val context: Context) {
         }
     }
 
+    /**
+     * Runs [body], the removal test or its setting the router up again, as [runDryRun] runs the dry run. The test
+     * reads Churn's folder itself, since setting the router up again needs none.
+     */
+    private fun runRemovalTest(body: (RemovalTest) -> Unit) {
+        started = cable
+        val lines = mutableListOf<String>()
+        fun update() = show(Screen.RemovalTest(lines.toList(), running = true))
+        update()
+        stepRunning = true
+        context.startForegroundService(Intent(context, SwapService::class.java))
+        worker.execute {
+            debugLog.start(context.getString(R.string.removal_test))
+            var test: RemovalTest? = null
+            val next = try {
+                val router = router()
+                val folder = router.readChurnFolder()
+                test = RemovalTest(
+                    router,
+                    report = {
+                        val line = text(it)
+                        lines += line
+                        debugLog.add("✓ $line")
+                        update()
+                    },
+                    check = { runChecks(router, folder, CHECKS.filter { it.blocks }).failures },
+                    setUpFolder = { factory, keepIccid -> setUpFolder(router, factory, keepIccid) },
+                )
+                body(test)
+                Screen.RemovalTest(lines.toList(), unfinished = saved.removalStart != null)
+            } catch (e: UntrustedHostKey) {
+                trustKey(e)
+            } catch (e: Exception) {
+                val error = stopped(e)
+                // The claims of the part that stopped, if it confirms any.
+                val ids = test?.testing.orEmpty().joinToString(", ")
+                Screen.RemovalTest(
+                    lines.toList(),
+                    error = if (ids.isEmpty()) error else context.getString(R.string.removal_test_stopped, ids, error),
+                    unfinished = saved.removalStart != null,
+                )
+            }
+            main.post {
+                stepRunning = false
+                onStepEnd?.invoke()
+            }
+            show(next)
+        }
+    }
+
     /** The router, connecting first if needed, and waiting up to [waitSeconds] for it to come up. */
     private fun router(waitSeconds: Int = CONNECT_WAIT_SECONDS): Router {
         openConnection()?.let { return Router(debugLog.record(it)) }
@@ -600,6 +684,9 @@ class Controller(private val context: Context) {
         if (folder.complete) updateChurnFiles(router)
         val step = saved.step
         val next = when {
+            // Until the router is set up again after the removal test, which only debug builds have and which deletes
+            // Churn's folder.
+            saved.removalStart != null -> Screen.RemovalTest(unfinished = true)
             !folder.complete -> setUpScreen(router, note)
             step != null -> Screen.Swapping(step)
             // Until the router is as it was before the dry run, which only debug builds have.
@@ -783,6 +870,15 @@ class Controller(private val context: Context) {
             Progress.TEST_IMEIS -> R.string.progress_test_imeis
             Progress.EARLIER_IMEIS -> R.string.progress_earlier_imeis
             Progress.ANSWERS_MATCHED -> R.string.progress_answers_matched
+            Progress.RESTORED -> R.string.progress_restored
+            Progress.FACTORY_IMEIS -> R.string.progress_factory_imeis
+            Progress.FOLDER_GONE -> R.string.progress_folder_gone
+            Progress.LOG_SETTING_BACK -> R.string.progress_log_setting_back
+            Progress.LOG_WRITTEN -> R.string.progress_log_written
+            Progress.ZERO_FILES_GONE -> R.string.progress_zero_files_gone
+            Progress.FIREWALL_GONE -> R.string.progress_firewall_gone
+            Progress.SET_UP_AGAIN -> R.string.progress_set_up_again
+            Progress.REMOVAL_PASSED -> R.string.progress_removal_passed
             Progress.PUT_BACK -> R.string.progress_put_back
             Progress.DRY_RUN_PASSED -> R.string.progress_dry_run_passed
         },

@@ -23,6 +23,8 @@ enum class Progress {
     WAITING_FOR_START, SIM1_EMPTY, KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND,
     SLOT2_BACK_ON_SIM2, SAME_CARD, NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN, NETWORK_RELOADED, FIREWALL_RELOADED,
     SLOT1_ACTIVE, TRAY_EMPTY, ESIM_SILENT, TEST_IMEIS, EARLIER_IMEIS, ANSWERS_MATCHED, PUT_BACK, DRY_RUN_PASSED,
+    RESTORED, FACTORY_IMEIS, FOLDER_GONE, LOG_SETTING_BACK, LOG_WRITTEN, ZERO_FILES_GONE, FIREWALL_GONE,
+    SET_UP_AGAIN, REMOVAL_PASSED,
 }
 
 /**
@@ -30,6 +32,12 @@ enum class Progress {
  * were before it.
  */
 data class DryRunStart(val slot2: Slot2, val activeSlot: Int, val imeis: ImeiPair)
+
+/**
+ * What tier 2's removal test sets the router up again with (docs/testing.md, "Removal and clearing"): the [factory]
+ * IMEIs, the recorded [card], the [imeis] the router had, and whether Churn's [firewall] rules were in place.
+ */
+data class RemovalStart(val factory: ImeiPair, val card: Card?, val imeis: ImeiPair, val firewall: Boolean)
 
 /**
  * The router's part of steps 1 and 3. Each run starts from the beginning and checks every state it relies on,
