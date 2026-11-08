@@ -276,6 +276,25 @@ class LeakWatchTest {
     }
 
     @Test
+    fun aRouterOnlineAtTheStartHasItsRadioOffBeforeTheChecks() {
+        fake.airplaneMode = false
+        fake.airplaneModeMillis = 1_500
+        // U1, which fails while the radio is on with airplane mode on.
+        val u1 = CHECKS.single { "U1" in it.ids }
+        val notes = object : CheckNotes {
+            override fun get(key: String): String? = null
+
+            override fun set(key: String, value: String?) {}
+        }
+        checks = {
+            val result = u1.run(Router(shell), CheckContext(ChurnFolder(factory = null, card = card), notes))
+            if (result is CheckResult.Failed) listOf(result.detail) else emptyList()
+        }
+        run()
+        assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
+    }
+
+    @Test
     fun markedPacketsOtherThanWireGuardsStopTheWatch() {
         fake.markedGoingOnline = 1
         // A ping's 84 bytes without the 28 of the IP and UDP headers that WireGuard's packets have.

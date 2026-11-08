@@ -47,7 +47,7 @@ class LeakWatch(
 
     /**
      * Checks that the router is as step 3 leaves it, with airplane mode on: the VPN set up, the router started, the
-     * router checks that swaps rely on passed, the radio off, the SIM 1 tray empty, [card] answering in slot 2, the
+     * radio off, the router checks that swaps rely on passed, the SIM 1 tray empty, [card] answering in slot 2, the
      * active slot, and the router having its IMEIs, the Enhanced Kill Switch and Churn's firewall rules in place, and
      * no uplink other than the SIM.
      */
@@ -56,8 +56,10 @@ class LeakWatch(
         // Rule 5.
         if (!router.vpnSetUp()) throw RouterException(Problem.NO_VPN)
         waitForStart()
-        runChecks()
+        // Before the checks, unlike step 3: on a router that was online, the radio goes off a moment after the commit,
+        // and until then U1 fails.
         waitForRadioOff()
+        runChecks()
         // As at step 3: a card there would go online with the one in SIM 2 and link the two.
         if (router.cardInSim1Tray()) notReady("A card answers in the SIM 1 tray")
         report(Progress.SIM1_EMPTY)

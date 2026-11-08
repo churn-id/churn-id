@@ -262,8 +262,10 @@ user's place at step 4 of a swap, so it runs where step 4 may happen, once
 the router has been switched on again there (rule 1):
 
 1. It commits airplane mode on if it isn't, and checks the router as step
-   3 does up to the card: the VPN, the router started, the checks marked
-   *blocks*, the radio off and the SIM 1 tray empty.
+   3 does up to the card: the VPN, the router started, the radio off, the
+   checks marked *blocks* and the SIM 1 tray empty. Unlike step 3, it
+   waits for the radio before the checks: on a router that was online, the
+   radio goes off a moment after the commit, and until then U1 fails.
 2. The card that step 3 last gave its IMEIs, as Churn's folder records
    it, has to answer in the SIM 2 tray, with slot 2 on it as the active
    slot, and the router has to have the card's IMEIs. The Enhanced Kill

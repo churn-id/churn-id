@@ -82,10 +82,21 @@ class FakeRouter : Shell {
     private var stagedAt = 0L
     private var inUseBeforeStaging = false
 
+    /**
+     * How long GL's cellular manager takes to follow airplane mode set with the commit, in milliseconds, as on our
+     * router, where the radio was still on a second after it. Only the leak watch's tests set it.
+     */
+    var airplaneModeMillis = 0L
+
+    /** When airplane mode was last committed, by [clock], and as GL's cellular manager had it before. */
+    private var committedAt = 0L
+    private var inUseBeforeCommit = false
+
     /** Airplane mode as GL's cellular manager has it. */
     private val airplaneModeInUse: Boolean
         get() {
-            val staged = stagedAirplaneMode?.takeUnless { airplaneModeNeedsCommit } ?: return airplaneMode
+            val staged = stagedAirplaneMode?.takeUnless { airplaneModeNeedsCommit }
+                ?: return if (clock - committedAt < airplaneModeMillis) inUseBeforeCommit else airplaneMode
             return if (clock - stagedAt < stagedAirplaneModeMillis) inUseBeforeStaging else staged
         }
 
@@ -606,6 +617,8 @@ class FakeRouter : Shell {
         Regex("""uci -q get '(.*)'""").matchEntire(command)?.let { return uciGet(it.groupValues[1]) }
         val airplaneModeSet = Regex("""uci set 'glconfig.general.airplane_mode=([01])' && uci commit 'glconfig'""")
         airplaneModeSet.matchEntire(command)?.let {
+            inUseBeforeCommit = airplaneModeInUse
+            committedAt = clock
             airplaneMode = it.groupValues[1] == "1"
             stagedAirplaneMode = null
             countTraffic()
