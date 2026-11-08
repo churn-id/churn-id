@@ -188,6 +188,16 @@ class Router(private val shell: Shell) {
     fun setAirplaneMode(on: Boolean) = uciSet(AIRPLANE_MODE, if (on) "1" else "0")
 
     /**
+     * Turns airplane mode off with GL's own call, as GL's screen does, which also commits the setting, and reads the
+     * setting back. The SIM then goes online sooner than after a commit of the setting alone (development.md, "uci
+     * settings"). Only the leak watch uses it, in the user's place at step 4.
+     */
+    fun turnAirplaneModeOffAsGl() {
+        run(locked(GL_AIRPLANE_MODE_OFF), timeoutSeconds = 40).check("set_airplane_mode")
+        if (uci(AIRPLANE_MODE) != "0") throw unexpected(AIRPLANE_MODE)
+    }
+
+    /**
      * Sets GL's airplane mode without the commit, which GL's cellular manager follows already (development.md, "uci
      * settings") and a power-on undoes. Only the power cycle test uses it, which confirms that.
      */
@@ -1000,6 +1010,9 @@ class Router(private val shell: Shell) {
 
         /** GL's airplane mode, `1` on and `0` off. */
         const val AIRPLANE_MODE = "glconfig.general.airplane_mode"
+
+        /** GL's call that turns airplane mode off, as GL's screen makes it. */
+        private const val GL_AIRPLANE_MODE_OFF = "ubus -t 30 call cellular.modem set_airplane_mode '{\"enable\":false}'"
 
         /** GL's scheduled reboot, `1` on and `0` off. */
         const val SCHEDULED_REBOOT = "gl_timer.reboot.enable"

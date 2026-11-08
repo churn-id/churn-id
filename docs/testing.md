@@ -286,13 +286,14 @@ the router has been switched on again there (rule 1):
    `/proc/net/snmp6`. It also reads when WireGuard last completed a
    handshake and when chrony last updated the clock, which are times of
    day, so the debug log leaves them out.
-5. It commits airplane mode off and reads the same every 2 s, until a
-   minute after WireGuard's new handshake, however long the connection
-   takes, and until the clock has synced. Every packet that got past
-   Churn's rules passed the counters before it left, so the interfaces
-   can't have sent more, but for the fragments that the router made of
-   such packets, which they count one by one. More than that, packets
-   that Churn's rules didn't see, stops the test (D11).
+5. It turns airplane mode off with GL's own call, as GL's screen does
+   (U10), and reads the same every 2 s, until a minute after WireGuard's
+   new handshake, however long the connection takes, and until the clock
+   has synced. Every packet that got past Churn's rules passed the
+   counters before it left, so the interfaces can't have sent more, but
+   for the fragments that the router made of such packets, which they
+   count one by one. More than that, packets that Churn's rules didn't
+   see, stops the test (D11).
 6. With each read it also compares the bytes that got past Churn's rules,
    without the IP and UDP headers of WireGuard's packets, with those that
    WireGuard sent. WireGuard counts a packet once the firewall has passed
@@ -384,6 +385,7 @@ From development.md, "uci settings".
 | U7 | GL's auto power-off fires only on battery with nothing connected, more than 20 s after the set delay | verified | Unplug everything and time it | 4 |
 | U8 | "Power On with Charger" is not in `uci`, and with it off a charger doesn't switch the router on | verified | Plug in a charger with the router off | 4 |
 | U9 | Where GL keeps "Power On with Charger" | open | None until it's found; the user confirms the setting | – |
+| U10 | GL's screen turns airplane mode off with `ubus call cellular.modem set_airplane_mode '{"enable":false}'`, which commits the setting too, and the router then goes online sooner than after a commit of the setting alone, after which nothing tried to leave over the SIM for a minute | verified for the call and the commit; sooner seen by hand | `ubus monitor` and `uci changes glconfig` while turning airplane mode off on the screen; the leak watch's handshake time | 4 |
 
 ## Kill switch and VPN
 

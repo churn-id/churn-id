@@ -624,6 +624,15 @@ class FakeRouter : Shell {
             countTraffic()
             return ok("")
         }
+        // GL's call, as GL's screen makes it, which commits the setting too (U10).
+        if (command == GL_AIRPLANE_MODE_OFF) {
+            inUseBeforeCommit = airplaneModeInUse
+            committedAt = clock
+            airplaneMode = false
+            stagedAirplaneMode = null
+            countTraffic()
+            return ok("")
+        }
         Regex("""uci set 'glconfig.general.airplane_mode=([01])'""").matchEntire(command)?.let {
             inUseBeforeStaging = airplaneModeInUse
             stagedAt = clock
@@ -1221,6 +1230,8 @@ class FakeRouter : Shell {
 
     companion object {
         const val LOCK = "exec 9>/var/lock/churn.lock && flock 9 && "
+        /** GL's call that turns airplane mode off, as GL's screen makes it. */
+        const val GL_AIRPLANE_MODE_OFF = "ubus -t 30 call cellular.modem set_airplane_mode '{\"enable\":false}'"
         const val LOCATION_ID = "bcpu_p0133_v2c7c"
         /** The overlay's free space without Churn's zero files, in kB: 2.9 GB, as on our router. */
         const val OVERLAY_FREE_KB = 2_900_000L
@@ -1252,7 +1263,7 @@ class FakeRouter : Shell {
 
         /** How [Router.logFollowers] lists the `logread -f` processes. */
         private val LOG_FOLLOWERS = Regex("""for c in /proc/\[0-9]\*/cmdline; .* \| grep -E '\^\[\^ ]\*logread .*""")
-        private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "curl")
+        private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "set_airplane_mode", "curl")
         /** How [Router.churnChains] lists the chains of Churn's rules that GL's firewall has. */
         private val CHURN_CHAINS = listOf("churn_sim", "churn_route", "churn_dns")
             .joinToString("; ") { "nft list chain inet fw4 $it >/dev/null 2>&1 && echo $it" }

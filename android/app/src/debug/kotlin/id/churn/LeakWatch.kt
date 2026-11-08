@@ -84,18 +84,19 @@ class LeakWatch(
     private fun notReady(what: String): Nothing = throw RouterException(Problem.NOT_READY, what)
 
     /**
-     * Commits airplane mode off, as step 4 does, and reads the SIM's traffic every 2 s until a minute after WireGuard's
-     * new handshake, however long the connection takes, and until the clock has synced. A packet that left over the
-     * SIM without passing Churn's rules stops the test, and so do bytes that got past them beyond those that WireGuard
-     * sent, or fewer, as WireGuard's packets then didn't all get past the rules over the SIM. The handshake, and
-     * chrony's update of the clock from one of its servers, which with Churn's rules it can reach only through the
-     * tunnel, have to come within 5 min of airplane mode going off.
+     * Turns airplane mode off with GL's own call, as the user does on the router's screen at step 4, and reads the
+     * SIM's traffic every 2 s until a minute after WireGuard's new handshake, however long the connection takes, and
+     * until the clock has synced. A packet that left over the SIM without passing Churn's rules stops the test, and so
+     * do bytes that got past them beyond those that WireGuard sent, or fewer, as WireGuard's packets then didn't all
+     * get past the rules over the SIM. The handshake, and chrony's update of the clock from one of its servers, which
+     * with Churn's rules it can reach only through the tunnel, have to come within 5 min of airplane mode going off.
      */
     private fun watch() {
         // In airplane mode, so that nothing leaves while it is read.
         val start = router.simTraffic()
         val offline = router.tunnelClock()
-        router.setAirplaneMode(false)
+        // After a commit of the setting alone, nothing left over the SIM for a minute on our router.
+        router.turnAirplaneModeOffAsGl()
         report(Progress.GOING_ONLINE)
         val from = now()
         var traffic = start

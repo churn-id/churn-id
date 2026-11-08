@@ -94,6 +94,7 @@ class LeakWatchTest {
         val e = assertStops(problem, watch)
         assertTrue(fake.airplaneMode)
         assertFalse(fake.commands.any { it.startsWith("uci set 'glconfig.general.airplane_mode=0'") })
+        assertFalse(fake.commands.any { "set_airplane_mode" in it })
         assertFalse("nft -f -" in fake.commands)
         assertNull(fake.leakCounters)
         assertEquals(emptyList<String>(), fake.changes)
@@ -136,8 +137,10 @@ class LeakWatchTest {
         // Once in airplane mode, then every 2 s until a minute after the read that saw the handshake.
         assertEquals(33, fake.commands.count(::readsTraffic))
         assertEquals(33, fake.commands.count(::readsTunnelClock))
-        val commit = fake.commands.indexOf("uci set 'glconfig.general.airplane_mode=0' && uci commit 'glconfig'")
-        assertTrue(fake.commands.indexOfFirst(::readsTraffic) in fake.commands.indexOf("nft -f -")..commit)
+        // With GL's call, as the user does on the router's screen at step 4, and not with the setting's commit alone.
+        val off = fake.commands.indexOf(FakeRouter.LOCK + FakeRouter.GL_AIRPLANE_MODE_OFF)
+        assertTrue(fake.commands.indexOfFirst(::readsTraffic) in fake.commands.indexOf("nft -f -")..off)
+        assertFalse("uci set 'glconfig.general.airplane_mode=0' && uci commit 'glconfig'" in fake.commands)
         // As step 4 leaves the router.
         assertFalse(fake.airplaneMode)
         assertNull(fake.leakCounters)

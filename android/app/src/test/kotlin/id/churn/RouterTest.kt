@@ -54,6 +54,24 @@ class RouterTest {
     }
 
     @Test
+    fun turnsAirplaneModeOffWithGlsCallAndReadsTheSettingBack() {
+        fake.airplaneMode = true
+        router.turnAirplaneModeOffAsGl()
+        assertFalse(router.airplaneMode())
+        // Under Churn's lock, as every modem operation.
+        assertTrue(FakeRouter.LOCK + FakeRouter.GL_AIRPLANE_MODE_OFF in fake.commands)
+        // A call that left the setting as it was.
+        fake.airplaneMode = true
+        fake.answers[FakeRouter.GL_AIRPLANE_MODE_OFF] = ""
+        try {
+            router.turnAirplaneModeOffAsGl()
+            throw AssertionError("A setting still on was accepted")
+        } catch (e: RouterException) {
+            assertEquals(Problem.UNEXPECTED_ANSWER, e.problem)
+        }
+    }
+
+    @Test
     fun refusesAnEmptyBootId() {
         fake.bootId = ""
         try {
