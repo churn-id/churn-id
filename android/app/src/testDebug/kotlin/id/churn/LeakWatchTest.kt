@@ -119,7 +119,7 @@ class LeakWatchTest {
     }
 
     @Test
-    fun leakWatchGoesOnlineAndCountsWhatLeavesOverTheSimForAMinute() {
+    fun leakWatchGoesOnlineAndCountsWhatLeavesOverTheSimUntilAMinuteAfterTheHandshake() {
         run()
         assertEquals(
             listOf(
@@ -132,10 +132,10 @@ class LeakWatchTest {
         )
         // WireGuard's handshake 3 s after airplane mode went off, seen at the read at 4 s, and then 5 packets a
         // second; the clock synced at 20 s; the router's own packets that Churn's rules dropped; WireGuard's bytes.
-        assertEquals(listOf(4L, 20L, 286L, 8L, 28_600L), numbers)
-        // Once in airplane mode, then every 2 s for 60 s.
-        assertEquals(31, fake.commands.count(::readsTraffic))
-        assertEquals(31, fake.commands.count(::readsTunnelClock))
+        assertEquals(listOf(4L, 20L, 306L, 8L, 30_600L), numbers)
+        // Once in airplane mode, then every 2 s until a minute after the read that saw the handshake.
+        assertEquals(33, fake.commands.count(::readsTraffic))
+        assertEquals(33, fake.commands.count(::readsTunnelClock))
         val commit = fake.commands.indexOf("uci set 'glconfig.general.airplane_mode=0' && uci commit 'glconfig'")
         assertTrue(fake.commands.indexOfFirst(::readsTraffic) in fake.commands.indexOf("nft -f -")..commit)
         // As step 4 leaves the router.
@@ -171,8 +171,8 @@ class LeakWatchTest {
         fake.fragmentsWireguard = true
         run()
         assertEquals(Progress.FRAGMENTS_UNCLEAR, progress[progress.size - 3])
-        // Each of WireGuard's 286 packets left as two fragments.
-        assertEquals(listOf(4L, 20L, 286L, 572L, 28_600L), numbers)
+        // Each of WireGuard's 306 packets left as two fragments.
+        assertEquals(listOf(4L, 20L, 306L, 612L, 30_600L), numbers)
         assertFalse(fake.airplaneMode)
     }
 
@@ -188,7 +188,7 @@ class LeakWatchTest {
         fake.remakesInterface = true
         run()
         assertEquals(Progress.INTERFACES_CHANGED, progress[progress.size - 3])
-        assertEquals(listOf(4L, 20L, 28_600L), numbers)
+        assertEquals(listOf(4L, 20L, 30_600L), numbers)
     }
 
     @Test
@@ -199,13 +199,33 @@ class LeakWatchTest {
     }
 
     @Test
-    fun noHandshakeWithinAMinuteStopsTheWatch() {
+    fun aLateHandshakeKeepsTheTestWatchingForAMinuteAfterIt() {
         fake.handshakeMillis = 120_000
+        run()
+        assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
+        // The clock synced with the handshake, and WireGuard sent 5 packets a second from then on.
+        assertEquals(listOf(120L, 120L, 301L, 8L, 30_100L), numbers)
+        assertEquals(91, fake.commands.count(::readsTraffic))
+    }
+
+    @Test
+    fun aHandshakeShortlyBeforeThe5MinutesStillGetsItsMinute() {
+        fake.handshakeMillis = 270_000
+        run()
+        assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
+        assertEquals(listOf(270L, 270L), numbers.take(2))
+        // Until 330 s.
+        assertEquals(166, fake.commands.count(::readsTraffic))
+    }
+
+    @Test
+    fun noHandshakeWithin5MinutesStopsTheWatch() {
+        fake.handshakeMillis = 400_000
         assertEquals(
-            "wg show all latest-handshakes: no new handshake within 60 s",
+            "wg show all latest-handshakes: no new handshake within 300 s",
             assertStoppedWatching(Problem.UNEXPECTED_ANSWER),
         )
-        assertEquals(31, fake.commands.count(::readsTraffic))
+        assertEquals(151, fake.commands.count(::readsTraffic))
     }
 
     @Test
@@ -252,7 +272,7 @@ class LeakWatchTest {
         run()
         assertTrue("uci set 'glconfig.general.airplane_mode=1' && uci commit 'glconfig'" in fake.commands)
         assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
-        assertEquals(listOf(4L, 20L, 286L, 8L, 28_600L), numbers)
+        assertEquals(listOf(4L, 20L, 306L, 8L, 30_600L), numbers)
     }
 
     @Test
@@ -281,7 +301,7 @@ class LeakWatchTest {
         run()
         assertEquals(1, progress.count { it == Progress.TUNNEL_MADE_ANEW })
         // From the read at 10 s, with 36 of WireGuard's packets by then.
-        assertEquals(listOf(4L, 20L, 286L, 8L, 25_000L), numbers)
+        assertEquals(listOf(4L, 20L, 306L, 8L, 27_000L), numbers)
     }
 
     @Test
@@ -292,8 +312,8 @@ class LeakWatchTest {
             listOf(Progress.SIM_PACKETS, Progress.WIREGUARD_UNCLEAR, Progress.LEAK_WATCH_PASSED),
             progress.takeLast(3),
         )
-        // One more packet during each of the 30 reads, after the interfaces' counts.
-        assertEquals(listOf(4L, 20L, 315L, 8L), numbers)
+        // One more packet during each of the 32 reads, after the interfaces' counts.
+        assertEquals(listOf(4L, 20L, 337L, 8L), numbers)
     }
 
     @Test
@@ -301,7 +321,7 @@ class LeakWatchTest {
         fake.tunnelOverIpv6 = true
         run()
         assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
-        assertEquals(listOf(286L, 8L, 28_600L), numbers.takeLast(3))
+        assertEquals(listOf(306L, 8L, 30_600L), numbers.takeLast(3))
     }
 
     @Test

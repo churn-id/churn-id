@@ -2,7 +2,8 @@ package id.churn
 
 /**
  * Tier 4's leak watch (docs/testing.md, "Leak watch"): the router goes online with the card that step 3 gave its IMEIs,
- * as at step 4, while the test counts for a minute what leaves over the SIM. Only debug builds have it.
+ * as at step 4, while the test counts what leaves over the SIM until a minute after the tunnel is up. Only debug builds
+ * have it.
  */
 class LeakWatch(
     router: Router,
@@ -81,12 +82,12 @@ class LeakWatch(
     private fun notReady(what: String): Nothing = throw RouterException(Problem.NOT_READY, what)
 
     /**
-     * Commits airplane mode off, as step 4 does, and reads the SIM's traffic every 2 s, for 60 s and then until the
-     * clock has synced, for at most 5 min. A packet that left over the SIM without passing Churn's rules stops the
-     * test, and so do bytes that got past them beyond those that WireGuard sent, or fewer, as WireGuard's packets
-     * then didn't all get past the rules over the SIM. WireGuard has to complete a new handshake within the 60 s, and
-     * chrony has to update the clock from one of its servers within the 5 min, which with Churn's rules it can reach
-     * only through the tunnel.
+     * Commits airplane mode off, as step 4 does, and reads the SIM's traffic every 2 s until a minute after WireGuard's
+     * new handshake, however long the connection takes, and until the clock has synced. A packet that left over the
+     * SIM without passing Churn's rules stops the test, and so do bytes that got past them beyond those that WireGuard
+     * sent, or fewer, as WireGuard's packets then didn't all get past the rules over the SIM. The handshake, and
+     * chrony's update of the clock from one of its servers, which with Churn's rules it can reach only through the
+     * tunnel, have to come within 5 min of airplane mode going off.
      */
     private fun watch() {
         // In airplane mode, so that nothing leaves while it is read.
@@ -97,11 +98,19 @@ class LeakWatch(
         val from = now()
         var traffic = start
         val wireguard = WireguardCount(start)
-        var handshake = false
+        // When a read first saw WireGuard's new handshake, by now().
+        var handshake: Long? = null
         var synced = false
-        while (now() - from < WATCH_MILLIS || !synced) {
-            if (now() - from >= CLOCK_MILLIS) {
-                throw RouterException(Problem.UNEXPECTED_ANSWER, "chronyc tracking: no update within $CLOCK_SECONDS s")
+        while (handshake == null || now() - handshake < WATCH_MILLIS || !synced) {
+            // Only the handshake and the clock's update have the limit: once both have come, the watch has its minute.
+            if (now() - from >= LIMIT_MILLIS && handshake == null) {
+                throw RouterException(
+                    Problem.UNEXPECTED_ANSWER,
+                    "wg show all latest-handshakes: no new handshake within $LIMIT_SECONDS s",
+                )
+            }
+            if (now() - from >= LIMIT_MILLIS && !synced) {
+                throw RouterException(Problem.UNEXPECTED_ANSWER, "chronyc tracking: no update within $LIMIT_SECONDS s")
             }
             sleep(READ_MILLIS)
             traffic = router.simTraffic()
@@ -113,20 +122,14 @@ class LeakWatch(
             wireguard.compare(traffic)
             val online = router.tunnelClock()
             val seconds = (now() - from) / 1000
-            if (!handshake && online.handshake > offline.handshake) {
-                handshake = true
+            if (handshake == null && online.handshake > offline.handshake) {
+                handshake = now()
                 measured(Progress.HANDSHAKE, listOf(seconds))
             }
             val update = online.clockSource to online.clockUpdate
             if (!synced && online.clockSource !in NOT_SYNCED && update != offline.clockSource to offline.clockUpdate) {
                 synced = true
                 measured(Progress.CLOCK_SYNCED, listOf(seconds))
-            }
-            if (!handshake && now() - from >= WATCH_MILLIS) {
-                throw RouterException(
-                    Problem.UNEXPECTED_ANSWER,
-                    "wg show all latest-handshakes: no new handshake within ${WATCH_MILLIS / 1000} s",
-                )
             }
         }
         val sent = sentSince(start, traffic)
@@ -209,15 +212,15 @@ class LeakWatch(
         /** Debug builds have the leak watch. */
         const val AVAILABLE = true
 
-        /** How long the test watches after airplane mode goes off, as testing.md says: a minute. */
+        /** How long the test goes on watching once a read has seen WireGuard's new handshake, as testing.md says. */
         private const val WATCH_MILLIS = 60_000L
 
         /** How often it reads the SIM's traffic meanwhile. */
         private const val READ_MILLIS = 2_000L
 
-        /** How long after airplane mode goes off the clock has to have synced. */
-        private const val CLOCK_SECONDS = 300
-        private const val CLOCK_MILLIS = CLOCK_SECONDS * 1000L
+        /** How long after airplane mode goes off WireGuard's new handshake and the clock's update may come. */
+        private const val LIMIT_SECONDS = 300
+        private const val LIMIT_MILLIS = LIMIT_SECONDS * 1000L
 
         /** Chrony's reference IDs while it is synced to no server: none, and its own clock, with `local`. */
         private val NOT_SYNCED = setOf("00000000", "7F7F0101")

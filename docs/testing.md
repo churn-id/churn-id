@@ -284,12 +284,13 @@ the router has been switched on again there (rule 1):
    `/proc/net/snmp6`. It also reads when WireGuard last completed a
    handshake and when chrony last updated the clock, which are times of
    day, so the debug log leaves them out.
-5. It commits airplane mode off and reads the same every 2 s, for 60 s
-   and then until the clock has synced, for at most 5 min. Every packet
-   that got past Churn's rules passed the counters before it left, so the
-   interfaces can't have sent more, but for the fragments that the router
-   made of such packets, which they count one by one. More than that,
-   packets that Churn's rules didn't see, stops the test (D11).
+5. It commits airplane mode off and reads the same every 2 s, until a
+   minute after WireGuard's new handshake, however long the connection
+   takes, and until the clock has synced. Every packet that got past
+   Churn's rules passed the counters before it left, so the interfaces
+   can't have sent more, but for the fragments that the router made of
+   such packets, which they count one by one. More than that, packets
+   that Churn's rules didn't see, stops the test (D11).
 6. With each read it also compares the bytes that got past Churn's rules,
    without the IP and UDP headers of WireGuard's packets, with those that
    WireGuard sent. WireGuard counts a packet once the firewall has passed
@@ -301,9 +302,9 @@ the router has been switched on again there (rule 1):
    the two have to match exactly (D9). A WireGuard interface made anew
    starts its count again, so the test then compares from the next such
    read on.
-7. WireGuard has to complete a new handshake within the 60 s, and chrony
-   has to update the clock from one of its servers within the 5 min,
-   which with Churn's rules it reaches only through the tunnel (D16).
+7. WireGuard has to complete a new handshake, and chrony has to update
+   the clock from one of its servers, which with Churn's rules it reaches
+   only through the tunnel, within 5 min of airplane mode going off (D16).
 8. It deletes its table and leaves the router online, as step 4 does.
 
 The lines say by how many seconds after airplane mode went off the test
