@@ -80,7 +80,7 @@ markdownlint-cli2 (`.markdownlint.json`).
 The unit tests run against a simulated Mudi 7. Tests on a real router are
 listed in [docs/testing.md](docs/testing.md); the app runs the first of
 them, its read-only checks, whenever it connects, and debug builds have a
-dry run of steps 1 and 3.
+dry run of steps 1 and 3 and a removal test, which runs `restore.sh`.
 
 ## Signing
 

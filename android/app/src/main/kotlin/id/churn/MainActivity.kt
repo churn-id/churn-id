@@ -82,6 +82,7 @@ class MainActivity : Activity() {
             is Screen.Home -> home(screen, keepScroll = last is Screen.Home)
             is Screen.Swapping -> swapping(screen)
             is Screen.DryRun -> dryRun(screen)
+            is Screen.RemovalTest -> removalTest(screen)
         }
     }
 
@@ -194,6 +195,7 @@ class MainActivity : Activity() {
         button(R.string.show_rules) { showRules() }
         button(R.string.router_checks) { showChecks() }
         if (DryRun.AVAILABLE) button(R.string.dry_run) { controller.openDryRun() }
+        if (RemovalTest.AVAILABLE) button(R.string.removal_test) { controller.openRemovalTest() }
         button(R.string.restore) {
             val factory = status.factory
             confirm(getString(R.string.restore_text, factory.imei1, factory.imei2)) { controller.restore() }
@@ -276,6 +278,31 @@ class MainActivity : Activity() {
             button(if (screen.lines.isEmpty()) R.string.dry_run_start else R.string.dry_run_again) {
                 askForNotifications()
                 controller.startDryRun()
+            }
+            button(R.string.dry_run_back) { controller.refresh() }
+        }
+    }
+
+    private fun removalTest(screen: Screen.RemovalTest) = page(keepScreenOn = screen.running) {
+        heading(getString(R.string.removal_test))
+        paragraph(getString(if (screen.unfinished) R.string.removal_test_unfinished else R.string.removal_test_text))
+        screen.lines.forEach { paragraph("✓ $it") }
+        if (screen.running) {
+            addView(ProgressBar(context))
+            return@page
+        }
+        screen.error?.let { warning(it) }
+        if (screen.unfinished) {
+            button(R.string.removal_test_set_up_again) { controller.setUpAgain() }
+            button(R.string.removal_test_forget) {
+                confirm(getString(R.string.removal_test_forget_text)) { controller.forgetRemovalTest() }
+            }
+        } else {
+            button(if (screen.lines.isEmpty()) R.string.removal_test_start else R.string.removal_test_again) {
+                confirm(getString(R.string.removal_test_confirm)) {
+                    askForNotifications()
+                    controller.startRemovalTest()
+                }
             }
             button(R.string.dry_run_back) { controller.refresh() }
         }

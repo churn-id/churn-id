@@ -103,6 +103,12 @@ data class FolderEntry(val mode: String, val uid: Int?, val size: Long?, val nam
 data class ZerosLink(val target: String, val folderKb: Long, val kept: List<String>)
 
 /**
+ * Churn's zero files in `/overlay`: [count] says how many of their folder and of the fill files that a clearing that
+ * stopped left there are, and [kb] how much space they take.
+ */
+data class ZeroFiles(val count: Int, val kb: Long)
+
+/**
  * A program listening on the UDP [port], as `netstat` names it, the user ID it runs as, and the file that dnsmasq
  * reads its servers from, or null for none.
  */
@@ -441,6 +447,12 @@ class Router(private val shell: Shell) {
         return output.text.lines().map(String::trim).filter(String::isNotEmpty)
     }
 
+    /** The chains of Churn's rules that GL's firewall has in its table. */
+    fun churnChains(): List<String> {
+        val list = FIREWALL_CHAINS.joinToString("; ") { "nft list chain inet fw4 $it >/dev/null 2>&1 && echo $it" }
+        return run(list).text.lines().map(String::trim).filter { it in FIREWALL_CHAINS }
+    }
+
     /** Whether GL's firewall has all the chains of Churn's rules in its table. */
     fun firewallLoaded() =
         run(FIREWALL_CHAINS.joinToString(" && ") { "nft list chain inet fw4 $it >/dev/null" }).status == 0
@@ -467,6 +479,16 @@ class Router(private val shell: Shell) {
 
     /** Whether GL's system log to the flash is off, so no new SIM details are written to the flash. */
     fun flashLogOff() = uci(LOG_FILE) == null
+
+    /**
+     * GL's setting for its system log's file as Churn saved it before turning the log off, which restore.sh puts back;
+     * null without a copy.
+     */
+    fun logFileCopy() = readFile("$CHURN/log_file")?.toString(Charsets.UTF_8)?.lineSequence()?.firstOrNull()?.trim()
+        ?.takeIf { it.isNotEmpty() }
+
+    /** Whether a file, a folder or a link is at [path]. */
+    fun exists(path: String) = run("[ -e ${quote(path)} ]").status == 0
 
     /** The command lines of the `logread -f` processes, such as the one that writes GL's system log to its file. */
     fun logFollowers(): List<String> {
@@ -612,6 +634,20 @@ class Router(private val shell: Shell) {
         val kb = lines.getOrNull(1)?.toLongOrNull()
         if (output.status != 0 || kb == null) throw unexpected("The link to the zero files", output)
         return ZerosLink(lines[0], kb, lines.drop(2))
+    }
+
+    /** Churn's zero files and any fill files, after a sync. */
+    fun zeroFiles(): ZeroFiles {
+        val output = run(ZERO_FILES)
+        val numbers = output.text.lines().mapNotNull { it.trim().toLongOrNull() }
+        if (output.status != 0 || numbers.size != 2) throw unexpected("The zero files", output)
+        return ZeroFiles(numbers[0].toInt(), numbers[1])
+    }
+
+    /** The overlay's free space in kB, after a sync, as the free-space overwrite counts it. */
+    fun overlayFreeKb(): Long {
+        val output = run(OVERLAY_FREE)
+        return output.text.trim().toLongOrNull()?.takeIf { output.status == 0 } ?: throw unexpected("df", output)
     }
 
     /** Records [card] in Churn's folder as the card step 3 last gave IMEIs. */
@@ -864,6 +900,19 @@ class Router(private val shell: Shell) {
             sysupgrade -l 2>/dev/null | grep -e '^$CHURN/zeros' -e '^/overlay/churn-zeros'
             true
         """.trimIndent()
+
+        /** How many of Churn's zero files' folder and of any fill files there are, and the kB they take. */
+        private val ZERO_FILES = """
+            sync
+            set -- /overlay/churn-zeros /overlay/churn-fill.*
+            n=0
+            for f; do [ -e "${'$'}f" ] && n=${'$'}((n + 1)); done
+            echo ${'$'}n
+            du -sk "${'$'}@" 2>/dev/null | awk '{ kb += ${'$'}1 } END { print kb + 0 }'
+        """.trimIndent()
+
+        /** The overlay's free space in kB, as the free-space overwrite counts it. */
+        private val OVERLAY_FREE = "sync; df -k /overlay | awk 'END { print ${'$'}(NF - 4) - ${'$'}(NF - 3) }'"
 
         /** The kernel's folder for the eMMC flash, which holds its estimates of its wear. */
         private const val FLASH = "/sys/block/mmcblk0/device"

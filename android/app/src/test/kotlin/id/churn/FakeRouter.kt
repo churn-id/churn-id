@@ -87,6 +87,12 @@ class FakeRouter : Shell {
     /** For a `logread` that goes on writing `/etc/sys_log` once the setting is deleted and the log service reloaded. */
     var logreadStuck = false
 
+    /**
+     * For a `logread` that runs but doesn't open the file [logFile] names, against H3. Only the removal test's tests
+     * use it.
+     */
+    var logreadOpensNoFile = false
+
     /** The ICCID GL recorded for the active card (`network.modem_cpu.iccid`), as GL stores it, or null for none. */
     var modemCpuIccid: String? = "8941000000000000015F"
 
@@ -125,6 +131,54 @@ class FakeRouter : Shell {
      * testing.md. Only the dry run's test uses it.
      */
     var esimAnswersOnTray = false
+
+    /**
+     * For a shell that stops reading restore.sh, without an error, once the script deleted Churn's folder and itself,
+     * against F12 in testing.md. Only the removal test's test uses it.
+     */
+    var restoreEndsEarly = false
+
+    /** For a restore.sh that leaves the IMEIs as they are, against F7. Only the removal test's tests use it. */
+    var restoreKeepsImeis = false
+
+    /** For a restore.sh that leaves GL's system log off, against F9. Only the removal test's tests use it. */
+    var restoreKeepsLogOff = false
+
+    /** For a restore.sh that leaves the zero files, against F10. Only the removal test's tests use it. */
+    var restoreKeepsZeroFiles = false
+
+    /** For a restore.sh that leaves the fill files, against F10. Only the removal test's tests use it. */
+    var restoreKeepsFillFiles = false
+
+    /**
+     * For zero files that something holds open as restore.sh deletes them, so that their space doesn't come free,
+     * against F10. Only a broken firmware gets here, and only the removal test's tests use it.
+     */
+    var zeroFilesHeldOpen = false
+
+    /**
+     * For a restore.sh that deletes Churn's firewall rules but leaves their chains, as a reload of GL's firewall does,
+     * against F11. Only the removal test's tests use it.
+     */
+    var restoreKeepsChains = false
+
+    /** For a restore.sh that leaves Churn's firewall rules' file, against F11. Only the removal test's tests use it. */
+    var restoreKeepsFirewallFile = false
+
+    /**
+     * For a restore.sh that leaves the line of Churn's firewall rules in /etc/sysupgrade.conf, against F11. Only the
+     * removal test's tests use it.
+     */
+    var restoreKeepsFirewallLine = false
+
+    /** For a restore.sh that leaves Churn's folder, against F8 and F12. Only the removal test's tests use it. */
+    var restoreKeepsFolder = false
+
+    /**
+     * For a restore.sh that leaves the folder's line in /etc/sysupgrade.conf, against F12. Only the removal test's
+     * tests use it.
+     */
+    var restoreKeepsFolderLine = false
 
     /** The card in the SIM 1 tray, which Churn never uses. */
     var tray1Card: Card? = null
@@ -169,6 +223,21 @@ class FakeRouter : Shell {
 
     /** Where `/etc/churn/zeros` links to, once the free-space overwrite made the link. */
     var zerosLink: String? = null
+
+    /** The kB that Churn's zero files take, once the free-space overwrite made them; the overlay's free space less. */
+    var zeroFilesKb = 0L
+
+    /** The kB of the fill files in /overlay that a clearing that stopped left. */
+    var fillFilesKb = 0L
+
+    /** The kB of deleted files that something still holds open, so that their space isn't free yet. */
+    private var heldKb = 0L
+
+    /** The kB that GL's files took on the overlay since the fake started. */
+    private var writtenKb = 0L
+
+    /** The overlay's free space, in kB. */
+    private val overlayFreeKb get() = OVERLAY_FREE_KB - zeroFilesKb - fillFilesKb - heldKb - writtenKb
 
     /** What `du` counts in Churn's folder, in kB, and whether `sysupgrade -l` follows the link to the zero files. */
     var churnFolderKb = 12L
@@ -362,6 +431,11 @@ class FakeRouter : Shell {
             poweredOff = true
             return ok("")
         }
+        Regex("""\[ -e '([^']+)' ]""").matchEntire(command)?.let {
+            val path = it.groupValues[1]
+            val found = path in files || files.keys.any { key -> key.startsWith("$path/") }
+            return Output(if (found) 0 else 1, ByteArray(0), "")
+        }
         Regex("""if \[ -e (\S+) ]; then cat \S+; else exit 3; fi""").matchEntire(command)?.let {
             val file = files[it.groupValues[1]] ?: return Output(3, ByteArray(0), "")
             return Output(0, file, "")
@@ -396,6 +470,7 @@ class FakeRouter : Shell {
             return ok("")
         }
         if (command == "fw4 reload") return fw4Reload()
+        if (command == "sh /etc/churn/restore.sh") return restore()
         if (command == "rm -f ${Router.FIREWALL} && fw4 reload") {
             files.remove(Router.FIREWALL)
             return fw4Reload()
@@ -406,6 +481,10 @@ class FakeRouter : Shell {
                 "th dport 53 counter packets 0 bytes 0 redirect to :2153"
             val lines = glDnsRules + listOfNotNull(churns.takeIf { "churn_dns" in loadedChains })
             return Output(if (lines.isEmpty()) 1 else 0, lines.joinToString("") { "$it\n" }.toByteArray(), "")
+        }
+        if (command == CHURN_CHAINS) {
+            val chains = listOf("churn_sim", "churn_route", "churn_dns").filter { it in loadedChains }
+            return ok(chains.joinToString("") { "$it\n" })
         }
         if (command == FIREWALL_LOADED) {
             val all = listOf("churn_sim", "churn_route", "churn_dns").all { it in loadedChains }
@@ -432,6 +511,11 @@ class FakeRouter : Shell {
             return ok(overlayType?.let { "$overlayDevice $it $reserve\n" } ?: "\n")
         }
         if (command == "find /etc -type f -mmin -2 2>/dev/null") return ok(etcWritten.joinToString("") { "$it\n" })
+        if (command.startsWith("sync\nset -- /overlay/churn-zeros /overlay/churn-fill.*")) {
+            val count = listOf(zeroFilesKb, fillFilesKb).count { it > 0 }
+            return ok("$count\n${zeroFilesKb + fillFilesKb}\n")
+        }
+        if (command.startsWith("sync; df -k /overlay")) return ok("$overlayFreeKb\n")
         if (command == "cat /sys/block/mmcblk0/device/life_time /sys/block/mmcblk0/device/pre_eol_info") {
             return ok("$flashLifeTime\n$flashPreEol\n")
         }
@@ -460,6 +544,9 @@ class FakeRouter : Shell {
         if ("/overlay/churn-fill." in command) {
             freeSpaceOverwritten = true
             zerosLink = "/overlay/churn-zeros"
+            // It deletes any fill files first, and keeps all but 512 MB of the free space in zero files.
+            fillFilesKb = 0
+            zeroFilesKb += overlayFreeKb - 524_288
             return ok("")
         }
         Regex("""rm -f (.+)""").matchEntire(command)?.let {
@@ -665,6 +752,59 @@ class FakeRouter : Shell {
         if (!airplaneMode || radio != 4) unsafe += what
     }
 
+    /**
+     * restore.sh as [Router.restoreFactoryImeis] runs it, by its effects as the script in the app's assets has them:
+     * airplane mode on, the factory IMEIs written and saved, Churn's record of the card deleted, GL's setting for the
+     * system log put back, the zero files deleted, Churn's firewall rules removed and, last, Churn's folder deleted.
+     */
+    private fun restore(): Output {
+        // Only an app that runs restore.sh on a router it didn't set up gets here.
+        val factory = files["/etc/churn/factory"]?.toString(Charsets.UTF_8)?.lines()?.takeIf { it.size >= 2 }
+            ?: return Output(1, ByteArray(0), "Can't read /etc/churn/factory.\n")
+        airplaneMode = true
+        // Only a modem whose radio stays on gets here.
+        if (radio != 4) return Output(1, ByteArray(0), "The radio didn't turn off, so the IMEIs are unchanged.\n")
+        if (!restoreKeepsImeis) {
+            change("IMEI 7")
+            imei1 = factory[0]
+            change("IMEI 11")
+            imei2 = factory[1]
+            savedImeis = null
+        }
+        files.remove("/etc/churn/card")
+        if (!restoreKeepsLogOff) {
+            files.remove("/etc/churn/log_file")?.let { logFile = it.toString(Charsets.UTF_8).trim() }
+        }
+        // The log service's logread opens the file, which the app deleted at its last clearing, and writes the log's
+        // buffer to it: 64 kB, say.
+        logFile?.takeIf { !logreadMissing && !logreadOpensNoFile }?.let {
+            files.putIfAbsent(it, ByteArray(0))
+            writtenKb += 64
+        }
+        zerosLink = null
+        if (!restoreKeepsZeroFiles) {
+            if (zeroFilesHeldOpen) heldKb += zeroFilesKb
+            zeroFilesKb = 0
+        }
+        if (!restoreKeepsFillFiles) fillFilesKb = 0
+        if (!restoreKeepsFirewallFile) files.remove(Router.FIREWALL)
+        if (!restoreKeepsChains) loadedChains.clear()
+        if (!restoreKeepsFirewallLine) dropUpgradeLine(Router.FIREWALL)
+        if (!restoreKeepsFolderLine) dropUpgradeLine("/etc/churn/")
+        if (!restoreKeepsFolder) files.keys.removeAll { it.startsWith("/etc/churn/") }
+        if (restoreEndsEarly) return ok("")
+        return ok(
+            "The factory IMEIs are back: IMEI 1 ${factory[0]}, IMEI 2 ${factory[1]}. GL's setting for saving the " +
+                "system log is as before. Churn's zero files, firewall rules and folder are removed. " +
+                "Airplane mode is on.\n",
+        )
+    }
+
+    /** Deletes [line] from /etc/sysupgrade.conf, as restore.sh's sed does. */
+    private fun dropUpgradeLine(line: String) {
+        sysupgrade = sysupgrade.lines().filter { it != line }.joinToString("\n")
+    }
+
     private fun atOk(line: String? = null) = ok("\n\r\n" + (line?.let { "$it\r\n\r\n" } ?: "") + "OK\r\n\n")
 
     /** Churn's folder and its files as BusyBox's `ls -ln` lists them, with any time. */
@@ -685,6 +825,9 @@ class FakeRouter : Shell {
     companion object {
         const val LOCK = "exec 9>/var/lock/churn.lock && flock 9 && "
         const val LOCATION_ID = "bcpu_p0133_v2c7c"
+        /** The overlay's free space without Churn's zero files, in kB: 2.9 GB, as on our router. */
+        const val OVERLAY_FREE_KB = 2_900_000L
+
         const val SIM_MAP = "/etc/config/cellular/sim_map.json"
         const val APN_HISTORY = "/etc/config/cellular/history_apn_database.json"
         const val ESIM_DB = "/root/esim/db"
@@ -713,6 +856,9 @@ class FakeRouter : Shell {
         /** How [Router.logFollowers] lists the `logread -f` processes. */
         private val LOG_FOLLOWERS = Regex("""for c in /proc/\[0-9]\*/cmdline; .* \| grep -E '\^\[\^ ]\*logread .*""")
         private val MODEM = listOf("gl_modem", "get_result_AT", "set_feature_config", "curl")
+        /** How [Router.churnChains] lists the chains of Churn's rules that GL's firewall has. */
+        private val CHURN_CHAINS = listOf("churn_sim", "churn_route", "churn_dns")
+            .joinToString("; ") { "nft list chain inet fw4 $it >/dev/null 2>&1 && echo $it" }
         private const val FIREWALL_LOADED = "nft list chain inet fw4 churn_sim >/dev/null && " +
             "nft list chain inet fw4 churn_route >/dev/null && nft list chain inet fw4 churn_dns >/dev/null"
 
