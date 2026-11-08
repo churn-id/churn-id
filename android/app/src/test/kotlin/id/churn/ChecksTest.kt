@@ -1376,7 +1376,7 @@ class ChecksTest {
     /** GL's answer to [cardCommand], with the card's answer [data]. */
     private fun cardAnswer(data: String) = JSONObject().put("data", data).put("channel_status", true).toString()
 
-    private companion object {
+    companion object {
         val NO_FOLDER = ChurnFolder(factory = null, card = null)
 
         /** How the router reads GL's settings for the modem and its slots. */

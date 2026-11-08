@@ -31,7 +31,7 @@ class EsimLog(val clock: Long, val size: Long, val head: String, val start: Long
 enum class Problem {
     UNEXPECTED_ANSWER, RADIO_ON, SCHEDULED_REBOOT, IMEIS_NOT_KEPT, SLOT_NOT_SWITCHED, PROFILE_STILL_ENABLED,
     NO_CARD, SIM1_CARD, CARD_CHANGED, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN, VPN_GONE, FIREWALL_NOT_LOADED,
-    CHECK_FAILED,
+    CHECK_FAILED, PROFILE_ENABLED, CARD_IN_TRAY,
 }
 
 /** [detail] is what the router said, for the log; it never holds a password. */
@@ -172,11 +172,14 @@ class Router(private val shell: Shell) {
     /** The active SIM slot, as GL reports it. */
     fun activeSlot() = uci("network.modem_cpu.dds_id")
 
-    /** Makes slot 2 the active slot. [slot2] must be slot 2's current setting. */
-    fun activateSlot2(slot2: Slot2) = setFeatureConfig(
-        """{"location_id":"${locationId()}","bus":"cpu","data":{"failover":""" +
-            """{"current_sim":2,"esim2_enable":${slot2 == Slot2.ESIM}}}}""",
-    )
+    /** Makes [slot], 1 or 2, the active slot. [slot2] must be slot 2's current setting. */
+    fun activateSlot(slot: Int, slot2: Slot2) {
+        require(slot in 1..2)
+        setFeatureConfig(
+            """{"location_id":"${locationId()}","bus":"cpu","data":{"failover":""" +
+                """{"current_sim":$slot,"esim2_enable":${slot2 == Slot2.ESIM}}}}""",
+        )
+    }
 
     /** Slot 2's ICCID as the modem gives it, with a trailing `F` for 19 digits; null if the card doesn't answer. */
     fun slot2Iccid() = slot2Answer("AT+ICCID")?.after("+ICCID:")?.takeIf { it.matches(Regex("[0-9A-Fa-f]{18,20}")) }

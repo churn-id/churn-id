@@ -6,8 +6,9 @@ each one on a real router, so that a new GL firmware, or a claim that was
 wrong all along, shows up before a user depends on it. The claims come
 from [design.md](design.md) and [development.md](development.md).
 
-Status: being built. The app runs the tier 1 checks built so far; the
-other tiers are a plan. The app's unit tests run in CI against a simulated
+Status: being built. The app runs the tier 1 checks, and debug builds
+have the dry run of tier 2; the rest of tier 2 and tiers 3 and 4 are a
+plan. The app's unit tests run in CI against a simulated
 Mudi 7 (`FakeRouter`) built from these claims, so a claim that turns out
 wrong makes the simulation wrong too. *Verified* means we observed it by
 hand on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
@@ -85,6 +86,49 @@ could affect. When GL releases a new firmware:
    the tier 4 items the release could affect.
 4. Add the version to the list.
 
+## Dry run
+
+Debug builds have a Dry run button on the router screen. It runs steps 1
+and 3 of a swap with the swap's own code on a router with no SIM, both
+trays empty and no profile enabled on the built-in eSIM, as far as the
+steps go without one. With no SIM there is nothing to register, and the
+dry run confirms the tier 2 claims that only a change of the router's
+settings can:
+
+1. It keeps slot 2's setting, the active slot and the IMEIs on the phone,
+   to put them back at the end.
+2. Step 1 up to the shutdown: the scheduled reboot, the VPN and the checks
+   marked *blocks*, airplane mode on and the radio off, and slot 2 on the
+   built-in eSIM. A profile enabled there stops the dry run, which doesn't
+   disable it, since Churn couldn't enable it again.
+3. Step 3 up to the card: the VPN again, the router started, the checks
+   again, the radio off, the SIM 1 tray empty, and the Enhanced Kill
+   Switch and Churn's firewall rules in place. Both reload even if the
+   switch is on and the rules are in place, and the connection and the
+   radio's state across each reload show whether it drops the cable or
+   turns the radio on (K8, D19).
+4. Slot 1 made the active slot, so that step 3 makes slot 2 the active
+   slot again, as on a router new to Churn, and `dds_id` follows both
+   switches (U6).
+5. Slot 2 switched to the SIM 2 tray and made the active slot, where no
+   card may answer, nor the built-in eSIM (E4). A card in the tray, an
+   eSIM adapter card without an enabled profile too, stops the dry run.
+6. Where step 3 writes a card's pair, a random test pair with the TACs
+   and the spacing of the factory IMEIs written and read back, and then
+   the earlier pair, each with the radio still off after it (M6).
+7. Airplane mode, the radio and both IMEIs read 20 times in a row while
+   GL's services run, every answer checked (P5).
+8. Slot 2 switched back to the built-in eSIM, and its setting and the
+   active slot put back (S2, S3).
+
+Like a swap, the dry run leaves airplane mode and the Enhanced Kill Switch
+on and Churn's firewall rules in place. A dry run that stops puts the
+router back at once if the radio is still off. Otherwise its screen shows
+at the next connection in place of the router screen, until Put the router
+back has done so, once the router has started and its radio is off. The
+screen lists what the dry run did and, if it stopped, the claims it was
+confirming. The debug log keeps every command.
+
 ## Platform
 
 From development.md, "Sending AT commands", and design.md, section 6.
@@ -95,7 +139,7 @@ From development.md, "Sending AT commands", and design.md, section 6.
 | P2 | The firmware has `flock`, `curl`, `ubus`, `fw4` and `nft` | verified | `command -v` for each | 1, blocks |
 | P3 | The firmware has `md5sum`, which the debug log uses | inferred | `command -v md5sum` | 1 |
 | P4 | AT commands work through `gl_modem -B cpu AT` | verified | `AT+CFUN?` answers, ending with `OK` | 1, blocks |
-| P5 | `gl_modem` keeps Churn's commands apart from those of GL's daemons | inferred | Read the radio and both IMEIs many times in a row while GL's services run, and check every answer | 2 |
+| P5 | `gl_modem` keeps Churn's commands apart from those of GL's daemons | inferred | Read the radio and both IMEIs 20 times in a row while GL's services run, and check every answer | 2 |
 
 ## Phone and cable
 
