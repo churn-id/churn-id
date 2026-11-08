@@ -188,14 +188,11 @@ class Router(private val shell: Shell) {
     fun setAirplaneMode(on: Boolean) = uciSet(AIRPLANE_MODE, if (on) "1" else "0")
 
     /**
-     * Turns airplane mode off with GL's own call, as GL's screen does, which also commits the setting, and reads the
-     * setting back. The SIM then goes online sooner than after a commit of the setting alone (development.md, "uci
-     * settings"). Only the leak watch uses it, in the user's place at step 4.
+     * Turns airplane mode off with GL's own call, as GL's screen does, which also commits the setting. The SIM then
+     * goes online sooner than after a commit of the setting alone (development.md, "uci settings"). Only the leak watch
+     * uses it, in the user's place at step 4, and it reads the setting afterwards.
      */
-    fun turnAirplaneModeOffAsGl() {
-        run(locked(GL_AIRPLANE_MODE_OFF), timeoutSeconds = 40).check("set_airplane_mode")
-        if (uci(AIRPLANE_MODE) != "0") throw unexpected(AIRPLANE_MODE)
-    }
+    fun turnAirplaneModeOffAsGl() = run(locked(GL_AIRPLANE_MODE_OFF), timeoutSeconds = 40).check("set_airplane_mode")
 
     /**
      * Sets GL's airplane mode without the commit, which GL's cellular manager follows already (development.md, "uci

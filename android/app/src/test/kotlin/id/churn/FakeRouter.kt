@@ -34,19 +34,13 @@ class FakeRouter : Shell {
      */
     val atAnswers = mutableMapOf<String, String>()
 
-    /**
-     * uci settings that replace the router's own, or remove them for null, such as another GL firmware might hold.
-     * Only the router checks' tests use them.
-     */
+    /** uci settings that replace the router's own, or remove them for null, such as another GL firmware might hold. */
     val uciAnswers = mutableMapOf<String, String?>()
 
-    /**
-     * Answers to commands that replace the router's own, such as another GL firmware might give. Only the router
-     * checks' tests use them.
-     */
+    /** Answers to commands that replace the router's own, such as another GL firmware might give. */
     val answers = mutableMapOf<String, String>()
 
-    /** Commands that fail, such as on a firmware without what they read. Only the router checks' tests use them. */
+    /** Commands that fail, such as on a firmware without what they read. */
     val failing = mutableSetOf<String>()
 
     /** Milliseconds, advanced by the tests' sleep. */

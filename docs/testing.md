@@ -385,7 +385,7 @@ From development.md, "uci settings".
 | U7 | GL's auto power-off fires only on battery with nothing connected, more than 20 s after the set delay | verified | Unplug everything and time it | 4 |
 | U8 | "Power On with Charger" is not in `uci`, and with it off a charger doesn't switch the router on | verified | Plug in a charger with the router off | 4 |
 | U9 | Where GL keeps "Power On with Charger" | open | None until it's found; the user confirms the setting | – |
-| U10 | GL's screen turns airplane mode off with `ubus call cellular.modem set_airplane_mode '{"enable":false}'`, which commits the setting too, and the router then goes online sooner than after a commit of the setting alone, after which nothing tried to leave over the SIM for a minute | verified for the call and the commit; sooner seen by hand | `ubus monitor` and `uci changes glconfig` while turning airplane mode off on the screen; the leak watch's handshake time | 4 |
+| U10 | GL's screen turns airplane mode off with `ubus call cellular.modem set_airplane_mode '{"enable":false}'`, which commits the setting too, and the router then goes online sooner than after a commit of the setting alone, after which nothing tried to leave over the SIM for a minute | verified for the call and the commit; sooner seen by hand | `ubus monitor` and `uci changes glconfig` while turning airplane mode off on the screen; the leak watch reads the setting after its call, and times the handshake | 4 |
 
 ## Kill switch and VPN
 

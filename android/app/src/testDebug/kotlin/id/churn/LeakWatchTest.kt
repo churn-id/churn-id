@@ -298,6 +298,40 @@ class LeakWatchTest {
     }
 
     @Test
+    fun aSettingThatGlWritesAfterItsAnswerStillLetsTheWatchGoOn() {
+        // As if GL's call wrote the setting only 4 s after its answer, while the router went online at once.
+        val call = FakeRouter.LOCK + FakeRouter.GL_AIRPLANE_MODE_OFF
+        var calledAt: Long? = null
+        after = { command ->
+            if (command == call) {
+                calledAt = fake.clock
+                fake.uciAnswers[Router.AIRPLANE_MODE] = "1"
+            }
+            calledAt?.let { if (fake.clock - it >= 4_000) fake.uciAnswers.remove(Router.AIRPLANE_MODE) }
+        }
+        run()
+        assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
+        // The setting read until it showed 0, 6 s after the call, and the first read of the SIM's traffic 2 s later,
+        // which saw the handshake: seconds after the call, not after the setting.
+        val from = fake.commands.indexOf(call)
+        val read = fake.commands.subList(from, fake.commands.size).indexOfFirst(::readsTraffic)
+        val between = fake.commands.subList(from + 1, from + read)
+        assertEquals(List(4) { "uci -q get 'glconfig.general.airplane_mode'" }, between)
+        assertEquals(8L, numbers.first())
+    }
+
+    @Test
+    fun aSettingNotOffAfterGlsCallStopsTheWatch() {
+        // A call that left the setting as it was, and airplane mode on.
+        fake.answers[FakeRouter.GL_AIRPLANE_MODE_OFF] = ""
+        assertEquals(
+            "glconfig.general.airplane_mode: not 0 within 30 s of set_airplane_mode",
+            assertStoppedWatching(Problem.UNEXPECTED_ANSWER),
+        )
+        assertFalse(Progress.GOING_ONLINE in progress)
+    }
+
+    @Test
     fun markedPacketsOtherThanWireGuardsStopTheWatch() {
         fake.markedGoingOnline = 1
         // A ping's 84 bytes without the 28 of the IP and UDP headers that WireGuard's packets have.
