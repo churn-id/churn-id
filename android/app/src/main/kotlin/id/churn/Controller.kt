@@ -600,6 +600,8 @@ class Controller(private val context: Context) {
                 test = RemovalTest(
                     router,
                     report = {
+                        // The clearing empties GL's eSIM manager's log.
+                        if (it == Progress.CLEARING_HISTORY) clearingEsimLog()
                         val line = text(it)
                         lines += line
                         debugLog.add("✓ $line")
@@ -878,6 +880,18 @@ class Controller(private val context: Context) {
             Progress.ZERO_FILES_GONE -> R.string.progress_zero_files_gone
             Progress.FIREWALL_GONE -> R.string.progress_firewall_gone
             Progress.SET_UP_AGAIN -> R.string.progress_set_up_again
+            Progress.CONNECTION_KEPT -> R.string.progress_connection_kept
+            Progress.RESERVE_BACK -> R.string.progress_reserve_back
+            Progress.CARD_FILES_PARSE -> R.string.progress_card_files_parse
+            Progress.ZEROS_KEEP_SPACE -> R.string.progress_zeros_keep_space
+            Progress.READING_PARTITION -> R.string.progress_reading_partition
+            Progress.IMSIS_GONE -> R.string.progress_imsis_gone
+            Progress.NO_IMSIS -> R.string.progress_no_imsis
+            Progress.ICCIDS_GONE -> R.string.progress_iccids_gone
+            Progress.NO_ICCIDS -> R.string.progress_no_iccids
+            Progress.PARTITION_UNCHECKED -> R.string.progress_partition_unchecked
+            Progress.FREE_SPACE_FILLED -> R.string.progress_free_space_filled
+            Progress.CLEARED_QUICKLY -> R.string.progress_cleared_quickly
             Progress.REMOVAL_PASSED -> R.string.progress_removal_passed
             Progress.PUT_BACK -> R.string.progress_put_back
             Progress.DRY_RUN_PASSED -> R.string.progress_dry_run_passed

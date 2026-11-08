@@ -99,6 +99,54 @@ class FakeRouter : Shell {
     /** Set once the app overwrites the overlay's free space. */
     var freeSpaceOverwritten = false
 
+    /**
+     * For an overwrite that leaves ext4's reserve at 0, against H13 in testing.md. Only the removal test's tests use
+     * it.
+     */
+    var overwriteLeavesReserveOff = false
+
+    /**
+     * For a GL that saves `sim_map.json` while the overwrite has filled the partition and leaves it cut short, against
+     * H14. Only the removal test's tests use it.
+     */
+    var overwriteCutsSimMap = false
+
+    /**
+     * What files held before they were deleted or replaced, which stays on the overlay's raw partition until the
+     * free-space overwrite fills the free space.
+     */
+    val freeSpace = mutableListOf<ByteArray>()
+
+    /** The numbers the app last counted on the raw partition, which it sends as input. */
+    var numbersCounted = emptyList<String>()
+
+    /**
+     * For a read of the raw partition that fails without an error and finds no number, against H10 and H11. Only the
+     * removal test's tests use it.
+     */
+    var rawReadFindsNothing = false
+
+    /**
+     * GL's system log in RAM since the router started, which `logread` writes to the file [logFile] names when the log
+     * service starts it: lines naming the card in the tray and an earlier card, by ICCID and IMSI, and the modem's
+     * IMEIs.
+     */
+    var logBuffer = "user.info Diag_Lib[1]: iccid[8941000000000000015F] imsi[228010000000001]\n" +
+        "user.info Diag_Lib[1]: iccid[8941000000000000023F] imsi[228010000000002]\n" +
+        "user.info gl_modem[1]: imei[356090215000002] imei2[356090215000077]\n"
+
+    /** The kB written to the overlay's partition since its file system was made, as ext4 counts them. */
+    var lifetimeWrittenKb = 41_943_040L
+
+    /** How fast the overwrite writes to the flash, in kB/s: on our Mudi 7, 2.9 GB took about 3 minutes. */
+    var flashWriteKbPerSecond = 16_000L
+
+    /** The free space the overwrite leaves, in kB: 512 MB, but for an overwrite broken against H15. */
+    var overwriteKeepsFreeKb = 524_288L
+
+    /** For an overwrite that leaves fill files, against H15. Only the removal test's tests use it. */
+    var overwriteLeavesFillFiles = false
+
     /** The overlay's device and file system, or null for none, and the blocks that ext4 keeps back from it. */
     var overlayDevice = "/dev/mmcblk0p59"
     var overlayType: String? = "ext4"
@@ -441,7 +489,7 @@ class FakeRouter : Shell {
             return Output(0, file, "")
         }
         Regex("""umask 077 && .* && cat > (\S+)\.new && chmod (\d+) .*""").matchEntire(command)?.let {
-            files[it.groupValues[1]] = input!!
+            freed(files.put(it.groupValues[1], input!!))
             modes[it.groupValues[1]] = it.groupValues[2]
             return ok("")
         }
@@ -466,13 +514,13 @@ class FakeRouter : Shell {
         if (command == "id -u dnsmasq_vpn") return ok("456\n")
         if (DNS_SERVERS.matches(command)) return ok(dnsServers.joinToString("") { "$it\n" })
         Regex("""umask 022 && cat > (\S+)\.new && mv \S+ \S+""").matchEntire(command)?.let {
-            files[it.groupValues[1]] = input!!
+            freed(files.put(it.groupValues[1], input!!))
             return ok("")
         }
         if (command == "fw4 reload") return fw4Reload()
         if (command == "sh /etc/churn/restore.sh") return restore()
         if (command == "rm -f ${Router.FIREWALL} && fw4 reload") {
-            files.remove(Router.FIREWALL)
+            freed(files.remove(Router.FIREWALL))
             return fw4Reload()
         }
         if (command == "nft list ruleset | grep -F -e 'redirect to :2153' -e 'lan_drop_leaked_dns'") {
@@ -516,6 +564,9 @@ class FakeRouter : Shell {
             return ok("$count\n${zeroFilesKb + fillFilesKb}\n")
         }
         if (command.startsWith("sync; df -k /overlay")) return ok("$overlayFreeKb\n")
+        if (command.startsWith("sync\ndev=") && command.endsWith("/lifetime_write_kbytes")) {
+            return ok("$lifetimeWrittenKb\n")
+        }
         if (command == "cat /sys/block/mmcblk0/device/life_time /sys/block/mmcblk0/device/pre_eol_info") {
             return ok("$flashLifeTime\n$flashPreEol\n")
         }
@@ -537,20 +588,38 @@ class FakeRouter : Shell {
             return Output(0, "$time\n${log.size} ${md5(log, 64)} $start\n".toByteArray() + part, "")
         }
         Regex(""": > (\S+)""").matchEntire(command)?.let {
-            files[it.groupValues[1]] = ByteArray(0)
+            freed(files.put(it.groupValues[1], ByteArray(0)))
             return ok("")
         }
         // The free-space overwrite writes /overlay/churn-fill.* parts, kept as zero files; its effect is not in the files.
         if ("/overlay/churn-fill." in command) {
             freeSpaceOverwritten = true
             zerosLink = "/overlay/churn-zeros"
-            // It deletes any fill files first, and keeps all but 512 MB of the free space in zero files.
+            // It deletes any fill files first, and keeps all but 512 MB of the free space in zero files. What deleted
+            // files held is overwritten.
             fillFilesKb = 0
-            zeroFilesKb += overlayFreeKb - 524_288
+            // Writing all of the free space takes its time.
+            lifetimeWrittenKb += overlayFreeKb
+            clock += overlayFreeKb * 1000 / flashWriteKbPerSecond
+            freeSpace.clear()
+            zeroFilesKb = maxOf(0, zeroFilesKb + overlayFreeKb - overwriteKeepsFreeKb)
+            // Only an overwrite broken against H15 gets here: 4 kB files it didn't delete.
+            if (overwriteLeavesFillFiles) fillFilesKb = 1_200
+            // Only an overwrite broken against H13 gets here.
+            if (overwriteLeavesReserveOff) reservedClusters = 0
+            // Only a firmware broken against H14 gets here.
+            if (overwriteCutsSimMap) files[SIM_MAP]?.let { files[SIM_MAP] = it.copyOf(it.size / 2) }
             return ok("")
         }
+        if (command.startsWith("t=/tmp/churn-numbers\n")) {
+            numbersCounted = input!!.toString(Charsets.UTF_8).lines().filter { it.isNotEmpty() }
+            val inFiles = files.values.toList()
+            // Only a read broken against H10 and H11 gets here.
+            val raw = if (rawReadFindsNothing) emptyList() else inFiles + freeSpace
+            return ok(numbersCounted.joinToString("") { "${count(raw, it)} ${count(inFiles, it)}\n" })
+        }
         Regex("""rm -f (.+)""").matchEntire(command)?.let {
-            it.groupValues[1].split(" ").filter(String::isNotBlank).forEach(files::remove)
+            it.groupValues[1].split(" ").filter(String::isNotBlank).forEach { path -> freed(files.remove(path)) }
             return ok("")
         }
         error("Unexpected command: $command")
@@ -771,14 +840,17 @@ class FakeRouter : Shell {
             imei2 = factory[1]
             savedImeis = null
         }
-        files.remove("/etc/churn/card")
+        freed(files.remove("/etc/churn/card"))
         if (!restoreKeepsLogOff) {
-            files.remove("/etc/churn/log_file")?.let { logFile = it.toString(Charsets.UTF_8).trim() }
+            files.remove("/etc/churn/log_file")?.let {
+                freed(it)
+                logFile = it.toString(Charsets.UTF_8).trim()
+            }
         }
         // The log service's logread opens the file, which the app deleted at its last clearing, and writes the log's
         // buffer to it: 64 kB, say.
         logFile?.takeIf { !logreadMissing && !logreadOpensNoFile }?.let {
-            files.putIfAbsent(it, ByteArray(0))
+            files[it] = (files[it] ?: ByteArray(0)) + logBuffer.toByteArray()
             writtenKb += 64
         }
         zerosLink = null
@@ -787,11 +859,11 @@ class FakeRouter : Shell {
             zeroFilesKb = 0
         }
         if (!restoreKeepsFillFiles) fillFilesKb = 0
-        if (!restoreKeepsFirewallFile) files.remove(Router.FIREWALL)
+        if (!restoreKeepsFirewallFile) freed(files.remove(Router.FIREWALL))
         if (!restoreKeepsChains) loadedChains.clear()
         if (!restoreKeepsFirewallLine) dropUpgradeLine(Router.FIREWALL)
         if (!restoreKeepsFolderLine) dropUpgradeLine("/etc/churn/")
-        if (!restoreKeepsFolder) files.keys.removeAll { it.startsWith("/etc/churn/") }
+        if (!restoreKeepsFolder) files.keys.filter { it.startsWith("/etc/churn/") }.forEach { freed(files.remove(it)) }
         if (restoreEndsEarly) return ok("")
         return ok(
             "The factory IMEIs are back: IMEI 1 ${factory[0]}, IMEI 2 ${factory[1]}. GL's setting for saving the " +
@@ -799,6 +871,15 @@ class FakeRouter : Shell {
                 "Airplane mode is on.\n",
         )
     }
+
+    /** Keeps what a file held before it was deleted or replaced, [content], on the raw partition. */
+    private fun freed(content: ByteArray?) {
+        if (content != null && content.isNotEmpty()) freeSpace += content
+    }
+
+    /** How often [texts] hold [number], as a whole run of digits. */
+    private fun count(texts: List<ByteArray>, number: String) =
+        texts.sumOf { text -> Regex("[0-9]+").findAll(text.toString(Charsets.ISO_8859_1)).count { it.value == number } }
 
     /** Deletes [line] from /etc/sysupgrade.conf, as restore.sh's sed does. */
     private fun dropUpgradeLine(line: String) {
