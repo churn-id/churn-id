@@ -153,6 +153,16 @@ class Router(private val shell: Shell) {
     /** Turns airplane mode [on] or off, also for later power-ons, and reads the setting back. */
     fun setAirplaneMode(on: Boolean) = uciSet(AIRPLANE_MODE, if (on) "1" else "0")
 
+    /**
+     * Sets GL's airplane mode without the commit, which GL's cellular manager follows already (development.md, "uci
+     * settings") and a power-on undoes. Only the power cycle test uses it, which confirms that.
+     */
+    fun stageAirplaneMode(on: Boolean) {
+        val value = if (on) "1" else "0"
+        run("uci set ${quote("$AIRPLANE_MODE=$value")}").check(AIRPLANE_MODE)
+        if (uci(AIRPLANE_MODE) != value) throw unexpected(AIRPLANE_MODE)
+    }
+
     /** The modem's radio state, `+CFUN:`: 1 on, 4 off. */
     fun radio() = at("AT+CFUN?").after("+CFUN:")?.toIntOrNull() ?: throw unexpected("AT+CFUN?")
 
@@ -414,8 +424,11 @@ class Router(private val shell: Shell) {
     fun enhancedKillSwitch(): Boolean {
         // network.vpn_to_main is the rule at priority 9000.
         val ruleInUse = ipRules().any { it.startsWith("9000:") }
-        return uci(DEFAULT_POLICY) == "0" && uci(VPN_TO_MAIN) == null && !ruleInUse
+        return killSwitchSettings() && !ruleInUse
     }
+
+    /** Whether GL's settings have the Enhanced Kill Switch on, whatever the routing rules in use. */
+    fun killSwitchSettings() = uci(DEFAULT_POLICY) == "0" && uci(VPN_TO_MAIN) == null
 
     /** The routing rules in use, one per line as `ip rule show` lists them. */
     fun ipRules(): List<String> {

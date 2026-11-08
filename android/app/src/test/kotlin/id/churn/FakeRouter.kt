@@ -60,7 +60,34 @@ class FakeRouter : Shell {
     /** The ID Linux gives the current run, a new one at every power-on, in Linux's format. */
     var bootId = UUID.randomUUID().toString()
 
+    /** GL's airplane mode as committed, which a power-on starts with. */
     var airplaneMode = false
+
+    /** Airplane mode as set but not committed, which `uci get` returns and GL follows already (U2); null for none. */
+    private var stagedAirplaneMode: Boolean? = null
+
+    /**
+     * For a GL that switches airplane mode only at the commit, against U2 in testing.md. Only the power cycle test's
+     * tests use it.
+     */
+    var airplaneModeNeedsCommit = false
+
+    /**
+     * How long GL's cellular manager takes to follow airplane mode set without the commit, in milliseconds. Only the
+     * power cycle test's tests set it.
+     */
+    var stagedAirplaneModeMillis = 0L
+
+    /** When airplane mode was last set without the commit, by [clock], and as GL's cellular manager had it before. */
+    private var stagedAt = 0L
+    private var inUseBeforeStaging = false
+
+    /** Airplane mode as GL's cellular manager has it. */
+    private val airplaneModeInUse: Boolean
+        get() {
+            val staged = stagedAirplaneMode?.takeUnless { airplaneModeNeedsCommit } ?: return airplaneMode
+            return if (clock - stagedAt < stagedAirplaneModeMillis) inUseBeforeStaging else staged
+        }
 
     /** For the radio that never turns off. */
     var radioStuckOn = false
@@ -70,6 +97,12 @@ class FakeRouter : Shell {
 
     /** For a modem that refuses IMEI writes. */
     var imeiWritesRefused = false
+
+    /**
+     * For an `AT+QPRTPARA=1` that doesn't save the written IMEIs, against M7 in testing.md. Only the power cycle test's
+     * tests use it.
+     */
+    var imeiSaveIgnored = false
     var imei1 = "356090215000002"
     var imei2 = "356090215000077"
 
@@ -260,6 +293,12 @@ class FakeRouter : Shell {
     /** The bridge the USB-C port's network device `ecm0` is in, or null for none. */
     var usbBridge: String? = "br-lan"
     var poweredOff = false
+
+    /**
+     * For a `poweroff` that doesn't shut the router down, against B4 in testing.md. Only the power cycle test's tests
+     * use it.
+     */
+    var poweroffIgnored = false
     val files = mutableMapOf<String, ByteArray>()
 
     /** The modes that the app gave [files], as chmod takes them, such as 600. */
@@ -331,16 +370,29 @@ class FakeRouter : Shell {
     /** The radio state the modem reports. For some seconds after power-on it is on, whatever the settings. */
     val radio
         get() = when {
-            radioStuckOn || uptime < 58 -> 1
-            airplaneMode -> 4
+            radioStuckOn || uptime < radioWindowEnd || radioBurst?.contains(uptime) == true -> 1
+            airplaneModeInUse -> 4
             else -> 1
         }
 
+    /** The end of the radio-on window after power-on, in seconds of uptime: the latest we measured, as B2 says. */
+    var radioWindowEnd = 58.0
+
+    /**
+     * For a radio that comes on again after the window, while the router starts, against B3 in testing.md. Only the
+     * power cycle test's tests use it.
+     */
+    var radioBurst: ClosedFloatingPointRange<Double>? = null
+
+    /** When the modem first answers after power-on, in seconds of uptime, for [modemAnswers]. */
+    var modemAnswersFrom = 30.0
+
     /**
      * The modem doesn't answer for a while after power-on (development.md, "After power-on"); 30 s is our guess, not
-     * a measurement. The swap sends no modem command before 120 s, so only a swap that sends one too early gets here.
+     * a measurement. The swap sends no modem command before 120 s, so only a swap that sends one too early gets here,
+     * or the power cycle test, which watches the modem from the moment it reaches the router.
      */
-    private val modemAnswers get() = uptime >= 30
+    private val modemAnswers get() = uptime >= modemAnswersFrom
 
     /**
      * GL's records of [cards], given by their ICCIDs as GL stores them, in the files and formats of our Mudi 7: the
@@ -392,6 +444,18 @@ class FakeRouter : Shell {
         get() = files.filterKeys { it.startsWith("$ESIM_DB/") }.values
             .flatMap { JSONObject(it.toString(Charsets.UTF_8)).getJSONObject("records").keys().asSequence() }.toSet()
 
+    /**
+     * For a power-on that leaves the routing rules without the Enhanced Kill Switch's, against K10 in testing.md. Only
+     * the power cycle test's tests use it.
+     */
+    var bootDropsKillSwitchRules = false
+
+    /**
+     * For a power-on whose firewall doesn't load Churn's rules, against D14 in testing.md. Only the power cycle test's
+     * tests use it.
+     */
+    var bootSkipsChurnRules = false
+
     /** Power-on with the settings kept. */
     fun boot() {
         savedImeis?.let {
@@ -399,9 +463,14 @@ class FakeRouter : Shell {
             imei2 = it.imei2
         }
         savedImeis = null
+        stagedAirplaneMode = null
         bootedAt = clock
         bootId = UUID.randomUUID().toString()
         poweredOff = false
+        // The network and the firewall start from GL's settings and Churn's rules file.
+        killSwitchInUse = killSwitchSet && !bootDropsKillSwitchRules
+        loadedChains.clear()
+        if (!bootSkipsChurnRules) loadChurnChains()
     }
 
     override fun run(command: String, input: ByteArray?, timeoutSeconds: Long): Output {
@@ -434,6 +503,13 @@ class FakeRouter : Shell {
         val airplaneModeSet = Regex("""uci set 'glconfig.general.airplane_mode=([01])' && uci commit 'glconfig'""")
         airplaneModeSet.matchEntire(command)?.let {
             airplaneMode = it.groupValues[1] == "1"
+            stagedAirplaneMode = null
+            return ok("")
+        }
+        Regex("""uci set 'glconfig.general.airplane_mode=([01])'""").matchEntire(command)?.let {
+            inUseBeforeStaging = airplaneModeInUse
+            stagedAt = clock
+            stagedAirplaneMode = it.groupValues[1] == "1"
             return ok("")
         }
         if (command == "ip rule show") return ok(ipRules())
@@ -476,7 +552,7 @@ class FakeRouter : Shell {
         if (command == "cat /proc/uptime") return ok(if (uptimeBroken) "" else "%.2f 100.00\n".format(uptime))
         if (command == "cat /proc/sys/kernel/random/boot_id") return ok("$bootId\n")
         if (command == "poweroff") {
-            poweredOff = true
+            if (!poweroffIgnored) poweredOff = true
             return ok("")
         }
         Regex("""\[ -e '([^']+)' ]""").matchEntire(command)?.let {
@@ -632,11 +708,16 @@ class FakeRouter : Shell {
     private fun fw4Reload(): Output {
         change("firewall")
         if (radioOnAtReload) radioStuckOn = true
-        val file = files[Router.FIREWALL]?.toString(Charsets.UTF_8)
-        if (file != null && fw4Rejects) return Output(1, ByteArray(0), "Error: syntax error")
+        if (Router.FIREWALL in files && fw4Rejects) return Output(1, ByteArray(0), "Error: syntax error")
         loadedChains.clear()
-        file?.let { loadedChains += Regex("""chain (\w+) \{""").findAll(it).map { m -> m.groupValues[1] } }
+        loadChurnChains()
         return Output(0, ByteArray(0), "[!] Section glblock option 'reload' is not supported by fw4")
+    }
+
+    /** Adds the chains of Churn's rules file, if it is there, to [loadedChains]. */
+    private fun loadChurnChains() {
+        val file = files[Router.FIREWALL]?.toString(Charsets.UTF_8) ?: return
+        loadedChains += Regex("""chain (\w+) \{""").findAll(file).map { it.groupValues[1] }
     }
 
     private fun at(command: String): Output {
@@ -657,7 +738,7 @@ class FakeRouter : Shell {
                 atOk()
             }
             command == "AT+QPRTPARA=1" -> {
-                savedImeis = null
+                if (!imeiSaveIgnored) savedImeis = null
                 atOk()
             }
             command == "AT+QSIMTYPE=\"slot2\"" -> atOk("+QSIMTYPE: \"slot2\",${slot2.type}")
@@ -727,7 +808,7 @@ class FakeRouter : Shell {
     private fun uciGet(key: String): Output = if (key in uciAnswers) {
         uciAnswers[key]?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
     } else when (key) {
-        "glconfig.general.airplane_mode" -> ok(if (airplaneMode) "1\n" else "0\n")
+        "glconfig.general.airplane_mode" -> ok(if (stagedAirplaneMode ?: airplaneMode) "1\n" else "0\n")
         "gl_timer.reboot.enable" -> ok(if (scheduledReboot) "1\n" else "0\n")
         "network.modem_cpu.dds_id" -> ok("$activeSlot\n")
         "system.@system[0].log_file" -> logFile?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
@@ -797,14 +878,14 @@ class FakeRouter : Shell {
             "10.0.0.0/30 dev rmnet_data0 proto kernel scope link src 10.0.0.2\n"
         val lan = "169.254.21.0/24 dev ecm0 proto kernel scope link src 169.254.21.1\n" +
             "192.168.8.0/24 dev br-lan proto kernel scope link src 192.168.8.1\n"
-        return if (airplaneMode) lan else sim + lan
+        return if (airplaneModeInUse) lan else sim + lan
     }
 
     /** `ifstatus` of the network interface [name], shortened, as OpenWrt's netifd gives it. */
     private fun interfaceStatus(name: String): Output {
         val (up, device) = when (name) {
             vpnTunnel -> tunnelUp to name
-            "modem_cpu" -> !airplaneMode to simDevice
+            "modem_cpu" -> !airplaneModeInUse to simDevice
             else -> return Output(1, "Interface $name not found\n".toByteArray(), "")
         }
         val status = JSONObject().put("up", up).put("pending", false).put("available", true)
@@ -818,7 +899,7 @@ class FakeRouter : Shell {
 
     private fun change(what: String) {
         changes += "$what at ${uptime.toInt()} s"
-        if (!airplaneMode || radio != 4) unsafe += what
+        if (!airplaneModeInUse || radio != 4) unsafe += what
     }
 
     /**

@@ -17,7 +17,7 @@ enum class Step {
     GO_ONLINE,
 }
 
-/** What a step, or tier 2's dry run, reports as it goes. */
+/** What a step, or a test of docs/testing.md, reports as it goes. */
 enum class Progress {
     UNTESTED_PLATFORM, AIRPLANE_MODE_ON, RADIO_OFF, SLOT2_ON_ESIM, NO_PROFILE, DISABLING_AGAIN, PROFILE_DISABLED,
     WAITING_FOR_START, SIM1_EMPTY, KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND,
@@ -26,13 +26,27 @@ enum class Progress {
     RESTORED, FACTORY_IMEIS, FOLDER_GONE, LOG_SETTING_BACK, LOG_WRITTEN, ZERO_FILES_GONE, FIREWALL_GONE,
     SET_UP_AGAIN, CONNECTION_KEPT, RESERVE_BACK, CARD_FILES_PARSE, ZEROS_KEEP_SPACE, READING_PARTITION, IMSIS_GONE,
     NO_IMSIS, ICCIDS_GONE, NO_ICCIDS, PARTITION_UNCHECKED, FREE_SPACE_FILLED, CLEARED_QUICKLY, REMOVAL_PASSED,
+    NETWORK_LOST, NEW_BOOT_ID, TEST_PAIR_SAVED, SETTINGS_KEPT, RULES_AT_START, CHAINS_AT_START, MODEM_ANSWERED,
+    MODEM_AT_ONCE, RADIO_ON_UNTIL, RADIO_OFF_AT_FIRST, RADIO_OFF_FROM, IMEIS_KEPT, EARLIER_IMEIS_SAVED, TRAYS_EMPTY,
+    RADIO_ON_UNCOMMITTED, RADIO_OFF_UNCOMMITTED, POWER_CYCLES_PASSED,
+}
+
+/**
+ * The router's state before a test of docs/testing.md that puts it back as it was: slot 2's setting, the active slot
+ * and the IMEIs.
+ */
+interface TestStart {
+    val slot2: Slot2
+    val activeSlot: Int
+    val imeis: ImeiPair
 }
 
 /**
  * What tier 2's dry run puts back (docs/testing.md, "Dry run"): slot 2's setting, the active slot and the IMEIs as they
  * were before it.
  */
-data class DryRunStart(val slot2: Slot2, val activeSlot: Int, val imeis: ImeiPair)
+data class DryRunStart(override val slot2: Slot2, override val activeSlot: Int, override val imeis: ImeiPair) :
+    TestStart
 
 /**
  * What tier 2's removal test sets the router up again with (docs/testing.md, "Removal and clearing"): the [factory]
@@ -41,11 +55,26 @@ data class DryRunStart(val slot2: Slot2, val activeSlot: Int, val imeis: ImeiPai
 data class RemovalStart(val factory: ImeiPair, val card: Card?, val imeis: ImeiPair, val firewall: Boolean)
 
 /**
+ * What tier 3's power cycle test puts back and keeps across its power-offs (docs/testing.md, "Power cycles"): slot 2's
+ * setting, the active slot and the IMEIs as they were before it, the ID of the router's run that the last power-off
+ * ended, [bootId], the power-on that the test waits for, [powerOn]: 1 or 2, or 0 for none, and the test pair of IMEIs
+ * saved before the first power-off, [testImeis].
+ */
+data class PowerCycleStart(
+    override val slot2: Slot2,
+    override val activeSlot: Int,
+    override val imeis: ImeiPair,
+    val bootId: String? = null,
+    val powerOn: Int = 0,
+    val testImeis: ImeiPair? = null,
+) : TestStart
+
+/**
  * The router's part of steps 1 and 3. Each run starts from the beginning and checks every state it relies on,
  * so a step that stopped is simply run again. [ask] shows step 3's question and waits for the user's answer. [check]
  * runs the router checks that a swap relies on, those that block in testing.md, and returns the lines of those that
- * failed. Both steps run them before they change slot 2, step 3 once the router has started. Tier 2's dry run in
- * docs/testing.md builds on the steps' parts.
+ * failed. Both steps run them before they change slot 2, step 3 once the router has started. The tests of tiers 2
+ * and 3 in docs/testing.md build on the steps' parts.
  */
 open class Swap(
     protected val router: Router,
@@ -222,6 +251,40 @@ open class Swap(
         return Imei.iccidDigits(cardIccid) ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+ICCID")
     }
 
+    /**
+     * Step 3 with an empty SIM 2 tray, for the tests of docs/testing.md: slot 2 on the tray and made the active slot,
+     * where no card may answer. A card there stops the test.
+     */
+    protected fun emptyTray() {
+        val iccid = try {
+            cardInTray()
+        } catch (e: RouterException) {
+            if (e.problem != Problem.NO_CARD) throw e
+            // Or an eSIM adapter card without an enabled profile, which step 3 counts as no card. The built-in eSIM's
+            // placeholder is the dry run's check of E4.
+            router.slot2Iccid()?.takeIf { it != Router.PLACEHOLDER_ICCID }
+        }
+        if (iccid != null) throw RouterException(Problem.CARD_IN_TRAY)
+        report(Progress.TRAY_EMPTY)
+    }
+
+    /** Whether the router's IMEIs, slot 2's setting and the active slot are [start]'s. */
+    protected fun asItWas(start: TestStart) =
+        router.imeis() == start.imeis && router.slot2() == start.slot2 && activeSlot() == start.activeSlot
+
+    /** Puts [start]'s IMEIs, slot 2's setting and active slot back, with the radio off, as it must be already. */
+    protected fun restore(start: TestStart) {
+        if (router.imeis() != start.imeis) {
+            router.writeImeis(start.imeis)
+            checkRadioOff()
+        }
+        setSlot2(start.slot2)
+        if (activeSlot() != start.activeSlot) activate(start.activeSlot, start.slot2)
+    }
+
+    protected fun activeSlot() = router.activeSlot()?.toIntOrNull()?.takeIf { it in 1..2 }
+        ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "network.modem_cpu.dds_id")
+
     protected fun turnAirplaneModeOn() {
         if (!router.airplaneMode()) router.setAirplaneMode(true)
         report(Progress.AIRPLANE_MODE_ON)
@@ -326,7 +389,7 @@ open class Swap(
      * Checks [condition] every few seconds until it holds, for up to [seconds]. An answer that doesn't parse
      * counts as "not yet", since the modem doesn't answer for a while after power-on.
      */
-    private fun poll(seconds: Int, condition: () -> Boolean): Boolean {
+    protected fun poll(seconds: Int, condition: () -> Boolean): Boolean {
         val deadline = now() + seconds * 1_000L
         while (true) {
             try {

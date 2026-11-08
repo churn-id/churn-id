@@ -56,6 +56,17 @@ sealed interface Screen {
         /** Whether the last removal test stopped before it set the router up again. */
         val unfinished: Boolean = false,
     ) : Screen
+
+    /** Tier 3's power cycle test, which only debug builds have, with the lines it reported. */
+    data class PowerCycles(
+        val lines: List<String> = emptyList(),
+        val running: Boolean = false,
+        val error: String? = null,
+        /** Whether the test waits for the user to switch the router on again. */
+        val waiting: Boolean = false,
+        /** Whether the last test stopped before it put the router back as it was. */
+        val unfinished: Boolean = false,
+    ) : Screen
 }
 
 /** The router's state as the router screen shows it; null where the modem didn't answer. */
@@ -194,6 +205,7 @@ class Controller(private val context: Context) {
                 }
             current is Screen.Swapping && current.step == Step.SWAP_CARD && !current.running ->
                 advance(Step.SWAP_CARD)
+            current is Screen.PowerCycles && current.waiting && !current.running -> resumePowerCycles()
         }
     }
 
@@ -384,6 +396,33 @@ class Controller(private val context: Context) {
     /** Forgets the removal test that stopped, for a router the user has set up again. */
     fun forgetRemovalTest() {
         saved.removalStart = null
+        refresh()
+    }
+
+    /** Shows the power cycle test's screen, from the router screen. */
+    fun openPowerCycles() = show(Screen.PowerCycles())
+
+    /**
+     * Runs tier 3's power cycle test (docs/testing.md, "Power cycles"), which only debug builds have, up to its first
+     * power-off.
+     */
+    fun startPowerCycles() = runPowerCycles(CONNECT_WAIT_SECONDS) { test, folder ->
+        test.run(folder.factory!!, SecureRandom()) { saved.powerCycleStart = it }
+    }
+
+    /** Goes on with the power cycle test once the user has switched the router on again, as at step 3. */
+    fun resumePowerCycles() = runPowerCycles(BOOT_WAIT_SECONDS, keepLines = true) { test, _ ->
+        saved.powerCycleStart?.let { start -> test.resume(start) { saved.powerCycleStart = it } }
+    }
+
+    /** Puts the router back as it was before the power cycle test that stopped, or instead of going on with it. */
+    fun putBackPowerCycles() = runPowerCycles(BOOT_WAIT_SECONDS) { test, _ ->
+        saved.powerCycleStart?.let { start -> test.putBack(start) { saved.powerCycleStart = it } }
+    }
+
+    /** Forgets the power cycle test that stopped, for a router the user has put back as it was. */
+    fun forgetPowerCycles() {
+        saved.powerCycleStart = null
         refresh()
     }
 
@@ -632,6 +671,76 @@ class Controller(private val context: Context) {
         }
     }
 
+    /**
+     * Runs [body], a part of the power cycle test or its putting back, as [runDryRun] runs the dry run, waiting up to
+     * [waitSeconds] for the router. With [keepLines], the screen keeps the lines from before the last power-off.
+     */
+    private fun runPowerCycles(
+        waitSeconds: Int,
+        keepLines: Boolean = false,
+        body: (PowerCycleTest, ChurnFolder) -> Unit,
+    ) {
+        started = cable
+        val lines = if (keepLines) (screen as? Screen.PowerCycles)?.lines.orEmpty().toMutableList() else mutableListOf()
+        fun update() = show(Screen.PowerCycles(lines.toList(), running = true))
+        fun add(line: String) {
+            lines += line
+            debugLog.add("✓ $line")
+            update()
+        }
+        update()
+        stepRunning = true
+        context.startForegroundService(Intent(context, SwapService::class.java))
+        worker.execute {
+            debugLog.start(context.getString(R.string.power_cycles))
+            var test: PowerCycleTest? = null
+            val next = try {
+                // As at step 3, while the router starts after a power-on.
+                if (openConnection() == null) add(context.getString(R.string.waiting_for_router))
+                val router = router(waitSeconds)
+                val folder = router.readChurnFolder()
+                if (!folder.complete) throw RouterException(Problem.NOT_SET_UP)
+                test = PowerCycleTest(
+                    router,
+                    report = { add(text(it)) },
+                    measured = { progress, seconds -> add(text(progress, seconds)) },
+                    check = { runChecks(router, folder, CHECKS.filter { it.blocks }).failures },
+                    awaitNetworkLost = { millis -> connection?.awaitCableLost(millis) != false },
+                )
+                body(test, folder)
+                powerCycleScreen(lines)
+            } catch (e: UntrustedHostKey) {
+                trustKey(e)
+            } catch (e: Exception) {
+                val error = stopped(e)
+                // The claims of the part that stopped, if it confirms any.
+                val ids = test?.testing.orEmpty().joinToString(", ")
+                powerCycleScreen(
+                    lines,
+                    error = if (ids.isEmpty()) error else context.getString(R.string.power_cycles_stopped, ids, error),
+                )
+            }
+            // The router is off for the next power-on, after which the test connects anew.
+            if ((saved.powerCycleStart?.powerOn ?: 0) > 0) disconnect()
+            main.post {
+                stepRunning = false
+                onStepEnd?.invoke()
+            }
+            show(next)
+        }
+    }
+
+    /** The power cycle test's screen with [lines], as the test left the router, and with [error] if it stopped. */
+    private fun powerCycleScreen(lines: List<String> = emptyList(), error: String? = null): Screen.PowerCycles {
+        val start = saved.powerCycleStart
+        return Screen.PowerCycles(
+            lines.toList(),
+            error = error,
+            waiting = start != null && start.powerOn > 0,
+            unfinished = start?.powerOn == 0,
+        )
+    }
+
     /** The router, connecting first if needed, and waiting up to [waitSeconds] for it to come up. */
     private fun router(waitSeconds: Int = CONNECT_WAIT_SECONDS): Router {
         openConnection()?.let { return Router(debugLog.record(it)) }
@@ -693,6 +802,8 @@ class Controller(private val context: Context) {
             step != null -> Screen.Swapping(step)
             // Until the router is as it was before the dry run, which only debug builds have.
             saved.dryRunStart != null -> Screen.DryRun(unfinished = true)
+            // Until the power cycle test, which only debug builds have, has put the router back.
+            saved.powerCycleStart != null -> powerCycleScreen()
             else -> home(router, folder, note)
         }
         show(next)
@@ -843,7 +954,8 @@ class Controller(private val context: Context) {
         }
     }
 
-    private fun text(progress: Progress) = context.getString(
+    /** [progress]'s line, with the [args] it names, such as a number of seconds. */
+    private fun text(progress: Progress, vararg args: Any) = context.getString(
         when (progress) {
             Progress.UNTESTED_PLATFORM -> R.string.progress_untested_platform
             Progress.AIRPLANE_MODE_ON -> R.string.progress_airplane_mode_on
@@ -895,7 +1007,25 @@ class Controller(private val context: Context) {
             Progress.REMOVAL_PASSED -> R.string.progress_removal_passed
             Progress.PUT_BACK -> R.string.progress_put_back
             Progress.DRY_RUN_PASSED -> R.string.progress_dry_run_passed
+            Progress.NETWORK_LOST -> R.string.progress_network_lost
+            Progress.NEW_BOOT_ID -> R.string.progress_new_boot_id
+            Progress.TEST_PAIR_SAVED -> R.string.progress_test_pair_saved
+            Progress.SETTINGS_KEPT -> R.string.progress_settings_kept
+            Progress.RULES_AT_START -> R.string.progress_rules_at_start
+            Progress.CHAINS_AT_START -> R.string.progress_chains_at_start
+            Progress.MODEM_ANSWERED -> R.string.progress_modem_answered
+            Progress.MODEM_AT_ONCE -> R.string.progress_modem_at_once
+            Progress.RADIO_ON_UNTIL -> R.string.progress_radio_on_until
+            Progress.RADIO_OFF_AT_FIRST -> R.string.progress_radio_off_at_first
+            Progress.RADIO_OFF_FROM -> R.string.progress_radio_off_from
+            Progress.IMEIS_KEPT -> R.string.progress_imeis_kept
+            Progress.EARLIER_IMEIS_SAVED -> R.string.progress_earlier_imeis_saved
+            Progress.TRAYS_EMPTY -> R.string.progress_trays_empty
+            Progress.RADIO_ON_UNCOMMITTED -> R.string.progress_radio_on_uncommitted
+            Progress.RADIO_OFF_UNCOMMITTED -> R.string.progress_radio_off_uncommitted
+            Progress.POWER_CYCLES_PASSED -> R.string.progress_power_cycles_passed
         },
+        *args,
     )
 
     private fun text(problem: Problem) = context.getString(
