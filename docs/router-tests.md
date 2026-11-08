@@ -8,8 +8,9 @@ from [design.md](design.md) and [development.md](development.md).
 
 Status: being built. The app runs the tier 1 checks, and debug builds
 have tier 2's dry run and removal and clearing tests, tier 3's power cycle
-test and tier 4's leak watch; the rest of tier 4 is done by hand. The
-app's unit tests run in CI against a
+test and tier 4's leak watch; the rest of tier 4 is done by hand, and
+[release-tests.md](release-tests.md) puts the tests that a release needs
+in order. The app's unit tests run in CI against a
 simulated Mudi 7 (`FakeRouter`) built from these claims, so a claim that
 turns out wrong makes the simulation wrong too. *Verified* means we
 observed it by hand on a Mudi 7 with GL firmware 4.10.0 and a Quectel
