@@ -169,8 +169,8 @@ class PowerCycleTestTest {
         resume()
         assertEquals(setOf("B1", "B2", "B3", "B4", "B5", "B6", "D14", "K10", "M7", "U2", "U3"), claims)
         for (id in claims) {
-            val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
-            assertTrue("$id isn't a tier 3 claim in testing.md", "3" in tiers)
+            val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in router-tests.md")
+            assertTrue("$id isn't a tier 3 claim in router-tests.md", "3" in tiers)
         }
     }
 

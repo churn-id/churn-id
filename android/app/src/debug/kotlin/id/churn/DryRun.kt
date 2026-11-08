@@ -3,7 +3,7 @@ package id.churn
 import java.security.SecureRandom
 
 /**
- * Tier 2's dry run (docs/testing.md, "Dry run"): steps 1 and 3 of a swap on a router with no SIM, as far as they go
+ * Tier 2's dry run (router-tests.md, "Dry run"): steps 1 and 3 of a swap on a router with no SIM, as far as they go
  * without one, run by the swap's own code, and the router put back as it was. Only debug builds have it.
  */
 class DryRun(
@@ -119,7 +119,7 @@ class DryRun(
         /** Debug builds have the dry run. */
         const val AVAILABLE = true
 
-        /** How many times P5's part reads, as progress_answers_matched and testing.md say. */
+        /** How many times P5's part reads, as progress_answers_matched and router-tests.md say. */
         private const val READS = 20
     }
 }

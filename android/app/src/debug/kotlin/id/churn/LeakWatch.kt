@@ -1,7 +1,7 @@
 package id.churn
 
 /**
- * Tier 4's leak watch (docs/testing.md, "Leak watch"): the router goes online with the card that step 3 gave its IMEIs,
+ * Tier 4's leak watch (router-tests.md, "Leak watch"): the router goes online with the card that step 3 gave its IMEIs,
  * as at step 4, while the test counts what leaves over the SIM until a minute after the tunnel is up. Only debug builds
  * have it.
  */
@@ -223,7 +223,9 @@ class LeakWatch(
         /** Debug builds have the leak watch. */
         const val AVAILABLE = true
 
-        /** How long the test goes on watching once a read has seen WireGuard's new handshake, as testing.md says. */
+        /**
+         * How long the test goes on watching once a read has seen WireGuard's new handshake, as router-tests.md says.
+         */
         private const val WATCH_MILLIS = 60_000L
 
         /** How often it reads the SIM's traffic meanwhile. */

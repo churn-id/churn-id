@@ -17,7 +17,7 @@ enum class Step {
     GO_ONLINE,
 }
 
-/** What a step, or a test of docs/testing.md, reports as it goes. */
+/** What a step, or a test of router-tests.md, reports as it goes. */
 enum class Progress {
     UNTESTED_PLATFORM, AIRPLANE_MODE_ON, RADIO_OFF, SLOT2_ON_ESIM, NO_PROFILE, DISABLING_AGAIN, PROFILE_DISABLED,
     WAITING_FOR_START, SIM1_EMPTY, KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND,
@@ -35,7 +35,7 @@ enum class Progress {
 }
 
 /**
- * The router's state before a test of docs/testing.md that puts it back as it was: slot 2's setting, the active slot
+ * The router's state before a test of router-tests.md that puts it back as it was: slot 2's setting, the active slot
  * and the IMEIs.
  */
 interface TestStart {
@@ -45,14 +45,14 @@ interface TestStart {
 }
 
 /**
- * What tier 2's dry run puts back (docs/testing.md, "Dry run"): slot 2's setting, the active slot and the IMEIs as they
+ * What tier 2's dry run puts back (router-tests.md, "Dry run"): slot 2's setting, the active slot and the IMEIs as they
  * were before it.
  */
 data class DryRunStart(override val slot2: Slot2, override val activeSlot: Int, override val imeis: ImeiPair) :
     TestStart
 
 /**
- * What tier 2's removal test sets the router up again with (docs/testing.md, "Removal and clearing"): the [factory]
+ * What tier 2's removal test sets the router up again with (router-tests.md, "Removal and clearing"): the [factory]
  * IMEIs, the recorded [card], the [imeis] the router had, whether Churn's [firewall] rules were in place, and whether
  * GL's connection check was off for the SIM, [connectionCheckOff].
  */
@@ -65,7 +65,7 @@ data class RemovalStart(
 )
 
 /**
- * What tier 3's power cycle test puts back and keeps across its power-offs (docs/testing.md, "Power cycles"): slot 2's
+ * What tier 3's power cycle test puts back and keeps across its power-offs (router-tests.md, "Power cycles"): slot 2's
  * setting, the active slot and the IMEIs as they were before it, the ID of the router's run that the last power-off
  * ended, [bootId], the power-on that the test waits for, [powerOn]: 1 or 2, or 0 for none, and the test pair of IMEIs
  * saved before the first power-off, [testImeis].
@@ -82,9 +82,9 @@ data class PowerCycleStart(
 /**
  * The router's part of steps 1 and 3. Each run starts from the beginning and checks every state it relies on,
  * so a step that stopped is simply run again. [ask] shows step 3's question and waits for the user's answer. [check]
- * runs the router checks that a swap relies on, those that block in testing.md, and returns the lines of those that
- * failed. Both steps run them before they change slot 2, step 3 once the router has started. The tests of tiers 2
- * and 3 in docs/testing.md build on the steps' parts.
+ * runs the router checks that a swap relies on, those that block in router-tests.md, and returns the lines of those
+ * that failed. Both steps run them before they change slot 2, step 3 once the router has started. The tests of tiers 2
+ * and 3 in router-tests.md build on the steps' parts.
  */
 open class Swap(
     protected val router: Router,
@@ -265,7 +265,7 @@ open class Swap(
     }
 
     /**
-     * Step 3 with an empty SIM 2 tray, for the tests of docs/testing.md: slot 2 on the tray and made the active slot,
+     * Step 3 with an empty SIM 2 tray, for the tests of router-tests.md: slot 2 on the tray and made the active slot,
      * where no card may answer. A card there stops the test.
      */
     protected fun emptyTray() {

@@ -2,7 +2,7 @@ package id.churn
 
 import java.security.SecureRandom
 
-/** Release builds have no dry run, which starts in debug builds (docs/testing.md, "Tiers"). */
+/** Release builds have no dry run, which starts in debug builds (router-tests.md, "Tiers"). */
 @Suppress("UNUSED_PARAMETER")
 class DryRun(router: Router, report: (Progress) -> Unit, check: () -> List<String>) {
 

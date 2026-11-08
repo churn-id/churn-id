@@ -586,8 +586,8 @@ class RemovalTestTest {
             claims,
         )
         for (id in claims) {
-            val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
-            assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)
+            val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in router-tests.md")
+            assertTrue("$id isn't a tier 2 claim in router-tests.md", "2" in tiers)
         }
     }
 

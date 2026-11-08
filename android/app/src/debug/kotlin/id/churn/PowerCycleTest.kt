@@ -3,7 +3,7 @@ package id.churn
 import java.security.SecureRandom
 
 /**
- * Tier 3's power cycle test (docs/testing.md, "Power cycles"): the router switched off with poweroff and on again by
+ * Tier 3's power cycle test (router-tests.md, "Power cycles"): the router switched off with poweroff and on again by
  * the user, twice, with both trays empty and slot 2 on the empty SIM 2 tray, where it emits nothing at power-on, and
  * what each power-on keeps and starts checked. The router is then put back as it was. Only debug builds have it.
  */
@@ -297,7 +297,7 @@ class PowerCycleTest(
         /** How long the phone may keep the router's network after poweroff, in milliseconds, as B5 says: 120 s. */
         private const val NETWORK_LOSS_MILLIS = 120_000L
 
-        /** How often the test reads the uptime and the radio after a power-on, as testing.md says. */
+        /** How often the test reads the uptime and the radio after a power-on, as router-tests.md says. */
         private const val WATCH_MILLIS = 2_000L
 
         /** How long the radio may take to follow airplane mode, in seconds, as step 3 waits for it. */

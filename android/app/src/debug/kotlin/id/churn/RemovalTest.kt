@@ -1,7 +1,7 @@
 package id.churn
 
 /**
- * Tier 2's removal test (docs/testing.md, "Removal and clearing"): restore.sh run as Remove Churn runs it, the router
+ * Tier 2's removal test (router-tests.md, "Removal and clearing"): restore.sh run as Remove Churn runs it, the router
  * then set up again as it was, with the card's record, the IMEIs it had, Churn's firewall rules and GL's connection
  * check, and the SIM history cleared twice as step 3 clears it. restore.sh deletes the zero files, so the first
  * clearing fills all of the flash's free space: the test runs once for each firmware. Only debug builds have it.
