@@ -335,7 +335,8 @@ class Controller(private val context: Context) {
                     return@runStep Screen.Swapping(Step.SWAP_CARD, error = error)
                 }
                 val factory = folder.factory!!
-                val card = swap.giveNewImeis(factory, folder.card, saved.placeCards, SecureRandom())
+                val card =
+                    swap.giveNewImeis(factory, folder.card, saved.placeCards, SecureRandom(), BuildConfig.VERSION_CODE)
                 if (card == null) {
                     // Canceled at the question, with slot 2 back on the eSIM: the user puts in another card.
                     shutDown(swap, next = Step.SWAP_CARD)
@@ -378,7 +379,7 @@ class Controller(private val context: Context) {
     fun openRemovalTest() = show(Screen.RemovalTest())
 
     /** Runs tier 2's removal test (router-tests.md, "Removal and clearing"), which only debug builds have. */
-    fun startRemovalTest() = runRemovalTest { test -> test.run { saved.removalStart = it } }
+    fun startRemovalTest() = runRemovalTest { test -> test.run(BuildConfig.VERSION_CODE) { saved.removalStart = it } }
 
     /** Sets the router up again as it was before the removal test that stopped. */
     fun setUpAgain() = runRemovalTest { test ->
@@ -942,8 +943,11 @@ class Controller(private val context: Context) {
             scheduledReboot = scheduledReboot,
             vpnSetUp = vpnSetUp,
             enhancedKillSwitch = router.enhancedKillSwitch(),
-            // A router whose firewall the app can't read shows the warning.
-            firewall = runCatching { router.firewallInPlace() }.getOrDefault(false),
+            // A router whose firewall the app can't read shows the warning. An earlier version's rules stay until the
+            // next swap's step 3 replaces them.
+            firewall = runCatching {
+                router.firewallInPlace(earlierVersion = folder.olderThan(BuildConfig.VERSION_CODE))
+            }.getOrDefault(false),
             // The same for GL's connection check.
             connectionCheckOff = runCatching { router.simConnectionCheckOff() }.getOrDefault(false),
             flashLogOff = router.flashLogOff(),

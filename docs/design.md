@@ -243,7 +243,8 @@ We rejected a throwaway pair, drawn like a card's pair and written in step
 
 Churn keeps its files on the router in `/etc/churn/`, readable by root
 only: a README explaining the folder, the factory IMEIs, the record of the
-current card (section 4), a restore script and a link to the zero files.
+current card (section 4), the version of the app that ran the last swap, a
+restore script and a link to the zero files.
 The script writes the factory IMEIs back, deletes the record, puts back
 GL's setting for its system log, deletes Churn's zero files, puts back
 GL's setting for its connection check, removes Churn's firewall rules (all
@@ -287,7 +288,9 @@ repository has no separate router component.
 - **Updated with the app.** At every connection the app rewrites the README
   and the restore script where they differ from its own copies, so a
   router set up by an earlier version gets a script that undoes everything
-  the current version changes.
+  the current version changes. Settings that a new version adds or
+  changes, such as other firewall rules, come with the next swap: step 3
+  puts them in place and last records the version (section 7).
 - **Checked on every connection.** The app checks that the folder exists,
   that the card in slot 2 is the recorded card and that the IMEIs are its
   recorded pair (section 4), all read from the router. At every power-on
@@ -414,21 +417,21 @@ every boot:
    identity and likely without the IMEIs. If they carry the IMEIs, those are
    the old card's, which show nothing new where that card was in use until
    step 1 (section 4).
-3. The app checks that a VPN is still set up (below). Once the radio is
-   off after the boot (section 6), it checks that the SIM 1 tray is empty
-   (below), turns GL's
-   Enhanced Kill Switch on if it is off, adds Churn's firewall rules if
-   they are missing and turns GL's connection check off for the SIM if it
-   is on, then switches slot 2 to SIM 2 in airplane mode and
-   reads the ICCID. Unless the card is the recorded one, the app switches
-   slot 2 back to the built-in eSIM while it asks the user about the card
-   (section 4), so that the card stays off if the router is switched off and
-   on before the answer, then switches it to SIM 2 again and checks that the
-   card is the same. It records the card with its pair, writes the pair,
-   saves and verifies it, clears the router's record of earlier cards
-   (below) and shuts the router down. If it finds no usable card, it
-   switches slot 2 back to the built-in eSIM, so the card stays off at the
-   next power-on, and stops, clearing nothing.
+3. The app checks that a VPN is still set up (below). Once the radio is off
+   after the boot (section 6), it checks that the SIM 1 tray is empty
+   (below), turns GL's Enhanced Kill Switch on if it is off, puts Churn's
+   firewall rules in place if they are missing or differ and turns GL's
+   connection check off for the SIM if it is on, then switches slot 2 to
+   SIM 2 in airplane mode and reads the ICCID. Unless the card is the
+   recorded one, the app switches slot 2 back to the built-in eSIM while it
+   asks the user about the card (section 4), so that the card stays off if
+   the router is switched off and on before the answer, then switches it to
+   SIM 2 again and checks that the card is the same. It records the card
+   with its pair, writes the pair, saves and verifies it, clears the
+   router's record of earlier cards (below), records its own version and
+   shuts the router down. If it finds no usable card, it switches slot 2
+   back to the built-in eSIM, so the card stays off at the next power-on,
+   and stops, clearing nothing.
 4. The user switches the router on later, at another place and time, and
    turns airplane mode off there. The new card registers at that power-on,
    whatever airplane mode says (section 6). A place card is switched on at
@@ -587,6 +590,15 @@ goes once step 3 has used it, or when the user cancels the swap.
   its warning only says that the next swap turns it off and clears the
   router's record of SIMs (below), and that a swap that keeps the same card
   does so sooner.
+- A new version of the app may add a setting or change the firewall rules,
+  which a router set up by an earlier version lacks until its next swap. So
+  step 3 records the app's version code in Churn's folder once everything is
+  in place, and the router screen warns only about what that version should
+  have put in place. Rules that differ from the app's count as that
+  version's while their chains are loaded, but at the app's own version they
+  get the warning. A router without a recorded version counts as version 1:
+  before its first swap there is nothing to warn about, and only unreleased
+  versions swapped without recording one.
 - The phone, not the router, keeps the place list (section 4), since whoever
   holds the router can read its files (inferred). Android keeps the app's
   data encrypted with a key tied to the screen lock, and GrapheneOS's duress

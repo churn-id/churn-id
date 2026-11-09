@@ -748,6 +748,7 @@ private val CHURN_FILE_MODES = mapOf(
     "kmwan" to "-rw-------",
     "log_file" to "-rw-------",
     "restore.sh" to "-rwx------",
+    "version" to "-rw-------",
     "zeros" to "lrwxrwxrwx",
 )
 
