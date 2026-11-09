@@ -287,28 +287,6 @@ class Controller(private val context: Context) {
         showRouter(context.getString(R.string.note_restored))
     }
 
-    fun turnKillSwitchOn() = job(R.string.turning_kill_switch_on) {
-        router().turnEnhancedKillSwitchOn()
-        showRouter()
-    }
-
-    fun installFirewall() = job(R.string.installing_firewall) {
-        router().installFirewall()
-        showRouter()
-    }
-
-    fun turnConnectionCheckOff() = job(R.string.turning_connection_check_off) {
-        router().turnSimConnectionCheckOff()
-        showRouter()
-    }
-
-    fun clearHistory() = job(R.string.clearing_history, keepAlive = true) {
-        val router = router()
-        clearingEsimLog()
-        router.clearHistory(router.currentCardIccid())
-        showRouter()
-    }
-
     fun forget() {
         saved.hostKey = null
         saved.sealedPassword = null
@@ -357,7 +335,8 @@ class Controller(private val context: Context) {
                     return@runStep Screen.Swapping(Step.SWAP_CARD, error = error)
                 }
                 val factory = folder.factory!!
-                val card = swap.giveNewImeis(factory, folder.card, saved.placeCards, SecureRandom())
+                val card =
+                    swap.giveNewImeis(factory, folder.card, saved.placeCards, SecureRandom(), BuildConfig.VERSION_CODE)
                 if (card == null) {
                     // Canceled at the question, with slot 2 back on the eSIM: the user puts in another card.
                     shutDown(swap, next = Step.SWAP_CARD)
@@ -400,7 +379,7 @@ class Controller(private val context: Context) {
     fun openRemovalTest() = show(Screen.RemovalTest())
 
     /** Runs tier 2's removal test (router-tests.md, "Removal and clearing"), which only debug builds have. */
-    fun startRemovalTest() = runRemovalTest { test -> test.run { saved.removalStart = it } }
+    fun startRemovalTest() = runRemovalTest { test -> test.run(BuildConfig.VERSION_CODE) { saved.removalStart = it } }
 
     /** Sets the router up again as it was before the removal test that stopped. */
     fun setUpAgain() = runRemovalTest { test ->
@@ -539,17 +518,10 @@ class Controller(private val context: Context) {
         }
     }
 
-    /**
-     * Runs [body] on the worker thread while the screen shows [title]. With [keepAlive], for a job that takes minutes,
-     * the foreground service keeps the app alive meanwhile.
-     */
-    private fun job(title: Int, keepAlive: Boolean = false, body: () -> Unit) {
+    /** Runs [body] on the worker thread while the screen shows [title]. */
+    private fun job(title: Int, body: () -> Unit) {
         started = cable
         show(Screen.Working(context.getString(title)))
-        if (keepAlive) {
-            stepRunning = true
-            context.startForegroundService(Intent(context, SwapService::class.java))
-        }
         worker.execute {
             debugLog.start(context.getString(title))
             try {
@@ -562,12 +534,6 @@ class Controller(private val context: Context) {
                 show(Screen.Connect(stopped(e)))
                 // Every way on from the Connect screen connects anew.
                 disconnect()
-            }
-            if (keepAlive) {
-                main.post {
-                    stepRunning = false
-                    onStepEnd?.invoke()
-                }
             }
         }
     }
@@ -857,6 +823,9 @@ class Controller(private val context: Context) {
     private fun showRouter(note: String? = null, waitSeconds: Int = CONNECT_WAIT_SECONDS) {
         val router = router(waitSeconds)
         val folder = router.readChurnFolder()
+        // This version would put back its own restore script, which may not undo everything a newer one changed, and
+        // at its next swap its own firewall rules.
+        if (folder.newerThan(BuildConfig.VERSION_CODE)) throw RouterException(Problem.NEWER_VERSION)
         // A router set up by an earlier version of the app keeps that version's restore script, which may not undo
         // everything this version changes.
         if (folder.complete) updateChurnFiles(router)
@@ -977,8 +946,11 @@ class Controller(private val context: Context) {
             scheduledReboot = scheduledReboot,
             vpnSetUp = vpnSetUp,
             enhancedKillSwitch = router.enhancedKillSwitch(),
-            // A router whose firewall the app can't read shows the warning, and adding the rules says why.
-            firewall = runCatching { router.firewallInPlace() }.getOrDefault(false),
+            // A router whose firewall the app can't read shows the warning. An earlier version's rules stay until the
+            // next swap's step 3 replaces them.
+            firewall = runCatching {
+                router.firewallInPlace(earlierVersion = folder.olderThan(BuildConfig.VERSION_CODE))
+            }.getOrDefault(false),
             // The same for GL's connection check.
             connectionCheckOff = runCatching { router.simConnectionCheckOff() }.getOrDefault(false),
             flashLogOff = router.flashLogOff(),
@@ -1137,6 +1109,7 @@ class Controller(private val context: Context) {
             Problem.LEAK -> R.string.problem_leak
             Problem.AIRPLANE_MODE_LEFT_ON -> R.string.problem_airplane_mode_left_on
             Problem.CONNECTION_CHECK_ON -> R.string.problem_connection_check_on
+            Problem.NEWER_VERSION -> R.string.problem_newer_version
         },
     )
 

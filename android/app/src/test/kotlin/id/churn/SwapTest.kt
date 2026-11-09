@@ -48,7 +48,9 @@ class SwapTest {
     }
 
     /** Step 3, with the record that the app reads first. Null if the user canceled. */
-    private fun giveNewImeis() = swap.giveNewImeis(factory, record(), places, SecureRandom())
+    private fun giveNewImeis() = swap.giveNewImeis(factory, record(), places, SecureRandom(), VERSION)
+
+    private fun recordedVersion() = Router(fake).readChurnFolder().version
 
     private fun record() = Router(fake).readChurnFolder().card
 
@@ -286,6 +288,8 @@ class SwapTest {
         fake.radioOnAtReload = true
         assertStops(Problem.RADIO_ON) { giveNewImeis() }
         assertEquals(Progress.CLEARING_HISTORY, progress.last())
+        // The version comes after this last check.
+        assertNull(recordedVersion())
     }
 
     @Test
@@ -297,6 +301,25 @@ class SwapTest {
         assertFalse(Router(fake).flashLogOff())
         assertEquals(2, fake.cardsInSimMap.size)
         assertFalse(fake.freeSpaceOverwritten)
+    }
+
+    @Test
+    fun step3RecordsTheAppsVersionLast() {
+        // As on a router whose last swap an earlier version of the app did.
+        Router(fake).recordVersion(VERSION - 1)
+        prepareAndRestart()
+        giveNewImeis()
+        assertEquals("$VERSION\n", fake.files["/etc/churn/version"]?.toString(Charsets.UTF_8))
+        assertEquals(VERSION, recordedVersion())
+    }
+
+    @Test
+    fun aStep3ThatStopsKeepsTheVersionItFound() {
+        Router(fake).recordVersion(VERSION - 1)
+        prepareAndRestart()
+        fake.trayCard = null
+        assertStops(Problem.NO_CARD) { giveNewImeis() }
+        assertEquals(VERSION - 1, recordedVersion())
     }
 
     @Test
@@ -593,6 +616,7 @@ class SwapTest {
         assertEquals(Slot2.ESIM, fake.slot2)
         assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
         assertNull(record())
+        assertNull(recordedVersion())
         assertEquals(emptyList<PlaceCard>(), places.all)
         assertFalse(fake.freeSpaceOverwritten)
         assertSafe()
@@ -699,5 +723,8 @@ class SwapTest {
 
     private companion object {
         val OTHER_CARD = FakeRouter.Card("8949000077777777777F", "228010000000002")
+
+        /** The version code of the app that runs the swaps. */
+        const val VERSION = 7
     }
 }

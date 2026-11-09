@@ -21,11 +21,11 @@ class RemovalTest(
         private set
 
     /**
-     * Runs the test. [save] gets what setting the router up again takes, before restore.sh runs, to keep on the phone,
-     * and null once the router is set up again. A test that stops sets the router up again if the radio is still off,
-     * and otherwise leaves that to [setUpAgain].
+     * Runs the test, in the app with the version code [version]. [save] gets what setting the router up again takes,
+     * before restore.sh runs, to keep on the phone, and null once the router is set up again. A test that stops sets
+     * the router up again if the radio is still off, and otherwise leaves that to [setUpAgain].
      */
-    fun run(save: (RemovalStart?) -> Unit) {
+    fun run(version: Int, save: (RemovalStart?) -> Unit) {
         val folder = router.readChurnFolder()
         val factory = folder.factory ?: throw RouterException(Problem.NOT_SET_UP)
         // As in the dry run: airplane mode on, the radio off, and slot 2 on the built-in eSIM with no profile enabled,
@@ -33,8 +33,14 @@ class RemovalTest(
         prepare(disableProfile = false)
         if (router.cardInSim1Tray()) throw RouterException(Problem.SIM1_CARD)
         report(Progress.SIM1_EMPTY)
+        // An earlier version's rules come back as this version's, as the next swap's step 3 would replace them.
         val start = RemovalStart(
-            factory, folder.card, router.imeis(), router.firewallInPlace(), router.simConnectionCheckOff(),
+            factory,
+            folder.card,
+            router.imeis(),
+            router.firewallInPlace(earlierVersion = folder.olderThan(version)),
+            router.simConnectionCheckOff(),
+            folder.version,
         )
         // GL's setting for its log's file as restore.sh leaves it: Churn's copy, or without one, as it is.
         val logFile = router.logFileCopy() ?: router.setting(Router.LOG_FILE)
@@ -308,6 +314,7 @@ class RemovalTest(
             router.turnSimConnectionCheckOff()
             checkRadioOff()
         }
+        start.version?.let(router::recordVersion)
     }
 
     /**

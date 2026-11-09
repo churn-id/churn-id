@@ -161,32 +161,28 @@ class MainActivity : Activity() {
         )
         screen.notes.forEach { warning(it) }
         // Step 3 puts all three in place before it records a card, so until the first swap they're missing as expected.
+        // Only the next swap puts them back, at step 3, where their reloads can't let a card register. The card may
+        // have gone online without them, so the warnings ask for a new card.
         if (status.recorded != null) {
-            if (!status.enhancedKillSwitch) {
-                warning(getString(R.string.note_kill_switch))
-                fixButton(R.string.kill_switch_on) {
-                    confirm(getString(R.string.kill_switch_on_text)) { controller.turnKillSwitchOn() }
-                }
-            }
-            if (!status.firewall) {
-                warning(getString(R.string.note_firewall))
-                fixButton(R.string.firewall_on) {
-                    confirm(getString(R.string.firewall_on_text)) { controller.installFirewall() }
-                }
-            }
-            if (!status.connectionCheckOff) {
-                warning(getString(R.string.note_connection_check))
-                fixButton(R.string.connection_check_off) {
-                    confirm(getString(R.string.connection_check_off_text)) { controller.turnConnectionCheckOff() }
-                }
-            }
-        }
-        if (!status.flashLogOff) {
-            warning(getString(R.string.note_flash_log))
-            fixButton(R.string.clear_history) {
-                confirm(getString(R.string.clear_history_text)) { controller.clearHistory() }
+            val missing = listOfNotNull(
+                R.string.note_kill_switch.takeUnless { status.enhancedKillSwitch },
+                R.string.note_firewall.takeUnless { status.firewall },
+                R.string.note_connection_check.takeUnless { status.connectionCheckOff },
+            )
+            missing.forEach { warning(getString(it)) }
+            if (missing.isNotEmpty()) {
+                // Step 4 never asks to destroy a place card.
+                val place = screen.places.find { it.card.iccid == status.recorded }
+                warning(
+                    if (place == null) {
+                        getString(R.string.note_new_card)
+                    } else {
+                        getString(R.string.note_new_card_place, label(place))
+                    },
+                )
             }
         }
+        if (!status.flashLogOff) warning(getString(R.string.note_flash_log))
         if (screen.checks?.failed == true) warning(getString(R.string.checks_failed))
         // Off while step 1 would refuse to start, as the notes above say. Step 1 checks again, since this screen may be
         // minutes old.
@@ -623,15 +619,6 @@ class MainActivity : Activity() {
         this.text = text
         setOnClickListener { onClick() }
     }.also { addView(it) }
-
-    /**
-     * A button that fixes what the warning above it says, with a paragraph's space after it, so that it stays with the
-     * warning rather than joining the buttons below.
-     */
-    private fun LinearLayout.fixButton(text: Int, onClick: () -> Unit) {
-        button(text, onClick)
-        addView(Space(context), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(12)))
-    }
 
     /**
      * Space between groups of buttons. On a page shorter than the screen, the gaps share out the height left over, so
