@@ -66,6 +66,7 @@ class PowerCycleTest(
                 val lost = listOfNotNull(
                     "airplane mode".takeIf { !router.airplaneMode() },
                     "the Enhanced Kill Switch".takeIf { !router.killSwitchSettings() },
+                    "GL's connection check off for the SIM".takeIf { router.setting(Router.KMWAN_SIM) != "1" },
                 )
                 if (lost.isNotEmpty()) {
                     throw RouterException(Problem.UNEXPECTED_ANSWER, "Not kept: ${lost.joinToString(" and ")}")

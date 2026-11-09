@@ -229,7 +229,8 @@ where the router emitted nothing at power-on (B8):
    screen had gone dark by then, the user sees.
 6. Once the user has switched the router on again and it is on the cable,
    the boot ID has to be new (B4, B6), and GL's settings still have
-   airplane mode and the Enhanced Kill Switch on (U3). From then until the
+   airplane mode and the Enhanced Kill Switch on and the connection check
+   off for the SIM (U3). From then until the
    router has started, 120 s after power-on, the test reads `/proc/uptime`
    and `AT+CFUN?` every 2 s, and the Enhanced Kill Switch's routing rules
    and Churn's firewall chains until they are in place. Both have to be in
@@ -386,7 +387,7 @@ From development.md, "uci settings".
 | --- | --- | --- | --- | --- |
 | U1 | `glconfig.general.airplane_mode` is `0` or `1`, and with `1` the modem answers `+CFUN: 4` once the router has started | verified | Read both once uptime is past 120 s | 1, blocks |
 | U2 | Setting `glconfig.general.airplane_mode` turns airplane mode on or off at once, before the commit | verified | Turn airplane mode off and on again, and time how long the modem takes to answer `+CFUN: 4` | 3 |
-| U3 | `uci commit` makes a change survive a reboot | inferred | Read airplane mode and the kill switch settings after a reboot | 3 |
+| U3 | `uci commit` makes a change survive a reboot | inferred | Read airplane mode, the kill switch settings and GL's connection check setting after a reboot | 3 |
 | U4 | `gl_timer.reboot.enable` is GL's scheduled reboot | verified | The setting exists and is `0` or `1` | 1, blocks |
 | U5 | `network.modem_cpu.iccid` holds the ICCID of the card GL uses, a 19-digit one with a trailing `F` | verified | It is an ICCID or absent | 1 |
 | U6 | `network.modem_cpu.dds_id` reports the active slot, and writing it switches nothing | verified | It is `1` or `2` (tier 1) and follows a slot switch (tier 2) | 1, blocks; 2 |

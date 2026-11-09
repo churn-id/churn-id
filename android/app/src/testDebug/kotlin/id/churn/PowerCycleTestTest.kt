@@ -99,12 +99,12 @@ class PowerCycleTestTest {
         test.resume(saves.last()!!) { saves += it }
     }
 
-    private fun assertStops(problem: Problem, run: () -> Unit) {
+    private fun assertStops(problem: Problem, run: () -> Unit): RouterException {
         try {
             run()
         } catch (e: RouterException) {
             assertEquals(problem, e.problem)
-            return
+            return e
         }
         throw AssertionError("The power cycle test didn't stop")
     }
@@ -259,6 +259,16 @@ class PowerCycleTestTest {
         powerCycles.putBack(saves.last()!!) { saves += it }
         assertEquals(before, state())
         assertNull(saves.last())
+    }
+
+    @Test
+    fun aConnectionCheckSettingThatThePowerOnLostStopsTheTest() {
+        run()
+        fake.boot()
+        fake.kmwanSimDisabled = "0"
+        val e = assertStops(Problem.UNEXPECTED_ANSWER) { resume() }
+        assertEquals("Not kept: GL's connection check off for the SIM", e.detail)
+        assertEquals(listOf("U3"), powerCycles.testing)
     }
 
     @Test
