@@ -432,6 +432,15 @@ class RouterTest {
     }
 
     @Test
+    fun seesAFolderOfANewerVersion() {
+        val factory = router.imeis()
+        assertTrue(ChurnFolder(factory, card = null, version = 3).newerThan(2))
+        assertFalse(ChurnFolder(factory, card = null, version = 2).newerThan(2))
+        // Without a version, as before the first swap, the folder counts as version 1, which no app is older than.
+        assertFalse(ChurnFolder(factory, card = null).newerThan(1))
+    }
+
+    @Test
     fun checksTheImeisAgainstTheRecord() {
         val iccid = CURRENT_CARD.removeSuffix("F")
         val folder = ChurnFolder(router.imeis(), Card(iccid, PAIR))

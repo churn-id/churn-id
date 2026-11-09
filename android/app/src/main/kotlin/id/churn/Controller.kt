@@ -823,6 +823,9 @@ class Controller(private val context: Context) {
     private fun showRouter(note: String? = null, waitSeconds: Int = CONNECT_WAIT_SECONDS) {
         val router = router(waitSeconds)
         val folder = router.readChurnFolder()
+        // This version would put back its own restore script, which may not undo everything a newer one changed, and
+        // at its next swap its own firewall rules.
+        if (folder.newerThan(BuildConfig.VERSION_CODE)) throw RouterException(Problem.NEWER_VERSION)
         // A router set up by an earlier version of the app keeps that version's restore script, which may not undo
         // everything this version changes.
         if (folder.complete) updateChurnFiles(router)
@@ -1106,6 +1109,7 @@ class Controller(private val context: Context) {
             Problem.LEAK -> R.string.problem_leak
             Problem.AIRPLANE_MODE_LEFT_ON -> R.string.problem_airplane_mode_left_on
             Problem.CONNECTION_CHECK_ON -> R.string.problem_connection_check_on
+            Problem.NEWER_VERSION -> R.string.problem_newer_version
         },
     )
 

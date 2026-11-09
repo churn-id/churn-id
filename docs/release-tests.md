@@ -188,6 +188,16 @@ At the first swap of a run, also:
    For the first three it says to swap to a new card, and for the log that
    the next swap turns it off. Router checks report D22 as failed, since
    the check can't tell your command from GL.
+8. Over SSH, make the router's record say that a newer version of Churn
+   ran the last swap:
+
+   ```sh
+   cp /etc/churn/version /tmp/ && echo 999999 > /etc/churn/version
+   ```
+
+   Tap Refresh: the Connect screen says to update Churn. Put the record
+   back with `mv /tmp/version /etc/churn/` and connect: the router screen
+   shows step 7's warnings again.
 
 ### Swap 2: the adapter card as a new place card
 

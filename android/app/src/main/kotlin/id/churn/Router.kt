@@ -32,6 +32,7 @@ enum class Problem {
     UNEXPECTED_ANSWER, RADIO_ON, SCHEDULED_REBOOT, IMEIS_NOT_KEPT, SLOT_NOT_SWITCHED, PROFILE_STILL_ENABLED,
     NO_CARD, SIM1_CARD, CARD_CHANGED, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN, VPN_GONE, FIREWALL_NOT_LOADED,
     CHECK_FAILED, PROFILE_ENABLED, CARD_IN_TRAY, NOT_READY, LEAK, AIRPLANE_MODE_LEFT_ON, CONNECTION_CHECK_ON,
+    NEWER_VERSION,
 }
 
 /** [detail] is what the router said, for the log; it never holds a password. */
@@ -168,6 +169,9 @@ class ChurnFolder(val factory: ImeiPair?, val card: Card?, val version: Int? = n
      * until the next swap's step 3. A folder without a version, as before the first swap, counts as version 1.
      */
     fun olderThan(version: Int) = (this.version ?: 1) < version
+
+    /** Whether an app newer than [version] ran the last swap. */
+    fun newerThan(version: Int) = (this.version ?: 1) > version
 
     /** Whether the card with [iccid] (digits only) is the recorded card, and [imeis] are its pair. */
     fun isRecorded(iccid: String, imeis: ImeiPair) = card == Card(iccid, imeis)

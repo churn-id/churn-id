@@ -290,7 +290,10 @@ repository has no separate router component.
   router set up by an earlier version gets a script that undoes everything
   the current version changes. Settings that a new version adds or
   changes, such as other firewall rules, come with the next swap: step 3
-  puts them in place and last records the version (section 7).
+  puts them in place and last records the version (section 7). An app
+  older than the recorded version leaves the router alone and asks to be
+  updated. It would put back its own script, which doesn't undo what the
+  newer version changes, and its swaps would put back its own rules.
 - **Checked on every connection.** The app checks that the folder exists,
   that the card in slot 2 is the recorded card and that the IMEIs are its
   recorded pair (section 4), all read from the router. At every power-on
