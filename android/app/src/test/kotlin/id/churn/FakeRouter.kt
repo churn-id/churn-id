@@ -34,19 +34,13 @@ class FakeRouter : Shell {
      */
     val atAnswers = mutableMapOf<String, String>()
 
-    /**
-     * uci settings that replace the router's own, or remove them for null, such as another GL firmware might hold.
-     * Only the router checks' tests use them.
-     */
+    /** uci settings that replace the router's own, or remove them for null, such as another GL firmware might hold. */
     val uciAnswers = mutableMapOf<String, String?>()
 
-    /**
-     * Answers to commands that replace the router's own, such as another GL firmware might give. Only the router
-     * checks' tests use them.
-     */
+    /** Answers to commands that replace the router's own, such as another GL firmware might give. */
     val answers = mutableMapOf<String, String>()
 
-    /** Commands that fail, such as on a firmware without what they read. Only the router checks' tests use them. */
+    /** Commands that fail, such as on a firmware without what they read. */
     val failing = mutableSetOf<String>()
 
     /** Milliseconds, advanced by the tests' sleep. */
@@ -82,12 +76,32 @@ class FakeRouter : Shell {
     private var stagedAt = 0L
     private var inUseBeforeStaging = false
 
+    /**
+     * How long GL's cellular manager takes to follow airplane mode set with the commit, in milliseconds, as on our
+     * router, where the radio was still on a second after it. Only the leak watch's tests set it.
+     */
+    var airplaneModeMillis = 0L
+
+    /** When airplane mode was last committed, by [clock], and as GL's cellular manager had it before. */
+    private var committedAt = 0L
+    private var inUseBeforeCommit = false
+
     /** Airplane mode as GL's cellular manager has it. */
     private val airplaneModeInUse: Boolean
         get() {
-            val staged = stagedAirplaneMode?.takeUnless { airplaneModeNeedsCommit } ?: return airplaneMode
+            val staged = stagedAirplaneMode?.takeUnless { airplaneModeNeedsCommit }
+                ?: return if (clock - committedAt < airplaneModeMillis) inUseBeforeCommit else airplaneMode
             return if (clock - stagedAt < stagedAirplaneModeMillis) inUseBeforeStaging else staged
         }
+
+    /** Turns airplane mode off as the user does on GL's screen, which writes and commits the setting at once (U10). */
+    fun turnAirplaneModeOffOnScreen() {
+        inUseBeforeCommit = airplaneModeInUse
+        committedAt = clock
+        airplaneMode = false
+        stagedAirplaneMode = null
+        countTraffic()
+    }
 
     /** For the radio that never turns off. */
     var radioStuckOn = false
@@ -362,6 +376,104 @@ class FakeRouter : Shell {
     /** The chains of Churn's firewall rules that fw4 loaded at its last reload. */
     val loadedChains = mutableSetOf<String>()
 
+    /**
+     * The leak watch's counters in the router's firewall, while the app has them there: of the packets that tried to
+     * leave over the SIM, and of those that got past Churn's rules, by IP version. A reload of GL's firewall keeps them
+     * (inferred), and a power-off deletes them.
+     */
+    class LeakCounters {
+        var tried = Count(0, 0)
+        var passed4 = Count(0, 0)
+        var passed6 = Count(0, 0)
+    }
+    var leakCounters: LeakCounters? = null
+
+    /**
+     * WireGuard's messages per second over the SIM, once the router is online and the first one, the handshake, has
+     * gone, and the bytes of each without the IP and UDP headers, as WireGuard counts them: our guesses for a tunnel
+     * that carries little.
+     */
+    var wireguardPerSecond = 5
+    var wireguardMessageBytes = 100L
+
+    /** How long after the router goes online WireGuard sends its first message, the handshake. */
+    var handshakeMillis = 3_000L
+
+    /** The router's own packets that Churn's rules drop as it goes online, such as GL's connection check's pings. */
+    var droppedGoingOnline = 8L
+
+    /**
+     * For packets that leave over the SIM past the firewall as the router goes online, against D11 in testing.md. Only
+     * the leak watch's tests use it.
+     */
+    var unseenGoingOnline = 0L
+
+    /** For a router that splits each of WireGuard's packets into two fragments on the SIM. */
+    var fragmentsWireguard = false
+
+    /** For a tunnel to a VPN server's IPv6 address. */
+    var tunnelOverIpv6 = false
+
+    /** For a SIM interface that is made anew as the router goes online, which restarts its count. */
+    var remakesInterface = false
+
+    /**
+     * For packets with WireGuard's mark that aren't WireGuard's, sent as the router goes online, which get past Churn's
+     * rules, against D9 in testing.md. Only the leak watch's tests use it.
+     */
+    var markedGoingOnline = 0L
+
+    /** For WireGuard's packets without the mark, which Churn's rules drop, against D9. */
+    var wireguardUnmarked = false
+
+    /** How long after the router goes online GL's VPN client makes the tunnel's interface anew, if it does. */
+    var tunnelRemadeAfter: Long? = null
+
+    /** For WireGuard sending a packet while each read of the SIM's traffic is under way. */
+    var wireguardWhileRead = false
+
+    /** For an uplink over the Ethernet port besides the SIM. */
+    var wiredUplink = false
+
+    /** For a main routing table that keeps the SIM's default route in airplane mode. */
+    var keepsSimRoute = false
+
+    /**
+     * How long after the router goes online chrony first updates the clock from one of its servers, which it reaches
+     * through the tunnel once WireGuard's handshake has come, or null for never.
+     */
+    var clockSyncMillis: Long? = 20_000L
+
+    /** For chrony taking its own clock as its reference, as with its setting `local`, and reaching no server. */
+    var chronyLocal = false
+
+    /** When WireGuard last completed a handshake, in seconds since 1970, or 0 for never. */
+    var latestHandshake = 0L
+
+    /** When chrony last updated the clock from one of its servers, in seconds since 1970, or null for never. */
+    private var clockUpdated: Long? = null
+
+    /**
+     * When the router last went online, by [clock], or null while it is offline. The SIM's traffic is counted up to
+     * [trafficAt].
+     */
+    private var onlineAt: Long? = null
+    private var trafficAt = 0L
+
+    /** The packets each of the SIM's data interfaces sent, and its index, by its name. */
+    private val simSent = SIM_INTERFACES.associateWith { 0L }.toMutableMap()
+    private val simIndexes = SIM_INTERFACES.withIndex().associate { (i, name) -> name to 30 + i }.toMutableMap()
+
+    /** The fragments the router made of IPv4 packets since it started, as `/proc/net/snmp` counts them. */
+    var fragmentsMade = 0L
+
+    /** The bytes that WireGuard sent to the tunnel's peer, without their IP and UDP headers, and the tunnel's index. */
+    private var wireguardBytes = 0L
+    private var tunnelIndex = 40
+
+    /** The reads of the SIM's traffic while the router was online. */
+    private var readsWhileOnline = 0
+
     val commands = mutableListOf<String>()
     val changes = mutableListOf<String>()
     val unsafe = mutableListOf<String>()
@@ -471,10 +583,16 @@ class FakeRouter : Shell {
         killSwitchInUse = killSwitchSet && !bootDropsKillSwitchRules
         loadedChains.clear()
         if (!bootSkipsChurnRules) loadChurnChains()
+        // A power-off deletes the leak watch's table, and the SIM's interfaces count anew.
+        leakCounters = null
+        onlineAt = null
+        simSent.replaceAll { _, _ -> 0 }
+        fragmentsMade = 0
     }
 
     override fun run(command: String, input: ByteArray?, timeoutSeconds: Long): Output {
         check(!poweredOff) { "The router is off" }
+        countTraffic()
         commands += command
         val body = command.removePrefix(LOCK)
         if (body == command && MODEM.any { it in command }) unlocked += command
@@ -502,8 +620,11 @@ class FakeRouter : Shell {
         Regex("""uci -q get '(.*)'""").matchEntire(command)?.let { return uciGet(it.groupValues[1]) }
         val airplaneModeSet = Regex("""uci set 'glconfig.general.airplane_mode=([01])' && uci commit 'glconfig'""")
         airplaneModeSet.matchEntire(command)?.let {
+            inUseBeforeCommit = airplaneModeInUse
+            committedAt = clock
             airplaneMode = it.groupValues[1] == "1"
             stagedAirplaneMode = null
+            countTraffic()
             return ok("")
         }
         Regex("""uci set 'glconfig.general.airplane_mode=([01])'""").matchEntire(command)?.let {
@@ -606,6 +727,17 @@ class FakeRouter : Shell {
             val lines = glDnsRules + listOfNotNull(churns.takeIf { "churn_dns" in loadedChains })
             return Output(if (lines.isEmpty()) 1 else 0, lines.joinToString("") { "$it\n" }.toByteArray(), "")
         }
+        if (command == "nft -f -" && input?.toString(Charsets.UTF_8) == LEAK_COUNTERS) {
+            leakCounters = LeakCounters()
+            return ok("")
+        }
+        if (command == "nft delete table inet churn_watch") {
+            leakCounters ?: return Output(1, ByteArray(0), "Error: No such file or directory")
+            leakCounters = null
+            return ok("")
+        }
+        if (command.startsWith("cd /sys/class/net || exit 1\n")) return simTraffic()
+        if (command.startsWith("h=\$(wg show all latest-handshakes) || exit 1\n")) return tunnelClock()
         if (command == CHURN_CHAINS) {
             val chains = listOf("churn_sim", "churn_route", "churn_dns").filter { it in loadedChains }
             return ok(chains.joinToString("") { "$it\n" })
@@ -718,6 +850,110 @@ class FakeRouter : Shell {
     private fun loadChurnChains() {
         val file = files[Router.FIREWALL]?.toString(Charsets.UTF_8) ?: return
         loadedChains += Regex("""chain (\w+) \{""").findAll(file).map { it.groupValues[1] }
+    }
+
+    /**
+     * Counts the SIM's traffic since it was last counted, at [trafficAt], up to now, and notes when the router goes
+     * online, which the cellular manager follows airplane mode for, or offline.
+     */
+    private fun countTraffic() {
+        val online = !airplaneModeInUse
+        val since = onlineAt
+        if (online && since != null) {
+            val remade = tunnelRemadeAfter?.let { since + it }?.takeIf { it > trafficAt && it <= clock }
+            if (remade != null) {
+                wireguard(wireguardMessages(remade - since) - wireguardMessages(trafficAt - since))
+                tunnelIndex++
+                wireguardBytes = 0
+            }
+            wireguard(wireguardMessages(clock - since) - wireguardMessages(maxOf(trafficAt, remade ?: 0L) - since))
+            // Both need WireGuard's packets to get past Churn's rules.
+            if (vpnTunnel != null && tunnelUp && !wireguardUnmarked && clock - since >= handshakeMillis) {
+                latestHandshake = START_TIME + (since + handshakeMillis) / 1000
+                val synced = clockSyncMillis?.let { maxOf(it, handshakeMillis) }?.takeIf { clock - since >= it }
+                synced?.let { clockUpdated = START_TIME + (since + it) / 1000 }
+            }
+        }
+        if (online && since == null) goOnline()
+        if (!online) onlineAt = null
+        trafficAt = clock
+    }
+
+    /** How many messages WireGuard sends in the first [millis] after the router went online. */
+    private fun wireguardMessages(millis: Long) =
+        if (millis < handshakeMillis) 0L else 1 + (millis - handshakeMillis) * wireguardPerSecond / 1000
+
+    /** Counts [messages] of WireGuard's, with the mark that lets them past Churn's rules. */
+    private fun wireguard(messages: Long) {
+        val bytes = messages * (wireguardMessageBytes + if (tunnelOverIpv6) IPV6_UDP_HEADERS else IPV4_UDP_HEADERS)
+        // WireGuard counts them once the firewall has them, whatever it does with them.
+        wireguardBytes += messages * wireguardMessageBytes
+        leakCounters?.let { it.tried = it.tried.plus(messages, bytes) }
+        if (wireguardUnmarked) return
+        leakCounters?.let {
+            if (tunnelOverIpv6) {
+                it.passed6 = it.passed6.plus(messages, bytes)
+            } else {
+                it.passed4 = it.passed4.plus(messages, bytes)
+            }
+        }
+        if (fragmentsWireguard) fragmentsMade += 2 * messages
+        send(if (fragmentsWireguard) 2 * messages else messages)
+    }
+
+    /** Starts the router's time online: its own packets that Churn's rules drop, and any that leave past them. */
+    private fun goOnline() {
+        onlineAt = clock
+        if (remakesInterface) {
+            simIndexes[simDevice] = 99
+            simSent[simDevice] = 0
+        }
+        val tried = droppedGoingOnline + markedGoingOnline
+        leakCounters?.let {
+            it.tried = it.tried.plus(tried, tried * PING_BYTES)
+            it.passed4 = it.passed4.plus(markedGoingOnline, markedGoingOnline * PING_BYTES)
+        }
+        send(markedGoingOnline + unseenGoingOnline)
+    }
+
+    /** Counts [packets] that left over the SIM's interface that GL's cellular interface uses. */
+    private fun send(packets: Long) {
+        simSent.computeIfPresent(simDevice) { _, sent -> sent + packets }
+    }
+
+    private fun Count.plus(packets: Long, bytes: Long) = Count(this.packets + packets, this.bytes + bytes)
+
+    /** The SIM's traffic as [Router.simTraffic] reads it, with nft's listing of the leak watch's table. */
+    private fun simTraffic(): Output {
+        val counters = leakCounters ?: return Output(1, ByteArray(0), "Error: No such file or directory")
+        fun counter(count: Count, name: String) =
+            "counter packets ${count.packets} bytes ${count.bytes} comment \"$name\""
+        fun wireguardLine(at: String) = vpnTunnel?.takeIf { tunnelUp }
+            ?.let { "wireguard $at $it:$tunnelIndex $wireguardBytes\n" } ?: ""
+        val devices = SIM_INTERFACES.joinToString("") { "$it/ifindex ${simIndexes[it]}\n" } +
+            SIM_INTERFACES.joinToString("") { "$it/statistics/tx_packets ${simSent[it]}\n" } + wireguardLine("before")
+        // WireGuard's packet comes before nft's listing at one read, and after it at the next.
+        val during = wireguardWhileRead && onlineAt != null
+        val early = during && readsWhileOnline++ % 2 == 0
+        if (early) wireguard(1)
+        val listing = devices +
+            "table inet churn_watch {\n\tchain tried {\n" +
+            "\t\ttype filter hook postrouting priority filter - 1; policy accept;\n" +
+            "\t\toifname \"rmnet_data*\" ${counter(counters.tried, "tried")}\n\t}\n\n\tchain passed {\n" +
+            "\t\ttype filter hook postrouting priority filter + 1; policy accept;\n" +
+            "\t\toifname \"rmnet_data*\" meta nfproto ipv4 ${counter(counters.passed4, "passed4")}\n" +
+            "\t\toifname \"rmnet_data*\" meta nfproto ipv6 ${counter(counters.passed6, "passed6")}\n\t}\n}\n"
+        if (during && !early) wireguard(1)
+        return ok(listing + wireguardLine("after") + "fragments $fragmentsMade\nfragments 0\n")
+    }
+
+    /** WireGuard's latest handshake and chrony's reference, as [Router.tunnelClock] reads them. */
+    private fun tunnelClock(): Output {
+        val reference = when {
+            chronyLocal -> "7F7F0101 $time.000000000"
+            else -> clockUpdated?.let { "C000027B $it.000000000" } ?: "00000000 0.000000000"
+        }
+        return ok("handshake $latestHandshake\nclock $reference\n")
     }
 
     private fun at(command: String): Output {
@@ -878,7 +1114,9 @@ class FakeRouter : Shell {
             "10.0.0.0/30 dev rmnet_data0 proto kernel scope link src 10.0.0.2\n"
         val lan = "169.254.21.0/24 dev ecm0 proto kernel scope link src 169.254.21.1\n" +
             "192.168.8.0/24 dev br-lan proto kernel scope link src 192.168.8.1\n"
-        return if (airplaneModeInUse) lan else sim + lan
+        val wan = "default via 192.168.1.1 dev eth0 proto static src 192.168.1.2 metric 10\n".takeIf { wiredUplink }
+        val kept = sim.lines().first().takeIf { keepsSimRoute }?.let { "$it\n" }
+        return (if (airplaneModeInUse) kept.orEmpty() + lan else sim + lan) + wan.orEmpty()
     }
 
     /** `ifstatus` of the network interface [name], shortened, as OpenWrt's netifd gives it. */
@@ -1032,6 +1270,33 @@ class FakeRouter : Shell {
             "br-lan", "ecm0", "eth0", "lo", "rmnet_data0", "rmnet_data1", "rmnet_data15", "rmnet_data16", "rmnet_data2",
             "rmnet_data3", "rmnet_data4", "rmnet_data5", "rmnet_ipa0", "wlan0",
         )
+
+        /** The SIM's data interfaces among them, which `rmnet_data*` matches. */
+        private val SIM_INTERFACES = NETWORK_DEVICES.filter { it.startsWith("rmnet_data") }
+
+        /** The bytes of an IP and a UDP header, over IPv4 and over IPv6, which nft counts and WireGuard doesn't. */
+        private const val IPV4_UDP_HEADERS = 28
+        private const val IPV6_UDP_HEADERS = 48
+
+        /** The bytes of a ping as BusyBox's ping sends it by default, with 56 bytes of data. */
+        private const val PING_BYTES = 84
+
+        /** The leak watch's counters as [Router.addLeakCounters] adds them. */
+        private val LEAK_COUNTERS = """
+            table inet churn_watch
+            delete table inet churn_watch
+            table inet churn_watch {
+            	chain tried {
+            		type filter hook postrouting priority -1; policy accept;
+            		oifname "rmnet_data*" counter comment "tried"
+            	}
+            	chain passed {
+            		type filter hook postrouting priority 1; policy accept;
+            		oifname "rmnet_data*" meta nfproto ipv4 counter comment "passed4"
+            		oifname "rmnet_data*" meta nfproto ipv6 counter comment "passed6"
+            	}
+            }
+        """.trimIndent() + "\n"
 
         /** Chrony's settings as our Mudi 7 listed them, shortened. */
         // cspell:disable

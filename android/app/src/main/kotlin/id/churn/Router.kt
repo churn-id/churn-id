@@ -31,7 +31,7 @@ class EsimLog(val clock: Long, val size: Long, val head: String, val start: Long
 enum class Problem {
     UNEXPECTED_ANSWER, RADIO_ON, SCHEDULED_REBOOT, IMEIS_NOT_KEPT, SLOT_NOT_SWITCHED, PROFILE_STILL_ENABLED,
     NO_CARD, SIM1_CARD, CARD_CHANGED, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN, VPN_GONE, FIREWALL_NOT_LOADED,
-    CHECK_FAILED, PROFILE_ENABLED, CARD_IN_TRAY,
+    CHECK_FAILED, PROFILE_ENABLED, CARD_IN_TRAY, NOT_READY, LEAK, AIRPLANE_MODE_LEFT_ON,
 }
 
 /** [detail] is what the router said, for the log; it never holds a password. */
@@ -116,6 +116,40 @@ data class NumberCount(val raw: Int, val files: Int)
  * reads its servers from, or null for none.
  */
 data class DnsServer(val port: Int, val program: String, val uid: Int?, val serversFile: String?)
+
+/** What a counter of the leak watch counted: [packets], and their [bytes] from the start of the IP header. */
+data class Count(val packets: Long, val bytes: Long)
+
+/**
+ * The SIM's traffic as the leak watch reads it at one moment: the packets each of the SIM's data interfaces sent, by
+ * its name and index, such as `rmnet_data0:12`, [sent]; what the leak watch's counters in the router's firewall
+ * counted of the packets that tried to leave over the SIM, before Churn's rules, [tried], and of those that got past
+ * them, over IPv4, [passed4], and over IPv6, [passed6]; the bytes that each WireGuard interface sent to its peers, by
+ * its name and index, without their IP and UDP headers, read right before the counters, [wireguardBefore], and right
+ * after them, [wireguardAfter]; and the fragments that the router made of packets since it started, [fragments].
+ *
+ * The interfaces' counts are read first: a packet passes the firewall before it leaves, so every packet they counted
+ * that passed the firewall was counted there too. WireGuard counts a packet once the firewall has passed it on, so
+ * [wireguardBefore] holds no more of WireGuard's packets than the counters, and [wireguardAfter] all of those they
+ * hold.
+ */
+data class SimTraffic(
+    val sent: Map<String, Long>,
+    val tried: Count,
+    val passed4: Count,
+    val passed6: Count,
+    val wireguardBefore: Map<String, Long>,
+    val wireguardAfter: Map<String, Long>,
+    val fragments: Long,
+)
+
+/**
+ * When WireGuard last completed a handshake with any of its peers, in seconds since 1970 as `wg show` gives it, or 0
+ * for never, [handshake]; and chrony's reference, by its ID in hex, such as `C000027B`, [clockSource], and when chrony
+ * last updated the clock from it, [clockUpdate], as `chronyc -c tracking` gives them. Both are times of day, which the
+ * debug log leaves out.
+ */
+data class TunnelClock(val handshake: Long, val clockSource: String, val clockUpdate: String)
 
 /** A card, by its ICCID's digits, and the IMEIs Churn gives it. */
 data class Card(val iccid: String, val imeis: ImeiPair)
@@ -393,6 +427,59 @@ class Router(private val shell: Shell) {
         return output.text.lines().map { it.trim().split(Regex("\\s+")) }
             .filter { it.size >= 4 && it[0].startsWith("tcp") }
             .mapNotNull { it[3].substringAfterLast(':').toIntOrNull() }.toSet()
+    }
+
+    /**
+     * Adds the leak watch's counters to the router's firewall, in a table of their own, in place of any that an
+     * earlier watch left: of the packets that try to leave over the SIM, before Churn's rules, and of those that got
+     * past them. A reload of GL's firewall changes only GL's table, so it keeps them (inferred), and a power-off
+     * deletes them.
+     */
+    fun addLeakCounters() = run("nft -f -", LEAK_COUNTERS.toByteArray()).check("nft -f")
+
+    /** Deletes the leak watch's counters. */
+    fun removeLeakCounters() = run("nft delete table inet $LEAK_TABLE").check("nft delete table")
+
+    /** The SIM's traffic as the leak watch reads it now, see [SimTraffic]. */
+    fun simTraffic(): SimTraffic {
+        val output = run(SIM_TRAFFIC)
+        output.check("the SIM's traffic")
+        val lines = output.text.lines().map(String::trim)
+        fun matches(pattern: Regex) = lines.mapNotNull { pattern.matchEntire(it)?.groupValues }
+        val indexes = matches(Regex("""(rmnet_data\d+)/ifindex (\d+)""")).associate { it[1] to it[2] }
+        val sent = matches(Regex("""(rmnet_data\d+)/statistics/tx_packets (\d+)"""))
+            .associate { it[1] to it[2].toLong() }
+        val counts = lines.mapNotNull { LEAK_COUNTER.find(it)?.groupValues }
+            .associate { it[3] to Count(it[1].toLong(), it[2].toLong()) }
+        val fragments = matches(Regex("""fragments (\d+)""")).map { it[1].toLong() }
+        if (sent.isEmpty() || sent.keys != indexes.keys || fragments.isEmpty()) {
+            throw unexpected("the SIM's traffic", output)
+        }
+        fun count(name: String) = counts[name] ?: throw unexpected("nft list table inet $LEAK_TABLE", output)
+        fun wireguard(at: String) = matches(Regex("""wireguard $at (\S+:\d*) (\d+)"""))
+            .associate { it[1] to it[2].toLong() }
+        return SimTraffic(
+            sent.mapKeys { (name) -> "$name:${indexes[name]}" },
+            count("tried"),
+            count("passed4"),
+            count("passed6"),
+            wireguard("before"),
+            wireguard("after"),
+            fragments.sum(),
+        )
+    }
+
+    /** WireGuard's latest handshake and chrony's reference, see [TunnelClock]. */
+    fun tunnelClock(): TunnelClock {
+        val what = "the tunnel's handshake and the clock"
+        // An error names neither time.
+        val output = runPrivately(TUNNEL_CLOCK)
+        if (output.status != 0) throw unexpected(what)
+        val lines = output.text.lines().map(String::trim)
+        val handshake = lines.firstNotNullOfOrNull { Regex("""handshake (\d+)""").matchEntire(it) }
+        val clock = lines.firstNotNullOfOrNull { Regex("""clock ([0-9A-Fa-f]{8}) ([0-9.]+)""").matchEntire(it) }
+        if (handshake == null || clock == null) throw unexpected(what)
+        return TunnelClock(handshake.groupValues[1].toLong(), clock.groupValues[1].uppercase(), clock.groupValues[2])
     }
 
     /** The names of the router's network devices, as `/sys/class/net` lists them. */
@@ -1006,6 +1093,70 @@ class Router(private val shell: Shell) {
             	{ f[${'$'}0]++ }
             	END { for (i = 1; i <= k; i++) print r[n[i]] + 0, f[n[i]] + 0 }
             ' ${'$'}t ${'$'}t.raw ${'$'}t.files
+        """.trimIndent()
+
+        /** The leak watch's table in the router's firewall, with its counters. */
+        private const val LEAK_TABLE = "churn_watch"
+
+        /**
+         * The leak watch's table: counters of the packets that try to leave over the SIM, before Churn's rules at
+         * priority 0, and of those that got past them, by IP version. Its chains only count and accept, which hands
+         * each packet on to the next chain. The first two lines delete a table that an earlier watch left, in the
+         * same change.
+         */
+        private val LEAK_COUNTERS = """
+            table inet $LEAK_TABLE
+            delete table inet $LEAK_TABLE
+            table inet $LEAK_TABLE {
+            	chain tried {
+            		type filter hook postrouting priority -1; policy accept;
+            		oifname "rmnet_data*" counter comment "tried"
+            	}
+            	chain passed {
+            		type filter hook postrouting priority 1; policy accept;
+            		oifname "rmnet_data*" meta nfproto ipv4 counter comment "passed4"
+            		oifname "rmnet_data*" meta nfproto ipv6 counter comment "passed6"
+            	}
+            }
+        """.trimIndent() + "\n"
+
+        /** A counter of the leak watch's table as `nft list table` lists it. */
+        private val LEAK_COUNTER = Regex("""counter packets (\d+) bytes (\d+) comment "(\w+)"""")
+
+        /**
+         * Prints the index of each of the SIM's data interfaces and the packets it sent; the leak watch's table, with
+         * the bytes that each WireGuard interface sent before and after it, by the interface's name and index, summed
+         * over its peers, whose keys stay on the router; and the fragments that the router made of IPv4 and of IPv6
+         * packets since it started.
+         */
+        private val SIM_TRAFFIC = """
+            cd /sys/class/net || exit 1
+            awk 'FNR == 1 { print FILENAME, ${'$'}1 }' rmnet_data*/ifindex rmnet_data*/statistics/tx_packets
+            wireguard() {
+            	t=${'$'}(wg show all transfer) || exit 1
+            	echo "${'$'}t" | awk -v at="${'$'}1" '
+            		NF == 4 { tx[${'$'}1] += ${'$'}4 }
+            		END { for (i in tx) { f = i "/ifindex"; x = ""; getline x < f; print "wireguard", at, i ":" x, tx[i] } }
+            	'
+            }
+            wireguard before
+            nft list table inet $LEAK_TABLE || exit 1
+            wireguard after
+            awk '
+            	${'$'}1 != "Ip:" { next }
+            	c { print "fragments", ${'$'}c; exit }
+            	{ for (i = 2; i <= NF; i++) if (${'$'}i == "FragCreates") c = i }
+            ' /proc/net/snmp
+            awk '${'$'}1 == "Ip6FragCreates" { print "fragments", ${'$'}2 }' /proc/net/snmp6 2>/dev/null
+            true
+        """.trimIndent()
+
+        /** Prints WireGuard's latest handshake with any peer, then chrony's reference, see [TunnelClock]. */
+        private val TUNNEL_CLOCK = """
+            h=${'$'}(wg show all latest-handshakes) || exit 1
+            c=${'$'}(chronyc -c tracking) || exit 1
+            echo "${'$'}h" | awk '${'$'}3 > m { m = ${'$'}3 } END { print "handshake", m + 0 }'
+            echo "${'$'}c" | awk -F, 'NR == 1 { print "clock", ${'$'}1, ${'$'}4 }'
         """.trimIndent()
 
         /** A path the shell takes as it is, without quoting. */

@@ -84,6 +84,7 @@ class MainActivity : Activity() {
             is Screen.DryRun -> dryRun(screen)
             is Screen.RemovalTest -> removalTest(screen)
             is Screen.PowerCycles -> powerCycles(screen)
+            is Screen.LeakWatch -> leakWatch(screen)
         }
     }
 
@@ -198,6 +199,7 @@ class MainActivity : Activity() {
         if (DryRun.AVAILABLE) button(R.string.dry_run) { controller.openDryRun() }
         if (RemovalTest.AVAILABLE) button(R.string.removal_test) { controller.openRemovalTest() }
         if (PowerCycleTest.AVAILABLE) button(R.string.power_cycles) { controller.openPowerCycles() }
+        if (LeakWatch.AVAILABLE) button(R.string.leak_watch) { controller.openLeakWatch() }
         button(R.string.restore) {
             val factory = status.factory
             confirm(getString(R.string.restore_text, factory.imei1, factory.imei2)) { controller.restore() }
@@ -348,6 +350,24 @@ class MainActivity : Activity() {
                 button(R.string.dry_run_back) { controller.refresh() }
             }
         }
+    }
+
+    private fun leakWatch(screen: Screen.LeakWatch) = page(keepScreenOn = screen.running) {
+        heading(getString(R.string.leak_watch))
+        paragraph(getString(R.string.leak_watch_text))
+        screen.lines.forEach { paragraph("✓ $it") }
+        if (screen.running) {
+            addView(ProgressBar(context))
+            return@page
+        }
+        screen.error?.let { warning(it) }
+        button(if (screen.lines.isEmpty()) R.string.leak_watch_start else R.string.leak_watch_again) {
+            confirm(getString(R.string.leak_watch_confirm)) {
+                askForNotifications()
+                controller.startLeakWatch()
+            }
+        }
+        button(R.string.dry_run_back) { controller.refresh() }
     }
 
     /** Updates the Connect screen's line alone, so that what the user is typing stays. */
