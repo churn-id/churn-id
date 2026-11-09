@@ -48,8 +48,8 @@ class LeakWatch(
     /**
      * Checks that the router is as step 3 leaves it, with airplane mode on: the VPN set up, the router started, the
      * radio off, the router checks that swaps rely on passed, the SIM 1 tray empty, [card] answering in slot 2, the
-     * active slot, and the router having its IMEIs, the Enhanced Kill Switch and Churn's firewall rules in place, and
-     * no uplink other than the SIM.
+     * active slot, and the router having its IMEIs, the Enhanced Kill Switch and Churn's firewall rules in place, GL's
+     * connection check off for the SIM, and no uplink other than the SIM.
      */
     private fun checkReady(card: Card?) {
         turnAirplaneModeOn()
@@ -74,6 +74,9 @@ class LeakWatch(
         report(Progress.KILL_SWITCH_ON)
         if (!router.firewallInPlace()) notReady("Churn's firewall rules aren't in place")
         report(Progress.FIREWALL)
+        // Its pings would leave past Churn's rules.
+        if (!router.simConnectionCheckOff()) notReady("GL's connection check is on for the SIM")
+        report(Progress.CONNECTION_CHECK_OFF)
         // WireGuard might send over another uplink instead, past the counters.
         router.routes("main").firstOrNull { it.startsWith("default ") && !SIM_ROUTE.containsMatchIn(it) }?.let {
             notReady("The router has an uplink other than the SIM: $it")

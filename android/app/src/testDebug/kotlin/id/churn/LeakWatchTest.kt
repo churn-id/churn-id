@@ -137,9 +137,9 @@ class LeakWatchTest {
         assertEquals(
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
-                Progress.CARD_READY, Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.SIM_ONLY,
-                Progress.TURN_AIRPLANE_MODE_OFF, Progress.GOING_ONLINE, Progress.HANDSHAKE, Progress.CLOCK_SYNCED,
-                Progress.SIM_PACKETS, Progress.WIREGUARD_MATCHED, Progress.LEAK_WATCH_PASSED,
+                Progress.CARD_READY, Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.CONNECTION_CHECK_OFF,
+                Progress.SIM_ONLY, Progress.TURN_AIRPLANE_MODE_OFF, Progress.GOING_ONLINE, Progress.HANDSHAKE,
+                Progress.CLOCK_SYNCED, Progress.SIM_PACKETS, Progress.WIREGUARD_MATCHED, Progress.LEAK_WATCH_PASSED,
             ),
             progress,
         )
@@ -388,7 +388,7 @@ class LeakWatchTest {
                 "default via 192.168.1.1 dev eth0 proto static src 192.168.1.2 metric 10",
             assertStoppedOffline(Problem.NOT_READY),
         )
-        assertEquals(Progress.FIREWALL, progress.last())
+        assertEquals(Progress.CONNECTION_CHECK_OFF, progress.last())
     }
 
     @Test
@@ -462,6 +462,20 @@ class LeakWatchTest {
         fake.loadedChains.clear()
         assertEquals("Churn's firewall rules aren't in place", assertStoppedOffline(Problem.NOT_READY))
         assertEquals(Progress.KILL_SWITCH_ON, progress.last())
+    }
+
+    @Test
+    fun glsConnectionCheckOnForTheSimStopsTheWatchBeforeItGoesOnline() {
+        fake.kmwanSimDisabled = "0"
+        assertEquals("GL's connection check is on for the SIM", assertStoppedOffline(Problem.NOT_READY))
+        assertEquals(Progress.FIREWALL, progress.last())
+    }
+
+    @Test
+    fun aConnectionCheckThatStillHoldsTheSimStopsTheWatchBeforeItGoesOnline() {
+        // Its setting off, but kmwan not restarted since.
+        fake.kmwanHoldsSim = true
+        assertEquals("GL's connection check is on for the SIM", assertStoppedOffline(Problem.NOT_READY))
     }
 
     @Test

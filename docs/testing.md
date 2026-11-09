@@ -273,10 +273,11 @@ happen, once the router has been switched on again there (rule 1):
 2. The card that step 3 last gave its IMEIs, as Churn's folder records
    it, has to answer in the SIM 2 tray, with slot 2 on it as the active
    slot, and the router has to have the card's IMEIs. The Enhanced Kill
-   Switch and Churn's firewall rules have to be in place, and the router
-   may have no default route other than over the SIM: another uplink could
-   carry WireGuard's packets instead. Anything else stops the test before
-   airplane mode goes off.
+   Switch and Churn's firewall rules have to be in place, GL's connection
+   check off for the SIM, whose pings would leave past the rules (D20),
+   and the router may have no default route other than over the SIM:
+   another uplink could carry WireGuard's packets instead. Anything else
+   stops the test before airplane mode goes off.
 3. It adds a table of its own to the router's firewall, `inet
    churn_watch`, in place of any that an earlier watch left, with counters
    of the packets that try to leave over the SIM, before Churn's rules, and
