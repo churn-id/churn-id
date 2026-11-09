@@ -438,6 +438,7 @@ connection check", and design.md, sections 7 and 10.
 | D19 | `fw4 reload` neither drops the cable nor turns the radio on | open | The connection and `+CFUN: 4` across a reload (tier 2); the RF meter (tier 4) | 2, 4 |
 | D20 | GL's connection check, the kernel module kmwan, pings the four addresses of `kmwan.modem_cpu.tracks` over the SIM once a second while the SIM is online, past netfilter's postrouting hook and so past Churn's rules | verified with `tcpdump` and the leak watch's counters | `tcpdump` on the SIM's interface after airplane mode goes off, with the rules in place and the check on | 4 |
 | D21 | With `kmwan.modem_cpu.disabled` set to `1` and kmwan restarted in airplane mode, nothing of the check's leaves over the SIM, and the SIM's connection and the tunnel work as before | verified once | The leak watch: no packet that Churn's rules didn't see, the handshake and the clock's update | 4 |
+| D22 | GL leaves its connection check off for the SIM once Churn has turned it off: the setting stays `1`, and kmwan takes up no member for a modem's interface | open | The setting and kmwan's members in `/proc/gl-kmwan/config`, while Churn's folder has its copy of GL's setting | 1 |
 | D23 | `/etc/init.d/kmwan restart`, which reloads the network too, neither drops the cable nor turns the radio on | open | The connection and `+CFUN: 4` across a restart (tier 2); the RF meter (tier 4) | 2, 4 |
 
 ## Slot switching

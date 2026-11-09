@@ -608,6 +608,12 @@ class Router(private val shell: Shell) {
         if (!simConnectionCheckOff()) throw RouterException(Problem.CONNECTION_CHECK_ON)
     }
 
+    /**
+     * GL's setting for its connection check over the SIM as Churn saved it before turning the check off, which
+     * restore.sh puts back: `0`, or an empty string for none; null without a copy.
+     */
+    fun kmwanCopy() = readFile(KMWAN_COPY)?.toString(Charsets.UTF_8)?.lineSequence()?.firstOrNull()?.trim()
+
     /** The ICCID GL recorded for the active card, as GL stores it, or null if it recorded none. */
     fun currentCardIccid() = uci(MODEM_ICCID)?.takeIf { it.matches(Regex("[0-9A-Fa-f]{18,20}")) }
 

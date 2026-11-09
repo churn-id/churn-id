@@ -650,9 +650,9 @@ untested, and the router checks look for it.
   turns the radio on, and whether `fw4 reload` or
   `/etc/init.d/kmwan restart` does.
 - Whether GL turns its connection check back on for the SIM by itself, as
-  at a slot switch, from its multi-WAN page or at a firmware upgrade, and
-  whether kmwan pings over the SIM again, without a restart, once
-  `restore.sh` has put GL's setting back.
+  at a slot switch, from its multi-WAN page or at a firmware upgrade
+  (testing.md, D22), and whether kmwan pings over the SIM again, without a
+  restart, once `restore.sh` has put GL's setting back.
 - Whether `logread` writes the log's file again once `restore.sh` has set
   `log_file` back and reloaded the log service.
 - Whether GL copes with card files that name no card, as they can after a

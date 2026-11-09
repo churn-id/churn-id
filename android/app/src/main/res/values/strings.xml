@@ -160,6 +160,7 @@
     <string name="check_sim_interfaces">The SIM\'s data interfaces have the names that Churn\'s firewall rules match</string>
     <string name="check_wireguard_mark">WireGuard sends with the mark that Churn\'s firewall rules let out over the SIM</string>
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
+    <string name="check_connection_check_off">GL leaves its connection check off for the SIM once Churn has turned it off</string>
     <string name="check_masquerading">The WireGuard tunnel\'s IP Masquerading is on, which the router\'s own traffic through it needs</string>
     <string name="check_location_id">GL\'s modem settings have exactly one location_id, which Churn\'s slot switches name</string>
     <string name="check_esim_answers">On the built-in eSIM, slot 2\'s card gives its ICCID and IMSI the way Churn reads them</string>
@@ -190,6 +191,7 @@
     <string name="reason_other_uplink">The router is online over another uplink than the SIM.</string>
     <string name="reason_no_tunnel_up">No WireGuard tunnel is up.</string>
     <string name="reason_no_firewall">Churn\'s firewall rules aren\'t on the router.</string>
+    <string name="reason_connection_check_untouched">Churn hasn\'t turned GL\'s connection check off for the SIM yet.</string>
     <string name="reason_flash_log_off">GL\'s system log stays in RAM, as Churn sets it.</string>
     <string name="reason_flash_log_on">GL still writes its system log to a file on the flash.</string>
     <string name="reason_no_card_files">GL has no files that record cards yet.</string>
