@@ -31,7 +31,7 @@ class EsimLog(val clock: Long, val size: Long, val head: String, val start: Long
 enum class Problem {
     UNEXPECTED_ANSWER, RADIO_ON, SCHEDULED_REBOOT, IMEIS_NOT_KEPT, SLOT_NOT_SWITCHED, PROFILE_STILL_ENABLED,
     NO_CARD, SIM1_CARD, CARD_CHANGED, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN, VPN_GONE, FIREWALL_NOT_LOADED,
-    CHECK_FAILED, PROFILE_ENABLED, CARD_IN_TRAY, NOT_READY, LEAK,
+    CHECK_FAILED, PROFILE_ENABLED, CARD_IN_TRAY, NOT_READY, LEAK, AIRPLANE_MODE_LEFT_ON,
 }
 
 /** [detail] is what the router said, for the log; it never holds a password. */
@@ -186,13 +186,6 @@ class Router(private val shell: Shell) {
 
     /** Turns airplane mode [on] or off, also for later power-ons, and reads the setting back. */
     fun setAirplaneMode(on: Boolean) = uciSet(AIRPLANE_MODE, if (on) "1" else "0")
-
-    /**
-     * Turns airplane mode off with GL's own call, as GL's screen does, which also commits the setting. The SIM then
-     * goes online sooner than after a commit of the setting alone (development.md, "uci settings"). Only the leak watch
-     * uses it, in the user's place at step 4, and it reads the setting afterwards.
-     */
-    fun turnAirplaneModeOffAsGl() = run(locked(GL_AIRPLANE_MODE_OFF), timeoutSeconds = 40).check("set_airplane_mode")
 
     /**
      * Sets GL's airplane mode without the commit, which GL's cellular manager follows already (development.md, "uci
@@ -1007,9 +1000,6 @@ class Router(private val shell: Shell) {
 
         /** GL's airplane mode, `1` on and `0` off. */
         const val AIRPLANE_MODE = "glconfig.general.airplane_mode"
-
-        /** GL's call that turns airplane mode off, as GL's screen makes it. */
-        private const val GL_AIRPLANE_MODE_OFF = "ubus -t 30 call cellular.modem set_airplane_mode '{\"enable\":false}'"
 
         /** GL's scheduled reboot, `1` on and `0` off. */
         const val SCHEDULED_REBOOT = "gl_timer.reboot.enable"

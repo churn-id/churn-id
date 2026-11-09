@@ -100,18 +100,21 @@ commits every change, so it survives a reboot (inferred from OpenWrt's
 
 GL's screen turns airplane mode on and off with a call of its own,
 `ubus call cellular.modem set_airplane_mode '{"enable":false}'`, or
-`true` (verified with `ubus monitor`). Turning it off that way also
-writes the setting and commits it (verified with `uci changes glconfig`).
-After a commit of `'0'` alone, nothing tried to leave over the SIM in the
-minute that followed, in four leak watches on our router, so it wasn't
-online yet (inferred). After GL's call it went online sooner (seen by
-hand). The app turns airplane mode on with the commit and then waits for
-the modem to report the radio off, and the leak watch turns it off with
-GL's call, in the user's place at step 4.
+`true` (verified with `ubus monitor`). Turning it off on the screen also
+writes the setting and commits it within 2 s (verified with
+`uci changes glconfig` and a leak watch). The same call from a shell
+answered `{"ok": true}` but changed neither the setting nor the screen,
+in three leak watches; why is unknown. After a commit of `'0'` alone,
+nothing tried to leave over the SIM in the minute that followed, in four
+leak watches on our router, so it wasn't online yet (inferred). After
+airplane mode off on the screen, the first packets left about 20 s later
+(verified once). The app turns airplane mode on with the commit and then
+waits for the modem to report the radio off, and leaves turning it off
+to the user, as at step 4, the leak watch included.
 
 | Setting | Value seen | Meaning | Status |
 | --- | --- | --- | --- |
-| `glconfig.general.airplane_mode` | `'0'` off, `'1'` on | GL's airplane mode. Writing it turns airplane mode on and off, though after `'0'` the router goes online more slowly than with GL's call above. Only `cellular_manager` and `gl_screen` read it | verified; after a boot with `'1'` the modem answers `+CFUN: 4` |
+| `glconfig.general.airplane_mode` | `'0'` off, `'1'` on | GL's airplane mode. Writing it turns airplane mode on and off, though after `'0'` the router went online more slowly than after airplane mode off on GL's screen (above). Only `cellular_manager` and `gl_screen` read it | verified; after a boot with `'1'` the modem answers `+CFUN: 4` |
 | `lpm.global.auto_shutdown_time` | `'30'`, set by us | Delay in seconds before GL's auto power-off. It fires only on battery with no cable or Wi-Fi client connected, and shutdown starts more than 20 s after the set delay, counted from when the display goes dark | verified |
 | `gl_timer.reboot.enable` | `'0'` | GL's scheduled reboot, off | verified |
 | `network.modem_cpu.dds_id` | `'1'` or `'2'` | The active SIM slot. GL rewrites it at every slot change, so it only reports the slot: writing it, even with a commit, switches nothing | verified |

@@ -1096,6 +1096,7 @@ class Controller(private val context: Context) {
             Progress.WIREGUARD_UNCLEAR -> R.string.progress_wireguard_unclear
             Progress.HANDSHAKE -> R.string.progress_handshake
             Progress.CLOCK_SYNCED -> R.string.progress_clock_synced
+            Progress.TURN_AIRPLANE_MODE_OFF -> R.string.progress_turn_airplane_mode_off
         },
         *args,
     )
@@ -1122,6 +1123,7 @@ class Controller(private val context: Context) {
             Problem.CARD_IN_TRAY -> R.string.problem_card_in_tray
             Problem.NOT_READY -> R.string.problem_not_ready
             Problem.LEAK -> R.string.problem_leak
+            Problem.AIRPLANE_MODE_LEFT_ON -> R.string.problem_airplane_mode_left_on
         },
     )
 

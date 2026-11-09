@@ -46,6 +46,9 @@ class LeakWatchTest {
     /** Runs where the leak watch runs the router checks, and returns the lines of those that failed. */
     private var checks = { emptyList<String>() }
 
+    /** What the user does when the test asks to turn airplane mode off on the router's screen: just that, at once. */
+    private var screen = { fake.turnAirplaneModeOffOnScreen() }
+
     private val leakWatch = leakWatch()
 
     private fun leakWatch(): LeakWatch {
@@ -55,6 +58,7 @@ class LeakWatchTest {
             report = {
                 progress += it
                 claims += made.testing
+                if (it == Progress.TURN_AIRPLANE_MODE_OFF) screen()
             },
             measured = { line, values ->
                 progress += line
@@ -94,7 +98,7 @@ class LeakWatchTest {
         val e = assertStops(problem, watch)
         assertTrue(fake.airplaneMode)
         assertFalse(fake.commands.any { it.startsWith("uci set 'glconfig.general.airplane_mode=0'") })
-        assertFalse(fake.commands.any { "set_airplane_mode" in it })
+        assertFalse(Progress.TURN_AIRPLANE_MODE_OFF in progress)
         assertFalse("nft -f -" in fake.commands)
         assertNull(fake.leakCounters)
         assertEquals(emptyList<String>(), fake.changes)
@@ -121,13 +125,19 @@ class LeakWatchTest {
 
     @Test
     fun leakWatchGoesOnlineAndCountsWhatLeavesOverTheSimUntilAMinuteAfterTheHandshake() {
+        // The commands that came before the user turned airplane mode off.
+        var off = -1
+        screen = {
+            off = fake.commands.size
+            fake.turnAirplaneModeOffOnScreen()
+        }
         run()
         assertEquals(
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
                 Progress.CARD_READY, Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.SIM_ONLY,
-                Progress.GOING_ONLINE, Progress.HANDSHAKE, Progress.CLOCK_SYNCED, Progress.SIM_PACKETS,
-                Progress.WIREGUARD_MATCHED, Progress.LEAK_WATCH_PASSED,
+                Progress.TURN_AIRPLANE_MODE_OFF, Progress.GOING_ONLINE, Progress.HANDSHAKE, Progress.CLOCK_SYNCED,
+                Progress.SIM_PACKETS, Progress.WIREGUARD_MATCHED, Progress.LEAK_WATCH_PASSED,
             ),
             progress,
         )
@@ -137,10 +147,10 @@ class LeakWatchTest {
         // Once in airplane mode, then every 2 s until a minute after the read that saw the handshake.
         assertEquals(33, fake.commands.count(::readsTraffic))
         assertEquals(33, fake.commands.count(::readsTunnelClock))
-        // With GL's call, as the user does on the router's screen at step 4, and not with the setting's commit alone.
-        val off = fake.commands.indexOf(FakeRouter.LOCK + FakeRouter.GL_AIRPLANE_MODE_OFF)
-        assertTrue(fake.commands.indexOfFirst(::readsTraffic) in fake.commands.indexOf("nft -f -")..off)
-        assertFalse("uci set 'glconfig.general.airplane_mode=0' && uci commit 'glconfig'" in fake.commands)
+        // The first read with the counters in place and before the user turned airplane mode off, as at step 4: the
+        // test doesn't turn it off itself.
+        assertTrue(fake.commands.indexOfFirst(::readsTraffic) in fake.commands.indexOf("nft -f -") until off)
+        assertFalse(fake.commands.any { it.startsWith("uci set 'glconfig.general.airplane_mode=0'") })
         // As step 4 leaves the router.
         assertFalse(fake.airplaneMode)
         assertNull(fake.leakCounters)
@@ -298,36 +308,24 @@ class LeakWatchTest {
     }
 
     @Test
-    fun aSettingThatGlWritesAfterItsAnswerStillLetsTheWatchGoOn() {
-        // As if GL's call wrote the setting only 4 s after its answer, while the router went online at once.
-        val call = FakeRouter.LOCK + FakeRouter.GL_AIRPLANE_MODE_OFF
-        var calledAt: Long? = null
-        after = { command ->
-            if (command == call) {
-                calledAt = fake.clock
-                fake.uciAnswers[Router.AIRPLANE_MODE] = "1"
-            }
-            calledAt?.let { if (fake.clock - it >= 4_000) fake.uciAnswers.remove(Router.AIRPLANE_MODE) }
-        }
+    fun aUserWhoTurnsAirplaneModeOffLaterKeepsTheTestWaiting() {
+        // The user turns airplane mode off 100 s after the test asked.
+        var asked: Long? = null
+        screen = { asked = fake.clock }
+        after = { asked?.let { if (fake.clock - it >= 100_000 && fake.airplaneMode) fake.turnAirplaneModeOffOnScreen() } }
         run()
         assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
-        // The setting read until it showed 0, 6 s after the call, and the first read of the SIM's traffic 2 s later,
-        // which saw the handshake: seconds after the call, not after the setting.
-        val from = fake.commands.indexOf(call)
-        val read = fake.commands.subList(from, fake.commands.size).indexOfFirst(::readsTraffic)
-        val between = fake.commands.subList(from + 1, from + read)
-        assertEquals(List(4) { "uci -q get 'glconfig.general.airplane_mode'" }, between)
-        assertEquals(8L, numbers.first())
+        // The handshake 3 s after airplane mode went off, but counted from the read of the setting that saw it off,
+        // 2 s later, and seen at the next read of the SIM's traffic.
+        assertEquals(2L, numbers.first())
     }
 
     @Test
-    fun aSettingNotOffAfterGlsCallStopsTheWatch() {
-        // A call that left the setting as it was, and airplane mode on.
-        fake.answers[FakeRouter.GL_AIRPLANE_MODE_OFF] = ""
-        assertEquals(
-            "glconfig.general.airplane_mode: not 0 within 30 s of set_airplane_mode",
-            assertStoppedWatching(Problem.UNEXPECTED_ANSWER),
-        )
+    fun noAirplaneModeOffWithin5MinutesStopsTheWatch() {
+        var asked: Long? = null
+        screen = { asked = fake.clock }
+        assertNull(assertStoppedWatching(Problem.AIRPLANE_MODE_LEFT_ON))
+        assertTrue(fake.clock - asked!! in 300_000L..302_000L)
         assertFalse(Progress.GOING_ONLINE in progress)
     }
 

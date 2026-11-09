@@ -84,25 +84,25 @@ class LeakWatch(
     private fun notReady(what: String): Nothing = throw RouterException(Problem.NOT_READY, what)
 
     /**
-     * Turns airplane mode off with GL's own call, as the user does on the router's screen at step 4, and reads the
-     * SIM's traffic every 2 s until a minute after WireGuard's new handshake, however long the connection takes, and
-     * until the clock has synced. A packet that left over the SIM without passing Churn's rules stops the test, and so
-     * do bytes that got past them beyond those that WireGuard sent, or fewer, as WireGuard's packets then didn't all
-     * get past the rules over the SIM. The handshake, and chrony's update of the clock from one of its servers, which
-     * with Churn's rules it can reach only through the tunnel, have to come within 5 min of airplane mode going off.
+     * Asks the user to turn airplane mode off on the router's screen, as at step 4, and reads the SIM's traffic every
+     * 2 s until a minute after WireGuard's new handshake, however long the connection takes, and until the clock has
+     * synced. A packet that left over the SIM without passing Churn's rules stops the test, and so do bytes that got
+     * past them beyond those that WireGuard sent, or fewer, as WireGuard's packets then didn't all get past the rules
+     * over the SIM. The handshake, and chrony's update of the clock from one of its servers, which with Churn's rules
+     * it can reach only through the tunnel, have to come within 5 min of airplane mode going off.
      */
     private fun watch() {
         // In airplane mode, so that nothing leaves while it is read.
         val start = router.simTraffic()
         val offline = router.tunnelClock()
-        // After a commit of the setting alone, nothing left over the SIM for a minute on our router.
-        router.turnAirplaneModeOffAsGl()
-        val from = now()
-        // GL's call writes the setting too (U10), though perhaps only after its answer (untested).
-        if (!poll(SETTING_TIMEOUT_SECONDS) { router.setting(Router.AIRPLANE_MODE) == "0" }) {
-            val what = "${Router.AIRPLANE_MODE}: not 0 within $SETTING_TIMEOUT_SECONDS s of set_airplane_mode"
-            throw RouterException(Problem.UNEXPECTED_ANSWER, what)
+        // On our router, nothing left over the SIM for a minute after a commit of the setting alone, and GL's own call
+        // from the shell changed nothing, while airplane mode off on the screen writes the setting at once (U10).
+        report(Progress.TURN_AIRPLANE_MODE_OFF)
+        if (!poll(SCREEN_SECONDS) { router.setting(Router.AIRPLANE_MODE) == "0" }) {
+            throw RouterException(Problem.AIRPLANE_MODE_LEFT_ON)
         }
+        // Up to 2 s after airplane mode went off, as the test reads the setting every 2 s.
+        val from = now()
         report(Progress.GOING_ONLINE)
         var traffic = start
         val wireguard = WireguardCount(start)
@@ -226,8 +226,8 @@ class LeakWatch(
         /** How often it reads the SIM's traffic meanwhile. */
         private const val READ_MILLIS = 2_000L
 
-        /** How long after GL's call the setting may take to show airplane mode off. */
-        private const val SETTING_TIMEOUT_SECONDS = 30
+        /** How long the test waits for the user to turn airplane mode off on the router's screen. */
+        private const val SCREEN_SECONDS = 300
 
         /** How long after airplane mode goes off WireGuard's new handshake and the clock's update may come. */
         private const val LIMIT_SECONDS = 300

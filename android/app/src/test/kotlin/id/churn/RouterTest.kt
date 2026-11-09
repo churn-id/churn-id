@@ -54,23 +54,6 @@ class RouterTest {
     }
 
     @Test
-    fun turnsAirplaneModeOffWithGlsCall() {
-        fake.airplaneMode = true
-        router.turnAirplaneModeOffAsGl()
-        assertFalse(router.airplaneMode())
-        // Under Churn's lock, as every modem operation.
-        assertTrue(FakeRouter.LOCK + FakeRouter.GL_AIRPLANE_MODE_OFF in fake.commands)
-        // A call that failed.
-        fake.failing += FakeRouter.GL_AIRPLANE_MODE_OFF
-        try {
-            router.turnAirplaneModeOffAsGl()
-            throw AssertionError("A failed call was accepted")
-        } catch (e: RouterException) {
-            assertEquals(Problem.UNEXPECTED_ANSWER, e.problem)
-        }
-    }
-
-    @Test
     fun refusesAnEmptyBootId() {
         fake.bootId = ""
         try {
