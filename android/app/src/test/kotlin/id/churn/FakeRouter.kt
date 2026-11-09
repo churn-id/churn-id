@@ -246,6 +246,12 @@ class FakeRouter : Shell {
     var restoreKeepsFillFiles = false
 
     /**
+     * For a restore.sh that leaves GL's connection check off for the SIM, against F15. Only the removal test's tests
+     * use it.
+     */
+    var restoreKeepsConnectionCheckOff = false
+
+    /**
      * For zero files that something holds open as restore.sh deletes them, so that their space doesn't come free,
      * against F10. Only a broken firmware gets here, and only the removal test's tests use it.
      */
@@ -1267,9 +1273,11 @@ class FakeRouter : Shell {
             zeroFilesKb = 0
         }
         if (!restoreKeepsFillFiles) fillFilesKb = 0
-        files.remove("/etc/churn/kmwan")?.let {
-            freed(it)
-            kmwanSimDisabled = it.toString(Charsets.UTF_8).trim().ifEmpty { null }
+        if (!restoreKeepsConnectionCheckOff) {
+            files.remove("/etc/churn/kmwan")?.let {
+                freed(it)
+                kmwanSimDisabled = it.toString(Charsets.UTF_8).trim().ifEmpty { null }
+            }
         }
         if (!restoreKeepsFirewallFile) freed(files.remove(Router.FIREWALL))
         if (!restoreKeepsChains) loadedChains.clear()

@@ -133,10 +133,11 @@ class RemovalTestTest {
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.NO_PROFILE,
                 Progress.SIM1_EMPTY, Progress.RESTORED, Progress.FACTORY_IMEIS, Progress.FOLDER_GONE,
-                Progress.LOG_SETTING_BACK, Progress.LOG_WRITTEN, Progress.ZERO_FILES_GONE, Progress.FIREWALL_GONE,
-                Progress.SET_UP_AGAIN, Progress.CLEARING_HISTORY, Progress.CONNECTION_KEPT, Progress.RESERVE_BACK,
-                Progress.CARD_FILES_PARSE, Progress.ZEROS_KEEP_SPACE, Progress.READING_PARTITION, Progress.IMSIS_GONE,
-                Progress.ICCIDS_GONE, Progress.CLEARING_HISTORY, Progress.FREE_SPACE_FILLED, Progress.CLEARED_QUICKLY,
+                Progress.LOG_SETTING_BACK, Progress.LOG_WRITTEN, Progress.ZERO_FILES_GONE,
+                Progress.CONNECTION_CHECK_BACK, Progress.FIREWALL_GONE, Progress.SET_UP_AGAIN,
+                Progress.CLEARING_HISTORY, Progress.CONNECTION_KEPT, Progress.RESERVE_BACK, Progress.CARD_FILES_PARSE,
+                Progress.ZEROS_KEEP_SPACE, Progress.READING_PARTITION, Progress.IMSIS_GONE, Progress.ICCIDS_GONE,
+                Progress.CLEARING_HISTORY, Progress.FREE_SPACE_FILLED, Progress.CLEARED_QUICKLY,
                 Progress.REMOVAL_PASSED,
             ),
             progress,
@@ -278,6 +279,31 @@ class RemovalTestTest {
     fun removalTestStopsWhenTheZeroFilesKeepTheirSpace() {
         fake.zeroFilesHeldOpen = true
         assertStopsAfterRestoreSh("F10")
+    }
+
+    @Test
+    fun removalTestStopsWhenRestoreShLeavesGlsConnectionCheckOff() {
+        fake.restoreKeepsConnectionCheckOff = true
+        assertStopsAfterRestoreSh("F15")
+    }
+
+    @Test
+    fun removalTestExpectsNoConnectionCheckSettingWhereGlHadNone() {
+        // As if GL had no setting for it before Churn's step 3, whose copy is then an empty line.
+        val router = Router(fake)
+        fake.files.remove("/etc/churn/kmwan")
+        fake.kmwanSimDisabled = null
+        fake.airplaneMode = true
+        router.turnSimConnectionCheckOff()
+        fake.airplaneMode = false
+        assertEquals("", router.kmwanCopy())
+        val reads = mutableListOf<String?>()
+        shell.after = { if (it == "sh /etc/churn/restore.sh") reads += fake.kmwanSimDisabled }
+        run()
+        assertEquals(listOf<String?>(null), reads)
+        assertEquals(Progress.REMOVAL_PASSED, progress.last())
+        assertEquals("1", fake.kmwanSimDisabled)
+        assertEquals("", router.kmwanCopy())
     }
 
     @Test
@@ -554,7 +580,9 @@ class RemovalTestTest {
     fun removalTestConfirmsTier2ClaimsOfTestingMd() {
         run()
         assertEquals(
-            setOf("F7", "F8", "F9", "F10", "F11", "F12", "H3", "H10", "H11", "H13", "H14", "H15", "H16", "H17"),
+            setOf(
+                "F7", "F8", "F9", "F10", "F11", "F12", "F15", "H3", "H10", "H11", "H13", "H14", "H15", "H16", "H17",
+            ),
             claims,
         )
         for (id in claims) {

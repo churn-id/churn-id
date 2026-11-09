@@ -158,6 +158,8 @@ router with no SIM and no profile enabled on the built-in eSIM:
    - GL's `log_file` setting as Churn's copy had it (F9), with a `logread`
      writing that file again (H3);
    - the zero files and their link gone, and their space free (F10);
+   - GL's `kmwan.modem_cpu.disabled` setting as Churn's copy had it
+     (F15);
    - and Churn's firewall rules, their chains and their line in
      `/etc/sysupgrade.conf` gone (F11).
 5. It reads the ICCIDs and IMSIs that GL's card files, the eSIM manager's
@@ -547,6 +549,7 @@ From development.md, "Files on the router", and design.md, section 5.
 | F11 | `restore.sh` then removes Churn's firewall rules and their line in `/etc/sysupgrade.conf` | inferred | Run it, then check that the chains, the file and the line are gone (tier 2) | 2 |
 | F12 | `restore.sh` last deletes `/etc/churn/` and its line in `/etc/sysupgrade.conf`, and still runs to its end | running to its end verified with BusyBox 1.36.1 on a PC, the rest inferred | Run it, then check that the folder and the line are gone and that it printed its last message, and write the folder back (tier 2) | 2 |
 | F13 | A factory reset deletes `/etc/churn/`, Churn's firewall rules and its zero files | inferred | Factory reset. It also resets GL's settings, so it is the last test to run | 4 |
+| F15 | `restore.sh` then sets GL's `kmwan.modem_cpu.disabled` back from Churn's copy, or deletes it for an empty copy, and deletes the copy | inferred | Run it, then compare the setting with the copy read before; the copy goes with the folder (tier 2) | 2 |
 
 ## Swaps
 

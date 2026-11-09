@@ -38,6 +38,8 @@ class RemovalTest(
         )
         // GL's setting for its log's file as restore.sh leaves it: Churn's copy, or without one, as it is.
         val logFile = router.logFileCopy() ?: router.setting(Router.LOG_FILE)
+        // The same for its connection check over the SIM, where an empty copy stands for no setting.
+        val kmwan = router.kmwanCopy().let { if (it != null) it.ifEmpty { null } else router.setting(Router.KMWAN_SIM) }
         val zeros = router.zeroFiles()
         val free = router.overlayFreeKb()
         save(start)
@@ -93,6 +95,12 @@ class RemovalTest(
                     throw RouterException(Problem.UNEXPECTED_ANSWER, "The zero files' space isn't free again")
                 }
                 report(Progress.ZERO_FILES_GONE)
+            }
+            part("F15") {
+                if (router.setting(Router.KMWAN_SIM) != kmwan) {
+                    throw RouterException(Problem.UNEXPECTED_ANSWER, "${Router.KMWAN_SIM} isn't as before Churn")
+                }
+                report(Progress.CONNECTION_CHECK_BACK)
             }
             part("F11") {
                 val left = listOfNotNull(

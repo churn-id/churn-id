@@ -1108,6 +1108,7 @@ class Controller(private val context: Context) {
             Progress.TURN_AIRPLANE_MODE_OFF -> R.string.progress_turn_airplane_mode_off
             Progress.CONNECTION_CHECK_OFF -> R.string.progress_connection_check_off
             Progress.CONNECTION_CHECK_RESTARTED -> R.string.progress_connection_check_restarted
+            Progress.CONNECTION_CHECK_BACK -> R.string.progress_connection_check_back
         },
         *args,
     )
