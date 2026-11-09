@@ -94,6 +94,8 @@ class RouterStatus(
     val vpnSetUp: Boolean,
     val enhancedKillSwitch: Boolean,
     val firewall: Boolean,
+    /** Whether GL's connection check is off for the SIM, as Churn's firewall rules need it. */
+    val connectionCheckOff: Boolean,
     val flashLogOff: Boolean,
 )
 
@@ -292,6 +294,11 @@ class Controller(private val context: Context) {
 
     fun installFirewall() = job(R.string.installing_firewall) {
         router().installFirewall()
+        showRouter()
+    }
+
+    fun turnConnectionCheckOff() = job(R.string.turning_connection_check_off) {
+        router().turnSimConnectionCheckOff()
         showRouter()
     }
 
@@ -972,6 +979,8 @@ class Controller(private val context: Context) {
             enhancedKillSwitch = router.enhancedKillSwitch(),
             // A router whose firewall the app can't read shows the warning, and adding the rules says why.
             firewall = runCatching { router.firewallInPlace() }.getOrDefault(false),
+            // The same for GL's connection check.
+            connectionCheckOff = runCatching { router.simConnectionCheckOff() }.getOrDefault(false),
             flashLogOff = router.flashLogOff(),
         )
         return Screen.Home(status, notes, saved.placeCards.all)
@@ -1097,6 +1106,8 @@ class Controller(private val context: Context) {
             Progress.HANDSHAKE -> R.string.progress_handshake
             Progress.CLOCK_SYNCED -> R.string.progress_clock_synced
             Progress.TURN_AIRPLANE_MODE_OFF -> R.string.progress_turn_airplane_mode_off
+            Progress.CONNECTION_CHECK_OFF -> R.string.progress_connection_check_off
+            Progress.CONNECTION_CHECK_RESTARTED -> R.string.progress_connection_check_restarted
         },
         *args,
     )
@@ -1124,6 +1135,7 @@ class Controller(private val context: Context) {
             Problem.NOT_READY -> R.string.problem_not_ready
             Problem.LEAK -> R.string.problem_leak
             Problem.AIRPLANE_MODE_LEFT_ON -> R.string.problem_airplane_mode_left_on
+            Problem.CONNECTION_CHECK_ON -> R.string.problem_connection_check_on
         },
     )
 

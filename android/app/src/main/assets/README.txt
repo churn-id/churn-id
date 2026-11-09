@@ -7,17 +7,21 @@ IMEIs with every SIM swap: https://github.com/churn-id/churn-id
   factory     IMEI 1 and IMEI 2 as they were when Churn was set up
   card        the ICCID of the card in SIM 2, and the random IMEIs Churn
               gave that card
+  kmwan       GL's kmwan.modem_cpu.disabled before Churn turned GL's
+              connection check off for the SIM; an empty line for none
   log_file    the file GL's system log went to before Churn turned that off
   restore.sh  writes the factory IMEIs back, deletes card, puts GL's log
-              setting back, deletes Churn's zero files, removes Churn's
-              firewall rules and, last, deletes this folder
+              setting back, deletes Churn's zero files, puts GL's
+              connection check setting back, removes Churn's firewall rules
+              and, last, deletes this folder
   zeros       a link to /overlay/churn-zeros, where Churn keeps its zero
               files (below)
 
 Churn's firewall rules are in /etc/nftables.d/churn.nft. Over the SIM they
 let out only the VPN's own packets, and they send the router's own traffic
 through the VPN. They don't cover internet connections over Wi-Fi or the
-Ethernet port.
+Ethernet port. GL's connection check, the kernel module kmwan, pings past
+them, so Churn turns it off for the SIM with kmwan.modem_cpu.disabled.
 
 GL's system log records every SIM card's ICCID and IMSI and the cells it
 used. Churn turns off GL's copy of it in /etc/sys_log, so the log stays in

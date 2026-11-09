@@ -30,7 +30,7 @@ class LeakWatch(
         try {
             router.addLeakCounters()
             checkRadioOff()
-            part("D9", "D11", "D16") { watch() }
+            part("D9", "D11", "D16", "D21") { watch() }
             router.removeLeakCounters()
         } catch (e: Exception) {
             // Whatever left over the SIM, nothing more does.

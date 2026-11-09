@@ -98,10 +98,10 @@ class DryRunTest {
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM, Progress.NO_PROFILE,
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
-                Progress.NETWORK_RELOADED, Progress.FIREWALL_RELOADED, Progress.SLOT1_ACTIVE, Progress.SLOT2_ON_SIM2,
-                Progress.SLOT2_ACTIVE, Progress.TRAY_EMPTY, Progress.ESIM_SILENT, Progress.TEST_IMEIS,
-                Progress.EARLIER_IMEIS, Progress.ANSWERS_MATCHED, Progress.SLOT2_ON_ESIM, Progress.PUT_BACK,
-                Progress.DRY_RUN_PASSED,
+                Progress.NETWORK_RELOADED, Progress.FIREWALL_RELOADED, Progress.CONNECTION_CHECK_RESTARTED,
+                Progress.SLOT1_ACTIVE, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE, Progress.TRAY_EMPTY,
+                Progress.ESIM_SILENT, Progress.TEST_IMEIS, Progress.EARLIER_IMEIS, Progress.ANSWERS_MATCHED,
+                Progress.SLOT2_ON_ESIM, Progress.PUT_BACK, Progress.DRY_RUN_PASSED,
             ),
             progress,
         )
@@ -113,6 +113,7 @@ class DryRunTest {
         // As a swap leaves them.
         assertTrue(fake.airplaneMode)
         assertTrue(Router(fake).firewallInPlace())
+        assertTrue(Router(fake).simConnectionCheckOff())
         assertSafe()
     }
 
@@ -133,7 +134,7 @@ class DryRunTest {
     @Test
     fun dryRunConfirmsTier2ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("S2", "S3", "K8", "D19", "U6", "E4", "M6", "P5"), claims)
+        assertEquals(setOf("S2", "S3", "K8", "D19", "D23", "U6", "E4", "M6", "P5"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 2 claim in testing.md", "2" in tiers)
@@ -295,14 +296,30 @@ class DryRunTest {
     }
 
     @Test
-    fun dryRunReloadsTheNetworkAndTheFirewallThoughBothAreInPlace() {
+    fun dryRunReloadsTheNetworkAndTheFirewallAndRestartsKmwanThoughAllAreInPlace() {
         fake.airplaneMode = true
         Router(fake).installFirewall()
+        Router(fake).turnSimConnectionCheckOff()
         fake.commands.clear()
         run()
         assertTrue(fake.commands.any { it.endsWith("/etc/init.d/network reload") })
         assertTrue("fw4 reload" in fake.commands)
+        assertTrue("/etc/init.d/kmwan restart" in fake.commands)
         assertEquals(Progress.DRY_RUN_PASSED, progress.last())
+    }
+
+    @Test
+    fun aKmwanRestartThatTurnsTheRadioOnStopsTheDryRun() {
+        fake.airplaneMode = true
+        Router(fake).installFirewall()
+        Router(fake).turnSimConnectionCheckOff()
+        val before = state()
+        // Only kmwan's restart turns the radio on.
+        shell.after = { if (it == "/etc/init.d/kmwan restart") fake.radioStuckOn = true }
+        assertStops(Problem.RADIO_ON) { run() }
+        assertEquals(listOf("K8", "D19", "D23"), dryRun.testing)
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertEquals(listOf<DryRunStart?>(before), saves)
     }
 
     @Test
@@ -314,7 +331,7 @@ class DryRunTest {
             throw AssertionError("The dry run didn't stop")
         } catch (_: IOException) {
         }
-        assertEquals(listOf("K8", "D19"), dryRun.testing)
+        assertEquals(listOf("K8", "D19", "D23"), dryRun.testing)
         assertEquals(listOf<DryRunStart?>(before), saves)
     }
 
@@ -323,7 +340,7 @@ class DryRunTest {
         fake.radioOnAtReload = true
         val before = state()
         assertStops(Problem.RADIO_ON) { run() }
-        assertEquals(listOf("K8", "D19"), dryRun.testing)
+        assertEquals(listOf("K8", "D19", "D23"), dryRun.testing)
         // Nothing changed since the radio came on, at the network's reload.
         assertEquals("Enhanced Kill Switch", fake.changes.last().substringBefore(" at "))
         assertEquals(Slot2.ESIM, fake.slot2)

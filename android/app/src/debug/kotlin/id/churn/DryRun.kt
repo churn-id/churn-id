@@ -28,8 +28,8 @@ class DryRun(
         save(start)
         try {
             part("S2", "S3") { prepare(disableProfile = false) }
-            // Whether either reload drops the cable or turns the radio on is open in development.md.
-            part("K8", "D19") { startNewImeis(reload = true) }
+            // Whether any of the reloads drops the cable or turns the radio on is open in development.md.
+            part("K8", "D19", "D23") { startNewImeis(reload = true) }
             // So that step 3 makes slot 2 the active slot again, as on a router new to Churn.
             part("U6", "S3") {
                 if (activeSlot() != 1) activate(slot = 1, Slot2.ESIM)

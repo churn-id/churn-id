@@ -304,6 +304,30 @@ class FakeRouter : Shell {
     /** The network device GL's cellular interface uses while it is up. */
     var simDevice = "rmnet_data0"
 
+    /**
+     * GL's `kmwan.modem_cpu.disabled`, which turns its connection check off for the SIM with `1`: `0` on our Mudi 7
+     * before Churn, or null for none.
+     */
+    var kmwanSimDisabled: String? = "0"
+
+    /** For a GL without the connection check's member for the SIM in its settings, `kmwan.modem_cpu`. */
+    var kmwanSimMissing = false
+
+    /**
+     * Whether GL's kmwan module holds its member for the SIM, and so pings the member's tracks over the SIM while it is
+     * online, past netfilter's postrouting hook (verified). The module takes the member up when the SIM's interface
+     * comes up with the member enabled, and keeps it until kmwan restarts or the router powers off (inferred: the
+     * worst case for Churn).
+     */
+    var kmwanHoldsSim = false
+
+    /** For a restart of kmwan that leaves the module's members as they are. */
+    var kmwanRestartIgnored = false
+
+    /** When the module began pinging over the SIM, by [clock], while it does, and the pings counted since. */
+    private var kmwanPingingSince: Long? = null
+    private var kmwanPings = 0L
+
     /** The bridge the USB-C port's network device `ecm0` is in, or null for none. */
     var usbBridge: String? = "br-lan"
     var poweredOff = false
@@ -399,8 +423,11 @@ class FakeRouter : Shell {
     /** How long after the router goes online WireGuard sends its first message, the handshake. */
     var handshakeMillis = 3_000L
 
-    /** The router's own packets that Churn's rules drop as it goes online, such as GL's connection check's pings. */
-    var droppedGoingOnline = 8L
+    /**
+     * The router's own packets that Churn's rules drop as it goes online, of a kind we haven't seen: 4 in each leak
+     * watch on our router. GL's connection check's pings aren't among them: they leave past the rules.
+     */
+    var droppedGoingOnline = 4L
 
     /**
      * For packets that leave over the SIM past the firewall as the router goes online, against D11 in testing.md. Only
@@ -583,6 +610,9 @@ class FakeRouter : Shell {
         killSwitchInUse = killSwitchSet && !bootDropsKillSwitchRules
         loadedChains.clear()
         if (!bootSkipsChurnRules) loadChurnChains()
+        // kmwan takes up no member at boot (/etc/init.d/kmwan), only once an interface comes up.
+        kmwanHoldsSim = false
+        kmwanPingingSince = null
         // A power-off deletes the leak watch's table, and the SIM's interfaces count anew.
         leakCounters = null
         onlineAt = null
@@ -715,6 +745,17 @@ class FakeRouter : Shell {
             return ok("")
         }
         if (command == "fw4 reload") return fw4Reload()
+        if (command == "uci set 'kmwan.modem_cpu.disabled=1' && uci commit 'kmwan'") {
+            if (kmwanSimMissing) return Output(1, ByteArray(0), "uci: Invalid argument\n")
+            kmwanSimDisabled = "1"
+            return ok("")
+        }
+        if (command == "/etc/init.d/kmwan restart") return restartKmwan()
+        if (command == "if [ -e /proc/gl-kmwan/config ]; then cat /proc/gl-kmwan/config; fi") {
+            // In the format that GL's scripts' parse implies (inferred): the interface, then `:`.
+            val wan = "wan: eth0\n".takeIf { wiredUplink }
+            return ok("${"modem_cpu: $simDevice\n".takeIf { kmwanHoldsSim } ?: ""}${wan ?: ""}")
+        }
         if (command == "sh /etc/churn/restore.sh") return restore()
         if (command == "rm -f ${Router.FIREWALL} && fw4 reload") {
             freed(files.remove(Router.FIREWALL))
@@ -875,9 +916,49 @@ class FakeRouter : Shell {
             }
         }
         if (online && since == null) goOnline()
-        if (!online) onlineAt = null
+        if (!online) {
+            onlineAt = null
+            kmwanPingingSince = null
+        }
+        kmwanPing()
         trafficAt = clock
     }
+
+    /**
+     * Counts the pings that kmwan's module sent over the SIM since they were last counted: the four of its tracks
+     * together once a second, the first at once, none of them through netfilter's postrouting hook (verified).
+     */
+    private fun kmwanPing() {
+        val since = kmwanPingingSince ?: return
+        val due = 4 * (1 + (clock - since) / 1000)
+        send(due - kmwanPings)
+        kmwanPings = due
+    }
+
+    /** Starts kmwan's pings over the SIM, which is online. */
+    private fun startKmwanPings() {
+        kmwanPingingSince = clock
+        kmwanPings = 0
+    }
+
+    /**
+     * Restarts kmwan as its init script does: the module drops every member and takes up those enabled whose
+     * interface is up. The restart also reloads the network, and its script calls `gen_weight_route`, which
+     * kmwan.sh doesn't define, so it may fail even when it worked (inferred).
+     */
+    private fun restartKmwan(): Output {
+        change("connection check")
+        if (radioOnAtReload) radioStuckOn = true
+        if (!kmwanRestartIgnored) {
+            kmwanHoldsSim = onlineAt != null && kmwanSimEnabled
+            kmwanPingingSince = null
+            if (kmwanHoldsSim) startKmwanPings()
+        }
+        return Output(127, ByteArray(0), "/etc/init.d/kmwan: line 66: gen_weight_route: not found\n")
+    }
+
+    /** Whether GL's settings have its connection check's member for the SIM enabled. */
+    private val kmwanSimEnabled get() = !kmwanSimMissing && kmwanSimDisabled != "1"
 
     /** How many messages WireGuard sends in the first [millis] after the router went online. */
     private fun wireguardMessages(millis: Long) =
@@ -901,9 +982,14 @@ class FakeRouter : Shell {
         send(if (fragmentsWireguard) 2 * messages else messages)
     }
 
-    /** Starts the router's time online: its own packets that Churn's rules drop, and any that leave past them. */
+    /**
+     * Starts the router's time online: kmwan's pings while its module holds the SIM, which it takes up now if its
+     * member for the SIM is enabled, the router's own packets that Churn's rules drop, and any that leave past them.
+     */
     private fun goOnline() {
         onlineAt = clock
+        if (kmwanSimEnabled) kmwanHoldsSim = true
+        if (kmwanHoldsSim) startKmwanPings()
         if (remakesInterface) {
             simIndexes[simDevice] = 99
             simSent[simDevice] = 0
@@ -1050,6 +1136,8 @@ class FakeRouter : Shell {
         "system.@system[0].log_file" -> logFile?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
         "network.modem_cpu.iccid" -> modemCpuIccid?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
         "kmwan.modem_cpu.tracks" -> ok("ping,1.1.1.1 ping,8.8.8.8 ping,208.67.222.222 ping,208.67.220.220\n")
+        "kmwan.modem_cpu.disabled" -> kmwanSimDisabled?.takeIf { !kmwanSimMissing }?.let { ok("$it\n") }
+            ?: Output(1, ByteArray(0), "")
         "route_policy.@default[0]" -> ok("default\n")
         "route_policy.@default[0].enabled" -> ok(if (killSwitchSet) "0\n" else "1\n")
         "network.vpn_to_main" -> if (killSwitchSet) Output(1, ByteArray(0), "") else ok("rule\n")
@@ -1143,7 +1231,8 @@ class FakeRouter : Shell {
     /**
      * restore.sh as [Router.restoreFactoryImeis] runs it, by its effects as the script in the app's assets has them:
      * airplane mode on, the factory IMEIs written and saved, Churn's record of the card deleted, GL's setting for the
-     * system log put back, the zero files deleted, Churn's firewall rules removed and, last, Churn's folder deleted.
+     * system log put back, the zero files deleted, GL's setting for its connection check over the SIM put back,
+     * Churn's firewall rules removed and, last, Churn's folder deleted.
      */
     private fun restore(): Output {
         // Only an app that runs restore.sh on a router it didn't set up gets here.
@@ -1178,6 +1267,10 @@ class FakeRouter : Shell {
             zeroFilesKb = 0
         }
         if (!restoreKeepsFillFiles) fillFilesKb = 0
+        files.remove("/etc/churn/kmwan")?.let {
+            freed(it)
+            kmwanSimDisabled = it.toString(Charsets.UTF_8).trim().ifEmpty { null }
+        }
         if (!restoreKeepsFirewallFile) freed(files.remove(Router.FIREWALL))
         if (!restoreKeepsChains) loadedChains.clear()
         if (!restoreKeepsFirewallLine) dropUpgradeLine(Router.FIREWALL)
@@ -1185,9 +1278,9 @@ class FakeRouter : Shell {
         if (!restoreKeepsFolder) files.keys.filter { it.startsWith("/etc/churn/") }.forEach { freed(files.remove(it)) }
         if (restoreEndsEarly) return ok("")
         return ok(
-            "The factory IMEIs are back: IMEI 1 ${factory[0]}, IMEI 2 ${factory[1]}. GL's setting for saving the " +
-                "system log is as before. Churn's zero files, firewall rules and folder are removed. " +
-                "Airplane mode is on.\n",
+            "The factory IMEIs are back: IMEI 1 ${factory[0]}, IMEI 2 ${factory[1]}. GL's settings for saving the " +
+                "system log and for its connection check are as before. Churn's zero files, firewall rules and " +
+                "folder are removed. Airplane mode is on.\n",
         )
     }
 

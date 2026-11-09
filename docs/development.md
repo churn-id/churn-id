@@ -127,6 +127,7 @@ to the user, as at step 4, the leak watch included.
 | `network.vpn_to_main` | absent with Enhanced Kill Switch on, present off | Routing rule that sends marked traffic (`mark='0x0/0xf000'`, `invert='1'`) to the main table, outside the VPN. `ip rule` lists it at priority 9000 only while the switch is off | values and `ip rule` verified, meaning inferred |
 | `network.wgclient1.config` | `'peer_2010'` | The tunnel's WireGuard peer, a section of `/etc/config/wireguard` | value verified, meaning inferred |
 | `wireguard.<peer>.masq` | `'1'` | The tunnel's IP Masquerading, on | value verified, meaning inferred from its name |
+| `kmwan.modem_cpu.disabled` | `'0'`; `'1'` set by Churn | Whether GL's connection check leaves out the SIM's interface `modem_cpu`. With `'0'`, it pings past Churn's firewall rules ("GL's connection check") | verified |
 
 The app needs the Enhanced Kill Switch on. To turn it on, it sets
 `route_policy.@default[0].enabled='0'`, deletes `network.vpn_to_main`,
@@ -205,7 +206,8 @@ The file, as `Router.firewallRules` writes it, has three chains:
 The rules match only the SIM's interfaces. Devices reach the router as
 before, however they connect, and an uplink over Ethernet or Wi-Fi works
 as without the rules, so the router's own traffic goes past the VPN there
-(inferred from the rules).
+(inferred from the rules). GL's connection check gets past the rules over
+the SIM too, so the app turns it off for the SIM (next section).
 
 What the rules rely on, all verified on our Mudi 7:
 
@@ -240,6 +242,61 @@ which empties every chain of the table but deletes none, so the chains of
 a file that is gone stay, empty, until the firewall or the router restarts
 (verified with OpenWrt's fw4 template and nftables 1.0.9 in a network
 namespace; GL's template on our Mudi 7 starts with the same flush).
+
+## GL's connection check
+
+GL checks whether an uplink reaches the internet with its multi-WAN
+manager, kmwan. Its settings, `/etc/config/kmwan`, have a section of type
+`member` for each uplink's interface. The SIM's is `kmwan.modem_cpu`, for
+`modem_cpu`, whose `tracks` are pings to 1.1.1.1, 8.8.8.8, 208.67.222.222
+and 208.67.220.220 (verified). kmwan is a kernel module: `lsmod` lists
+`kmwan`, and no process runs for it. `/etc/init.d/kmwan` and
+`/lib/functions/kmwan.sh` pass each member's settings to the module as
+JSON, through `/proc/gl-kmwan/config`, and send no pings over the SIM
+themselves (verified by reading them), so the module sends the pings
+(inferred).
+
+While the SIM is online, the module pings all four addresses together
+once a second from the SIM's address (verified with `tcpdump`). Churn's
+rules don't see the pings: in leak watches with GL's settings as they
+were, 4 to 8 packets left over the SIM in the first read after going
+online, before WireGuard had sent anything, and the counters before
+Churn's rules never saw them (verified). So the pings presumably leave
+without passing netfilter (inferred). Each ping carries an ICMP ID and
+sequence number, which didn't start over when the router went online
+(verified in a capture of 2026-10-14).
+
+`kmwan.modem_cpu.check='0'` doesn't stop them: neither script reads it,
+and the leak watch stopped with it as before (verified once).
+`disabled='1'` does. `kmwan.sh` skips a disabled member wherever it adds
+members to the module, and `/etc/init.d/kmwan restart` drops the module's
+members and adds the enabled ones whose interface is up (inferred from
+the scripts). After both, in airplane mode, `/proc/gl-kmwan/config` was
+empty, and a leak watch counted nothing over the SIM but WireGuard's
+packets through Churn's rules, with the tunnel and the clock's sync as
+before (verified once). So the SIM's route and the tunnel don't need
+kmwan. `kmwan.modem_cpu_6`, by its name the member for the SIM's IPv6,
+was disabled already on our Mudi 7.
+
+Step 3 turns the check off for the SIM after Churn's firewall rules, in
+airplane mode. If `/etc/churn/kmwan` isn't there yet, it first saves
+GL's value of `kmwan.modem_cpu.disabled` there, or an empty line for none.
+It then sets the value to `'1'`, commits it and restarts kmwan. The init
+script calls `gen_weight_route`, which `kmwan.sh` doesn't define, so the
+app ignores the restart's exit status. It counts the check as off only if
+the value is `'1'` and `/proc/gl-kmwan/config` names no member for a
+modem's interface, found as GL's scripts find them: the lines holding
+`modem`, up to the first `:`. The file was empty in airplane mode, so
+that format is inferred. Otherwise the step stops. The restart also runs
+`uci commit network` and reloads the network (from the scripts), so the
+step then checks that the radio is still off. The dry run restarts kmwan
+even with the check off, to see whether the restart drops the cable or
+turns the radio on (testing.md, D23).
+
+`restore.sh` sets `kmwan.modem_cpu.disabled` back from the copy, or
+deletes it for an empty line, and commits it. It doesn't restart kmwan:
+airplane mode keeps the SIM's interface down, and GL's scripts add the
+member again once the interface comes up (inferred).
 
 ## Switching SIM slots
 
@@ -590,7 +647,12 @@ untested, and the router checks look for it.
 - When during a shutdown the phone loses the router's network: whether
   only once the router is off, and how long after `poweroff`.
 - Whether `/etc/init.d/network reload` interrupts the cable connection or
-  turns the radio on, and whether `fw4 reload` does.
+  turns the radio on, and whether `fw4 reload` or
+  `/etc/init.d/kmwan restart` does.
+- Whether GL turns its connection check back on for the SIM by itself, as
+  at a slot switch, from its multi-WAN page or at a firmware upgrade, and
+  whether kmwan pings over the SIM again, without a restart, once
+  `restore.sh` has put GL's setting back.
 - Whether `logread` writes the log's file again once `restore.sh` has set
   `log_file` back and reloaded the log service.
 - Whether GL copes with card files that name no card, as they can after a
@@ -605,7 +667,8 @@ untested, and the router checks look for it.
 | `/etc/churn/factory` | 600 | Factory IMEI 1 and IMEI 2, one per line |
 | `/etc/churn/card` | 600 | The card step 3 last gave IMEIs: its ICCID's digits, IMEI 1 and IMEI 2, one per line. Written before the IMEIs |
 | `/etc/churn/log_file` | 600 | GL's `system.@system[0].log_file` as it was before the app first deleted it. Only there after the app has deleted it |
-| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, deletes `card`, sets `log_file` back from Churn's copy and deletes the copy, deletes `/overlay/churn-zeros`, the link to it and any fill files, then removes Churn's firewall rules and, last, deletes `/etc/churn/` itself |
+| `/etc/churn/kmwan` | 600 | GL's `kmwan.modem_cpu.disabled` as it was before step 3 first turned GL's connection check off for the SIM, or an empty line if it wasn't set. Only there after that |
+| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, deletes `card`, sets `log_file` back from Churn's copy and deletes the copy, deletes `/overlay/churn-zeros`, the link to it and any fill files, sets `kmwan.modem_cpu.disabled` back from Churn's copy and deletes the copy, then removes Churn's firewall rules and, last, deletes `/etc/churn/` itself |
 | `/etc/churn/zeros` | – | Link to `/overlay/churn-zeros`, made by the free-space overwrite |
 | `/etc/nftables.d/churn.nft` | 644 | Churn's firewall rules, from `Router.firewallRules` |
 | `/overlay/churn-zeros/` | – | Files of zeros from the free-space overwrite, up to 64 MB each and numbered, that take all but 512 MB of the free space. Beside the router's own files, so that upgrades and tools reading `/etc` skip them (design.md, section 5) |

@@ -122,8 +122,9 @@ class PowerCycleTestTest {
         assertEquals(
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
-                Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE,
-                Progress.TRAY_EMPTY, Progress.TEST_PAIR_SAVED, Progress.SHUTTING_DOWN, Progress.NETWORK_LOST,
+                Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.CONNECTION_CHECK_OFF, Progress.SLOT2_ON_SIM2,
+                Progress.SLOT2_ACTIVE, Progress.TRAY_EMPTY, Progress.TEST_PAIR_SAVED, Progress.SHUTTING_DOWN,
+                Progress.NETWORK_LOST,
             ),
             progress,
         )

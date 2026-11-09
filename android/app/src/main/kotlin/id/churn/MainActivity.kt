@@ -160,7 +160,7 @@ class MainActivity : Activity() {
             ).joinToString(" "),
         )
         screen.notes.forEach { warning(it) }
-        // Step 3 puts both in place before it records a card, so until the first swap they're missing as expected.
+        // Step 3 puts all three in place before it records a card, so until the first swap they're missing as expected.
         if (status.recorded != null) {
             if (!status.enhancedKillSwitch) {
                 warning(getString(R.string.note_kill_switch))
@@ -172,6 +172,12 @@ class MainActivity : Activity() {
                 warning(getString(R.string.note_firewall))
                 fixButton(R.string.firewall_on) {
                     confirm(getString(R.string.firewall_on_text)) { controller.installFirewall() }
+                }
+            }
+            if (!status.connectionCheckOff) {
+                warning(getString(R.string.note_connection_check))
+                fixButton(R.string.connection_check_off) {
+                    confirm(getString(R.string.connection_check_off_text)) { controller.turnConnectionCheckOff() }
                 }
             }
         }

@@ -43,6 +43,9 @@ class RemovalTestTest {
     /** The card that a swap gave a pair, recorded in Churn's folder. */
     private val card = Card("8941000000000000015", ImeiPair("356090211234563", "356090211235313"))
 
+    /** What the test keeps on the phone to set the router up again, as the swap left it. */
+    private val kept = RemovalStart(factory, card, card.imeis, firewall = true, connectionCheckOff = true)
+
     private val test = removalTest()
 
     init {
@@ -55,6 +58,7 @@ class RemovalTestTest {
         router.recordCard(card)
         router.writeImeis(card.imeis)
         router.installFirewall()
+        router.turnSimConnectionCheckOff()
         router.clearHistory(card.iccid)
         fake.airplaneMode = false
         fake.trayCard = null
@@ -101,7 +105,7 @@ class RemovalTestTest {
         return listOf(
             folder.factory, folder.card, ImeiPair(fake.imei1, fake.imei2), router.firewallInPlace(),
             router.upgradeKeeps(Router.FIREWALL), router.upgradeKeeps("/etc/churn/"), fake.logFile,
-            fake.cardsInSimMap, fake.cardsInApnHistory, fake.cardsInEsimRecords,
+            fake.kmwanSimDisabled, fake.cardsInSimMap, fake.cardsInApnHistory, fake.cardsInEsimRecords,
         )
     }
 
@@ -138,8 +142,10 @@ class RemovalTestTest {
             progress,
         )
         assertEquals(before, state())
+        // Churn's copy of GL's setting for its connection check too, which restore.sh deleted with the folder.
+        assertEquals("0\n", fake.files["/etc/churn/kmwan"]?.toString(Charsets.UTF_8))
         // Kept before restore.sh, and forgotten once the router is set up again.
-        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true), null), saves)
+        assertEquals(listOf(kept, null), saves)
         // The clearing made the zero files again, which restore.sh deleted.
         assertEquals("/overlay/churn-zeros", fake.zerosLink)
         assertTrue(fake.zeroFilesKb > 0)
@@ -158,10 +164,16 @@ class RemovalTestTest {
         fake.files.remove(Router.FIREWALL)
         fake.loadedChains.clear()
         fake.sysupgrade = fake.sysupgrade.lines().filter { it != Router.FIREWALL }.joinToString("\n")
+        // GL's connection check as GL had it too.
+        fake.files.remove("/etc/churn/kmwan")
+        fake.kmwanSimDisabled = "0"
         val before = state()
         run()
         assertEquals(before, state())
-        assertEquals(listOf(RemovalStart(factory, card = null, factory, firewall = false), null), saves)
+        assertEquals(
+            listOf(RemovalStart(factory, card = null, factory, firewall = false, connectionCheckOff = false), null),
+            saves,
+        )
         assertEquals(Progress.REMOVAL_PASSED, progress.last())
     }
 
@@ -204,7 +216,7 @@ class RemovalTestTest {
         assertStops(Problem.RADIO_ON) { run() }
         assertEquals(listOf("F7"), test.testing)
         // Left for Set the router up again.
-        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true)), saves)
+        assertEquals(listOf(kept), saves)
         assertSafe()
     }
 
@@ -316,7 +328,7 @@ class RemovalTestTest {
         assertStops(Problem.UNEXPECTED_ANSWER) { run() }
         assertEquals(ids.toList(), test.testing)
         assertEquals(before, state())
-        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true), null), saves)
+        assertEquals(listOf(kept, null), saves)
         assertEquals(Progress.SET_UP_AGAIN, progress.last())
         assertSafe()
     }
@@ -333,7 +345,7 @@ class RemovalTestTest {
         }
         assertEquals(listOf("H17"), test.testing)
         // Set up again before the clearing, so nothing is left to do.
-        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true), null), saves)
+        assertEquals(listOf(kept, null), saves)
         assertEquals(before, state())
         assertSafe()
     }
@@ -356,7 +368,7 @@ class RemovalTestTest {
         fake.overwriteCutsSimMap = true
         assertStops(Problem.UNEXPECTED_ANSWER) { run() }
         assertEquals(listOf("H14"), test.testing)
-        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true), null), saves)
+        assertEquals(listOf(kept, null), saves)
         assertSafe()
     }
 
@@ -421,7 +433,7 @@ class RemovalTestTest {
         }
         assertEquals(listOf("H10", "H11"), test.testing)
         // Left to Set the router up again.
-        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true)), saves)
+        assertEquals(listOf(kept), saves)
         assertSafe()
     }
 
@@ -513,7 +525,7 @@ class RemovalTestTest {
         } catch (_: IOException) {
         }
         assertEquals(listOf("H15", "H16"), test.testing)
-        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true), null), saves)
+        assertEquals(listOf(kept, null), saves)
         assertSafe()
     }
 
@@ -533,7 +545,7 @@ class RemovalTestTest {
         assertStops(Problem.UNEXPECTED_ANSWER) { run() }
         assertEquals(ids.toList(), test.testing)
         assertEquals(before, state())
-        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true), null), saves)
+        assertEquals(listOf(kept, null), saves)
         assertTrue(Progress.REMOVAL_PASSED !in progress)
         assertSafe()
     }
@@ -583,7 +595,7 @@ class RemovalTestTest {
         assertStops(Problem.UNEXPECTED_ANSWER) { run() }
         assertEquals(listOf("F12"), test.testing)
         assertEquals(before, state())
-        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true), null), saves)
+        assertEquals(listOf(kept, null), saves)
         assertEquals(Progress.SET_UP_AGAIN, progress.last())
         assertSafe()
     }
@@ -599,7 +611,7 @@ class RemovalTestTest {
             }
         }
         assertTrue("sh /etc/churn/restore.sh" in fake.commands)
-        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true)), saves)
+        assertEquals(listOf(kept), saves)
         fake.radioStuckOn = false
         removalTest().setUpAgain(saves.last()!!) { saves += it }
         assertEquals(before, state())
@@ -614,7 +626,7 @@ class RemovalTestTest {
         // Written back, but the firewall rules wait for Set the router up again.
         assertEquals(card.imeis, ImeiPair(fake.imei1, fake.imei2))
         assertTrue(!Router(fake).firewallInPlace())
-        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true)), saves)
+        assertEquals(listOf(kept), saves)
         assertSafe()
     }
 
@@ -629,7 +641,7 @@ class RemovalTestTest {
         }
         // restore.sh ran to its end: the factory IMEIs are back, and Churn's folder is gone.
         assertEquals(factory, ImeiPair(fake.imei1, fake.imei2))
-        assertEquals(listOf(RemovalStart(factory, card, card.imeis, firewall = true)), saves)
+        assertEquals(listOf(kept), saves)
         // Unplugged and switched off and on, then connected anew.
         shell.broken = false
         shell.after = {}

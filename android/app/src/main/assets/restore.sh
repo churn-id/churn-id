@@ -1,9 +1,10 @@
 #!/bin/sh
 # Churn: writes the router's factory IMEIs back, from /etc/churn/factory,
 # deletes Churn's record of the card in SIM 2, puts back GL's setting for
-# saving the system log, deletes Churn's zero files, removes Churn's
-# firewall rules and, last, deletes /etc/churn/ itself, so that the app
-# treats the router as new.
+# saving the system log, deletes Churn's zero files, puts back GL's setting
+# for its connection check over the SIM, removes Churn's firewall rules
+# and, last, deletes /etc/churn/ itself, so that the app treats the router
+# as new.
 # Run it before a factory reset, or to stop using Churn:
 #   sh /etc/churn/restore.sh
 # It turns airplane mode on first; turn it off when you want to go online.
@@ -68,6 +69,22 @@ fi
 rm -rf /overlay/churn-zeros /overlay/churn-fill.* "$DIR/zeros" ||
 	fail "The factory IMEIs are back, but deleting Churn's zero files in /overlay/churn-zeros failed."
 
+# GL's connection check pings past Churn's firewall rules, so Churn turned
+# it off for the SIM. Like the rules, it goes back as GL had it late, so
+# that a restore that stops earlier keeps it off. Airplane mode keeps the
+# SIM's interface down, and kmwan, the module that pings, takes up the
+# setting once the interface comes up again (inferred).
+if [ -s "$DIR/kmwan" ]; then
+	read -r disabled < "$DIR/kmwan"
+	if [ -n "$disabled" ]; then
+		uci set "kmwan.modem_cpu.disabled=$disabled"
+	else
+		uci -q delete kmwan.modem_cpu.disabled || true
+	fi && uci commit kmwan ||
+		fail "The factory IMEIs are back, but putting back GL's setting for its connection check failed."
+	rm -f "$DIR/kmwan"
+fi
+
 # The firewall rules go after everything but the folder, so that a restore
 # that stops earlier keeps them.
 # Airplane mode is on, so nothing goes out over the SIM once they are gone.
@@ -89,4 +106,4 @@ sed -i '/^\/etc\/nftables\.d\/churn\.nft$/d' /etc/sysupgrade.conf ||
 sed -i '/^\/etc\/churn\/$/d' /etc/sysupgrade.conf ||
 	fail "The factory IMEIs are back, but /etc/sysupgrade.conf still lists $DIR/."
 rm -rf "$DIR" || fail "The factory IMEIs are back, but deleting $DIR failed."
-echo "The factory IMEIs are back: IMEI 1 $imei1, IMEI 2 $imei2. GL's setting for saving the system log is as before. Churn's zero files, firewall rules and folder are removed. Airplane mode is on."
+echo "The factory IMEIs are back: IMEI 1 $imei1, IMEI 2 $imei2. GL's settings for saving the system log and for its connection check are as before. Churn's zero files, firewall rules and folder are removed. Airplane mode is on."

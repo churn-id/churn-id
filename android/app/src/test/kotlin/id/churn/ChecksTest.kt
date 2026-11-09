@@ -1125,6 +1125,7 @@ class ChecksTest {
         // After a swap with the overwrite, and with what earlier versions of the app left.
         writeFolder(SWAPPED.card)
         router.writeChurnFile("log_file", "/etc/sys_log\n".toByteArray())
+        router.writeChurnFile("kmwan", "0\n".toByteArray())
         router.writeChurnFile("secret", ByteArray(32))
         fake.zerosLink = "/overlay/churn-zeros"
         assertEquals(CheckResult.Passed, run("F1", SWAPPED))

@@ -46,6 +46,7 @@ class RouterTest {
         assertTrue(router.enhancedKillSwitch())
         assertTrue(router.vpnSetUp())
         assertFalse(router.firewallInPlace())
+        assertFalse(router.simConnectionCheckOff())
         assertEquals("8941000000000000015F", router.slot2Iccid())
         assertEquals("228010000000001", router.slot2Imsi())
         assertEquals("8941000000000000015F", router.currentCardIccid())
@@ -302,6 +303,60 @@ class RouterTest {
         }
         assertNull(fake.files[Router.FIREWALL])
         assertFalse(router.firewallInPlace())
+    }
+
+    @Test
+    fun turnsGlsConnectionCheckOffForTheSim() {
+        // As kmwan holds the SIM's member after the SIM was online.
+        fake.kmwanHoldsSim = true
+        router.turnSimConnectionCheckOff()
+        assertTrue(router.simConnectionCheckOff())
+        assertEquals("1", fake.kmwanSimDisabled)
+        assertArrayEquals("0\n".toByteArray(), fake.files["/etc/churn/kmwan"])
+    }
+
+    @Test
+    fun savesTheConnectionCheckSettingOnlyOnce() {
+        router.turnSimConnectionCheckOff()
+        // Again with the check off, as in the dry run: restore.sh still puts back GL's setting from before Churn.
+        router.turnSimConnectionCheckOff()
+        assertArrayEquals("0\n".toByteArray(), fake.files["/etc/churn/kmwan"])
+    }
+
+    @Test
+    fun savesAnEmptyLineForAConnectionCheckWithoutTheSetting() {
+        fake.kmwanSimDisabled = null
+        router.turnSimConnectionCheckOff()
+        assertArrayEquals("\n".toByteArray(), fake.files["/etc/churn/kmwan"])
+    }
+
+    @Test
+    fun seesAConnectionCheckThatStillHoldsTheSim() {
+        // Off in GL's settings, but the module took the SIM's member up before and kmwan hasn't restarted since.
+        fake.kmwanSimDisabled = "1"
+        fake.kmwanHoldsSim = true
+        assertEquals(listOf("modem_cpu"), router.kmwanModemMembers())
+        assertFalse(router.simConnectionCheckOff())
+    }
+
+    @Test
+    fun countsOnlyTheModemsMembersOfTheConnectionCheck() {
+        fake.kmwanSimDisabled = "1"
+        fake.wiredUplink = true
+        assertEquals(emptyList<String>(), router.kmwanModemMembers())
+        assertTrue(router.simConnectionCheckOff())
+    }
+
+    @Test
+    fun stopsIfTheConnectionCheckKeepsTheSim() {
+        fake.kmwanHoldsSim = true
+        fake.kmwanRestartIgnored = true
+        try {
+            router.turnSimConnectionCheckOff()
+            throw AssertionError("The check was taken for off")
+        } catch (e: RouterException) {
+            assertEquals(Problem.CONNECTION_CHECK_ON, e.problem)
+        }
     }
 
     @Test

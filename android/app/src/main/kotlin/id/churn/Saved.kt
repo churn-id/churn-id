@@ -119,12 +119,18 @@ class Saved(context: Context) {
                 preferences.getString(REMOVAL_CARD_ICCID, null)?.let { Card(it, cardImeis) }
             }
             if (factory == null || imeis == null) return null
-            return RemovalStart(factory, card, imeis, preferences.getBoolean(REMOVAL_FIREWALL, false))
+            return RemovalStart(
+                factory,
+                card,
+                imeis,
+                preferences.getBoolean(REMOVAL_FIREWALL, false),
+                preferences.getBoolean(REMOVAL_CONNECTION_CHECK, false),
+            )
         }
         set(value) = save {
             val keys = listOf(
                 REMOVAL_FACTORY1, REMOVAL_FACTORY2, REMOVAL_CARD_ICCID, REMOVAL_CARD_IMEI1, REMOVAL_CARD_IMEI2,
-                REMOVAL_IMEI1, REMOVAL_IMEI2, REMOVAL_FIREWALL,
+                REMOVAL_IMEI1, REMOVAL_IMEI2, REMOVAL_FIREWALL, REMOVAL_CONNECTION_CHECK,
             )
             keys.forEach { remove(it) }
             if (value != null) {
@@ -135,6 +141,7 @@ class Saved(context: Context) {
                 }
                 putString(REMOVAL_IMEI1, value.imeis.imei1).putString(REMOVAL_IMEI2, value.imeis.imei2)
                 putBoolean(REMOVAL_FIREWALL, value.firewall)
+                putBoolean(REMOVAL_CONNECTION_CHECK, value.connectionCheckOff)
             }
         }
 
@@ -231,6 +238,7 @@ class Saved(context: Context) {
         const val REMOVAL_IMEI1 = "removal_imei1"
         const val REMOVAL_IMEI2 = "removal_imei2"
         const val REMOVAL_FIREWALL = "removal_firewall"
+        const val REMOVAL_CONNECTION_CHECK = "removal_connection_check"
         const val POWER_CYCLE_SLOT2 = "power_cycle_slot2"
         const val POWER_CYCLE_ACTIVE_SLOT = "power_cycle_active_slot"
         const val POWER_CYCLE_IMEI1 = "power_cycle_imei1"

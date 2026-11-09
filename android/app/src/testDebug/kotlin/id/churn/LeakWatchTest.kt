@@ -11,9 +11,11 @@ class LeakWatchTest {
 
     private val fake = FakeRouter().apply {
         // As step 3 leaves the router, switched on again where it is to go online: airplane mode on, Churn's firewall
-        // rules in place, and the card in the SIM 2 tray, which slot 2 is on and is the active slot.
+        // rules in place, GL's connection check off for the SIM, and the card in the SIM 2 tray, which slot 2 is on and
+        // is the active slot.
         airplaneMode = true
         Router(this).installFirewall()
+        Router(this).turnSimConnectionCheckOff()
         commands.clear()
         changes.clear()
     }
@@ -111,7 +113,7 @@ class LeakWatchTest {
      */
     private fun assertStoppedWatching(problem: Problem): String? {
         val e = assertStops(problem) { run() }
-        assertEquals(listOf("D9", "D11", "D16"), leakWatch.testing)
+        assertEquals(listOf("D9", "D11", "D16", "D21"), leakWatch.testing)
         assertEquals(Progress.AIRPLANE_MODE_ON, progress.last())
         assertTrue(fake.airplaneMode)
         assertNull(fake.leakCounters)
@@ -143,7 +145,7 @@ class LeakWatchTest {
         )
         // WireGuard's handshake 3 s after airplane mode went off, seen at the read at 4 s, and then 5 packets a
         // second; the clock synced at 20 s; the router's own packets that Churn's rules dropped; WireGuard's bytes.
-        assertEquals(listOf(4L, 20L, 306L, 8L, 30_600L), numbers)
+        assertEquals(listOf(4L, 20L, 306L, 4L, 30_600L), numbers)
         // Once in airplane mode, then every 2 s until a minute after the read that saw the handshake.
         assertEquals(33, fake.commands.count(::readsTraffic))
         assertEquals(33, fake.commands.count(::readsTunnelClock))
@@ -162,7 +164,7 @@ class LeakWatchTest {
     @Test
     fun leakWatchConfirmsTier4ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("D9", "D11", "D16"), claims)
+        assertEquals(setOf("D9", "D11", "D16", "D21"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
             assertTrue("$id isn't a tier 4 claim in testing.md", "4" in tiers)
@@ -217,7 +219,7 @@ class LeakWatchTest {
         run()
         assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
         // The clock synced with the handshake, and WireGuard sent 5 packets a second from then on.
-        assertEquals(listOf(120L, 120L, 301L, 8L, 30_100L), numbers)
+        assertEquals(listOf(120L, 120L, 301L, 4L, 30_100L), numbers)
         assertEquals(91, fake.commands.count(::readsTraffic))
     }
 
@@ -253,7 +255,7 @@ class LeakWatchTest {
         fake.clockSyncMillis = 100_000
         run()
         assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
-        assertEquals(listOf(4L, 100L, 486L, 8L, 48_600L), numbers)
+        assertEquals(listOf(4L, 100L, 486L, 4L, 48_600L), numbers)
         assertEquals(51, fake.commands.count(::readsTraffic))
     }
 
@@ -285,7 +287,7 @@ class LeakWatchTest {
         run()
         assertTrue("uci set 'glconfig.general.airplane_mode=1' && uci commit 'glconfig'" in fake.commands)
         assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
-        assertEquals(listOf(4L, 20L, 306L, 8L, 30_600L), numbers)
+        assertEquals(listOf(4L, 20L, 306L, 4L, 30_600L), numbers)
     }
 
     @Test
@@ -355,7 +357,7 @@ class LeakWatchTest {
         run()
         assertEquals(1, progress.count { it == Progress.TUNNEL_MADE_ANEW })
         // From the read at 10 s, with 36 of WireGuard's packets by then.
-        assertEquals(listOf(4L, 20L, 306L, 8L, 27_000L), numbers)
+        assertEquals(listOf(4L, 20L, 306L, 4L, 27_000L), numbers)
     }
 
     @Test
@@ -367,7 +369,7 @@ class LeakWatchTest {
             progress.takeLast(3),
         )
         // One more packet during each of the 32 reads, after the interfaces' counts.
-        assertEquals(listOf(4L, 20L, 337L, 8L), numbers)
+        assertEquals(listOf(4L, 20L, 337L, 4L), numbers)
     }
 
     @Test
@@ -375,7 +377,7 @@ class LeakWatchTest {
         fake.tunnelOverIpv6 = true
         run()
         assertEquals(Progress.LEAK_WATCH_PASSED, progress.last())
-        assertEquals(listOf(306L, 8L, 30_600L), numbers.takeLast(3))
+        assertEquals(listOf(306L, 4L, 30_600L), numbers.takeLast(3))
     }
 
     @Test
@@ -460,6 +462,21 @@ class LeakWatchTest {
         fake.loadedChains.clear()
         assertEquals("Churn's firewall rules aren't in place", assertStoppedOffline(Problem.NOT_READY))
         assertEquals(Progress.KILL_SWITCH_ON, progress.last())
+    }
+
+    @Test
+    fun glsConnectionCheckTurnedOnAgainStopsTheWatchWithItsPings() {
+        // As if GL turned it back on as the router went online: its pings leave past Churn's rules from the start,
+        // four a second, so the watch's first read 2 s after going online finds 12.
+        screen = {
+            fake.kmwanSimDisabled = "0"
+            fake.turnAirplaneModeOffOnScreen()
+        }
+        assertEquals(
+            "12 packets left over the SIM that Churn's rules didn't see",
+            assertStoppedWatching(Problem.LEAK),
+        )
+        assertEquals(2, fake.commands.count(::readsTraffic))
     }
 
     @Test
