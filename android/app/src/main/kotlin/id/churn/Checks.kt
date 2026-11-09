@@ -4,7 +4,7 @@ import kotlin.math.abs
 import org.json.JSONObject
 
 /**
- * A check of the router that only reads, tier 1 in docs/testing.md. It confirms the claims there with the IDs [ids],
+ * A check of the router that only reads, tier 1 in router-tests.md. It confirms the claims there with the IDs [ids],
  * such as `D7`, and one that [blocks] confirms a claim that Churn's commands can't be trusted without. [title] says
  * what it confirms, as a string resource.
  */
@@ -57,7 +57,7 @@ val TESTED_PLATFORMS = listOf(
     Platform(gl = "4.10.0", openwrt = "23.05.4", modem = "Quectel RG650V-EU", revision = "RG650VEU00ADR02A04G8G"),
 )
 
-/** The checks, in the order of their claims in docs/testing.md. */
+/** The checks, in the order of their claims in router-tests.md. */
 val CHECKS = listOf(
     Check("P1", blocks = false, title = R.string.check_platform) { router, _ -> platformTested(router) },
     Check("P2", blocks = true, title = R.string.check_commands) { router, _ -> commandsFound(router, CHURN_COMMANDS) },

@@ -8,8 +8,9 @@ from [design.md](design.md) and [development.md](development.md).
 
 Status: being built. The app runs the tier 1 checks, and debug builds
 have tier 2's dry run and removal and clearing tests, tier 3's power cycle
-test and tier 4's leak watch; the rest of tier 4 is done by hand. The
-app's unit tests run in CI against a
+test and tier 4's leak watch; the rest of tier 4 is done by hand, and
+[release-tests.md](release-tests.md) puts the tests that a release needs
+in order. The app's unit tests run in CI against a
 simulated Mudi 7 (`FakeRouter`) built from these claims, so a claim that
 turns out wrong makes the simulation wrong too. *Verified* means we
 observed it by hand on a Mudi 7 with GL firmware 4.10.0 and a Quectel
@@ -333,7 +334,8 @@ device's website and the rest of tier 4 stay with the user.
 
 ## Platform
 
-From development.md, "Sending AT commands", and design.md, section 6.
+From development.md, "Sending AT commands" and "The debug log", and
+design.md, section 6.
 
 | ID | Claim | Status | Check | Tier |
 | --- | --- | --- | --- | --- |
@@ -342,6 +344,7 @@ From development.md, "Sending AT commands", and design.md, section 6.
 | P3 | The firmware has `md5sum`, which the debug log uses | inferred | `command -v md5sum` | 1 |
 | P4 | AT commands work through `gl_modem -B cpu AT` | verified | `AT+CFUN?` answers, ending with `OK` | 1, blocks |
 | P5 | `gl_modem` keeps Churn's commands apart from those of GL's daemons | inferred | Read the radio and both IMEIs 20 times in a row while GL's services run, and check every answer | 2 |
+| P6 | The router's answers hold ICCIDs, IMSIs and IMEIs as unbroken runs of digits, which the debug log masks | inferred | Search the debug log of a swap for the last six digits of the card's ICCID and of the router's IMEIs: none appears | 4 |
 
 ## Phone and cable
 
@@ -358,6 +361,9 @@ check runs, so they have no check of their own.
 | C5 | Android reports the router's network gone as soon as the cable comes out | inferred | Pull the cable while step 3 waits for the router to finish starting: the app says at once that the router left the cable | 4 |
 | C6 | Android reports the router's network as a new one each time the cable goes in or the router starts, so the app connects by itself once each time | inferred | With the password saved, plug the cable in on the Connect screen, then pull it and plug it in again | 4 |
 | C7 | On GrapheneOS, the uninstall dialog offers to keep the app's data, as `android:hasFragileUserData` asks | inferred | Uninstall the app, keeping its data, and reinstall it: the router screen still lists the place cards, and the app connects without asking for the password | 4 |
+| C8 | A step goes on while the phone is locked: the foreground service keeps the app running, and GrapheneOS keeps a USB connection made before the lock | inferred | Lock the phone while step 3 runs, and unlock it a minute later: the step has gone on | 4 |
+| C9 | Android may end the app's connection to the router while the phone is locked and no step runs, and the next step then connects anew | the reconnect verified, the cause inferred | Let the phone lock on step 1's screen for 10 minutes, then tap Start: the step runs | 4 |
+| C10 | The step a swap has reached survives Android stopping the app and a restart of the phone, and the app opens at that step | inferred | Stop the app in Android's settings at step 2, and restart the phone at another swap's step 2 | 4 |
 
 ## Modem
 
@@ -541,7 +547,7 @@ From development.md, "Files on the router", and design.md, section 5.
 | F2 | `/etc/churn/` is listed in `/etc/sysupgrade.conf` | verified by the app | The line is there | 1, blocks |
 | F3 | With the firewall rules, `/etc/nftables.d/churn.nft` is listed in `/etc/sysupgrade.conf` | inferred | The line is there | 1 |
 | F4 | `/etc/churn/zeros` links to `/overlay/churn-zeros`, and `du`, `grep -r`, `cp` and the `find` and `tar` that an upgrade runs take only the link | verified with BusyBox 1.36.1 on a PC | After a clearing, `readlink` gives the link's target, `du -sk /etc/churn` counts under 1 MB, and `sysupgrade -l` lists the link but no zero file | 1 |
-| F5 | GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | At every connection, while the recorded card answers in slot 2, the IMEIs are its recorded pair (tier 1); after an upgrade, they are the ones from before it (tier 3) | 1, 3 |
+| F5 | GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | At every connection, while the recorded card answers in slot 2, the IMEIs are its recorded pair (tier 1); after an upgrade, they are the ones from before it (tier 3); after a factory reset, they are the pair Churn last wrote (tier 4) | 1, 3, 4 |
 | F6 | A firmware upgrade with "keep settings" keeps `/etc/churn/`, the link `zeros` in it included, Churn's firewall rules, the log's file off and GL's connection check off for the SIM | open | Upgrade, then check the folder, the link, the rules, `log_file` and `kmwan.modem_cpu.disabled` | 3 |
 | F7 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then read the IMEIs and the radio, and write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
 | F8 | `restore.sh` then deletes Churn's record of the card | inferred | Run it, then check that `/etc/churn/card` is gone, with the folder (tier 2) | 2 |
@@ -549,7 +555,8 @@ From development.md, "Files on the router", and design.md, section 5.
 | F10 | `restore.sh` then deletes `/overlay/churn-zeros`, the link to it and any fill files | inferred | Run it, then check that the folder, any fill files and the link are gone, and that the free space grew by what they took, less 16 MB for what GL writes meanwhile (tier 2) | 2 |
 | F11 | `restore.sh` then removes Churn's firewall rules and their line in `/etc/sysupgrade.conf` | inferred | Run it, then check that the chains, the file and the line are gone (tier 2) | 2 |
 | F12 | `restore.sh` last deletes `/etc/churn/` and its line in `/etc/sysupgrade.conf`, and still runs to its end | running to its end verified with BusyBox 1.36.1 on a PC, the rest inferred | Run it, then check that the folder and the line are gone and that it printed its last message, and write the folder back (tier 2) | 2 |
-| F13 | A factory reset deletes `/etc/churn/`, Churn's firewall rules and its zero files | inferred | Factory reset. It also resets GL's settings, so it is the last test to run | 4 |
+| F13 | A factory reset deletes `/etc/churn/`, Churn's firewall rules and its zero files | inferred | Factory reset after a swap, and set the router up again (F14). It also resets GL's settings, so only the removal comes after it | 4 |
+| F14 | After a factory reset without `restore.sh`, setup takes the factory IMEIs from the phone's copy, since the modem has the pair Churn last wrote (F5) | inferred | Set the router up after the factory reset: the setup screen says that it took the copy, and the router screen warns until the next swap | 4 |
 | F15 | `restore.sh` then sets GL's `kmwan.modem_cpu.disabled` back from Churn's copy, or deletes it for an empty copy, and deletes the copy | inferred | Run it, then compare the setting with the copy read before; the copy goes with the folder (tier 2) | 2 |
 
 ## Swaps
@@ -565,6 +572,8 @@ From design.md, sections 4 and 7.
 | W5 | Step 1 says that steps 1 to 3 can run at home or at work only while the router has its factory IMEIs | inferred | Begin a swap before the first swap and after it, and cancel it before Start | 4 |
 | W6 | A swap runs as usual when it starts with the SIM 2 tray empty, as rule 7 asks once the router has been switched off | inferred | Take the card out with the router off, switch it on and swap in a new card | 4 |
 | W7 | The router screen names the card in SIM 2: a place card by its name or digits, the recorded travel card by its digits, and with slot 2 on the built-in eSIM says the card is off | inferred | Open the router screen after step 4 with a place card and with a travel card, and after canceling at step 3's question | 4 |
+| W8 | Step 3 stops at an empty SIM 2 tray with slot 2 back on the built-in eSIM, and clears nothing | inferred | Switch the router on at step 2 with the tray empty | 4 |
+| W9 | Step 3 stops when the VPN is gone, while the new card is still off, and runs again once a VPN is set up, without another step 1 | inferred | Delete the VPN at step 2, before step 3 starts, and set it up again from its configuration file | 4 |
 
 ## Beyond the router
 

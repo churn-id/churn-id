@@ -25,15 +25,15 @@ class ChecksTest {
 
     @Test
     fun everyCheckConfirmsTier1ClaimsOfTestingMd() {
-        assertTrue("No claims read from testing.md", TIERS.isNotEmpty())
+        assertTrue("No claims read from router-tests.md", TIERS.isNotEmpty())
         val ids = CHECKS.flatMap { it.ids.toList() }
         assertEquals("A claim with two checks", ids.distinct(), ids)
         for (check in CHECKS) {
             assertTrue("A check without claims", check.ids.isNotEmpty())
             for (id in check.ids) {
-                val tiers = TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
-                assertTrue("$id isn't a tier 1 claim in testing.md", "1" in tiers)
-                assertEquals("$id is marked otherwise in testing.md", check.blocks, "blocks" in tiers)
+                val tiers = TIERS[id] ?: throw AssertionError("$id isn't a claim in router-tests.md")
+                assertTrue("$id isn't a tier 1 claim in router-tests.md", "1" in tiers)
+                assertEquals("$id is marked otherwise in router-tests.md", check.blocks, "blocks" in tiers)
             }
         }
     }
@@ -1439,10 +1439,10 @@ class ChecksTest {
         val SWAPPED = ChurnFolder(FACTORY, Card("8941000000000000015", CARD_IMEIS))
 
         /**
-         * The tiers of each claim in docs/testing.md, by its ID, with `blocks` for a blocking tier 1 check: `1`,
+         * The tiers of each claim in router-tests.md, by its ID, with `blocks` for a blocking tier 1 check: `1`,
          * `blocks` and `2` for "1, blocks; 2". The tests run in android/app.
          */
-        val TIERS = File("../../docs/testing.md").readLines()
+        val TIERS = File("../../docs/router-tests.md").readLines()
             .map { line -> line.split('|').map { it.trim() } }
             // | ID | Claim | Status | Check | Tier |
             .filter { it.size == 7 && it[1].matches(Regex("[A-Z][0-9]+")) }

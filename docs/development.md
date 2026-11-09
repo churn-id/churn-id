@@ -4,8 +4,8 @@ Technical detail for writing Churn's code. Why things are done this way is
 in [design.md](design.md); building, testing and the contribution process
 are in [CONTRIBUTING.md](../CONTRIBUTING.md). *Verified* means we observed
 it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
-*inferred* means not yet tested. [testing.md](testing.md) lists these claims
-with the test, built or planned, for each on a real router.
+*inferred* means not yet tested. [router-tests.md](router-tests.md) lists
+these claims with the test, built or planned, for each on a real router.
 
 ## Connecting to the router
 
@@ -291,7 +291,7 @@ that format is inferred. Otherwise the step stops. The restart also runs
 `uci commit network` and reloads the network (from the scripts), so the
 step then checks that the radio is still off. The dry run restarts kmwan
 even with the check off, to see whether the restart drops the cable or
-turns the radio on (testing.md, D23).
+turns the radio on (router-tests.md, D23).
 
 `restore.sh` sets `kmwan.modem_cpu.disabled` back from the copy, or
 deletes it for an empty line, and commits it. It doesn't restart kmwan:
@@ -609,11 +609,11 @@ reason a job or step stopped with `!`, followed by the exception and where
 in the app it was thrown. Once the router screen shows, a section
 `== Checking the router` holds the router checks, each with its commands
 and then its result: `✓`, `✗` or `–` for passed, failed or not
-applicable, the check and the IDs of its claims in testing.md, and on the
-next line why it failed or doesn't apply. Before steps 1 and 3, the checks
-a swap relies on go into the step's section the same way. Every run of 12
-or more hexadecimal digits shows as `…`, and the masking comes before the
-cuts, which could otherwise leave a part of a number. The ICCID and IMSI
+applicable, the check and the IDs of its claims in router-tests.md, and on
+the next line why it failed or doesn't apply. Before steps 1 and 3, the
+checks a swap relies on go into the step's section the same way. Every run
+of 12 or more hexadecimal digits shows as `…`, and the masking comes before
+the cuts, which could otherwise leave a part of a number. The ICCID and IMSI
 that the built-in eSIM shows without an enabled profile (above) name no
 card, so they show as `[built-in eSIM placeholder ICCID]` and
 `[built-in eSIM test IMSI]`. Every other card's numbers show as `…`, an
@@ -651,8 +651,8 @@ untested, and the router checks look for it.
   `/etc/init.d/kmwan restart` does.
 - Whether GL turns its connection check back on for the SIM by itself, as
   at a slot switch, from its multi-WAN page or at a firmware upgrade
-  (testing.md, D22), and whether kmwan pings over the SIM again, without a
-  restart, once `restore.sh` has put GL's setting back.
+  (router-tests.md, D22), and whether kmwan pings over the SIM again,
+  without a restart, once `restore.sh` has put GL's setting back.
 - Whether `logread` writes the log's file again once `restore.sh` has set
   `log_file` back and reloaded the log service.
 - Whether GL copes with card files that name no card, as they can after a

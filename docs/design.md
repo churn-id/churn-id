@@ -507,12 +507,12 @@ goes once step 3 has used it, or when the user cancels the swap.
   three swaps.
 - Whenever it connects, the app checks the claims about the router that
   its commands rely on, as far as reading the router can tell (tier 1 in
-  [testing.md](testing.md)), so that a firmware upgrade that changes one
-  shows up. It does so once the router screen shows, so that connecting
-  takes no longer, and runs the checks a swap relies on again before steps
-  1 and 3. The router screen warns if a check failed and lists every
-  result under Router checks, and the debug log keeps them too. A failed
-  check that a swap relies on stops steps 1 and 3 before they change
+  [router-tests.md](router-tests.md)), so that a firmware upgrade that
+  changes one shows up. It does so once the router screen shows, so that
+  connecting takes no longer, and runs the checks a swap relies on again
+  before steps 1 and 3. The router screen warns if a check failed and lists
+  every result under Router checks, and the debug log keeps them too. A
+  failed check that a swap relies on stops steps 1 and 3 before they change
   slot 2. On firmware we haven't tested, a swap goes ahead once those
   checks pass, with a note that the firmware is untested.
 - When a swap starts on a router with its factory IMEIs, as the first one

@@ -380,7 +380,7 @@ class Controller(private val context: Context) {
     /** Shows the dry run's screen, from the router screen. */
     fun openDryRun() = show(Screen.DryRun())
 
-    /** Runs tier 2's dry run (docs/testing.md, "Dry run"), which only debug builds have. */
+    /** Runs tier 2's dry run (router-tests.md, "Dry run"), which only debug builds have. */
     fun startDryRun() = runDryRun { dryRun, folder ->
         dryRun.run(folder.factory!!, SecureRandom()) { saved.dryRunStart = it }
     }
@@ -399,7 +399,7 @@ class Controller(private val context: Context) {
     /** Shows the removal test's screen, from the router screen. */
     fun openRemovalTest() = show(Screen.RemovalTest())
 
-    /** Runs tier 2's removal test (docs/testing.md, "Removal and clearing"), which only debug builds have. */
+    /** Runs tier 2's removal test (router-tests.md, "Removal and clearing"), which only debug builds have. */
     fun startRemovalTest() = runRemovalTest { test -> test.run { saved.removalStart = it } }
 
     /** Sets the router up again as it was before the removal test that stopped. */
@@ -417,7 +417,7 @@ class Controller(private val context: Context) {
     fun openPowerCycles() = show(Screen.PowerCycles())
 
     /**
-     * Runs tier 3's power cycle test (docs/testing.md, "Power cycles"), which only debug builds have, up to its first
+     * Runs tier 3's power cycle test (router-tests.md, "Power cycles"), which only debug builds have, up to its first
      * power-off.
      */
     fun startPowerCycles() = runPowerCycles(CONNECT_WAIT_SECONDS) { test, folder ->
@@ -444,7 +444,7 @@ class Controller(private val context: Context) {
     fun openLeakWatch() = show(Screen.LeakWatch())
 
     /**
-     * Runs tier 4's leak watch (docs/testing.md, "Leak watch"), which only debug builds have, with the card that step 3
+     * Runs tier 4's leak watch (router-tests.md, "Leak watch"), which only debug builds have, with the card that step 3
      * last gave its IMEIs.
      */
     fun startLeakWatch() {

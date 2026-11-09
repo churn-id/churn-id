@@ -1,6 +1,6 @@
 package id.churn
 
-/** Release builds have no leak watch, which starts in debug builds (docs/testing.md, "Tiers"). */
+/** Release builds have no leak watch, which starts in debug builds (router-tests.md, "Tiers"). */
 @Suppress("UNUSED_PARAMETER")
 class LeakWatch(
     router: Router,

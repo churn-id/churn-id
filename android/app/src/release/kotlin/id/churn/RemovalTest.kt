@@ -1,6 +1,6 @@
 package id.churn
 
-/** Release builds have no removal test, which starts in debug builds (docs/testing.md, "Tiers"). */
+/** Release builds have no removal test, which starts in debug builds (router-tests.md, "Tiers"). */
 @Suppress("UNUSED_PARAMETER")
 class RemovalTest(
     router: Router,

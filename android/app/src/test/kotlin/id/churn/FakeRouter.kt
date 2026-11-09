@@ -61,8 +61,8 @@ class FakeRouter : Shell {
     private var stagedAirplaneMode: Boolean? = null
 
     /**
-     * For a GL that switches airplane mode only at the commit, against U2 in testing.md. Only the power cycle test's
-     * tests use it.
+     * For a GL that switches airplane mode only at the commit, against U2 in router-tests.md. Only the power cycle
+     * test's tests use it.
      */
     var airplaneModeNeedsCommit = false
 
@@ -113,8 +113,8 @@ class FakeRouter : Shell {
     var imeiWritesRefused = false
 
     /**
-     * For an `AT+QPRTPARA=1` that doesn't save the written IMEIs, against M7 in testing.md. Only the power cycle test's
-     * tests use it.
+     * For an `AT+QPRTPARA=1` that doesn't save the written IMEIs, against M7 in router-tests.md. Only the power cycle
+     * test's tests use it.
      */
     var imeiSaveIgnored = false
     var imei1 = "356090215000002"
@@ -147,8 +147,8 @@ class FakeRouter : Shell {
     var freeSpaceOverwritten = false
 
     /**
-     * For an overwrite that leaves ext4's reserve at 0, against H13 in testing.md. Only the removal test's tests use
-     * it.
+     * For an overwrite that leaves ext4's reserve at 0, against H13 in router-tests.md. Only the removal test's tests
+     * use it.
      */
     var overwriteLeavesReserveOff = false
 
@@ -223,13 +223,13 @@ class FakeRouter : Shell {
 
     /**
      * For a modem that lets the built-in eSIM answer in slot 2 with slot 2 on the SIM 2 tray, against E4 in
-     * testing.md. Only the dry run's test uses it.
+     * router-tests.md. Only the dry run's test uses it.
      */
     var esimAnswersOnTray = false
 
     /**
      * For a shell that stops reading restore.sh, without an error, once the script deleted Churn's folder and itself,
-     * against F12 in testing.md. Only the removal test's test uses it.
+     * against F12 in router-tests.md. Only the removal test's test uses it.
      */
     var restoreEndsEarly = false
 
@@ -339,8 +339,8 @@ class FakeRouter : Shell {
     var poweredOff = false
 
     /**
-     * For a `poweroff` that doesn't shut the router down, against B4 in testing.md. Only the power cycle test's tests
-     * use it.
+     * For a `poweroff` that doesn't shut the router down, against B4 in router-tests.md. Only the power cycle test's
+     * tests use it.
      */
     var poweroffIgnored = false
     val files = mutableMapOf<String, ByteArray>()
@@ -436,8 +436,8 @@ class FakeRouter : Shell {
     var droppedGoingOnline = 4L
 
     /**
-     * For packets that leave over the SIM past the firewall as the router goes online, against D11 in testing.md. Only
-     * the leak watch's tests use it.
+     * For packets that leave over the SIM past the firewall as the router goes online, against D11 in router-tests.md.
+     * Only the leak watch's tests use it.
      */
     var unseenGoingOnline = 0L
 
@@ -452,7 +452,7 @@ class FakeRouter : Shell {
 
     /**
      * For packets with WireGuard's mark that aren't WireGuard's, sent as the router goes online, which get past Churn's
-     * rules, against D9 in testing.md. Only the leak watch's tests use it.
+     * rules, against D9 in router-tests.md. Only the leak watch's tests use it.
      */
     var markedGoingOnline = 0L
 
@@ -524,8 +524,8 @@ class FakeRouter : Shell {
     var radioWindowEnd = 58.0
 
     /**
-     * For a radio that comes on again after the window, while the router starts, against B3 in testing.md. Only the
-     * power cycle test's tests use it.
+     * For a radio that comes on again after the window, while the router starts, against B3 in router-tests.md. Only
+     * the power cycle test's tests use it.
      */
     var radioBurst: ClosedFloatingPointRange<Double>? = null
 
@@ -590,14 +590,14 @@ class FakeRouter : Shell {
             .flatMap { JSONObject(it.toString(Charsets.UTF_8)).getJSONObject("records").keys().asSequence() }.toSet()
 
     /**
-     * For a power-on that leaves the routing rules without the Enhanced Kill Switch's, against K10 in testing.md. Only
-     * the power cycle test's tests use it.
+     * For a power-on that leaves the routing rules without the Enhanced Kill Switch's, against K10 in router-tests.md.
+     * Only the power cycle test's tests use it.
      */
     var bootDropsKillSwitchRules = false
 
     /**
-     * For a power-on whose firewall doesn't load Churn's rules, against D14 in testing.md. Only the power cycle test's
-     * tests use it.
+     * For a power-on whose firewall doesn't load Churn's rules, against D14 in router-tests.md. Only the power cycle
+     * test's tests use it.
      */
     var bootSkipsChurnRules = false
 

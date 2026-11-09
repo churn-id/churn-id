@@ -78,11 +78,13 @@ cspell (word list in `cspell.json`) and lints the Markdown files with
 markdownlint-cli2 (`.markdownlint.json`).
 
 The unit tests run against a simulated Mudi 7. Tests on a real router are
-listed in [docs/testing.md](docs/testing.md); the app runs the first of
-them, its read-only checks, whenever it connects, and debug builds have a
-dry run of steps 1 and 3, a removal test, which runs `restore.sh`, a power
-cycle test, which shuts the router down twice, and a leak watch, which
+listed in [docs/router-tests.md](docs/router-tests.md); the app runs the
+first of them, its read-only checks, whenever it connects, and debug builds
+have a dry run of steps 1 and 3, a removal test, which runs `restore.sh`, a
+power cycle test, which shuts the router down twice, and a leak watch, which
 goes online at step 4 of a swap and counts what leaves over the SIM.
+[docs/release-tests.md](docs/release-tests.md) puts the tests that each
+release needs in order.
 
 ## Signing
 

@@ -166,8 +166,8 @@ class LeakWatchTest {
         run()
         assertEquals(setOf("D9", "D11", "D16", "D21"), claims)
         for (id in claims) {
-            val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in testing.md")
-            assertTrue("$id isn't a tier 4 claim in testing.md", "4" in tiers)
+            val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in router-tests.md")
+            assertTrue("$id isn't a tier 4 claim in router-tests.md", "4" in tiers)
         }
     }
 
