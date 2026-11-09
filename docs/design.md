@@ -571,9 +571,22 @@ goes once step 3 has used it, or when the user cancels the swap.
   router reaches the internet as before while the user tries the app. The
   router screen warns while GL's system log goes to the flash and, once
   step 3 has recorded a card, while the switch is off, the rules are
-  missing or the check is on, and offers to fix each. Step 3 puts all
-  three in place before it records a card, so until then the warnings
-  would only announce what step 3 does anyway.
+  missing or the check is on. Step 3 puts all three in place before it
+  records a card, so until then the warnings would only announce what
+  step 3 does anyway.
+- The router screen fixes none of this itself. The next swap's step 3 puts
+  everything back, where the reloads come while slot 2 is on the built-in
+  eSIM. Each of the three may have let something past the VPN while the
+  card was online, so their warning asks for a swap to a new card, and for
+  the old card to be destroyed, as step 4 then asks. Step 4 never asks
+  that of a place card, so for one the warning says to forget it first.
+  Not every missing piece exposes the card: with the switch off, Churn's
+  rules still let only WireGuard out over the SIM. But these warnings
+  should almost never show, so they ask for more than may be needed rather
+  than make the user weigh what went out. GL's log stays on the router, so
+  its warning only says that the next swap turns it off and clears the
+  router's record of SIMs (below), and that a swap that keeps the same card
+  does so sooner.
 - The phone, not the router, keeps the place list (section 4), since whoever
   holds the router can read its files (inferred). Android keeps the app's
   data encrypted with a key tied to the screen lock, and GrapheneOS's duress
@@ -691,8 +704,8 @@ record outlasts power-offs and swaps (all verified; development.md,
 
 Whoever gets hold of the router or its admin password can read this
 record, which links the router's cards to each other. So the app clears the
-record at setup, at step 3 of every swap once the new card has its IMEIs,
-and from the router screen while the log goes to the flash:
+record at setup, and at step 3 of every swap once the new card has its
+IMEIs:
 
 1. It turns off the system log's file. The log then stays in a 64 KB
    buffer in RAM, which every power-off empties.

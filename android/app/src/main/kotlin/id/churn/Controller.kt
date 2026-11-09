@@ -287,28 +287,6 @@ class Controller(private val context: Context) {
         showRouter(context.getString(R.string.note_restored))
     }
 
-    fun turnKillSwitchOn() = job(R.string.turning_kill_switch_on) {
-        router().turnEnhancedKillSwitchOn()
-        showRouter()
-    }
-
-    fun installFirewall() = job(R.string.installing_firewall) {
-        router().installFirewall()
-        showRouter()
-    }
-
-    fun turnConnectionCheckOff() = job(R.string.turning_connection_check_off) {
-        router().turnSimConnectionCheckOff()
-        showRouter()
-    }
-
-    fun clearHistory() = job(R.string.clearing_history, keepAlive = true) {
-        val router = router()
-        clearingEsimLog()
-        router.clearHistory(router.currentCardIccid())
-        showRouter()
-    }
-
     fun forget() {
         saved.hostKey = null
         saved.sealedPassword = null
@@ -539,17 +517,10 @@ class Controller(private val context: Context) {
         }
     }
 
-    /**
-     * Runs [body] on the worker thread while the screen shows [title]. With [keepAlive], for a job that takes minutes,
-     * the foreground service keeps the app alive meanwhile.
-     */
-    private fun job(title: Int, keepAlive: Boolean = false, body: () -> Unit) {
+    /** Runs [body] on the worker thread while the screen shows [title]. */
+    private fun job(title: Int, body: () -> Unit) {
         started = cable
         show(Screen.Working(context.getString(title)))
-        if (keepAlive) {
-            stepRunning = true
-            context.startForegroundService(Intent(context, SwapService::class.java))
-        }
         worker.execute {
             debugLog.start(context.getString(title))
             try {
@@ -562,12 +533,6 @@ class Controller(private val context: Context) {
                 show(Screen.Connect(stopped(e)))
                 // Every way on from the Connect screen connects anew.
                 disconnect()
-            }
-            if (keepAlive) {
-                main.post {
-                    stepRunning = false
-                    onStepEnd?.invoke()
-                }
             }
         }
     }
@@ -977,7 +942,7 @@ class Controller(private val context: Context) {
             scheduledReboot = scheduledReboot,
             vpnSetUp = vpnSetUp,
             enhancedKillSwitch = router.enhancedKillSwitch(),
-            // A router whose firewall the app can't read shows the warning, and adding the rules says why.
+            // A router whose firewall the app can't read shows the warning.
             firewall = runCatching { router.firewallInPlace() }.getOrDefault(false),
             // The same for GL's connection check.
             connectionCheckOff = runCatching { router.simConnectionCheckOff() }.getOrDefault(false),
