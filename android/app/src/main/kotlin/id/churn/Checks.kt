@@ -94,6 +94,9 @@ val CHECKS = listOf(
     Check("D9", blocks = false, title = R.string.check_wireguard_mark) { router, _ -> wireguardMark(router) },
     Check("D10", blocks = false, title = R.string.check_dnsmasq_user) { router, _ -> dnsmasqUser(router) },
     Check("D13", blocks = false, title = R.string.check_masquerading) { router, _ -> tunnelMasquerading(router) },
+    Check("D22", blocks = false, title = R.string.check_connection_check_off) { router, _ ->
+        connectionCheckKeptOff(router)
+    },
     Check("S1", blocks = true, title = R.string.check_location_id) { router, _ -> locationId(router) },
     Check("E1", blocks = true, title = R.string.check_esim_answers) { router, _ -> esimAnswers(router) },
     Check("E2", blocks = false, title = R.string.check_iccid_padding) { router, _ -> iccidPadding(router) },
@@ -418,6 +421,24 @@ private fun ownTrafficTargets(router: Router): CheckResult {
 }
 
 /**
+ * Whether GL has left its connection check off for the SIM since Churn turned it off, as Churn's copy of GL's setting
+ * shows it did: the setting still `1`, and kmwan holding no member for a modem's interface.
+ */
+private fun connectionCheckKeptOff(router: Router): CheckResult {
+    router.kmwanCopy() ?: return CheckResult.NotApplicable(R.string.reason_connection_check_untouched)
+    val members = router.kmwanModemMembers()
+    val problems = listOfNotNull(
+        when (val setting = router.setting(Router.KMWAN_SIM)) {
+            "1" -> null
+            null -> "${Router.KMWAN_SIM} is missing."
+            else -> "${Router.KMWAN_SIM} is \"${setting.take(20)}\"."
+        },
+        "kmwan holds members for ${members.joinToString(", ").take(100)}.".takeIf { members.isNotEmpty() },
+    )
+    return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
+}
+
+/**
  * Whether the SIM's data interfaces are those Churn's rules name: the router has network devices named so, in
  * airplane mode too, and GL's cellular interface uses one of them while it is up.
  */
@@ -701,6 +722,7 @@ private val CHURN_ETC_FILES = listOf(
     Router.SIM_MAP,
     Router.APN_HISTORY,
     "/etc/config/glconfig",
+    "/etc/config/kmwan",
     "/etc/config/network",
     "/etc/config/route_policy",
     "/etc/config/system",
@@ -723,6 +745,7 @@ private val CHURN_FILE_MODES = mapOf(
     "README.txt" to "-rw-------",
     "card" to "-rw-------",
     "factory" to "-rw-------",
+    "kmwan" to "-rw-------",
     "log_file" to "-rw-------",
     "restore.sh" to "-rwx------",
     "zeros" to "lrwxrwxrwx",

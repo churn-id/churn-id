@@ -90,12 +90,15 @@
     <string name="note_scheduled_reboot">A swap needs GL\'s scheduled reboot off, and it is on. Turn it off in GL\'s web interface, then tap Refresh. A reboot is a power-on, so with a SIM inside it registers wherever it happens.</string>
     <string name="note_no_vpn">A swap needs a WireGuard VPN on the router, and none is set up. Set one up in GL\'s web interface (rule 5), then tap Refresh. Churn doesn\'t support other VPN types yet.</string>
     <string name="note_kill_switch">The Enhanced Kill Switch is off, so traffic can bypass the VPN (rule 5).</string>
-    <string name="note_restored">The factory IMEIs are back, Churn\'s firewall rules, zero files and folder are removed, GL\'s setting for saving the system log is as before, and airplane mode is on. To use Churn on this router again, set it up.</string>
+    <string name="note_restored">The factory IMEIs are back, Churn\'s firewall rules, zero files and folder are removed, GL\'s settings for saving the system log and for its connection check over the SIM are as before, and airplane mode is on. To use Churn on this router again, set it up.</string>
     <string name="kill_switch_on">Turn the Enhanced Kill Switch on</string>
     <string name="kill_switch_on_text">Churn turns GL\'s Enhanced Kill Switch on. Devices behind the router then reach the internet only through the VPN, and not at all while it is down.</string>
     <string name="note_firewall">Churn\'s firewall rules aren\'t on the router, so the router\'s own traffic can bypass the VPN (rule 5).</string>
     <string name="firewall_on">Add Churn\'s firewall rules</string>
     <string name="firewall_on_text">Churn adds firewall rules to the router. Over the SIM, only the VPN\'s own traffic then goes out. Everything else that would use the SIM, the router\'s own traffic included, goes through the VPN, and nowhere while it is down. The router also looks up names at the VPN\'s DNS server. The rules cover only the SIM, not an internet connection over Wi-Fi or the Ethernet port.\n\nRemoving Churn from this router removes the rules.</string>
+    <string name="note_connection_check">GL\'s connection check is on for the SIM, so the router pings public addresses over the SIM, past the VPN and Churn\'s firewall rules (rule 5).</string>
+    <string name="connection_check_off">Turn GL\'s connection check off for the SIM</string>
+    <string name="connection_check_off_text">Churn turns GL\'s connection check off for the SIM. The check pings public addresses over the SIM once a second, past the VPN and Churn\'s firewall rules. The SIM\'s connection and the VPN work without it, but GL then can\'t tell when the SIM\'s connection fails, to switch to another one. Other connections keep their check.\n\nRemoving Churn from this router turns the check back on as GL had it.</string>
     <string name="note_flash_log">GL saves its system log on the router, with each SIM card\'s ICCID and IMSI and the cells it used. The log links your cards to each other and to places.</string>
     <string name="clear_history">Clear the SIM history</string>
     <string name="clear_history_text">Churn keeps GL\'s system log in memory only, deletes the saved log, removes all but the current card from GL\'s records and overwrites the router\'s free storage, so that what it deleted can\'t be read back. It keeps the zeros as files, apart from 512 MB of free storage, so that later overwrites only need to fill those 512 MB. This can take a few minutes.\n\nRemoving Churn from this router puts back GL\'s setting for saving the system log and deletes the zero files.</string>
@@ -112,12 +115,13 @@
     <string name="show_rules">Rules</string>
     <string name="refresh">Refresh</string>
     <string name="restore">Remove Churn from this router</string>
-    <string name="restore_text">Churn turns airplane mode on and writes the factory IMEIs back:\n\nIMEI 1: %1$s\nIMEI 2: %2$s\n\nIt also removes its firewall rules and zero files, puts back GL\'s setting for saving the system log and deletes its folder on the router. Afterwards the app treats the router as new, and setting it up again takes a few seconds.</string>
+    <string name="restore_text">Churn turns airplane mode on and writes the factory IMEIs back:\n\nIMEI 1: %1$s\nIMEI 2: %2$s\n\nIt also removes its firewall rules and zero files, puts back GL\'s settings for saving the system log and for its connection check over the SIM, and deletes its folder on the router. Afterwards the app treats the router as new, and setting it up again takes a few seconds.</string>
     <string name="forget">Forget this router</string>
     <string name="forget_text">Churn forgets the router\'s key and password. Its folder on the router stays.</string>
     <string name="restoring">Removing Churn from the router</string>
     <string name="turning_kill_switch_on">Turning the Enhanced Kill Switch on</string>
     <string name="installing_firewall">Adding Churn\'s firewall rules</string>
+    <string name="turning_connection_check_off">Turning GL\'s connection check off for the SIM</string>
     <string name="clearing_history">Clearing the SIM history</string>
     <string name="setting_up">Setting up the router</string>
     <string name="reading">Reading the router\'s state</string>
@@ -156,6 +160,7 @@
     <string name="check_sim_interfaces">The SIM\'s data interfaces have the names that Churn\'s firewall rules match</string>
     <string name="check_wireguard_mark">WireGuard sends with the mark that Churn\'s firewall rules let out over the SIM</string>
     <string name="check_dnsmasq_user">Churn\'s firewall rules name the user ID of GL\'s DNS server</string>
+    <string name="check_connection_check_off">GL leaves its connection check off for the SIM once Churn has turned it off</string>
     <string name="check_masquerading">The WireGuard tunnel\'s IP Masquerading is on, which the router\'s own traffic through it needs</string>
     <string name="check_location_id">GL\'s modem settings have exactly one location_id, which Churn\'s slot switches name</string>
     <string name="check_esim_answers">On the built-in eSIM, slot 2\'s card gives its ICCID and IMSI the way Churn reads them</string>
@@ -186,6 +191,7 @@
     <string name="reason_other_uplink">The router is online over another uplink than the SIM.</string>
     <string name="reason_no_tunnel_up">No WireGuard tunnel is up.</string>
     <string name="reason_no_firewall">Churn\'s firewall rules aren\'t on the router.</string>
+    <string name="reason_connection_check_untouched">Churn hasn\'t turned GL\'s connection check off for the SIM yet.</string>
     <string name="reason_flash_log_off">GL\'s system log stays in RAM, as Churn sets it.</string>
     <string name="reason_flash_log_on">GL still writes its system log to a file on the flash.</string>
     <string name="reason_no_card_files">GL has no files that record cards yet.</string>
@@ -214,7 +220,7 @@
     <string name="error_not_restarted">The router hasn\'t been off since Churn shut it down, so the card can\'t have been swapped yet. If the router is still on, switch it off by hand, then follow the steps above.</string>
     <string name="warning_still_on_cable">The router is still on the cable, two minutes after Churn shut it down. If it is still on, switch it off by hand before you go on.</string>
     <string name="step3_title">Give the new card its IMEIs</string>
-    <string name="step3_text">Churn checks that a WireGuard VPN is still set up, waits until the router\'s radio is off, checks that the SIM 1 tray is empty, turns the Enhanced Kill Switch on if it is off, adds its firewall rules if they\'re missing, sets slot 2 to the SIM 2 tray and reads the new card\'s ICCID. Unless you kept the old card, it then asks you about the new one, with slot 2 back on the built-in eSIM until you answer. It records the card with its IMEIs, the ones a place card had before or new random ones, and writes them. Then it clears the SIM history on the router, which takes a few minutes the first time and less after that, and shuts the router down. The radio stays off throughout.\n\nWhy: a card in the SIM 1 tray registers at every power-on, whatever airplane mode says, so at the next one it would go out with the new card and link the two. With the Enhanced Kill Switch on, devices\' traffic doesn\'t bypass the VPN, even while the VPN is down (rule 5). Churn\'s firewall rules do the same for the router\'s own traffic over the SIM, and let nothing but the VPN use the SIM. While slot 2 is on the built-in eSIM, the card stays off, even if the router is switched off and on before you answer. The router\'s record of earlier cards would link them to the new one.</string>
+    <string name="step3_text">Churn checks that a WireGuard VPN is still set up, waits until the router\'s radio is off, checks that the SIM 1 tray is empty, turns the Enhanced Kill Switch on if it is off, adds its firewall rules if they\'re missing, turns GL\'s connection check off for the SIM if it is on, sets slot 2 to the SIM 2 tray and reads the new card\'s ICCID. Unless you kept the old card, it then asks you about the new one, with slot 2 back on the built-in eSIM until you answer. It records the card with its IMEIs, the ones a place card had before or new random ones, and writes them. Then it clears the SIM history on the router, which takes a few minutes the first time and less after that, and shuts the router down. The radio stays off throughout.\n\nWhy: a card in the SIM 1 tray registers at every power-on, whatever airplane mode says, so at the next one it would go out with the new card and link the two. With the Enhanced Kill Switch on, devices\' traffic doesn\'t bypass the VPN, even while the VPN is down (rule 5). Churn\'s firewall rules do the same for the router\'s own traffic over the SIM, and let nothing but the VPN use the SIM. GL\'s connection check would ping past them. While slot 2 is on the built-in eSIM, the card stays off, even if the router is switched off and on before you answer. The router\'s record of earlier cards would link them to the new one.</string>
     <string name="step3_place_card">The card in SIM 2 is your place card %1$s. Continue gives it the IMEIs it had before.</string>
     <string name="step3_new_card">Is the card in SIM 2, ending in %1$s, a new card for one place you\'ll return to, other than home and work? Then it\'s a place card: Churn keeps its IMEIs on this phone and gives them back to it on every visit, and you use it only at that place.\n\nOtherwise it\'s a travel card, which you don\'t use again once you\'ve swapped it out.\n\nOnly a new card should become a place card: one you\'ve used elsewhere would tie those places to this one.</string>
     <string name="step3_cancel">Cancel sets slot 2 back to the built-in eSIM and shuts the router down, so that you can put in another card.</string>
@@ -231,7 +237,7 @@
 
     <!-- Tier 2's dry run, which only debug builds have -->
     <string name="dry_run">Dry run</string>
-    <string name="dry_run_text">The dry run runs steps 1 and 3 of a swap on a router with no SIM, as far as they go without one, and so confirms claims of docs/testing.md that only a change of the router\'s settings can. Both trays must be empty and no profile enabled on the built-in eSIM. The dry run keeps the radio off, writes a test pair of IMEIs, and puts slot 2, the active slot and the IMEIs back as they were. Like a swap, it turns airplane mode and the Enhanced Kill Switch on and puts Churn\'s firewall rules in place, and leaves them so. The debug log, if it is on, keeps every command.</string>
+    <string name="dry_run_text">The dry run runs steps 1 and 3 of a swap on a router with no SIM, as far as they go without one, and so confirms claims of docs/testing.md that only a change of the router\'s settings can. Both trays must be empty and no profile enabled on the built-in eSIM. The dry run keeps the radio off, writes a test pair of IMEIs, and puts slot 2, the active slot and the IMEIs back as they were. Like a swap, it turns airplane mode and the Enhanced Kill Switch on, puts Churn\'s firewall rules in place and turns GL\'s connection check off for the SIM, and leaves them so. The debug log, if it is on, keeps every command.</string>
     <string name="dry_run_unfinished">The last dry run stopped before it put the router back as it was, so slot 2, the active slot or the IMEIs may still be as the dry run left them. Put the router back, or forget the dry run if you have put the router back yourself.</string>
     <string name="dry_run_stopped">The dry run stopped while confirming %1$s.\n\n%2$s</string>
     <string name="dry_run_start">Start the dry run</string>
@@ -241,9 +247,9 @@
     <string name="dry_run_forget_text">Churn then forgets how the router was before the dry run, and can\'t put it back any more.</string>
     <string name="dry_run_back">Back</string>
     <string name="removal_test">Removal and clearing</string>
-    <string name="removal_test_text">The removal test runs Churn\'s restore.sh, as Remove Churn does, checks what it did, and sets the router up again as it was, with the card\'s record, the IMEIs it had and Churn\'s firewall rules. It then clears the SIM history twice, as step 3 does. It confirms claims of docs/testing.md about restore.sh and the clearing, and runs once for each firmware: restore.sh deletes the zero files, so the first clearing fills all of the flash\'s free space, about 2.9 GB, which takes minutes, as does reading all of the partition afterwards. No profile may be enabled on the built-in eSIM, and the SIM 1 tray must be empty. The test leaves airplane mode on. The debug log, if it is on, keeps every command.</string>
+    <string name="removal_test_text">The removal test runs Churn\'s restore.sh, as Remove Churn does, checks what it did, and sets the router up again as it was, with the card\'s record, the IMEIs it had, Churn\'s firewall rules and GL\'s connection check. It then clears the SIM history twice, as step 3 does. It confirms claims of docs/testing.md about restore.sh and the clearing, and runs once for each firmware: restore.sh deletes the zero files, so the first clearing fills all of the flash\'s free space, about 2.9 GB, which takes minutes, as does reading all of the partition afterwards. No profile may be enabled on the built-in eSIM, and the SIM 1 tray must be empty. The test leaves airplane mode on. The debug log, if it is on, keeps every command.</string>
     <string name="removal_test_confirm">restore.sh deletes Churn\'s folder, and the test then writes it anew. If the test stops in between, the router screen shows this screen until the router is set up again.</string>
-    <string name="removal_test_unfinished">The last removal test stopped before it set the router up again, so the router may still have the factory IMEIs and no Churn folder or firewall rules. Set the router up again, or forget the test if you have set the router up yourself.</string>
+    <string name="removal_test_unfinished">The last removal test stopped before it set the router up again, so the router may still have the factory IMEIs, no Churn folder or firewall rules, and GL\'s connection check on for the SIM. Set the router up again, or forget the test if you have set the router up yourself.</string>
     <string name="removal_test_stopped">The removal test stopped while confirming %1$s.\n\n%2$s</string>
     <string name="removal_test_start">Start the removal test</string>
     <string name="removal_test_again">Run it again</string>
@@ -253,7 +259,7 @@
 
     <!-- Tier 3's power cycle test, which only debug builds have -->
     <string name="power_cycles">Power cycles</string>
-    <string name="power_cycles_text">The power cycle test shuts the router down twice and checks each power-on, which confirms claims of docs/testing.md that only a power-on can. You switch the router on again each time. Both trays must be empty: the test puts slot 2 on the SIM 2 tray, where the router emitted nothing at power-on with both trays empty, and near the end turns airplane mode off for a moment. It saves a test pair of IMEIs across the first power-on, and at the end puts slot 2, the active slot and the IMEIs back as they were. Like a swap, it turns airplane mode and the Enhanced Kill Switch on and puts Churn\'s firewall rules in place, and leaves them so. The debug log, if it is on, keeps every command.</string>
+    <string name="power_cycles_text">The power cycle test shuts the router down twice and checks each power-on, which confirms claims of docs/testing.md that only a power-on can. You switch the router on again each time. Both trays must be empty: the test puts slot 2 on the SIM 2 tray, where the router emitted nothing at power-on with both trays empty, and near the end turns airplane mode off for a moment. It saves a test pair of IMEIs across the first power-on, and at the end puts slot 2, the active slot and the IMEIs back as they were. Like a swap, it turns airplane mode and the Enhanced Kill Switch on, puts Churn\'s firewall rules in place and turns GL\'s connection check off for the SIM, and leaves them so. The debug log, if it is on, keeps every command.</string>
     <string name="power_cycles_confirm">The test shuts the router down twice and waits for you to switch it on again each time. Until it has put the router back as it was, the router screen shows this screen.</string>
     <string name="power_cycles_waiting">Once the router is off, switch it on again with Churn open and both trays still empty. The test goes on as soon as the router shows up on the cable, or when you tap Go on. To put the router back as it was instead, tap Put the router back before you switch the router on.</string>
     <string name="power_cycles_unfinished">The last power cycle test stopped before it put the router back as it was, so slot 2, the active slot or the IMEIs may still be as the test left them. Put the router back, or forget the test if you have put the router back yourself.</string>
@@ -283,6 +289,7 @@
     <string name="progress_sim1_empty">The SIM 1 tray is empty.</string>
     <string name="progress_kill_switch_on">The Enhanced Kill Switch is on.</string>
     <string name="progress_firewall">Churn\'s firewall rules are in place.</string>
+    <string name="progress_connection_check_off">GL\'s connection check is off for the SIM.</string>
     <string name="progress_slot2_on_sim2">Slot 2 is on the SIM 2 tray.</string>
     <string name="progress_slot2_active">Slot 2 is the active slot.</string>
     <string name="progress_card_found">Found the new card.</string>
@@ -292,6 +299,7 @@
     <string name="progress_clearing_history">Clearing the router\'s SIM history. This can take a few minutes.</string>
     <string name="progress_network_reloaded">The Enhanced Kill Switch is on, and its network reload kept the cable and the radio off (K8).</string>
     <string name="progress_firewall_reloaded">Churn\'s firewall rules are in place, and fw4 reload kept the cable and the radio off (D19).</string>
+    <string name="progress_connection_check_restarted">GL\'s connection check is off for the SIM, and its restart kept the cable and the radio off (D23).</string>
     <string name="progress_slot1_active">Slot 1 is the active slot, as dds_id shows (U6).</string>
     <string name="progress_tray_empty">No card answers in the SIM 2 tray.</string>
     <string name="progress_esim_silent">Nor does the built-in eSIM, with slot 2 on the tray (E4).</string>
@@ -307,7 +315,8 @@
     <string name="progress_log_written">logread writes the system log to its file again (H3).</string>
     <string name="progress_zero_files_gone">Churn\'s zero files and the link to them are gone, and their space is free again (F10).</string>
     <string name="progress_firewall_gone">Churn\'s firewall rules, their chains and their line in /etc/sysupgrade.conf are gone (F11).</string>
-    <string name="progress_set_up_again">The router is set up again, with the card\'s record, the IMEIs it had and Churn\'s firewall rules as before.</string>
+    <string name="progress_connection_check_back">GL\'s setting for its connection check over the SIM is as Churn\'s copy had it (F15).</string>
+    <string name="progress_set_up_again">The router is set up again, with the card\'s record, the IMEIs it had, Churn\'s firewall rules and GL\'s connection check as before.</string>
     <string name="progress_connection_kept">The clearing ended with the SSH connection still open, though it printed nothing for minutes (H17).</string>
     <string name="progress_reserve_back">ext4\'s reserve of free space is back as before the clearing (H13).</string>
     <string name="progress_card_files_parse">GL\'s card files and the eSIM manager\'s records parse (H14).</string>
@@ -369,6 +378,7 @@
     <string name="problem_vpn_gone">No WireGuard VPN is set up on the router any more, so Churn stopped while the new card is still off. The router has no internet over a SIM now, so set one up in GL\'s web interface from a WireGuard configuration file (rule 5), then tap Try again.</string>
     <string name="problem_check_failed">A router check that swaps rely on failed, so Churn stopped before changing slot 2: the router doesn\'t work the way Churn\'s commands expect, as after a firmware upgrade. Churn can swap on this router again once the check passes. Router checks, on the router screen, shows every check\'s result.</string>
     <string name="problem_firewall_not_loaded">The router\'s firewall didn\'t load Churn\'s rules, so Churn removed them again and stopped.</string>
+    <string name="problem_connection_check_on">GL\'s connection check didn\'t turn off for the SIM.</string>
     <string name="problem_profile_enabled">A profile is enabled on the built-in eSIM, so the dry run stopped before disabling it: the dry run is for a router with no SIM, and Churn can\'t enable a profile again.</string>
     <string name="problem_card_in_tray">A card answers in the SIM 2 tray, so the test stopped: it is for a router with no SIM.</string>
     <string name="problem_not_ready">The router isn\'t as step 3 of a swap leaves it, so the leak watch stopped before airplane mode went off.</string>

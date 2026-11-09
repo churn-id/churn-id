@@ -2,9 +2,9 @@ package id.churn
 
 /**
  * Tier 2's removal test (docs/testing.md, "Removal and clearing"): restore.sh run as Remove Churn runs it, the router
- * then set up again as it was, with the card's record, the IMEIs it had and Churn's firewall rules, and the SIM history
- * cleared twice as step 3 clears it. restore.sh deletes the zero files, so the first clearing fills all of the flash's
- * free space: the test runs once for each firmware. Only debug builds have it.
+ * then set up again as it was, with the card's record, the IMEIs it had, Churn's firewall rules and GL's connection
+ * check, and the SIM history cleared twice as step 3 clears it. restore.sh deletes the zero files, so the first
+ * clearing fills all of the flash's free space: the test runs once for each firmware. Only debug builds have it.
  */
 class RemovalTest(
     router: Router,
@@ -33,9 +33,13 @@ class RemovalTest(
         prepare(disableProfile = false)
         if (router.cardInSim1Tray()) throw RouterException(Problem.SIM1_CARD)
         report(Progress.SIM1_EMPTY)
-        val start = RemovalStart(factory, folder.card, router.imeis(), router.firewallInPlace())
+        val start = RemovalStart(
+            factory, folder.card, router.imeis(), router.firewallInPlace(), router.simConnectionCheckOff(),
+        )
         // GL's setting for its log's file as restore.sh leaves it: Churn's copy, or without one, as it is.
         val logFile = router.logFileCopy() ?: router.setting(Router.LOG_FILE)
+        // The same for its connection check over the SIM, where an empty copy stands for no setting.
+        val kmwan = router.kmwanCopy().let { if (it != null) it.ifEmpty { null } else router.setting(Router.KMWAN_SIM) }
         val zeros = router.zeroFiles()
         val free = router.overlayFreeKb()
         save(start)
@@ -91,6 +95,12 @@ class RemovalTest(
                     throw RouterException(Problem.UNEXPECTED_ANSWER, "The zero files' space isn't free again")
                 }
                 report(Progress.ZERO_FILES_GONE)
+            }
+            part("F15") {
+                if (router.setting(Router.KMWAN_SIM) != kmwan) {
+                    throw RouterException(Problem.UNEXPECTED_ANSWER, "${Router.KMWAN_SIM} isn't as before Churn")
+                }
+                report(Progress.CONNECTION_CHECK_BACK)
             }
             part("F11") {
                 val left = listOfNotNull(
@@ -293,6 +303,11 @@ class RemovalTest(
             checkRadioOff()
         }
         if (start.firewall && !router.firewallInPlace()) router.installFirewall()
+        // Its restart reloads the network.
+        if (start.connectionCheckOff && !router.simConnectionCheckOff()) {
+            router.turnSimConnectionCheckOff()
+            checkRadioOff()
+        }
     }
 
     /**

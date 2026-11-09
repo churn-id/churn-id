@@ -30,7 +30,8 @@ enum class Progress {
     MODEM_AT_ONCE, RADIO_ON_UNTIL, RADIO_OFF_AT_FIRST, RADIO_OFF_FROM, IMEIS_KEPT, EARLIER_IMEIS_SAVED, TRAYS_EMPTY,
     RADIO_ON_UNCOMMITTED, RADIO_OFF_UNCOMMITTED, POWER_CYCLES_PASSED, CARD_READY, GOING_ONLINE, SIM_PACKETS,
     FRAGMENTS_UNCLEAR, INTERFACES_CHANGED, LEAK_WATCH_PASSED, SIM_ONLY, TUNNEL_MADE_ANEW, WIREGUARD_MATCHED,
-    WIREGUARD_UNCLEAR, HANDSHAKE, CLOCK_SYNCED, TURN_AIRPLANE_MODE_OFF,
+    WIREGUARD_UNCLEAR, HANDSHAKE, CLOCK_SYNCED, TURN_AIRPLANE_MODE_OFF, CONNECTION_CHECK_OFF,
+    CONNECTION_CHECK_RESTARTED, CONNECTION_CHECK_BACK,
 }
 
 /**
@@ -52,9 +53,16 @@ data class DryRunStart(override val slot2: Slot2, override val activeSlot: Int, 
 
 /**
  * What tier 2's removal test sets the router up again with (docs/testing.md, "Removal and clearing"): the [factory]
- * IMEIs, the recorded [card], the [imeis] the router had, and whether Churn's [firewall] rules were in place.
+ * IMEIs, the recorded [card], the [imeis] the router had, whether Churn's [firewall] rules were in place, and whether
+ * GL's connection check was off for the SIM, [connectionCheckOff].
  */
-data class RemovalStart(val factory: ImeiPair, val card: Card?, val imeis: ImeiPair, val firewall: Boolean)
+data class RemovalStart(
+    val factory: ImeiPair,
+    val card: Card?,
+    val imeis: ImeiPair,
+    val firewall: Boolean,
+    val connectionCheckOff: Boolean,
+)
 
 /**
  * What tier 3's power cycle test puts back and keeps across its power-offs (docs/testing.md, "Power cycles"): slot 2's
@@ -153,9 +161,10 @@ open class Swap(
 
     /**
      * Step 3 up to the card in the tray, all while slot 2 is still on the built-in eSIM: airplane mode on, the router
-     * started, the checks passed, the radio off, the SIM 1 tray empty, and the Enhanced Kill Switch and Churn's
-     * firewall rules in place. With [reload], for the dry run, the network and the firewall reload even if the switch
-     * is on and the rules are in place.
+     * started, the checks passed, the radio off, the SIM 1 tray empty, the Enhanced Kill Switch and Churn's firewall
+     * rules in place, and GL's connection check off for the SIM. With [reload], for the dry run, the network and the
+     * firewall reload and the connection check restarts even if the switch is on, the rules are in place and the check
+     * is off.
      */
     protected fun startNewImeis(reload: Boolean) {
         // Before the wait, in case the user turned it off, so that the radio goes off after its burst at power-on.
@@ -172,10 +181,12 @@ open class Swap(
         if (router.cardInSim1Tray()) throw RouterException(Problem.SIM1_CARD)
         report(Progress.SIM1_EMPTY)
         // Step 4 lets the router go online, so the Enhanced Kill Switch and Churn's firewall rules must be in place
-        // by then (rule 5). Turning the switch on takes a network reload, and adding the rules a firewall reload.
-        // Either might turn the radio on, so both come while slot 2 is still on the eSIM.
+        // by then (rule 5), and GL's connection check, which pings past the rules, off for the SIM. Turning the switch
+        // on takes a network reload, adding the rules a firewall reload, and turning the check off a restart of it,
+        // which reloads the network too. Each might turn the radio on, so all come while slot 2 is still on the eSIM.
         turnKillSwitchOn(reload)
         putFirewallInPlace(reload)
+        turnConnectionCheckOff(reload)
     }
 
     /** Waits until the router has started, when its radio's burst at power-on is over. */
@@ -321,6 +332,18 @@ open class Swap(
             checkRadioOff()
         }
         report(if (reload) Progress.FIREWALL_RELOADED else Progress.FIREWALL)
+    }
+
+    /**
+     * Turns GL's connection check off for the SIM if it is on, or restarts it with [reload] in any case, and checks
+     * that the radio is still off afterwards.
+     */
+    private fun turnConnectionCheckOff(reload: Boolean) {
+        if (reload || !router.simConnectionCheckOff()) {
+            router.turnSimConnectionCheckOff()
+            checkRadioOff()
+        }
+        report(if (reload) Progress.CONNECTION_CHECK_RESTARTED else Progress.CONNECTION_CHECK_OFF)
     }
 
     protected fun checkRadioOff() {

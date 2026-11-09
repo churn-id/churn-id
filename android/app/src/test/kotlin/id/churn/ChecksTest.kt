@@ -645,6 +645,38 @@ class ChecksTest {
     }
 
     @Test
+    fun connectionCheckCheckPassesWhileTheCheckStaysOff() {
+        router.turnSimConnectionCheckOff()
+        assertEquals(CheckResult.Passed, run("D22"))
+    }
+
+    @Test
+    fun connectionCheckCheckFailsWithGlsSettingBackOn() {
+        router.turnSimConnectionCheckOff()
+        fake.kmwanSimDisabled = "0"
+        assertEquals(CheckResult.Failed("kmwan.modem_cpu.disabled is \"0\"."), run("D22"))
+    }
+
+    @Test
+    fun connectionCheckCheckFailsWithoutGlsSetting() {
+        router.turnSimConnectionCheckOff()
+        fake.kmwanSimDisabled = null
+        assertEquals(CheckResult.Failed("kmwan.modem_cpu.disabled is missing."), run("D22"))
+    }
+
+    @Test
+    fun connectionCheckCheckFailsWhileKmwanHoldsTheSim() {
+        router.turnSimConnectionCheckOff()
+        fake.kmwanHoldsSim = true
+        assertEquals(CheckResult.Failed("kmwan holds members for modem_cpu."), run("D22"))
+    }
+
+    @Test
+    fun connectionCheckCheckDoesNotApplyBeforeChurnTurnedTheCheckOff() {
+        assertEquals(CheckResult.NotApplicable(R.string.reason_connection_check_untouched), run("D22"))
+    }
+
+    @Test
     fun locationIdCheckPassesWithOneKeyHoldingFailover() {
         assertEquals(CheckResult.Passed, run("S1"))
     }
@@ -1125,6 +1157,7 @@ class ChecksTest {
         // After a swap with the overwrite, and with what earlier versions of the app left.
         writeFolder(SWAPPED.card)
         router.writeChurnFile("log_file", "/etc/sys_log\n".toByteArray())
+        router.writeChurnFile("kmwan", "0\n".toByteArray())
         router.writeChurnFile("secret", ByteArray(32))
         fake.zerosLink = "/overlay/churn-zeros"
         assertEquals(CheckResult.Passed, run("F1", SWAPPED))

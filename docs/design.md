@@ -245,8 +245,9 @@ Churn keeps its files on the router in `/etc/churn/`, readable by root
 only: a README explaining the folder, the factory IMEIs, the record of the
 current card (section 4), a restore script and a link to the zero files.
 The script writes the factory IMEIs back, deletes the record, puts back
-GL's setting for its system log, deletes Churn's zero files, removes
-Churn's firewall rules (all section 7) and last deletes the folder itself;
+GL's setting for its system log, deletes Churn's zero files, puts back
+GL's setting for its connection check, removes Churn's firewall rules (all
+section 7) and last deletes the folder itself;
 the app runs it on request, and it also works over a plain SSH session if
 the app is gone. Outside the folder
 are only the firewall rules, in `/etc/nftables.d/churn.nft`, and the zero
@@ -416,8 +417,9 @@ every boot:
 3. The app checks that a VPN is still set up (below). Once the radio is
    off after the boot (section 6), it checks that the SIM 1 tray is empty
    (below), turns GL's
-   Enhanced Kill Switch on if it is off and adds Churn's firewall rules if
-   they are missing, then switches slot 2 to SIM 2 in airplane mode and
+   Enhanced Kill Switch on if it is off, adds Churn's firewall rules if
+   they are missing and turns GL's connection check off for the SIM if it
+   is on, then switches slot 2 to SIM 2 in airplane mode and
    reads the ICCID. Unless the card is the recorded one, the app switches
    slot 2 back to the built-in eSIM while it asks the user about the card
    (section 4), so that the card stays off if the router is switched off and
@@ -556,20 +558,22 @@ goes once step 3 has used it, or when the user cancels the swap.
   one went quiet, which links the two, so the message also says to use
   another new card in that case.
 - Step 3 is the last step before the router goes online, so that is where
-  the app makes sure the Enhanced Kill Switch is on and Churn's firewall
-  rules are in place (rule 5). Both take a reload, of the network or of
-  the firewall, whose effect on the modem is untested, so the app does
-  them while slot 2 is still on the built-in eSIM and then checks that the
-  radio is still off. It leaves each tunnel's own Kill Switch as it is,
-  since the Enhanced Kill Switch blocks that traffic too (section 10).
-  Setup leaves both alone: until the first swap the router still uses the
-  card it had before Churn, with its factory IMEIs, so there is nothing
-  for them to keep apart yet, and the router reaches the internet as
-  before while the user tries the app. The router screen warns while GL's
-  system log goes to the flash and, once step 3 has recorded a card,
-  while the switch is off or the rules are missing, and offers to fix
-  each. Step 3 puts both in place before it records a card, so until then
-  the warnings would only announce what step 3 does anyway.
+  the app makes sure the Enhanced Kill Switch is on, Churn's firewall
+  rules are in place and GL's connection check is off for the SIM (rule
+  5). Each takes a reload: of the network, of the firewall, or of the
+  check, whose restart reloads the network too. Their effect on the modem
+  is untested, so the app does them while slot 2 is still on the built-in
+  eSIM and then checks that the radio is still off. It leaves each
+  tunnel's own Kill Switch as it is, since the Enhanced Kill Switch blocks
+  that traffic too (section 10). Setup leaves all three alone: until the
+  first swap the router still uses the card it had before Churn, with its
+  factory IMEIs, so there is nothing for them to keep apart yet, and the
+  router reaches the internet as before while the user tries the app. The
+  router screen warns while GL's system log goes to the flash and, once
+  step 3 has recorded a card, while the switch is off, the rules are
+  missing or the check is on, and offers to fix each. Step 3 puts all
+  three in place before it records a card, so until then the warnings
+  would only announce what step 3 does anyway.
 - The phone, not the router, keeps the place list (section 4), since whoever
   holds the router can read its files (inferred). Android keeps the app's
   data encrypted with a key tied to the screen lock, and GrapheneOS's duress
@@ -630,6 +634,17 @@ rules of its own, which GL's firewall loads along with GL's rules:
   the router's own lookups and asks Google's servers, passes them through
   the tunnel to GL's DNS server for the tunnel, which asks the VPN's
   (verified).
+
+GL's connection check gets past these rules. Its kernel module, kmwan,
+pings four public DNS servers over the SIM once a second while the SIM
+is online, and Churn's rules never see the pings (verified;
+development.md, "GL's connection check"). Each ping also carries an ICMP
+ID and sequence number, and if they carried on across a swap, a new
+card's first pings would continue the old card's numbering and link the
+two (not checked).
+So step 3 also turns the check off for the SIM, and `restore.sh` puts
+GL's setting back. Without the check, GL no longer notices when the SIM's
+connection fails, for example to switch to another uplink (inferred).
 
 Choices and their effects:
 
@@ -858,10 +873,11 @@ Always follow these rules:
    traffic, whose pattern can probably recognize the same devices across
    cards (inferred). A VPN on the router covers every device behind it. The
    app keeps traffic from going around it: it swaps only with a WireGuard
-   VPN set up, turns on GL's Enhanced Kill Switch, and adds firewall rules
-   that let nothing but the VPN use the card, the router's own traffic
-   included (section 7). Whether that also holds while the router boots is
-   open (section 10).
+   VPN set up, turns on GL's Enhanced Kill Switch, adds firewall rules that
+   let nothing but the VPN use the card, the router's own traffic
+   included, and turns off GL's connection check for the card, which
+   pings past those rules (section 7). Whether that also holds while the
+   router boots is open (section 10).
 
 6. Put cards only into the SIM 2 tray, never put a second profile on an
    eSIM adapter card, and don't use the router's built-in eSIM.
@@ -1030,6 +1046,10 @@ Hardware, other:
 - Does GL's firmware write its log file again once the restore script has
   put the setting back? The app turns it off the same way, which worked
   (section 7).
+- Does GL turn its connection check back on for the SIM by itself, for
+  example at a slot switch, from its multi-WAN page or at a firmware
+  upgrade that keeps settings? Step 3 turns it off again, and the router
+  screen warns while it is on (section 7).
 
 Design:
 

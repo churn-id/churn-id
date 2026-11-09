@@ -31,7 +31,7 @@ class EsimLog(val clock: Long, val size: Long, val head: String, val start: Long
 enum class Problem {
     UNEXPECTED_ANSWER, RADIO_ON, SCHEDULED_REBOOT, IMEIS_NOT_KEPT, SLOT_NOT_SWITCHED, PROFILE_STILL_ENABLED,
     NO_CARD, SIM1_CARD, CARD_CHANGED, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN, VPN_GONE, FIREWALL_NOT_LOADED,
-    CHECK_FAILED, PROFILE_ENABLED, CARD_IN_TRAY, NOT_READY, LEAK, AIRPLANE_MODE_LEFT_ON,
+    CHECK_FAILED, PROFILE_ENABLED, CARD_IN_TRAY, NOT_READY, LEAK, AIRPLANE_MODE_LEFT_ON, CONNECTION_CHECK_ON,
 }
 
 /** [detail] is what the router said, for the log; it never holds a password. */
@@ -577,6 +577,43 @@ class Router(private val shell: Shell) {
         if (!firewallInPlace()) throw unexpected(FIREWALL)
     }
 
+    /**
+     * Whether GL's connection check leaves the SIM alone: GL's settings have its member for the cellular interface
+     * disabled, and its kernel module, kmwan, holds no member for a modem's interface. The module's pings leave past
+     * Churn's firewall rules (development.md, "GL's connection check").
+     */
+    fun simConnectionCheckOff() = uci(KMWAN_SIM) == "1" && kmwanModemMembers().isEmpty()
+
+    /**
+     * The modem interfaces that kmwan holds members for, as GL's own scripts find them in [KMWAN_STATE]: each line that
+     * holds `modem`, up to its first `:`. None without the file, which GL's scripts then don't write either.
+     */
+    fun kmwanModemMembers(): List<String> {
+        val output = run("if [ -e $KMWAN_STATE ]; then cat $KMWAN_STATE; fi")
+        output.check(KMWAN_STATE)
+        return output.text.lines().filter { "modem" in it }.map { it.substringBefore(':').trim() }
+    }
+
+    /**
+     * Turns GL's connection check off for the SIM, also for later power-ons, and checks that it is off. GL's setting is
+     * saved first, once, so that restore.sh can put it back.
+     */
+    fun turnSimConnectionCheckOff() {
+        // An empty line for no setting, which restore.sh then deletes again.
+        if (readFile(KMWAN_COPY) == null) writeChurnFile("kmwan", ((uci(KMWAN_SIM) ?: "") + "\n").toByteArray())
+        uciSet(KMWAN_SIM, "1")
+        // So that the module drops the member it may hold. The restart reloads the network too, and its script calls a
+        // function that kmwan.sh lacks, so only the check afterwards counts.
+        run("/etc/init.d/kmwan restart", timeoutSeconds = 60)
+        if (!simConnectionCheckOff()) throw RouterException(Problem.CONNECTION_CHECK_ON)
+    }
+
+    /**
+     * GL's setting for its connection check over the SIM as Churn saved it before turning the check off, which
+     * restore.sh puts back: `0`, or an empty string for none; null without a copy.
+     */
+    fun kmwanCopy() = readFile(KMWAN_COPY)?.toString(Charsets.UTF_8)?.lineSequence()?.firstOrNull()?.trim()
+
     /** The ICCID GL recorded for the active card, as GL stores it, or null if it recorded none. */
     fun currentCardIccid() = uci(MODEM_ICCID)?.takeIf { it.matches(Regex("[0-9A-Fa-f]{18,20}")) }
 
@@ -1017,6 +1054,15 @@ class Router(private val shell: Shell) {
         /** Churn's firewall rules. GL's firewall, fw4, loads the files in this folder into its own table. */
         const val FIREWALL = "/etc/nftables.d/churn.nft"
         private val FIREWALL_CHAINS = listOf("churn_sim", "churn_route", "churn_dns")
+
+        /** GL's setting that disables its connection check's member for the cellular interface, `1` for off. */
+        const val KMWAN_SIM = "kmwan.modem_cpu.disabled"
+
+        /** The members that GL's kmwan module holds, one per line, which GL's scripts write their changes to. */
+        private const val KMWAN_STATE = "/proc/gl-kmwan/config"
+
+        /** Churn's copy of [KMWAN_SIM] as GL had it. */
+        private const val KMWAN_COPY = "$CHURN/kmwan"
 
         /**
          * For each socket listening on UDP port 53 or 2153, its port, its program, the program's user ID, and for

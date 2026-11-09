@@ -104,11 +104,12 @@ settings can:
    built-in eSIM. A profile enabled there stops the dry run, which doesn't
    disable it, since Churn couldn't enable it again.
 3. Step 3 up to the card: the VPN again, the router started, the checks
-   again, the radio off, the SIM 1 tray empty, and the Enhanced Kill
-   Switch and Churn's firewall rules in place. Both reload even if the
-   switch is on and the rules are in place, and the connection and the
-   radio's state across each reload show whether it drops the cable or
-   turns the radio on (K8, D19).
+   again, the radio off, the SIM 1 tray empty, the Enhanced Kill Switch
+   and Churn's firewall rules in place, and GL's connection check off for
+   the SIM. The network and the firewall reload, and the check restarts,
+   even if the switch is on, the rules are in place and the check is off
+   already, and the connection and the radio's state across each show
+   whether it drops the cable or turns the radio on (K8, D19, D23).
 4. Slot 1 made the active slot, so that step 3 makes slot 2 the active
    slot again, as on a router new to Churn, and `dds_id` follows both
    switches (U6).
@@ -124,7 +125,8 @@ settings can:
    active slot put back (S2, S3).
 
 Like a swap, the dry run leaves airplane mode and the Enhanced Kill Switch
-on and Churn's firewall rules in place. A dry run that stops puts the
+on, Churn's firewall rules in place and GL's connection check off for the
+SIM. A dry run that stops puts the
 router back at once if the radio is still off. Otherwise its screen shows
 at the next connection in place of the router screen, until Put the router
 back has done so, once the router has started and its radio is off. The
@@ -145,7 +147,8 @@ router with no SIM and no profile enabled on the built-in eSIM:
    nowhere.
 2. It keeps on the phone what setting the router up again takes: the
    factory IMEIs, Churn's record of the card, the IMEIs the router has,
-   and whether Churn's firewall rules are in place.
+   whether Churn's firewall rules are in place, and whether GL's
+   connection check is off for the SIM.
 3. It runs `restore.sh`, as Remove Churn does, which prints its last line
    only if it ran to its end (F12).
 4. It checks what `restore.sh` did:
@@ -155,6 +158,8 @@ router with no SIM and no profile enabled on the built-in eSIM:
    - GL's `log_file` setting as Churn's copy had it (F9), with a `logread`
      writing that file again (H3);
    - the zero files and their link gone, and their space free (F10);
+   - GL's `kmwan.modem_cpu.disabled` setting as Churn's copy had it
+     (F15);
    - and Churn's firewall rules, their chains and their line in
      `/etc/sysupgrade.conf` gone (F11).
 5. It reads the ICCIDs and IMSIs that GL's card files, the eSIM manager's
@@ -162,8 +167,8 @@ router with no SIM and no profile enabled on the built-in eSIM:
    since `restore.sh`. It keeps them in memory only, out of the screen and
    the debug log.
 6. It sets the router up again as the setup screen does, with the card's
-   record, the IMEIs it had and Churn's firewall rules, and keeps the
-   recorded card's SIM history (F12).
+   record, the IMEIs it had, Churn's firewall rules and GL's connection
+   check off, and keeps the recorded card's SIM history (F12).
 7. It clears the SIM history as step 3 does, keeping the recorded card's.
    With the zero files gone, the overwrite fills all of the free space and
    prints nothing for minutes, and the clearing has to end on the same SSH
@@ -210,8 +215,8 @@ where the router emitted nothing at power-on (B8):
    to put them back at the end.
 2. Step 3 up to the card, as in the dry run but without its reloads: the
    VPN, the router started, the checks marked *blocks*, the radio off, the
-   SIM 1 tray empty, and the Enhanced Kill Switch and Churn's firewall
-   rules in place.
+   SIM 1 tray empty, the Enhanced Kill Switch and Churn's firewall rules
+   in place, and GL's connection check off for the SIM.
 3. Slot 2 switched to the SIM 2 tray and made the active slot, where no
    card may answer. A card in the tray, an eSIM adapter card without an
    enabled profile too, stops the test before the router shuts down.
@@ -224,7 +229,8 @@ where the router emitted nothing at power-on (B8):
    screen had gone dark by then, the user sees.
 6. Once the user has switched the router on again and it is on the cable,
    the boot ID has to be new (B4, B6), and GL's settings still have
-   airplane mode and the Enhanced Kill Switch on (U3). From then until the
+   airplane mode and the Enhanced Kill Switch on and the connection check
+   off for the SIM (U3). From then until the
    router has started, 120 s after power-on, the test reads `/proc/uptime`
    and `AT+CFUN?` every 2 s, and the Enhanced Kill Switch's routing rules
    and Churn's firewall chains until they are in place. Both have to be in
@@ -244,8 +250,9 @@ where the router emitted nothing at power-on (B8):
    airplane mode on, as before.
 9. It puts slot 2's setting and the active slot back.
 
-Like a swap, the test leaves airplane mode and the Enhanced Kill Switch on
-and Churn's firewall rules in place. While the router is off, the test's
+Like a swap, the test leaves airplane mode and the Enhanced Kill Switch on,
+Churn's firewall rules in place and GL's connection check off for the SIM.
+While the router is off, the test's
 screen waits in place of the router screen, and goes on once the router is
 on the cable again, or puts the router back instead. A test that stops
 puts the router back at once if the radio is still off. Otherwise its
@@ -269,10 +276,11 @@ happen, once the router has been switched on again there (rule 1):
 2. The card that step 3 last gave its IMEIs, as Churn's folder records
    it, has to answer in the SIM 2 tray, with slot 2 on it as the active
    slot, and the router has to have the card's IMEIs. The Enhanced Kill
-   Switch and Churn's firewall rules have to be in place, and the router
-   may have no default route other than over the SIM: another uplink could
-   carry WireGuard's packets instead. Anything else stops the test before
-   airplane mode goes off.
+   Switch and Churn's firewall rules have to be in place, GL's connection
+   check off for the SIM, whose pings would leave past the rules (D20),
+   and the router may have no default route other than over the SIM:
+   another uplink could carry WireGuard's packets instead. Anything else
+   stops the test before airplane mode goes off.
 3. It adds a table of its own to the router's firewall, `inet
    churn_watch`, in place of any that an earlier watch left, with counters
    of the packets that try to leave over the SIM, before Churn's rules, and
@@ -294,7 +302,7 @@ happen, once the router has been switched on again there (rule 1):
    before it left, so the interfaces can't have sent more, but for the
    fragments that the router made of such packets, which they count one by
    one. More than that, packets that Churn's rules didn't see, stops the
-   test (D11).
+   test (D11, D21).
 6. With each read it also compares the bytes that got past Churn's rules,
    without the IP and UDP headers of WireGuard's packets, with those that
    WireGuard sent. WireGuard counts a packet once the firewall has passed
@@ -379,7 +387,7 @@ From development.md, "uci settings".
 | --- | --- | --- | --- | --- |
 | U1 | `glconfig.general.airplane_mode` is `0` or `1`, and with `1` the modem answers `+CFUN: 4` once the router has started | verified | Read both once uptime is past 120 s | 1, blocks |
 | U2 | Setting `glconfig.general.airplane_mode` turns airplane mode on or off at once, before the commit | verified | Turn airplane mode off and on again, and time how long the modem takes to answer `+CFUN: 4` | 3 |
-| U3 | `uci commit` makes a change survive a reboot | inferred | Read airplane mode and the kill switch settings after a reboot | 3 |
+| U3 | `uci commit` makes a change survive a reboot | inferred | Read airplane mode, the kill switch settings and GL's connection check setting after a reboot | 3 |
 | U4 | `gl_timer.reboot.enable` is GL's scheduled reboot | verified | The setting exists and is `0` or `1` | 1, blocks |
 | U5 | `network.modem_cpu.iccid` holds the ICCID of the card GL uses, a 19-digit one with a trailing `F` | verified | It is an ICCID or absent | 1 |
 | U6 | `network.modem_cpu.dds_id` reports the active slot, and writing it switches nothing | verified | It is `1` or `2` (tier 1) and follows a slot switch (tier 2) | 1, blocks; 2 |
@@ -407,8 +415,8 @@ From development.md, "uci settings", and design.md, sections 7 and 10.
 
 ## DNS and the router's own traffic
 
-From development.md, "uci settings" and "Churn's firewall rules", and
-design.md, sections 7 and 10.
+From development.md, "uci settings", "Churn's firewall rules" and "GL's
+connection check", and design.md, sections 7 and 10.
 
 | ID | Claim | Status | Check | Tier |
 | --- | --- | --- | --- | --- |
@@ -422,15 +430,19 @@ design.md, sections 7 and 10.
 | D8 | The SIM's data interfaces match `rmnet_data*`, online and in airplane mode | verified | The interfaces in `/sys/class/net` and the one `ifstatus modem_cpu` names | 1, blocks |
 | D9 | WireGuard sends with the mark `0x8000`, and on output no other packets carry it | verified | `wg show all fwmark` (tier 1); the leak watch's counts against WireGuard's (tier 4) | 1, 4 |
 | D10 | The main dnsmasq runs as the user ID the rules name | verified, and checked by the app | `id -u dnsmasq` answers, and Churn's rules, while on the router, name the same user ID | 1 |
-| D11 | With the rules, nothing but WireGuard leaves over the SIM, from devices too, also with the Enhanced Kill Switch off and the tunnel down, and over IPv6 as over IPv4 | verified for devices over IPv4 with the switch off and the tunnel down; going online and IPv6 inferred | The drop counter grows and a device's website fails (tier 4); the leak watch's counts after airplane mode goes off (tier 4) | 4 |
+| D11 | With the rules and GL's connection check off for the SIM, nothing but WireGuard leaves over the SIM, from devices too, also with the Enhanced Kill Switch off and the tunnel down, and over IPv6 as over IPv4 | verified for devices over IPv4 with the switch off and the tunnel down, and once with the leak watch for going online; IPv6 inferred | The drop counter grows and a device's website fails (tier 4); the leak watch's counts after airplane mode goes off (tier 4) | 4 |
 | D12 | With the rules, the router's own traffic leaves through the tunnel from the VPN's address, and its lookups go to the VPN's DNS server | verified | A request and a lookup from the router, watched on the tunnel interface | 4 |
 | D13 | The tunnel's IP Masquerading translates the router's own packets to the tunnel's address; without it, the VPN server wouldn't accept them | translation verified, without it inferred | The setting `masq` of the tunnel's WireGuard peer, by its name the IP Masquerading, is on (tier 1); a request from the router with it off (tier 4) | 1, 4 |
 | D14 | GL's firewall loads Churn's rules at boot before the modem goes online | open | The chains are listed after a boot, and when the app first saw them (tier 3); what leaves over the SIM during a boot with a card (tier 4) | 3, 4 |
 | D15 | A rules file that GL's firewall rejects might keep it from loading any rules at the next boot, which is why the app removes such a file | inferred | None: a test could leave the router without a firewall | – |
 | D16 | With the rules, the tunnel comes up after a reboot and after airplane mode off and on, and the clock then syncs through it | verified | Reboot and turn airplane mode off and on; the handshake, the clock and a website. The leak watch checks the first two after airplane mode goes off | 4 |
-| D17 | With the rules, GL still treats the cellular connection as connected, though its connection check can't ping over the SIM | verified with an earlier version of the rules | GL's connection status after airplane mode goes off | 4 |
+| D17 | With the rules and GL's connection check off for the SIM, GL still treats the cellular connection as connected | verified with an earlier version of the rules and the check on, whose pings got past them (D20); with the check off, inferred from the leak watch's tunnel coming up | GL's connection status after airplane mode goes off | 4 |
 | D18 | With the rules, devices work alike over Wi-Fi, the Ethernet port and USB-C, and an uplink over Ethernet or Wi-Fi works as without the rules | inferred | A website from a device on each; the router's own traffic with an Ethernet uplink | 4 |
 | D19 | `fw4 reload` neither drops the cable nor turns the radio on | open | The connection and `+CFUN: 4` across a reload (tier 2); the RF meter (tier 4) | 2, 4 |
+| D20 | GL's connection check, the kernel module kmwan, pings the four addresses of `kmwan.modem_cpu.tracks` over the SIM once a second while the SIM is online, past netfilter's postrouting hook and so past Churn's rules | verified with `tcpdump` and the leak watch's counters | `tcpdump` on the SIM's interface after airplane mode goes off, with the rules in place and the check on | 4 |
+| D21 | With `kmwan.modem_cpu.disabled` set to `1` and kmwan restarted in airplane mode, nothing of the check's leaves over the SIM, and the SIM's connection and the tunnel work as before | verified once | The leak watch: no packet that Churn's rules didn't see, the handshake and the clock's update | 4 |
+| D22 | GL leaves its connection check off for the SIM once Churn has turned it off: the setting stays `1`, and kmwan takes up no member for a modem's interface | open | The setting and kmwan's members in `/proc/gl-kmwan/config`, while Churn's folder has its copy of GL's setting | 1 |
+| D23 | `/etc/init.d/kmwan restart`, which reloads the network too, neither drops the cable nor turns the radio on | open | The connection and `+CFUN: 4` across a restart (tier 2); the RF meter (tier 4) | 2, 4 |
 
 ## Slot switching
 
@@ -530,7 +542,7 @@ From development.md, "Files on the router", and design.md, section 5.
 | F3 | With the firewall rules, `/etc/nftables.d/churn.nft` is listed in `/etc/sysupgrade.conf` | inferred | The line is there | 1 |
 | F4 | `/etc/churn/zeros` links to `/overlay/churn-zeros`, and `du`, `grep -r`, `cp` and the `find` and `tar` that an upgrade runs take only the link | verified with BusyBox 1.36.1 on a PC | After a clearing, `readlink` gives the link's target, `du -sk /etc/churn` counts under 1 MB, and `sysupgrade -l` lists the link but no zero file | 1 |
 | F5 | GL's firmware never writes the IMEIs itself, also not at an upgrade or a factory reset | open | At every connection, while the recorded card answers in slot 2, the IMEIs are its recorded pair (tier 1); after an upgrade, they are the ones from before it (tier 3) | 1, 3 |
-| F6 | A firmware upgrade with "keep settings" keeps `/etc/churn/`, the link `zeros` in it included, Churn's firewall rules and the log's file off | open | Upgrade, then check the folder, the link, the rules and `log_file` | 3 |
+| F6 | A firmware upgrade with "keep settings" keeps `/etc/churn/`, the link `zeros` in it included, Churn's firewall rules, the log's file off and GL's connection check off for the SIM | open | Upgrade, then check the folder, the link, the rules, `log_file` and `kmwan.modem_cpu.disabled` | 3 |
 | F7 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then read the IMEIs and the radio, and write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
 | F8 | `restore.sh` then deletes Churn's record of the card | inferred | Run it, then check that `/etc/churn/card` is gone, with the folder (tier 2) | 2 |
 | F9 | `restore.sh` then sets GL's `log_file` back from Churn's copy, and deletes the copy | inferred | Run it, then compare the setting with the copy read before; the copy goes with the folder (tier 2) | 2 |
@@ -538,6 +550,7 @@ From development.md, "Files on the router", and design.md, section 5.
 | F11 | `restore.sh` then removes Churn's firewall rules and their line in `/etc/sysupgrade.conf` | inferred | Run it, then check that the chains, the file and the line are gone (tier 2) | 2 |
 | F12 | `restore.sh` last deletes `/etc/churn/` and its line in `/etc/sysupgrade.conf`, and still runs to its end | running to its end verified with BusyBox 1.36.1 on a PC, the rest inferred | Run it, then check that the folder and the line are gone and that it printed its last message, and write the folder back (tier 2) | 2 |
 | F13 | A factory reset deletes `/etc/churn/`, Churn's firewall rules and its zero files | inferred | Factory reset. It also resets GL's settings, so it is the last test to run | 4 |
+| F15 | `restore.sh` then sets GL's `kmwan.modem_cpu.disabled` back from Churn's copy, or deletes it for an empty copy, and deletes the copy | inferred | Run it, then compare the setting with the copy read before; the copy goes with the folder (tier 2) | 2 |
 
 ## Swaps
 

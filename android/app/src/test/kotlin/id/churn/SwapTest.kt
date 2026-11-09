@@ -248,8 +248,8 @@ class SwapTest {
         assertEquals(
             listOf(
                 Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SIM1_EMPTY,
-                Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE,
-                Progress.CARD_FOUND,
+                Progress.KILL_SWITCH_ON, Progress.FIREWALL, Progress.CONNECTION_CHECK_OFF, Progress.SLOT2_ON_SIM2,
+                Progress.SLOT2_ACTIVE, Progress.CARD_FOUND,
                 // The question, with slot 2 on the eSIM until the answer.
                 Progress.SLOT2_ON_ESIM, Progress.SLOT2_BACK_ON_SIM2, Progress.SAME_CARD,
                 Progress.NEW_IMEIS, Progress.CLEARING_HISTORY,
@@ -278,8 +278,10 @@ class SwapTest {
 
     @Test
     fun step3StopsIfTheRadioComesOnWhileClearing() {
-        // With the switch and the rules in place, the log service's reload is step 3's only reload.
+        // With the switch on, the rules in place and GL's connection check off, the log service's reload is step 3's
+        // only reload.
         Router(fake).installFirewall()
+        Router(fake).turnSimConnectionCheckOff()
         prepareAndRestart()
         fake.radioOnAtReload = true
         assertStops(Problem.RADIO_ON) { giveNewImeis() }
@@ -361,6 +363,69 @@ class SwapTest {
         fake.fw4Rejects = true
         assertStops(Problem.FIREWALL_NOT_LOADED) { giveNewImeis() }
         assertNull(fake.files[Router.FIREWALL])
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertSafe()
+    }
+
+    @Test
+    fun step3TurnsGlsConnectionCheckOffBeforeTheCardComesOn() {
+        prepareAndRestart()
+        giveNewImeis()
+        assertEquals("1", fake.kmwanSimDisabled)
+        assertTrue(Router(fake).simConnectionCheckOff())
+        // GL's setting as it was, for restore.sh.
+        assertEquals("0\n", fake.files["/etc/churn/kmwan"]?.toString(Charsets.UTF_8))
+        val changes = fake.changes.map { it.substringBefore(" at ") }
+        assertTrue(changes.indexOf("connection check") in 0 until changes.lastIndexOf("slot 2"))
+        assertSafe()
+    }
+
+    @Test
+    fun step3KeepsGlsSettingForAConnectionCheckThatHadNone() {
+        fake.kmwanSimDisabled = null
+        prepareAndRestart()
+        giveNewImeis()
+        assertEquals("1", fake.kmwanSimDisabled)
+        // An empty line, so that restore.sh deletes the setting again.
+        assertEquals("\n", fake.files["/etc/churn/kmwan"]?.toString(Charsets.UTF_8))
+    }
+
+    @Test
+    fun step3LeavesAConnectionCheckThatIsOffAsItIs() {
+        Router(fake).turnSimConnectionCheckOff()
+        prepareAndRestart()
+        val restarts = fake.commands.count { it == "/etc/init.d/kmwan restart" }
+        giveNewImeis()
+        assertEquals(restarts, fake.commands.count { it == "/etc/init.d/kmwan restart" })
+    }
+
+    @Test
+    fun step3StopsIfTheRadioComesOnWithTheConnectionCheck() {
+        // With the switch on and the rules in place, kmwan's restart is the first reload.
+        Router(fake).installFirewall()
+        prepareAndRestart()
+        fake.radioOnAtReload = true
+        assertStops(Problem.RADIO_ON) { giveNewImeis() }
+        assertEquals(Progress.FIREWALL, progress.last())
+        assertEquals(Slot2.ESIM, fake.slot2)
+    }
+
+    @Test
+    fun step3StopsIfKmwanStillHoldsTheSimAfterItsRestart() {
+        prepareAndRestart()
+        fake.kmwanHoldsSim = true
+        fake.kmwanRestartIgnored = true
+        assertStops(Problem.CONNECTION_CHECK_ON) { giveNewImeis() }
+        assertEquals("1", fake.kmwanSimDisabled)
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertSafe()
+    }
+
+    @Test
+    fun step3StopsWithoutGlsSettingsForItsConnectionCheck() {
+        prepareAndRestart()
+        fake.kmwanSimMissing = true
+        assertStops(Problem.UNEXPECTED_ANSWER) { giveNewImeis() }
         assertEquals(Slot2.ESIM, fake.slot2)
         assertSafe()
     }
