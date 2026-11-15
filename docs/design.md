@@ -54,6 +54,13 @@ after it.
   whatever its IMEI.
 - **Accepted trade-off:** the phone holds a root SSH credential for the
   router.
+- **Cost to others:** Churn's IMEIs keep the TAC of every real Mudi 7, so a
+  random serial can be a real unit's IMEI. The carrier's records then show
+  the Churn user's traffic under that IMEI, which leads whoever follows it
+  to the unit's owner, and clone detection may block that owner's device
+  while both are on the same network (inferred). The chance grows with the
+  number of units on the TAC, about 2 in 1,000,000 per unit at each swap
+  ([tac.md](tac.md), point 3).
 
 ## 2. Architecture
 
