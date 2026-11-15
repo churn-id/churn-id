@@ -18,6 +18,7 @@ class RouterScriptsTest {
             "overlay-free.sh" to Router.OVERLAY_FREE,
             "overlay-written.sh" to Router.OVERLAY_WRITTEN,
             "count-numbers.sh" to Router.COUNT_NUMBERS,
+            "numbers-in-files.sh" to Router.NUMBERS_IN_FILES,
             "sim-traffic.sh" to Router.SIM_TRAFFIC,
             "tunnel-clock.sh" to Router.TUNNEL_CLOCK,
             "overlay.sh" to Router.OVERLAY,

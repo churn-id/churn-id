@@ -1213,7 +1213,7 @@ class Router(private val shell: Shell) {
          * Prints each run of 15 or of 18 to 20 digits in the files that its input names, a path per line, once, with
          * runs of digits as [COUNT_NUMBERS] counts them. A file that isn't there is left out.
          */
-        private val NUMBERS_IN_FILES = """
+        internal val NUMBERS_IN_FILES = """
             while IFS= read -r f; do
             	[ -e "${'$'}f" ] || continue
             	tr -cs '0-9' '\n' < "${'$'}f"
