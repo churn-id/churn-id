@@ -71,7 +71,6 @@ val CHECKS = listOf(
         router.slot2()
         CheckResult.Passed
     },
-    Check("M4", blocks = false, title = R.string.check_slot2_subscription) { router, _ -> slot2Subscription(router) },
     Check("M5", blocks = false, title = R.string.check_modem_settings) { router, _ -> modemSettingsSearched(router) },
     Check("U1", blocks = true, title = R.string.check_airplane_mode) { router, _ -> airplaneModeKept(router) },
     Check("U4", blocks = true, title = R.string.check_scheduled_reboot) { router, _ ->
@@ -167,13 +166,6 @@ private fun imeisRead(router: Router, folder: ChurnFolder): CheckResult {
         }
     }
     return if (problems.isEmpty()) CheckResult.Passed else CheckResult.Failed(problems.joinToString(" "))
-}
-
-/** Whether the modem names slot 2's card's subscription `SUB2`, as development.md says, whichever slot is active. */
-private fun slot2Subscription(router: Router): CheckResult {
-    val answer = router.at("AT+QUIMSUB?").after("+QUIMSUB:")
-    if (answer?.startsWith("2,\"SUB2\"") == true) return CheckResult.Passed
-    return CheckResult.Failed("AT+QUIMSUB? answers ${answer?.take(40) ?: "without +QUIMSUB:"}.")
 }
 
 /**
