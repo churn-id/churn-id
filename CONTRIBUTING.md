@@ -75,13 +75,29 @@ CI does the same for every pull request and every push to `main`; download
 the bundle from the workflow run's artifacts (`churn-release-aab`). It
 also checks the spelling of the Markdown files and the app's source with
 cspell (word list in `cspell.json`), lints the Markdown files with
-markdownlint-cli2 (`.markdownlint.json`) and lints `restore.sh` with
-ShellCheck (`-S warning`). After the build, `RouterScriptsTest` has
-written the scripts in `Router`'s companion to
+markdownlint-cli2 (`.markdownlint.json`) and lints `restore.sh` and the
+test script below with ShellCheck (`-S warning`). After the build,
+`RouterScriptsTest` has written the scripts in `Router`'s companion to
 `android/app/build/router-scripts/`, as the app sends them. CI lints the
 shell scripts there with ShellCheck too and checks the firewall rules
 with `nft -c`, so a script added to the companion goes into the test as
 well.
+
+CI's Router scripts job then runs `restore.sh` and the free-space
+overwrite as the router does: with BusyBox's shell, in a chroot with the
+router's paths, stand-ins for `uci`, `gl_modem`, `nft` and GL's log
+service, and a 1 GiB ext4 disk image as `/overlay`. From outside, it
+checks what they did to the files, the settings and the image: among
+other things, that the overwrite leaves no old version of a file in the
+free space, 512 MB free and ext4's reserve as it was, also when a signal
+stops it or the partition is full, and that `restore.sh` undoes Churn's
+changes and runs to its end. On Linux, with BusyBox installed
+(`busybox-static` on Debian and Ubuntu), run it after the build as root,
+from `android/`:
+
+```sh
+sudo sh app/src/test/sh/router-scripts-test.sh app/build/router-scripts
+```
 
 The unit tests run against a simulated Mudi 7. Tests on a real router are
 listed in [docs/router-tests.md](docs/router-tests.md); the app runs the

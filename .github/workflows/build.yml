@@ -28,9 +28,9 @@ jobs:
         with:
           globs: '**/*.md'
 
-      - name: Lint restore.sh
+      - name: Lint the shell scripts
         if: ${{ !cancelled() }}
-        run: shellcheck -S warning android/app/src/main/assets/restore.sh
+        run: shellcheck -S warning android/app/src/main/assets/restore.sh android/app/src/test/sh/*.sh
 
   bundle:
     name: Release bundle
@@ -101,7 +101,32 @@ jobs:
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
+          name: router-scripts
+          path: android/app/build/router-scripts/
+          if-no-files-found: error
+          retention-days: 1
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
           name: churn-release-aab
           path: android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
           retention-days: 14
+
+  router-scripts:
+    name: Router scripts
+    needs: bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: router-scripts
+          path: router-scripts
+
+      - name: Run restore.sh and the overwrite under BusyBox
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q busybox-static
+          sudo sh android/app/src/test/sh/router-scripts-test.sh router-scripts
