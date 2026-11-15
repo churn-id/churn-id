@@ -354,7 +354,7 @@ design.md, section 6.
 | ID | Claim | Status | Check | Tier |
 | --- | --- | --- | --- | --- |
 | P1 | GL firmware 4.10.0 (OpenWrt 23.05.4), modem Quectel RG650V-EU | verified | Read `/etc/glversion`, `/etc/openwrt_release` and `ATI`, and compare with the versions we tested | 1 |
-| P2 | The firmware has `flock`, `curl`, `ubus`, `fw4` and `nft` | verified | `command -v` for each | 1, blocks |
+| P2 | The firmware has `flock`, `curl`, `ubus`, `fw4`, `nft` and `jsonfilter` | verified, `jsonfilter` inferred | `command -v` for each | 1, blocks |
 | P3 | The firmware has `md5sum`, which the debug log uses | inferred | `command -v md5sum` | 1 |
 | P4 | AT commands work through `gl_modem -B cpu AT` | verified | `AT+CFUN?` answers, ending with `OK` | 1, blocks |
 | P5 | `gl_modem` keeps Churn's commands apart from those of GL's daemons | inferred | Read the radio and both IMEIs 20 times in a row while GL's services run, and check every answer | 2 |
@@ -429,7 +429,7 @@ From development.md, "uci settings", and design.md, sections 7 and 10.
 | K4 | GL sets up an OpenVPN tunnel with routing and DNS rules like a WireGuard one's, so the app could accept it too | open | Set up an OpenVPN tunnel and compare its settings, rules and lookups | 4 |
 | K5 | The Enhanced Kill Switch is on when `route_policy.@default[0].enabled` is `0`, `network.vpn_to_main` is absent and `ip rule show` lists no rule at priority 9000 | values verified, meaning inferred | Read both settings and the rules | 1 |
 | K6 | With the switch on and a tunnel up, `ip rule show` lists the rules to table 1001 and to the main table, and the blackhole rules at priorities 9910 and 9920 | verified | Compare the rules with this list | 1, blocks |
-| K7 | The USB-C port `ecm0` is in `br-lan`, so the blackhole at priority 9920 covers a device on it | port verified, coverage inferred | `ip link show ecm0` | 1 |
+| K7 | The USB-C port `ecm0` is in `br-lan`, so the blackhole at priority 9920 covers a device on it | port verified, coverage inferred | The bridge that `ip -o link show ecm0` names after `master` | 1 |
 | K8 | Turning the switch on takes `/etc/init.d/network reload`, which neither drops the cable nor turns the radio on | open | The connection and `+CFUN: 4` across a reload (tier 2); the RF meter (tier 4) | 2, 4 |
 | K9 | With the switch on and the tunnel disconnected, nothing gets through, also with the tunnel's own Kill Switch off | verified | Disconnect the tunnel and load a website on a device | 4 |
 | K10 | The switch also blocks traffic while the router boots and when a tunnel fails on its own | open | The blocking rules are in place after a boot, and when the app first saw them (tier 3); traffic during a boot and through a failing tunnel (tier 4) | 3, 4 |
@@ -445,7 +445,7 @@ connection check", and design.md, sections 7 and 10.
 | D2 | GL's nftables rules redirect devices' lookups marked for the tunnel to port 2153 and drop lookups sent past the router without the mark `0x8000` | verified | The rules are present | 1 |
 | D3 | With the tunnel up, devices' lookups go through the VPN; with it down, they get no answer | verified | A lookup of a made-up name from a device | 4 |
 | D4 | Without Churn's firewall rules, for about 2 s after airplane mode goes off, the main dnsmasq passes devices' lookups on over the SIM | verified | Watch what leaves over the cellular interface after airplane mode goes off | 4 |
-| D5 | Without Churn's firewall rules, what the router sends itself goes over the SIM, past both kill switches: the rule at priority 1 points to an empty table 16800, and the main table's default route goes over `rmnet_data0` | rules verified, traffic inferred | `ip rule show` and `ip route show` | 1 |
+| D5 | Without Churn's firewall rules, what the router sends itself goes over the SIM, past both kill switches: the rule at priority 1 points to an empty table 16800, and the main table's default route goes over `rmnet_data0` | rules verified, traffic inferred | `ip rule show`, how many routes `ip route show` lists in table 16800, and the device of the main table's default route | 1 |
 | D6 | Without Churn's firewall rules, the router itself reaches the VPN server and its time servers over the SIM, looks up one time server's name at Google when it goes online, and GL's connection check pings four public addresses | verified | Chrony's time servers and the addresses that GL's connection check pings over the SIM are those we watched (tier 1); watch the cellular interface (tier 4) | 1, 4 |
 | D7 | GL's firewall loads `/etc/nftables.d/churn.nft` into its table `inet fw4`, and `fw4 reload` exits with 0 despite its warnings | verified, and checked by the app | With the file in place, all three chains are listed; the app checks the same, and the exit status, after each reload it starts | 1, blocks |
 | D8 | The SIM's data interfaces match `rmnet_data*`, online and in airplane mode | verified | The interfaces in `/sys/class/net` and the one `ifstatus modem_cpu` names | 1, blocks |

@@ -613,7 +613,12 @@ began. A command shows as `$` and its first line, up to 300 characters,
 followed by its exit status and its answer, up to 2,000 characters, with
 `|` before each line of standard output and `!` before each line of
 standard error. The commands that read files, GL's VPN settings and the
-router's clock show only the size of their answer. A progress line starts
+router's clock show only the size of their answer. Where an answer would
+hold addresses, the router sends only what the app reads of it: of
+`ifstatus`, only `up` and `l3_device`, through `jsonfilter`; of
+`ip -o link show ecm0`, only the bridge after `master`; and of
+`ip route show`, only how many routes table 16800 holds and the device of
+each default route in the main table. A progress line starts
 with `✓`, a question with `?`, followed by the user's answer, and the
 reason a job or step stopped with `!`, followed by the exception and where
 in the app it was thrown. Once the router screen shows, a section

@@ -78,6 +78,16 @@ class DebugLogTest {
     }
 
     @Test
+    fun leavesOutTheRoutersAddressesWhileItChecksTheRouter() {
+        val text = checkTheRouter()
+        for (address in FakeRouter.ADDRESSES) assertFalse("$address in\n$text", address in text)
+        // What the checks read of the SIM's interface, the tunnel's and the USB-C port.
+        assertTrue(text, "  exit 0\n        | true\n        | rmnet_data0\n" in text)
+        assertTrue(text, "  exit 0\n        | true\n        | wgclient1\n" in text)
+        assertTrue(text, "  exit 0\n        | br-lan\n" in text)
+    }
+
+    @Test
     fun masksNumbersBeforeItCutsACommandOrAnAnswer() {
         val iccid = "8944000000000000123F"
         // Without masking first, the cuts at 300 and 2,000 characters would leave the ICCID's first digits.
@@ -188,5 +198,21 @@ class DebugLogTest {
         assertFalse(log.isEmpty)
         log.delete()
         assertTrue(log.isEmpty)
+    }
+
+    /**
+     * The log after every check ran on the router, online and with the tunnel up, so that the SIM's interface and the
+     * tunnel's have their addresses.
+     */
+    private fun checkTheRouter(): String {
+        val notes = object : CheckNotes {
+            override fun get(key: String): String? = null
+
+            override fun set(key: String, value: String?) {}
+        }
+        log.start("Checking the router")
+        val context = CheckContext(router.readChurnFolder(), notes)
+        for (check in CHECKS) log.add(check.run(router, context).toString())
+        return file.readText()
     }
 }

@@ -383,11 +383,7 @@ class LeakWatchTest {
     @Test
     fun anUplinkOtherThanTheSimStopsTheWatchBeforeItGoesOnline() {
         fake.wiredUplink = true
-        assertEquals(
-            "The router has an uplink other than the SIM: " +
-                "default via 192.168.1.1 dev eth0 proto static src 192.168.1.2 metric 10",
-            assertStoppedOffline(Problem.NOT_READY),
-        )
+        assertEquals("The router has an uplink other than the SIM: eth0", assertStoppedOffline(Problem.NOT_READY))
         assertEquals(Progress.CONNECTION_CHECK_OFF, progress.last())
     }
 
