@@ -34,7 +34,6 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
             if (keystorePath != null) {
                 signingConfig = signingConfigs.getByName("upload")
             }
