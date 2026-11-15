@@ -345,7 +345,6 @@ class Controller(private val context: Context) {
                     saved.placeCardIn = saved.placeCards.find(card.iccid) != null
                     val destroy = saved.placeCards.toDestroy(before = saved.cardBeforeSwap, after = card.iccid)
                     saved.cardToDestroy = destroy?.takeLast(4)
-                    saved.cardBeforeSwap = null
                     shutDown(swap, next = Step.GO_ONLINE)
                 }
             }
