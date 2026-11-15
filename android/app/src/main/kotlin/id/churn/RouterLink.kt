@@ -181,6 +181,40 @@ object HostKeys {
     private fun blob(key: PublicKey) = Buffer.PlainBuffer().putPublicKey(key).compactData
 }
 
+/**
+ * Accepts only [trusted], a key as [HostKeys.encode] writes it, or no key for null, and remembers what the router
+ * presented.
+ */
+internal class PinnedKey(private val trusted: String?) : HostKeyVerifier {
+
+    @Volatile
+    var presented: String? = null
+        private set
+
+    override fun verify(hostname: String, port: Int, key: PublicKey): Boolean {
+        val encoded = HostKeys.encode(key)
+        presented = encoded
+        return encoded == trusted
+    }
+
+    /** Asks for the trusted key's type first, so the router presents that key and not another of its keys. */
+    override fun findExistingAlgorithms(hostname: String, port: Int) = listOfNotNull(trusted?.substringBefore(' '))
+
+    /**
+     * What [e], thrown while connecting with this verifier, tells the user: [UntrustedHostKey] once the router has
+     * presented a key other than [trusted], [WrongPassword] if it refused the password, and otherwise [e] itself.
+     */
+    fun failure(e: Exception): Exception {
+        val presented = presented
+        return when {
+            e is TransportException && presented != null && presented != trusted ->
+                UntrustedHostKey(presented, changed = trusted != null)
+            e is UserAuthException -> WrongPassword()
+            else -> e
+        }
+    }
+}
+
 /** An SSH connection to the router as root, over a [RouterNetwork] that it closes with itself. */
 class RouterConnection private constructor(
     private val ssh: SSHClient,
@@ -238,30 +272,8 @@ class RouterConnection private constructor(
             } catch (e: Exception) {
                 runCatching { ssh.disconnect() }
                 usb.close()
-                val presented = verifier.presented
-                when {
-                    e is TransportException && presented != null && presented != trustedKey ->
-                        throw UntrustedHostKey(presented, changed = trustedKey != null)
-                    e is UserAuthException -> throw WrongPassword()
-                    else -> throw e
-                }
+                throw verifier.failure(e)
             }
         }
-    }
-
-    /** Accepts only [trusted], and remembers what the router presented. */
-    private class PinnedKey(private val trusted: String?) : HostKeyVerifier {
-
-        @Volatile
-        var presented: String? = null
-
-        override fun verify(hostname: String, port: Int, key: PublicKey): Boolean {
-            val encoded = HostKeys.encode(key)
-            presented = encoded
-            return encoded == trusted
-        }
-
-        /** Asks for the trusted key's type first, so the router presents that key and not another of its keys. */
-        override fun findExistingAlgorithms(hostname: String, port: Int) = listOfNotNull(trusted?.substringBefore(' '))
     }
 }
