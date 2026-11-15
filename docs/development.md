@@ -527,26 +527,34 @@ so the app compares ICCIDs without the `F`s. The current card is the one
    eMMC partition `mmcblk0p59` (2.9 GB). It holds the lock
    `/var/lock/churn-overwrite.lock` from start to end, so that a run that
    outlived the app's connection and the next one don't overlap;
-   `restore.sh` takes it too before it deletes the zero files. It sets
-   `/sys/fs/ext4/mmcblk0p59/reserved_clusters`, the 4096 blocks that ext4
-   keeps free even from root, to 0, and makes the directory
-   `/overlay/churn-zeros`, the link `/etc/churn/zeros` to it, and 16
-   directories `/overlay/churn-fill.d<n>`.
-   It writes files `/overlay/churn-fill.<n>` of 64 MB from `/dev/zero`,
-   with a `sync` after each, until `dd` fails on the full partition, then
-   files of 4 KB into the directories, at most 300 in each, until `dd`
-   fails again. Then it syncs, because the zeros of a file deleted before
-   they are written out never reach the flash (verified on a disk image).
-   Only then does it delete the 4 KB files and move the 64 MB files into
+   `restore.sh` takes it too before it deletes the zero files. It makes
+   the directory `/overlay/churn-zeros` and the link `/etc/churn/zeros` to
+   it, sets `/sys/fs/ext4/mmcblk0p59/reserved_clusters`, the 4096 blocks
+   that ext4 keeps free even from root, to 0, and only then makes 16
+   directories `/overlay/churn-fill.d<n>`, so that they fit on a partition
+   that is full but for the reserve, as a power cut before the end of a
+   run leaves it. It writes files `/overlay/churn-fill.<n>` of 64 MB from
+   `/dev/zero`, with a `sync` after each, until `dd` fails on the full
+   partition, then files of 4 KB into the directories, at most 300 in
+   each, until `dd` fails again. Then it syncs, because the zeros of a
+   file deleted before they are written out never reach the flash
+   (verified on a disk image), and prints how much is still free, which
+   should be nothing; more than 64 kB fails the run. Only then does it
+   delete the 4 KB files and move the 64 MB files into
    `/overlay/churn-zeros`, numbered on from the files there, so the folder
    gains only flushed parts, and none from a run that stops. It syncs again
    and sets the reserve back. Last, it deletes files in
    `/overlay/churn-zeros`, lowest number first, until 512 MB of the
-   partition are free. When a signal stops the run, a trap deletes the fill
-   files, syncs, sets the reserve back and frees the 512 MB the same way; a
-   reboot sets the reserve back too. A run that finds the reserve at 0, as
-   a run killed before it set the reserve back leaves it, exits with 3
-   before it changes anything, since it would put back 0.
+   partition are free. A run that fails once it has set the reserve still
+   does all of this, and then exits with the status of its first failure:
+   5 if it couldn't set the reserve to 0, 6 for the free space left after
+   the fill, and 7 if it couldn't set the reserve back. Without the lock it
+   exits with 2, and without the folder or the link with 4. When a signal
+   stops the run, a trap deletes the fill files, syncs, sets the reserve
+   back, frees the 512 MB the same way and exits with 1; a reboot sets the
+   reserve back too. A run that finds the reserve at 0, as a run killed
+   before it set the reserve back leaves it, exits with 3 before it
+   changes anything, since it would put back 0.
 
 We ran these steps as a script on our router, with step 4 still without
 the reserve and the 4 KB files. The router had seen two old cards, A and

@@ -181,8 +181,9 @@ class RemovalTest(
                 report(Progress.CARD_FILE_MODES_KEPT)
             }
         }
-        // The overwrite prints nothing until it ends, and a connection that closes meanwhile fails the command.
-        part("H17") {
+        // The overwrite prints nothing until it ends, and a connection that closes meanwhile fails the command, as
+        // does a fill that leaves free space.
+        part("H17", "H21") {
             report(Progress.CLEARING_HISTORY)
             router.clearHistory(keep(start))
             report(Progress.CONNECTION_KEPT)
@@ -259,7 +260,7 @@ class RemovalTest(
         var free = 0L
         var written = 0L
         var millis = 0L
-        part("H15", "H16") {
+        part("H15", "H16", "H21") {
             free = router.overlayFreeKb()
             val before = router.overlayWrittenKb()
             report(Progress.CLEARING_HISTORY)

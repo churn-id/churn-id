@@ -209,6 +209,12 @@ class FakeRouter : Shell {
     /** For an overwrite that leaves fill files, against H15. Only the removal test's tests use it. */
     var overwriteLeavesFillFiles = false
 
+    /**
+     * For an overwrite whose fill leaves 1 MB free, against H21, which it reports once it has kept its parts and freed
+     * the 512 MB. Only the swap's and the removal test's tests use it.
+     */
+    var overwriteFillFallsShort = false
+
     /** The overlay's device and file system, or null for none, and the blocks that ext4 keeps back from it. */
     var overlayDevice = "/dev/mmcblk0p59"
     var overlayType: String? = "ext4"
@@ -906,12 +912,12 @@ class FakeRouter : Shell {
             freeSpaceOverwritten = true
             zerosLink = "/overlay/churn-zeros"
             // It deletes any fill files first, and keeps all but 512 MB of the free space in zero files. What deleted
-            // files held is overwritten.
+            // files held is overwritten, unless the fill fell short.
             fillFilesKb = 0
             // Writing all of the free space takes its time.
             lifetimeWrittenKb += overlayFreeKb
             clock += overlayFreeKb * 1000 / flashWriteKbPerSecond
-            freeSpace.clear()
+            if (!overwriteFillFallsShort) freeSpace.clear()
             zeroFilesKb = maxOf(0, zeroFilesKb + overlayFreeKb - overwriteKeepsFreeKb)
             // Only an overwrite broken against H15 gets here: 4 kB files it didn't delete.
             if (overwriteLeavesFillFiles) fillFilesKb = 1_200
@@ -919,7 +925,9 @@ class FakeRouter : Shell {
             if (overwriteLeavesReserveOff) reservedClusters = 0
             // Only a firmware broken against H14 gets here.
             if (overwriteCutsSimMap) files[SIM_MAP]?.let { files[SIM_MAP] = it.copyOf(it.size / 2) }
-            return ok("")
+            // Only a firmware broken against H21 gets here.
+            if (overwriteFillFallsShort) return Output(6, "1024 kB free after the fill\n".toByteArray(), "")
+            return ok("0 kB free after the fill\n")
         }
         if (command == NUMBERS_IN_FILES) {
             val texts = input!!.toString(Charsets.UTF_8).lines().mapNotNull { files[it]?.toString(Charsets.ISO_8859_1) }
