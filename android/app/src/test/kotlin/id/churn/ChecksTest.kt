@@ -271,6 +271,14 @@ class ChecksTest {
     }
 
     @Test
+    fun rebootCheckFailsWhenUciCannotReadTheSetting() {
+        // As after a power loss during a commit: the reboot may well be on.
+        fake.brokenConfigs += "gl_timer"
+        val failed = "Unexpected answer: uci get gl_timer.reboot.enable: ${FakeRouter.UCI_PARSE_ERROR}"
+        assertEquals(CheckResult.Failed(failed), run("U4"))
+    }
+
+    @Test
     fun activeCardCheckPassesWithAnIccid() {
         assertEquals(CheckResult.Passed, run("U5"))
     }
@@ -308,6 +316,30 @@ class ChecksTest {
     fun activeSlotCheckFailsAtAnotherValue() {
         fake.activeSlot = 0
         assertEquals(CheckResult.Failed("The setting is \"0\"."), run("U6"))
+    }
+
+    @Test
+    fun uciCheckPassesWithGlsAnswerForASettingThatIsNotThere() {
+        assertEquals(CheckResult.Passed, run("U11"))
+    }
+
+    @Test
+    fun uciCheckFailsWithAnotherAnswerForASettingThatIsNotThere() {
+        // As a firmware might word it, which would stop every read of a setting that isn't there.
+        fake.uciNotFound = "uci: Not found"
+        assertEquals(
+            CheckResult.Failed("Unexpected answer: uci get system.@system[0].nothing: uci: Not found"),
+            run("U11"),
+        )
+    }
+
+    @Test
+    fun uciCheckFailsWhenUciAnswersAValueForASettingThatIsNotThere() {
+        for (key in listOf("system.@system[0].nothing", "network.nothing", "nothing.nothing")) fake.uciAnswers[key] = ""
+        assertEquals(
+            CheckResult.Failed("uci answers a value for system.@system[0].nothing, network.nothing, nothing.nothing."),
+            run("U11"),
+        )
     }
 
     @Test
@@ -927,6 +959,15 @@ class ChecksTest {
     fun flashLogCheckDoesNotApplyWithTheLogInRam() {
         fake.logFile = null
         assertEquals(CheckResult.NotApplicable(R.string.reason_flash_log_off), run("H1"))
+    }
+
+    @Test
+    fun flashLogChecksFailWhenUciCannotReadTheSetting() {
+        // As after a power loss during a commit: the log may well be on.
+        fake.brokenConfigs += "system"
+        val failed = "Unexpected answer: uci get system.@system[0].log_file: ${FakeRouter.UCI_PARSE_ERROR}"
+        assertEquals(CheckResult.Failed(failed), run("H1"))
+        assertEquals(CheckResult.Failed(failed), run("H2"))
     }
 
     @Test

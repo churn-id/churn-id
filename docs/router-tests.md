@@ -417,6 +417,7 @@ From development.md, "uci settings".
 | U8 | "Power On with Charger" is not in `uci`, and with it off a charger doesn't switch the router on | verified | Plug in a charger with the router off | 4 |
 | U9 | Where GL keeps "Power On with Charger" | open | None until it's found; the user confirms the setting | – |
 | U10 | Turning airplane mode off on GL's screen writes and commits the setting within seconds. The screen does it with `ubus call cellular.modem set_airplane_mode '{"enable":false}'`, which from a shell answers `{"ok": true}` but changes nothing | verified | `ubus monitor` and `uci changes glconfig` while turning airplane mode off on the screen; the leak watch reads the setting while the user does | 4 |
+| U11 | `uci get` of an option, section or config that isn't there prints `uci: Entry not found` and exits with 1 | verified for an option and a config (#119); inferred from OpenWrt's `uci` for a section | `uci get` of `system.@system[0].nothing`, `network.nothing` and `nothing.nothing` | 1, blocks |
 
 ## Kill switch and VPN
 

@@ -95,9 +95,17 @@ shows another one.
 
 ## uci settings
 
-Read a value with `uci -q get <setting>`. A change needs `uci set` followed
-by `uci commit <config>`, where `<config>` is the part before the first dot.
-Before the commit, `uci get` already returns the new value, but
+Read a value with `uci get <setting>`. For an option, section or config
+that isn't there, it prints `uci: Entry not found` and exits with 1
+(verified for an option and a config), which the app reads as unset. Any
+other failure, such as a config that doesn't load after a power loss
+during a commit, stops the step, or fails the check, that reads the
+setting: read as unset, it would have the app go on as if the flash log
+were off already, or as if no reboot were scheduled.
+
+A change needs `uci set` followed by `uci commit <config>`, where
+`<config>` is the part before the first dot. Before the commit, `uci get`
+already returns the new value, but
 `/etc/config/<config>` still holds the old one (verified). GL's
 `cellular_manager` switches airplane mode right after `uci set`, without a
 commit (verified); for the other settings this is untested. The app still

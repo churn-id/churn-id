@@ -94,7 +94,7 @@ class DebugLogTest {
         assertFalse(text, "table inet" in text)
         assertFalse(text, "Tunnel 1" in text)
         // What the app made of the settings shows in the commands that follow.
-        assertTrue(text, "$ uci -q get 'network.wgclient1'\n" in text)
+        assertTrue(text, "$ uci get 'network.wgclient1'\n" in text)
         assertFalse(text, "${fake.time}" in text)
     }
 

@@ -81,6 +81,7 @@ val CHECKS = listOf(
     Check("U6", blocks = true, title = R.string.check_active_slot) { router, _ ->
         settingIn(router.activeSlot(), "1", "2")
     },
+    Check("U11", blocks = true, title = R.string.check_uci_not_found) { router, _ -> uciNotFound(router) },
     Check("K1", blocks = true, title = R.string.check_vpn_policy) { router, _ -> vpnPolicy(router) },
     Check("K5", blocks = false, title = R.string.check_kill_switch_settings) { router, _ -> killSwitchAgrees(router) },
     Check("K6", blocks = true, title = R.string.check_kill_switch_rules) { router, _ -> killSwitchRules(router) },
@@ -243,6 +244,19 @@ private fun activeCardIccid(router: Router): CheckResult {
     if (Imei.iccidDigits(value) != null) return CheckResult.Passed
     // Not the value itself, which may hold a card's number all the same.
     return CheckResult.Failed("The setting holds ${value.length} characters that aren't an ICCID.")
+}
+
+/**
+ * Whether `uci get` answers that an option, a section or a config isn't there in the words [Router.setting] reads as
+ * unset. Any other answer to a failed read makes [Router.setting] throw, which fails the check.
+ */
+private fun uciNotFound(router: Router): CheckResult {
+    // Our Mudi 7 answered the option and the config so. A missing section, such as network.vpn_to_main with the
+    // Enhanced Kill Switch on, gets the same answer in OpenWrt's uci.
+    val missing = listOf("system.@system[0].nothing", "network.nothing", "nothing.nothing")
+    val set = missing.filter { router.setting(it) != null }
+    if (set.isEmpty()) return CheckResult.Passed
+    return CheckResult.Failed("uci answers a value for ${set.joinToString(", ")}.")
 }
 
 /**
