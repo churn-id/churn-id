@@ -66,25 +66,6 @@ class FakeRouter : Shell {
     /** GL's airplane mode as committed, which a power-on starts with. */
     var airplaneMode = false
 
-    /** Airplane mode as set but not committed, which `uci get` returns and GL follows already (U2); null for none. */
-    private var stagedAirplaneMode: Boolean? = null
-
-    /**
-     * For a GL that switches airplane mode only at the commit, against U2 in router-tests.md. Only the power cycle
-     * test's tests use it.
-     */
-    var airplaneModeNeedsCommit = false
-
-    /**
-     * How long GL's cellular manager takes to follow airplane mode set without the commit, in milliseconds. Only the
-     * power cycle test's tests set it.
-     */
-    var stagedAirplaneModeMillis = 0L
-
-    /** When airplane mode was last set without the commit, by [clock], and as GL's cellular manager had it before. */
-    private var stagedAt = 0L
-    private var inUseBeforeStaging = false
-
     /**
      * How long GL's cellular manager takes to follow airplane mode set with the commit, in milliseconds, as on our
      * router, where the radio was still on a second after it. Only the leak watch's tests set it.
@@ -96,19 +77,14 @@ class FakeRouter : Shell {
     private var inUseBeforeCommit = false
 
     /** Airplane mode as GL's cellular manager has it. */
-    private val airplaneModeInUse: Boolean
-        get() {
-            val staged = stagedAirplaneMode?.takeUnless { airplaneModeNeedsCommit }
-                ?: return if (clock - committedAt < airplaneModeMillis) inUseBeforeCommit else airplaneMode
-            return if (clock - stagedAt < stagedAirplaneModeMillis) inUseBeforeStaging else staged
-        }
+    private val airplaneModeInUse
+        get() = if (clock - committedAt < airplaneModeMillis) inUseBeforeCommit else airplaneMode
 
     /** Turns airplane mode off as the user does on GL's screen, which writes and commits the setting at once (U10). */
     fun turnAirplaneModeOffOnScreen() {
         inUseBeforeCommit = airplaneModeInUse
         committedAt = clock
         airplaneMode = false
-        stagedAirplaneMode = null
         countTraffic()
     }
 
@@ -635,7 +611,6 @@ class FakeRouter : Shell {
             imei2 = it.imei2
         }
         savedImeis = null
-        stagedAirplaneMode = null
         bootedAt = clock
         bootId = UUID.randomUUID().toString()
         poweredOff = false
@@ -691,14 +666,7 @@ class FakeRouter : Shell {
             inUseBeforeCommit = airplaneModeInUse
             committedAt = clock
             airplaneMode = it.groupValues[1] == "1"
-            stagedAirplaneMode = null
             countTraffic()
-            return ok("")
-        }
-        Regex("""uci set 'glconfig.general.airplane_mode=([01])'""").matchEntire(command)?.let {
-            inUseBeforeStaging = airplaneModeInUse
-            stagedAt = clock
-            stagedAirplaneMode = it.groupValues[1] == "1"
             return ok("")
         }
         if (command == "ip rule show") return ok(ipRules())
@@ -1216,7 +1184,7 @@ class FakeRouter : Shell {
     } else if (key in uciAnswers) {
         uciAnswers[key]?.let { ok("$it\n") } ?: notFound()
     } else when (key) {
-        "glconfig.general.airplane_mode" -> ok(if (stagedAirplaneMode ?: airplaneMode) "1\n" else "0\n")
+        "glconfig.general.airplane_mode" -> ok(if (airplaneMode) "1\n" else "0\n")
         "gl_timer.reboot.enable" -> ok(if (scheduledReboot) "1\n" else "0\n")
         "network.modem_cpu.dds_id" -> ok("$activeSlot\n")
         "system.@system[0].log_file" -> logFile?.let { ok("$it\n") } ?: notFound()
