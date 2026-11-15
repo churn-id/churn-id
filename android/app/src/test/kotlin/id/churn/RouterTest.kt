@@ -131,6 +131,36 @@ class RouterTest {
     }
 
     @Test
+    fun deletesTheLogWhereGlsSettingPutsIt() {
+        // As after a firmware upgrade that turned the log back on, with another file than the one Churn's copy names.
+        fake.files["/etc/churn/log_file"] = "/etc/sys_log\n".toByteArray()
+        fake.logFile = "/etc/messages"
+        fake.files["/etc/messages"] = LOG_LINES
+        fake.files["/etc/messages.old"] = LOG_LINES
+        router.clearHistory(CURRENT_CARD)
+        assertNull(fake.files["/etc/messages"])
+        assertNull(fake.files["/etc/messages.old"])
+    }
+
+    @Test
+    fun deletesTheLogWhereChurnsCopyOfGlsSettingPutIt() {
+        // With the log off and its file left, as after a clearing that stopped before it deleted the file.
+        fake.logFile = null
+        fake.files["/etc/churn/log_file"] = "/etc/messages\n".toByteArray()
+        fake.files["/etc/messages"] = LOG_LINES
+        router.clearHistory(CURRENT_CARD)
+        assertNull(fake.files["/etc/messages"])
+    }
+
+    @Test
+    fun leavesOutALogPathThatWouldNeedQuoting() {
+        fake.logFile = "/etc/sys_log /etc/config"
+        router.clearHistory(CURRENT_CARD)
+        assertTrue("rm -f /etc/sys_log /etc/sys_log.old" in fake.commands)
+        assertTrue(fake.commands.none { it.startsWith("rm -f") && "/etc/config" in it })
+    }
+
+    @Test
     fun deletesTheSecretOfEarlierVersions() {
         // As on a router set up by an earlier version of the app.
         fake.files["/etc/churn/secret"] = ByteArray(32)
@@ -559,6 +589,9 @@ class RouterTest {
 
         /** A card with a 20-digit ICCID, which GL stores without an `F`. */
         const val OLD_CARD_20 = "89320000555555555555"
+
+        /** Lines of GL's system log that name a card. */
+        val LOG_LINES = "user.info Diag_Lib[1]: iccid[$OLD_CARD]\n".toByteArray()
 
         /** A valid pair with the fake router's TAC and spacing. */
         val PAIR = ImeiPair("356090213059463", "356090213059539")

@@ -501,7 +501,10 @@ so the app compares ICCIDs without the `F`s. The current card is the one
    `logread -f -F` that writes the file, and `logd` goes on with its
    buffer in RAM (verified). A file still open would keep its data on the
    flash after it is deleted.
-2. It deletes both log files.
+2. It deletes the log's files, each with its `.old`: `/etc/sys_log`, the
+   file that Churn's copy of the setting names, and the one the setting
+   named until step 1, since another firmware may log to another file. A
+   path that would need quoting in the shell is left out.
 3. It rewrites both card files with only the current card's entry,
    through a new file renamed over the old one, and leaves a file that
    doesn't parse as it is. It deletes each eSIM record file that doesn't

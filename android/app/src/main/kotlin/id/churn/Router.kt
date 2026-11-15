@@ -671,8 +671,7 @@ class Router(private val shell: Shell) {
      */
     fun clearHistory(keepIccid: String?, overwrite: Boolean = true) {
         val keep = keepIccid?.let(::iccidKey)
-        turnFlashLogOff()
-        run("rm -f $SYS_LOG $SYS_LOG.old").check("delete the system log")
+        deleteLogs(turnFlashLogOff())
         pruneSimMap(SIM_MAP, keep)
         pruneApnHistory(APN_HISTORY, keep)
         pruneEsimRecords(keep)
@@ -681,14 +680,28 @@ class Router(private val shell: Shell) {
         if (overwrite) overwriteFreeSpace()
     }
 
-    /** Turns GL's flash system log off and saves its original setting, unless it is already off. */
-    private fun turnFlashLogOff() {
-        val current = uci(LOG_FILE) ?: return
+    /**
+     * Turns GL's flash system log off and saves its original setting, unless it is already off. Returns the file the
+     * log went to until now, or null if it was off.
+     */
+    private fun turnFlashLogOff(): String? {
+        val current = uci(LOG_FILE) ?: return null
         // Saved once, so restore.sh can turn the log back on as it was.
         if (readFile("$CHURN/log_file") == null) writeChurnFile("log_file", (current + "\n").toByteArray())
         run("uci delete ${quote(LOG_FILE)} && uci commit system").check("turn the system log off")
         // Stops GL's logread from writing the file; an open file would keep its data on the flash after deletion.
         run("/etc/init.d/log reload").check("reload the log service")
+        return current
+    }
+
+    /**
+     * Deletes the system log's files, each with its `.old`: [SYS_LOG], the file that GL's setting named before Churn
+     * turned the log off, as Churn's copy has it, and [current], the one the log went to until now. A path that would
+     * need quoting is left out rather than passed to the shell.
+     */
+    private fun deleteLogs(current: String?) {
+        val logs = listOfNotNull(SYS_LOG, logFileCopy(), current).distinct().filter { it.matches(PATH) }
+        run("rm -f " + logs.joinToString(" ") { "$it $it.old" }).check("delete the system log")
     }
 
     /** Keeps only the object named by [keep] in GL's `sim_map.json`, which holds one object per ICCID. */
@@ -1267,6 +1280,7 @@ class Router(private val shell: Shell) {
         /** GL's uci value for the ICCID of the active card. */
         const val MODEM_ICCID = "network.modem_cpu.iccid"
 
+        /** The file that GL's setting for its system log named on our Mudi 7. */
         private const val SYS_LOG = "/etc/sys_log"
         private const val CELLULAR = "/etc/config/cellular"
 
