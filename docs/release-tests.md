@@ -305,4 +305,5 @@ run was full or short. Each failure gets an issue of its own, linked
 there, and after a fix, the steps it affects run again. The release waits
 until the run has passed, or until the run's issue says why a failure
 doesn't hold it up. Claims that the run confirmed for the first time
-become *verified* in router-tests.md.
+become *verified* in router-tests.md, and their status names the run's
+issue.

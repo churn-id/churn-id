@@ -15,7 +15,9 @@ simulated Mudi 7 (`FakeRouter`) built from these claims, so a claim that
 turns out wrong makes the simulation wrong too. *Verified* means we
 observed it by hand on a Mudi 7 with GL firmware 4.10.0 and a Quectel
 RG650V-EU modem; *inferred* means not yet tested; *open* means one of the
-open questions in design.md or development.md.
+open questions in design.md or development.md. A claim becomes *verified*
+only through a manual run of its test that is dated and documented in an
+issue, and its status then names that issue.
 
 Each claim has an ID, a letter for its section and a number, such as M3.
 The app's checks, commit messages and pull requests name claims by their
