@@ -652,6 +652,11 @@ goes when the swap ends or is canceled.
   system's uninstall dialog offers to keep the app's data, the place list
   and the copy of the factory IMEIs included, though uninstalls from the
   Play Store don't offer it (inferred).
+- The screens and dialogs show the IMEIs, the router's key fingerprint and
+  the last digits of cards' ICCIDs, so the app sets `FLAG_SECURE` on each
+  of their windows: screenshots and screen recordings leave them out, and
+  the recent apps show no preview of them (inferred). The debug log stands
+  in for screenshots in bug reports.
 
 ### The router's own traffic
 
