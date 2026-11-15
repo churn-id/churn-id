@@ -526,11 +526,13 @@ goes when the swap ends or is canceled.
   step stopped, and what GL's eSIM manager logged during steps 1 and 3,
   which step 3's clearing deletes on the router (below). So that the log
   doesn't become another record of the user's cards, it leaves out
-  numbers of 12 digits or more, such as ICCIDs, IMSIs and IMEIs, the
-  contents of files, which can hold a SIM's PIN, GL's VPN settings, which
-  can name devices or websites (inferred), and the time of day: its times
-  count in seconds from the start of each job or step. It keeps the last
-  three swaps.
+  numbers of 12 digits or more, such as ICCIDs, IMSIs and IMEIs, IP
+  addresses, which can point the carrier to the card that had an address
+  and the VPN provider to the user's account, MAC addresses, which can
+  name the router (inferred), the contents of files, which can hold a
+  SIM's PIN, GL's VPN settings, which can name devices or websites
+  (inferred), and the time of day: its times count in seconds from the
+  start of each job or step. It keeps the last three swaps.
 - Whenever it connects, the app checks the claims about the router that
   its commands rely on, as far as reading the router can tell (tier 1 in
   [router-tests.md](router-tests.md)), so that a firmware upgrade that

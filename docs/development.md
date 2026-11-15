@@ -627,8 +627,11 @@ and then its result: `✓`, `✗` or `–` for passed, failed or not
 applicable, the check and the IDs of its claims in router-tests.md, and on
 the next line why it failed or doesn't apply. Before steps 1 and 3, the
 checks a swap relies on go into the step's section the same way. Every run
-of 12 or more hexadecimal digits shows as `…`, and the masking comes before
-the cuts, which could otherwise leave a part of a number. The ICCID and IMSI
+of 12 or more hexadecimal digits shows as `…`, and so does every IPv4, IPv6
+and MAC address, in commands as in answers: netstat's `0.0.0.0:22` and
+`:::22` both show as `…:22`, and the address of GL's eSIM manager as
+`http://…:3456`. The masking comes before the cuts, which could otherwise
+leave a part of a number or an address. The ICCID and IMSI
 that the built-in eSIM shows without an enabled profile (above) name no
 card, so they show as `[built-in eSIM placeholder ICCID]` and
 `[built-in eSIM test IMSI]`. Every other card's numbers show as `…`, an
