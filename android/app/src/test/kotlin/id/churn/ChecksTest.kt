@@ -276,6 +276,12 @@ class ChecksTest {
     }
 
     @Test
+    fun activeCardCheckPassesWithAnIccidOf18Digits() {
+        fake.modemCpuIccid = ICCID_18
+        assertEquals(CheckResult.Passed, run("U5"))
+    }
+
+    @Test
     fun activeCardCheckDoesNotApplyWithoutAnActiveCard() {
         fake.modemCpuIccid = null
         assertEquals(CheckResult.NotApplicable(R.string.reason_no_active_card), run("U5"))
@@ -937,6 +943,12 @@ class ChecksTest {
     }
 
     @Test
+    fun cardFileCheckPassesWithAnIccidOf18Digits() {
+        fake.recordCards(ICCID_18)
+        assertEquals(CheckResult.Passed, run("H4"))
+    }
+
+    @Test
     fun cardFileCheckFailsAtAFileThatDoesNotParse() {
         fake.recordCards("8941000000000000015F")
         fake.files[Router.SIM_MAP] = "{".toByteArray()
@@ -1371,6 +1383,14 @@ class ChecksTest {
     }
 
     @Test
+    fun imeiCheckPassesForACardWithAnIccidOf18Digits() {
+        fake.trayCard = FakeRouter.Card(ICCID_18, "228010000000001")
+        fake.imei1 = CARD_IMEIS.imei1
+        fake.imei2 = CARD_IMEIS.imei2
+        assertEquals(CheckResult.Passed, run("F5", ChurnFolder(FACTORY, Card(ICCID_18.trimEnd('F'), CARD_IMEIS))))
+    }
+
+    @Test
     fun imeiCheckFailsIfTheRecordedCardsPairChanged() {
         fake.imei1 = CARD_IMEIS.imei1
         assertEquals(CheckResult.Failed("The IMEIs aren't the pair Churn recorded for the card."), run("F5", SWAPPED))
@@ -1431,6 +1451,9 @@ class ChecksTest {
         /** The fake router's IMEIs, as setup records them. */
         val FACTORY = ImeiPair("356090215000002", "356090215000077")
         val CARD_IMEIS = ImeiPair("356090211234563", "356090211235313")
+
+        /** An ICCID of 18 digits, padded to 20 characters as the modem most likely gives it. */
+        const val ICCID_18 = "894100000000000001FF"
 
         /** Churn's folder once setup has recorded the fake router's IMEIs. */
         val SET_UP = ChurnFolder(FACTORY, card = null)

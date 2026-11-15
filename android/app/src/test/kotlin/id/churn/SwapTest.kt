@@ -265,6 +265,17 @@ class SwapTest {
     }
 
     @Test
+    fun step3TakesACardWithAnIccidOf18Digits() {
+        // Padded to 20 characters, as the modem most likely gives it.
+        fake.trayCard = FakeRouter.Card("894100000000000001FF", "228010000000001")
+        prepareAndRestart()
+        val card = giveNewImeis()!!
+        assertEquals("894100000000000001", card.iccid)
+        assertEquals(card, record())
+        assertSafe()
+    }
+
+    @Test
     fun step3ClearsTheHistoryOfEarlierCards() {
         val newCard = fake.trayCard!!.iccid
         fake.recordCards("8949000077777777777F", newCard)

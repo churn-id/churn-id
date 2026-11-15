@@ -55,6 +55,8 @@ class ImeiTest {
     fun keepsTheDigitsOfAnIccid() {
         assertEquals("8941000000000000015", Imei.iccidDigits("8941000000000000015F"))
         assertEquals("89410000000000000150", Imei.iccidDigits(" 89410000000000000150\r"))
+        // Padded to 20 characters, as the modem most likely gives an ICCID of 18 digits.
+        assertEquals("894100000000000001", Imei.iccidDigits("894100000000000001FF"))
         assertNull(Imei.iccidDigits("8941000000000000015FF"))
         assertNull(Imei.iccidDigits("89410000000000A0015"))
         assertNull(Imei.iccidDigits(""))

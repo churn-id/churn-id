@@ -37,10 +37,14 @@ object Imei {
     /** `d`: serial of IMEI 2 minus serial of IMEI 1. */
     fun offset(factory: ImeiPair) = serial(factory.imei2) - serial(factory.imei1)
 
-    /** The ICCID's digits, without the `F` the modem pads a 19-digit one with; null if it isn't an ICCID. */
+    /**
+     * The ICCID's digits, without the `F`s that pad it to 20 characters: the one the modem adds to 19 digits, or most
+     * likely two for 18; null if it isn't an ICCID.
+     */
     fun iccidDigits(raw: String): String? {
-        val digits = raw.trim().removeSuffix("F").removeSuffix("f")
-        return digits.takeIf { it.length in 18..20 && it.all { c -> c in '0'..'9' } }
+        val padded = raw.trim()
+        val digits = padded.trimEnd('F', 'f')
+        return digits.takeIf { padded.length <= 20 && it.length in 18..20 && it.all { c -> c in '0'..'9' } }
     }
 
     /** A random pair with the TACs and the spacing of the [factory] IMEIs: a new card's pair. */

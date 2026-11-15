@@ -247,7 +247,10 @@ class Router(private val shell: Shell) {
         )
     }
 
-    /** Slot 2's ICCID as the modem gives it, with a trailing `F` for 19 digits; null if the card doesn't answer. */
+    /**
+     * Slot 2's ICCID as the modem gives it, with a trailing `F` for 19 digits and most likely two for 18; null if the
+     * card doesn't answer.
+     */
     fun slot2Iccid() = slot2Answer("AT+ICCID")?.after("+ICCID:")?.takeIf { it.matches(Regex("[0-9A-Fa-f]{18,20}")) }
 
     /** Slot 2's IMSI; null if the card doesn't answer. */
@@ -662,8 +665,8 @@ class Router(private val shell: Shell) {
      * original setting first, so [restoreFactoryImeis] can put it back), deletes the log files, keeps only the card
      * with [keepIccid] in GL's card files and the eSIM manager's records, empties the eSIM log, deletes the secret
      * that earlier versions of the app kept, and with [overwrite] overwrites the free space so that deleted copies
-     * can't be read from the raw partition. [keepIccid] is a card's ICCID, with or without the `F` the modem pads a
-     * 19-digit one with, or null to keep none; GL records the current card again when it next goes online.
+     * can't be read from the raw partition. [keepIccid] is a card's ICCID, with or without the `F`s the modem pads it
+     * with, or null to keep none; GL records the current card again when it next goes online.
      * development.md, "Clearing the SIM history", explains what and why.
      */
     fun clearHistory(keepIccid: String?, overwrite: Boolean = true) {
@@ -753,7 +756,7 @@ class Router(private val shell: Shell) {
     private fun writeFile(path: String, content: ByteArray) =
         run("umask 022 && cat > $path.new && mv $path.new $path", content).check(path)
 
-    /** An ICCID without the trailing `F` the modem pads a 19-digit one with, for comparing the forms GL stores. */
+    /** An ICCID without the trailing `F`s the modem pads one of 18 or 19 digits with, for comparing GL's forms. */
     private fun iccidKey(iccid: String) = iccid.trim().trimEnd('F', 'f')
 
     private fun pretty(json: JSONObject) = (json.toString(2) + "\n").toByteArray()

@@ -491,7 +491,7 @@ earlier cards. On our Mudi 7, GL kept it in these files (verified):
 | `/root/esim/log.txt` | The eSIM manager's log, which names profiles by ICCID |
 
 GL stores a 19-digit ICCID with a trailing `F` and a 20-digit one without,
-so the app compares ICCIDs without the `F`. The current card is the one
+so the app compares ICCIDs without the `F`s. The current card is the one
 `network.modem_cpu.iccid` names, or at step 3 the one in slot 2.
 `Router.clearHistory` clears the files in this order:
 
@@ -687,7 +687,10 @@ The pairs are specified in design.md, section 4. Notes for implementing
 them:
 
 - **ICCID read from the modem:** keep the digits only. The modem pads a
-  19-digit ICCID with a trailing `F` (verified), which is dropped.
+  19-digit ICCID with a trailing `F` (verified), and most likely an 18-digit
+  one with two, since the card keeps it in 10 bytes, two digits to a byte
+  (inferred: we have had no such card). The `F`s are dropped, and with them
+  an ICCID has at most 20 characters.
 - **Serial:** draw `s` with `SecureRandom.nextInt(n)`, which is unbiased.
 - **Luhn:** the standard algorithm. Example: `49015420323751` gets check
   digit `8`.
