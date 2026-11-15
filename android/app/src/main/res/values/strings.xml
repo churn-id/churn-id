@@ -91,17 +91,11 @@
     <string name="note_no_vpn">A swap needs a WireGuard VPN on the router, and none is set up. Set one up in GL\'s web interface (rule 5), then tap Refresh. Churn doesn\'t support other VPN types yet.</string>
     <string name="note_kill_switch">The Enhanced Kill Switch is off, so traffic can bypass the VPN (rule 5).</string>
     <string name="note_restored">The factory IMEIs are back, Churn\'s firewall rules, zero files and folder are removed, GL\'s settings for saving the system log and for its connection check over the SIM are as before, and airplane mode is on. To use Churn on this router again, set it up.</string>
-    <string name="kill_switch_on">Turn the Enhanced Kill Switch on</string>
-    <string name="kill_switch_on_text">Churn turns GL\'s Enhanced Kill Switch on. Devices behind the router then reach the internet only through the VPN, and not at all while it is down.</string>
     <string name="note_firewall">Churn\'s firewall rules aren\'t on the router, so the router\'s own traffic can bypass the VPN (rule 5).</string>
-    <string name="firewall_on">Add Churn\'s firewall rules</string>
-    <string name="firewall_on_text">Churn adds firewall rules to the router. Over the SIM, only the VPN\'s own traffic then goes out. Everything else that would use the SIM, the router\'s own traffic included, goes through the VPN, and nowhere while it is down. The router also looks up names at the VPN\'s DNS server. The rules cover only the SIM, not an internet connection over Wi-Fi or the Ethernet port.\n\nRemoving Churn from this router removes the rules.</string>
     <string name="note_connection_check">GL\'s connection check is on for the SIM, so the router pings public addresses over the SIM, past the VPN and Churn\'s firewall rules (rule 5).</string>
-    <string name="connection_check_off">Turn GL\'s connection check off for the SIM</string>
-    <string name="connection_check_off_text">Churn turns GL\'s connection check off for the SIM. The check pings public addresses over the SIM once a second, past the VPN and Churn\'s firewall rules. The SIM\'s connection and the VPN work without it, but GL then can\'t tell when the SIM\'s connection fails, to switch to another one. Other connections keep their check.\n\nRemoving Churn from this router turns the check back on as GL had it.</string>
-    <string name="note_flash_log">GL saves its system log on the router, with each SIM card\'s ICCID and IMSI and the cells it used. The log links your cards to each other and to places.</string>
-    <string name="clear_history">Clear the SIM history</string>
-    <string name="clear_history_text">Churn keeps GL\'s system log in memory only, deletes the saved log, removes all but the current card from GL\'s records and overwrites the router\'s free storage, so that what it deleted can\'t be read back. It keeps the zeros as files, apart from 512 MB of free storage, so that later overwrites only need to fill those 512 MB. This can take a few minutes.\n\nRemoving Churn from this router puts back GL\'s setting for saving the system log and deletes the zero files.</string>
+    <string name="note_new_card">Your next swap puts this right. As the card in the router may have gone online like this, swap it for a new card at the next opportunity, and destroy it as step 4 then says.</string>
+    <string name="note_new_card_place">Your next swap puts this right. As the card in the router, your place card %1$s, may have gone online like this, swap it for a new card at the next opportunity. Forget the place card first, with its button below, so that step 4 asks you to destroy it.</string>
+    <string name="note_flash_log">GL saves its system log on the router, with each SIM card\'s ICCID and IMSI and the cells it used. The log links your cards to each other and to places. Your next swap turns the log off and deletes it, with GL\'s records of every card but the new one. If the router might be searched before then, swap sooner: you can put the same card back in.</string>
     <string name="place_cards_text">Place cards on this phone, each kept for one place you return to:</string>
     <string name="place_card_button">Place card %1$s</string>
     <string name="place_card_name">\u201c%1$s\u201d</string>
@@ -119,10 +113,6 @@
     <string name="forget">Forget this router</string>
     <string name="forget_text">Churn forgets the router\'s key and password. Its folder on the router stays.</string>
     <string name="restoring">Removing Churn from the router</string>
-    <string name="turning_kill_switch_on">Turning the Enhanced Kill Switch on</string>
-    <string name="installing_firewall">Adding Churn\'s firewall rules</string>
-    <string name="turning_connection_check_off">Turning GL\'s connection check off for the SIM</string>
-    <string name="clearing_history">Clearing the SIM history</string>
     <string name="setting_up">Setting up the router</string>
     <string name="reading">Reading the router\'s state</string>
 
@@ -372,6 +362,7 @@
     <string name="problem_sim1_card">Churn found a card in the SIM 1 tray, which Churn doesn\'t use (rule 6). A card there registers at every power-on, whatever airplane mode says, so at step 4 it would go out with the new card and link the two. Slot 2 is still on the built-in eSIM, so switch the router off, take the card out of the SIM 1 tray and put the new card into the SIM 2 tray if it isn\'t there. Then switch the router on again and tap Try again.\n\nIf the card in the SIM 1 tray is the new one, it has already registered where and when the old card went quiet, which links the two. Don\'t use it: put another new card into the SIM 2 tray instead.</string>
     <string name="problem_card_changed">The card in the SIM 2 tray changed while Churn waited for your answer, so Churn stopped. Slot 2 is back on the built-in eSIM. Tap Try again to start over with the card that is there now.</string>
     <string name="problem_not_set_up">Churn\'s folder on the router is missing or damaged. Connect from the start to set the router up again.</string>
+    <string name="problem_newer_version">A newer version of Churn ran the last swap on this router, so Churn left the router as it is. Update Churn on this phone, then connect again. This version would put back its own restore script, which doesn\'t undo everything the newer version changes, and its swaps would replace the newer version\'s firewall rules with its own.</string>
     <string name="problem_not_started">The router didn\'t finish starting, so Churn stopped. Slot 2 is still on the built-in eSIM, so you can switch the router off and on again and tap Try again.</string>
     <string name="problem_kill_switch_off">The Enhanced Kill Switch didn\'t come on.</string>
     <string name="problem_no_vpn">No WireGuard VPN is set up on the router. Set one up in GL\'s web interface first (rule 5).</string>

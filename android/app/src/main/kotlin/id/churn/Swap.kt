@@ -53,8 +53,8 @@ data class DryRunStart(override val slot2: Slot2, override val activeSlot: Int, 
 
 /**
  * What tier 2's removal test sets the router up again with (router-tests.md, "Removal and clearing"): the [factory]
- * IMEIs, the recorded [card], the [imeis] the router had, whether Churn's [firewall] rules were in place, and whether
- * GL's connection check was off for the SIM, [connectionCheckOff].
+ * IMEIs, the recorded [card], the [imeis] the router had, whether Churn's [firewall] rules were in place, whether
+ * GL's connection check was off for the SIM, [connectionCheckOff], and the recorded [version].
  */
 data class RemovalStart(
     val factory: ImeiPair,
@@ -62,6 +62,7 @@ data class RemovalStart(
     val imeis: ImeiPair,
     val firewall: Boolean,
     val connectionCheckOff: Boolean,
+    val version: Int?,
 )
 
 /**
@@ -137,10 +138,10 @@ open class Swap(
     /**
      * Step 3: slot 2 on the new card, which gets a pair of its own. The card in [record] keeps its pair. Any other
      * card brings a question: a card in [places] gets its kept pair, and a new card a random one. The pair is
-     * recorded before it is written. Returns the card with its pair, or null if the user canceled, with slot 2 back
-     * on the built-in eSIM.
+     * recorded before it is written. Last, with everything in place, [version], the app's version code, is recorded.
+     * Returns the card with its pair, or null if the user canceled, with slot 2 back on the built-in eSIM.
      */
-    fun giveNewImeis(factory: ImeiPair, record: Card?, places: PlaceCards, random: SecureRandom): Card? {
+    fun giveNewImeis(factory: ImeiPair, record: Card?, places: PlaceCards, random: SecureRandom, version: Int): Card? {
         startNewImeis(reload = false)
         val card = try {
             writeCardsImeis(factory, record, places, random) ?: return null
@@ -156,6 +157,8 @@ open class Swap(
         router.clearHistory(card.iccid)
         // The clearing reloads GL's log service and fills the flash for a moment.
         checkRadioOff()
+        // So that a later version knows which of its settings this one put in place.
+        router.recordVersion(version)
         return card
     }
 

@@ -7,6 +7,8 @@ IMEIs with every SIM swap: https://github.com/churn-id/churn-id
   factory     IMEI 1 and IMEI 2 as they were when Churn was set up
   card        the ICCID of the card in SIM 2, and the random IMEIs Churn
               gave that card
+  version     the version code of the Churn app that gave them, so that
+              later versions know which of their settings are in place
   kmwan       GL's kmwan.modem_cpu.disabled before Churn turned GL's
               connection check off for the SIM; an empty line for none
   log_file    the file GL's system log went to before Churn turned that off

@@ -272,6 +272,19 @@ class RouterTest {
     }
 
     @Test
+    fun takesRulesThatDifferForAnEarlierVersionsOnes() {
+        router.installFirewall()
+        // As the rules of an earlier version of the app, which counted no packets, with their chains loaded.
+        fake.files[Router.FIREWALL] = Router.firewallRules(453).replace(" counter", "").toByteArray()
+        assertFalse(router.firewallInPlace())
+        assertTrue(router.firewallInPlace(earlierVersion = true))
+        fake.loadedChains.clear()
+        assertFalse(router.firewallInPlace(earlierVersion = true))
+        fake.files.remove(Router.FIREWALL)
+        assertFalse(router.firewallInPlace(earlierVersion = true))
+    }
+
+    @Test
     fun redirectsTheDnsServerByItsUserId() {
         fake.dnsmasqUid = 460
         router.installFirewall()
@@ -401,6 +414,33 @@ class RouterTest {
     }
 
     @Test
+    fun recordsTheVersion() {
+        assertNull(router.readChurnFolder().version)
+        router.recordVersion(12)
+        assertEquals(12, router.readChurnFolder().version)
+        assertEquals("12\n", fake.files["/etc/churn/version"]!!.toString(Charsets.US_ASCII))
+        assertTrue(fake.commands.any { "chmod 600 /etc/churn/version.new" in it })
+    }
+
+    @Test
+    fun countsAFolderWithoutAVersionAsVersion1() {
+        val factory = router.imeis()
+        assertFalse(ChurnFolder(factory, card = null).olderThan(1))
+        assertTrue(ChurnFolder(factory, card = null).olderThan(2))
+        assertFalse(ChurnFolder(factory, card = null, version = 2).olderThan(2))
+        assertTrue(ChurnFolder(factory, card = null, version = 2).olderThan(3))
+    }
+
+    @Test
+    fun seesAFolderOfANewerVersion() {
+        val factory = router.imeis()
+        assertTrue(ChurnFolder(factory, card = null, version = 3).newerThan(2))
+        assertFalse(ChurnFolder(factory, card = null, version = 2).newerThan(2))
+        // Without a version, as before the first swap, the folder counts as version 1, which no app is older than.
+        assertFalse(ChurnFolder(factory, card = null).newerThan(1))
+    }
+
+    @Test
     fun checksTheImeisAgainstTheRecord() {
         val iccid = CURRENT_CARD.removeSuffix("F")
         val folder = ChurnFolder(router.imeis(), Card(iccid, PAIR))
@@ -440,6 +480,17 @@ class RouterTest {
         try {
             router.readChurnFolder()
             throw AssertionError("A damaged record was accepted")
+        } catch (e: RouterException) {
+            assertEquals(Problem.NOT_SET_UP, e.problem)
+        }
+    }
+
+    @Test
+    fun refusesADamagedVersion() {
+        fake.files["/etc/churn/version"] = "0.0.1\n".toByteArray()
+        try {
+            router.readChurnFolder()
+            throw AssertionError("A damaged version was accepted")
         } catch (e: RouterException) {
             assertEquals(Problem.NOT_SET_UP, e.problem)
         }

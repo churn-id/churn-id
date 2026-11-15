@@ -32,6 +32,7 @@ enum class Problem {
     UNEXPECTED_ANSWER, RADIO_ON, SCHEDULED_REBOOT, IMEIS_NOT_KEPT, SLOT_NOT_SWITCHED, PROFILE_STILL_ENABLED,
     NO_CARD, SIM1_CARD, CARD_CHANGED, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN, VPN_GONE, FIREWALL_NOT_LOADED,
     CHECK_FAILED, PROFILE_ENABLED, CARD_IN_TRAY, NOT_READY, LEAK, AIRPLANE_MODE_LEFT_ON, CONNECTION_CHECK_ON,
+    NEWER_VERSION,
 }
 
 /** [detail] is what the router said, for the log; it never holds a password. */
@@ -154,11 +155,23 @@ data class TunnelClock(val handshake: Long, val clockSource: String, val clockUp
 /** A card, by its ICCID's digits, and the IMEIs Churn gives it. */
 data class Card(val iccid: String, val imeis: ImeiPair)
 
-/** Churn's files on the router; null where a file is missing. [card] is the card step 3 last gave IMEIs. */
-class ChurnFolder(val factory: ImeiPair?, val card: Card?) {
+/**
+ * Churn's files on the router; null where a file is missing. [card] is the card step 3 last gave IMEIs, and [version]
+ * the version code of the app whose step 3 did so.
+ */
+class ChurnFolder(val factory: ImeiPair?, val card: Card?, val version: Int? = null) {
 
     /** A folder with the factory IMEIs counts as set up. */
     val complete get() = factory != null
+
+    /**
+     * Whether an app older than [version] ran the last swap, so that what [version] added or changed may be missing
+     * until the next swap's step 3. A folder without a version, as before the first swap, counts as version 1.
+     */
+    fun olderThan(version: Int) = (this.version ?: 1) < version
+
+    /** Whether an app newer than [version] ran the last swap. */
+    fun newerThan(version: Int) = (this.version ?: 1) > version
 
     /** Whether the card with [iccid] (digits only) is the recorded card, and [imeis] are its pair. */
     fun isRecorded(iccid: String, imeis: ImeiPair) = card == Card(iccid, imeis)
@@ -535,9 +548,15 @@ class Router(private val shell: Shell) {
         if (!enhancedKillSwitch()) throw RouterException(Problem.KILL_SWITCH_OFF)
     }
 
-    /** Whether Churn's firewall rules are in place: the file as the app would write it now, and its chains loaded. */
-    fun firewallInPlace() =
-        readFile(FIREWALL).contentEquals(firewallRules(dnsmasqUid()).toByteArray()) && firewallLoaded()
+    /**
+     * Whether Churn's firewall rules are in place: the file as the app would write it now, and its chains loaded. With
+     * [earlierVersion], for a router that an earlier version of the app last set up, a file that differs counts too, as
+     * that version's rules, which the next swap's step 3 replaces.
+     */
+    fun firewallInPlace(earlierVersion: Boolean = false): Boolean {
+        val file = readFile(FIREWALL) ?: return false
+        return (earlierVersion || file.contentEquals(firewallRules(dnsmasqUid()).toByteArray())) && firewallLoaded()
+    }
 
     /** Churn's firewall rules as the file on the router holds them; null if the file isn't there. */
     fun firewallFile() = readFile(FIREWALL)?.toString(Charsets.UTF_8)
@@ -747,7 +766,8 @@ class Router(private val shell: Shell) {
     fun readChurnFolder(): ChurnFolder {
         val factory = readChurnLines("factory", IMEI, IMEI)?.let { ImeiPair(it[0], it[1]) }
         val card = readChurnLines("card", ICCID, IMEI, IMEI)?.let { Card(it[0], ImeiPair(it[1], it[2])) }
-        return ChurnFolder(factory, card)
+        val version = readChurnLines("version", VERSION_CODE)?.let { it[0].toInt() }
+        return ChurnFolder(factory, card, version)
     }
 
     /** Churn's folder and the entries in it, as `ls` lists them; null without the folder. */
@@ -837,6 +857,9 @@ class Router(private val shell: Shell) {
         "card",
         "${card.iccid}\n${card.imeis.imei1}\n${card.imeis.imei2}\n".toByteArray(),
     )
+
+    /** Records [version], an app's version code, in Churn's folder as that of the app whose step 3 last ran. */
+    fun recordVersion(version: Int) = writeChurnFile("version", "$version\n".toByteArray())
 
     /** The lines of [name] in Churn's folder, one for each of [formats]; null if the file is missing. */
     private fun readChurnLines(name: String, vararg formats: Regex): List<String>? {
@@ -1046,6 +1069,7 @@ class Router(private val shell: Shell) {
 
         private val IMEI = Regex("[0-9]{15}")
         private val VERSION = Regex("[0-9A-Za-z][0-9A-Za-z.+_-]{0,39}")
+        private val VERSION_CODE = Regex("[1-9][0-9]{0,8}")
         private val MD5 = Regex("[0-9a-f]{32}")
         private const val BOOT_ID = "/proc/sys/kernel/random/boot_id"
         private val UUID = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")

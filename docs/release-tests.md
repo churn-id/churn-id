@@ -116,7 +116,8 @@ what the app does then: they follow one another at one place (rule 7),
 use the SIM 1 tray and the built-in eSIM (rule 6), and keep cards that
 step 4 says to destroy (rule 8). That is one more reason the test cards
 are for testing only. Steps 1 and 3 list what they did, and Router checks
-pass or don't apply at every connection. On the meter:
+pass or don't apply at every connection, but for D22 from swap 1's step 7
+until swap 2's step 3. On the meter:
 
 - nothing while the router shuts down (B7);
 - only the built-in eSIM's short bursts when the router is switched on at
@@ -171,10 +172,32 @@ At the first swap of a run, also:
 6. Switch back to the release build and connect. Its new data gets a copy
    of the factory IMEIs only with the next pair it writes, at swap 2, in
    time for section 5. Then make the checks under "Going online".
-7. Turn the Enhanced Kill Switch off in GL's web interface, and delete
-   Churn's firewall rules over SSH with
-   `rm /etc/nftables.d/churn.nft && fw4 reload`. Tap Refresh: the router
-   screen warns about both, and its buttons put both back.
+7. Turn the Enhanced Kill Switch off in GL's web interface. Over SSH,
+   delete Churn's firewall rules, turn GL's connection check back on for
+   the SIM and have GL save its system log on the flash again:
+
+   ```sh
+   rm /etc/nftables.d/churn.nft && fw4 reload
+   uci set kmwan.modem_cpu.disabled=0 && uci commit kmwan
+   /etc/init.d/kmwan restart
+   uci set system.@system[0].log_file=/etc/sys_log && uci commit system
+   /etc/init.d/log reload
+   ```
+
+   Tap Refresh: the router screen warns about all four and offers no fix.
+   For the first three it says to swap to a new card, and for the log that
+   the next swap turns it off. Router checks report D22 as failed, since
+   the check can't tell your command from GL.
+8. Over SSH, make the router's record say that a newer version of Churn
+   ran the last swap:
+
+   ```sh
+   cp /etc/churn/version /tmp/ && echo 999999 > /etc/churn/version
+   ```
+
+   Tap Refresh: the Connect screen says to update Churn. Put the record
+   back with `mv /tmp/version /etc/churn/` and connect: the router screen
+   shows step 7's warnings again.
 
 ### Swap 2: the adapter card as a new place card
 
@@ -183,13 +206,15 @@ At the first swap of a run, also:
 2. At step 2, take the normal SIM card out and put the adapter card in.
    Stop the app in Android's settings and open it again: it shows step 2
    (C10). Switch the router on.
-3. Answer step 3's question with Place card. The clearing takes under a
-   minute (H16).
+3. Answer step 3's question with Place card. Step 3 lists that it turned
+   the Enhanced Kill Switch on, added Churn's firewall rules and turned
+   GL's connection check off. The clearing takes under a minute (H16).
 4. Step 4 asks to destroy the normal SIM card, which you keep for the
    tests (W4), and says to switch the router on only at the place card's
    place. Go online.
 5. The router screen names the place card by the last four digits of its
-   ICCID, and by its name once you give it one there (W7). Note its IMEIs.
+   ICCID, and by its name once you give it one there (W7), and none of
+   swap 1's warnings is left. Note its IMEIs.
 6. Uninstall the app, keeping its data, and install it again: the router
    screen still lists the place card, and the app connects without asking
    for the password (C7).

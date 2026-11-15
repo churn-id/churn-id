@@ -43,8 +43,11 @@ class RemovalTestTest {
     /** The card that a swap gave a pair, recorded in Churn's folder. */
     private val card = Card("8941000000000000015", ImeiPair("356090211234563", "356090211235313"))
 
+    /** The version code of the app that runs the test, whose step 3 recorded the card. */
+    private val version = 3
+
     /** What the test keeps on the phone to set the router up again, as the swap left it. */
-    private val kept = RemovalStart(factory, card, card.imeis, firewall = true, connectionCheckOff = true)
+    private val kept = RemovalStart(factory, card, card.imeis, firewall = true, connectionCheckOff = true, version)
 
     private val test = removalTest()
 
@@ -60,6 +63,7 @@ class RemovalTestTest {
         router.installFirewall()
         router.turnSimConnectionCheckOff()
         router.clearHistory(card.iccid)
+        router.recordVersion(version)
         fake.airplaneMode = false
         fake.trayCard = null
         // With both trays empty, GL names no card as the current one.
@@ -96,14 +100,14 @@ class RemovalTestTest {
         router.clearHistory(keepIccid, overwrite = false)
     }
 
-    private fun run() = test.run { saves += it }
+    private fun run() = test.run(version) { saves += it }
 
     /** What the test sets up again, as the router has it now. */
     private fun state(): List<Any?> {
         val router = Router(fake)
         val folder = router.readChurnFolder()
         return listOf(
-            folder.factory, folder.card, ImeiPair(fake.imei1, fake.imei2), router.firewallInPlace(),
+            folder.factory, folder.card, folder.version, ImeiPair(fake.imei1, fake.imei2), router.firewallInPlace(),
             router.upgradeKeeps(Router.FIREWALL), router.upgradeKeeps("/etc/churn/"), fake.logFile,
             fake.kmwanSimDisabled, fake.cardsInSimMap, fake.cardsInApnHistory, fake.cardsInEsimRecords,
         )
@@ -156,8 +160,21 @@ class RemovalTestTest {
     }
 
     @Test
+    fun removalTestPutsThisVersionsRulesInPlaceOfAnEarlierVersions() {
+        // As on a router whose last swap an earlier version of the app did, with rules that counted no packets.
+        Router(fake).recordVersion(version - 1)
+        fake.files[Router.FIREWALL] = Router.firewallRules(453).replace(" counter", "").toByteArray()
+        run()
+        // As the next swap's step 3 would.
+        assertTrue(Router(fake).firewallInPlace())
+        assertEquals(version - 1, Router(fake).readChurnFolder().version)
+        assertEquals(kept.copy(version = version - 1), saves.first())
+    }
+
+    @Test
     fun removalTestSetsARouterWithoutARecordedCardUpAgain() {
         fake.files.remove("/etc/churn/card")
+        fake.files.remove("/etc/churn/version")
         // Whose history setup keeps.
         fake.modemCpuIccid = "${card.iccid}F"
         fake.airplaneMode = true
@@ -172,7 +189,12 @@ class RemovalTestTest {
         run()
         assertEquals(before, state())
         assertEquals(
-            listOf(RemovalStart(factory, card = null, factory, firewall = false, connectionCheckOff = false), null),
+            listOf(
+                RemovalStart(
+                    factory, card = null, factory, firewall = false, connectionCheckOff = false, version = null,
+                ),
+                null,
+            ),
             saves,
         )
         assertEquals(Progress.REMOVAL_PASSED, progress.last())
@@ -633,7 +655,7 @@ class RemovalTestTest {
         val before = state()
         // Once the test kept what setting the router up again takes, so that restore.sh finds the radio on.
         assertStops(Problem.UNEXPECTED_ANSWER) {
-            test.run {
+            test.run(version) {
                 saves += it
                 fake.radioStuckOn = true
             }

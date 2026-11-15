@@ -11,7 +11,7 @@ class RemovalTest(
 
     val testing = emptyList<String>()
 
-    fun run(save: (RemovalStart?) -> Unit): Unit = throw UnsupportedOperationException()
+    fun run(version: Int, save: (RemovalStart?) -> Unit): Unit = throw UnsupportedOperationException()
 
     fun setUpAgain(start: RemovalStart, save: (RemovalStart?) -> Unit): Unit = throw UnsupportedOperationException()
 

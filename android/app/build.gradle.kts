@@ -14,6 +14,9 @@ android {
         versionName = "0.0.1"
     }
 
+    // For the version code that step 3 records on the router.
+    buildFeatures.buildConfig = true
+
     // The upload key is supplied by CI (or a local environment) and never
     // committed. Without it, bundleRelease produces an unsigned bundle.
     val keystorePath: String? = System.getenv("CHURN_KEYSTORE_PATH")
