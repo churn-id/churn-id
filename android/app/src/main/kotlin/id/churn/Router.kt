@@ -704,7 +704,7 @@ class Router(private val shell: Shell) {
      * with [keepIccid] in GL's card files and the eSIM manager's records, empties the eSIM log, and with [overwrite]
      * overwrites the free space so that deleted copies can't be read from the raw partition. [keepIccid] is a card's
      * ICCID, with or without the `F`s the modem pads it with, or null to keep none; GL records the current card again
-     * when it next goes online.
+     * when it next goes online. A card file or eSIM record that is there but doesn't parse stops the clearing.
      * development.md, "Clearing the SIM history", explains what and why.
      */
     fun clearHistory(keepIccid: String?, overwrite: Boolean = true) {
@@ -742,7 +742,7 @@ class Router(private val shell: Shell) {
 
     /** Keeps only the object named by [keep] in GL's `sim_map.json`, which holds one object per ICCID. */
     private fun pruneSimMap(path: String, keep: String?) {
-        val root = readJson(path) ?: return
+        val root = readCardFile(path) ?: return
         var removed = false
         for (key in root.keys().asSequence().toList()) {
             if (keep == null || iccidKey(key) != keep) {
@@ -755,8 +755,9 @@ class Router(private val shell: Shell) {
 
     /** Keeps only the entry named by [keep] in the `apns` list of GL's `history_apn_database.json`. */
     private fun pruneApnHistory(path: String, keep: String?) {
-        val root = readJson(path) ?: return
-        val apns = root.optJSONArray("apns") ?: return
+        val root = readCardFile(path) ?: return
+        val apns = root.optJSONArray("apns")
+            ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "$path has no apns list")
         val kept = JSONArray()
         for (i in 0 until apns.length()) {
             val entry = apns.optJSONObject(i) ?: continue
@@ -768,11 +769,20 @@ class Router(private val shell: Shell) {
         }
     }
 
-    /** Deletes the eSIM manager's record files that don't name [keep], and empties its log. */
+    /**
+     * Deletes the eSIM manager's record files that don't name [keep], and empties its log. A record that doesn't parse
+     * stops the clearing, as a card file does.
+     */
     private fun pruneEsimRecords(keep: String?) {
         for (file in esimRecordFiles()) {
-            val content = readFile(file)?.toString(Charsets.UTF_8) ?: continue
-            if (keep == null || !content.contains(keep)) run("rm -f $file").check("remove an eSIM record")
+            val content = readFile(file) ?: continue
+            if (parseJson(content) == null) {
+                // Named by its folder: the file's name is the chip's EID.
+                throw RouterException(Problem.UNEXPECTED_ANSWER, "A record in $ESIM_RECORDS doesn't parse")
+            }
+            if (keep == null || !content.toString(Charsets.UTF_8).contains(keep)) {
+                run("rm -f $file").check("remove an eSIM record")
+            }
         }
         if (readFile("$ESIM/log.txt") != null) run(": > $ESIM/log.txt").check("empty the eSIM log")
     }
@@ -789,7 +799,7 @@ class Router(private val shell: Shell) {
      * isn't there is left out. Read privately: they hold SIM PINs, APN passwords and activation codes.
      */
     fun cardFiles(): Map<String, JSONObject?> = (listOf(SIM_MAP, APN_HISTORY) + esimRecordFiles()).mapNotNull { path ->
-        readFile(path)?.let { path to runCatching { JSONObject(it.toString(Charsets.UTF_8)) }.getOrNull() }
+        readFile(path)?.let { path to parseJson(it) }
     }.toMap()
 
     /**
@@ -815,8 +825,17 @@ class Router(private val shell: Shell) {
         run("find $ESIM_RECORDS -maxdepth 1 -type f 2>/dev/null").text.lines()
             .filter { it.matches(Regex("$ESIM_RECORDS/[A-Za-z0-9._-]+")) }
 
-    private fun readJson(path: String) =
-        readFile(path)?.let { runCatching { JSONObject(it.toString(Charsets.UTF_8)) }.getOrNull() }
+    /**
+     * GL's card file at [path], or null if it isn't there. One that doesn't parse stops the clearing, since it may
+     * still name earlier cards.
+     */
+    private fun readCardFile(path: String): JSONObject? {
+        val content = readFile(path) ?: return null
+        return parseJson(content) ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "$path doesn't parse")
+    }
+
+    private fun parseJson(content: ByteArray) =
+        runCatching { JSONObject(content.toString(Charsets.UTF_8)) }.getOrNull()
 
     /**
      * Writes [content] to [path], one of GL's own files rather than Churn's, through a copy that keeps the file's mode,

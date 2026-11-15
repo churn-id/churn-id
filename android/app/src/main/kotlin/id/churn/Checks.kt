@@ -110,7 +110,7 @@ val CHECKS = listOf(
     Check("B16", blocks = false, title = R.string.check_test_profile) { router, _ -> testProfile(router) },
     Check("H1", blocks = false, title = R.string.check_flash_log) { router, _ -> flashLogWritten(router) },
     Check("H2", blocks = false, title = R.string.check_flash_log_stopped) { router, _ -> flashLogStopped(router) },
-    Check("H4", blocks = false, title = R.string.check_card_files) { router, _ -> cardFileFormats(router) },
+    Check("H4", blocks = true, title = R.string.check_card_files) { router, _ -> cardFileFormats(router) },
     Check("H5", blocks = false, title = R.string.check_esim_log_time) { router, _ -> esimLogInUtc(router) },
     Check("H6", blocks = false, title = R.string.check_esim_log_growth, confirm = ::esimLogGrows),
     Check("H12", blocks = true, title = R.string.check_overlay) { router, _ -> overlayReserve(router) },
