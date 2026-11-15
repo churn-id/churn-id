@@ -514,6 +514,8 @@ goes when the swap ends or is canceled.
   an answer until its timeout, minutes for some.
 - Each step says what to do, where, and why, so the rules don't depend on
   the user's memory.
+- Warnings are amber and begin with "Warning:", so that a reader who
+  can't tell the color from the other text's still sees them.
 - Steps 1 and 3 list what they did as they go. The next step's screen
   keeps the list: the screen changes as soon as the router has shut down,
   too soon to read it.

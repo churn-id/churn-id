@@ -623,9 +623,10 @@ class MainActivity : Activity() {
         setPadding(0, 0, 0, dp(12))
     }.also { addView(it) }
 
+    /** A line in amber that begins with "Warning:", so that its color isn't the only sign of a warning. */
     private fun LinearLayout.warning(text: String) = addView(
         textView().apply {
-            this.text = text
+            this.text = getString(R.string.warning, text)
             textSize = 16f
             setTextColor(Color.rgb(0xFF, 0xB3, 0x00))
             setTextIsSelectable(true)
