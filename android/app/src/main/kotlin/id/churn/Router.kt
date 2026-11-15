@@ -1174,7 +1174,7 @@ class Router(private val shell: Shell) {
          * Prints the network device of each default route in the main routing table, or `-` for one that names none,
          * as a route over several devices doesn't on its first line.
          */
-        private const val DEFAULT_ROUTE_DEVICES = "ip route show table main | awk '\$1 == \"default\" { d = \"-\"; " +
+        internal const val DEFAULT_ROUTE_DEVICES = "ip route show table main | awk '\$1 == \"default\" { d = \"-\"; " +
             "for (i = 2; i < NF; i++) if (\$i == \"dev\") d = \$(i + 1); print d }'"
 
         /**
