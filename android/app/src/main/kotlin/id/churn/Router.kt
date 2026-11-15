@@ -663,10 +663,10 @@ class Router(private val shell: Shell) {
     /**
      * Removes the record GL keeps of past SIMs on the flash: it turns GL's system log to the flash off (saving the
      * original setting first, so [restoreFactoryImeis] can put it back), deletes the log files, keeps only the card
-     * with [keepIccid] in GL's card files and the eSIM manager's records, empties the eSIM log, deletes the secret
-     * that earlier versions of the app kept, and with [overwrite] overwrites the free space so that deleted copies
-     * can't be read from the raw partition. [keepIccid] is a card's ICCID, with or without the `F`s the modem pads it
-     * with, or null to keep none; GL records the current card again when it next goes online.
+     * with [keepIccid] in GL's card files and the eSIM manager's records, empties the eSIM log, and with [overwrite]
+     * overwrites the free space so that deleted copies can't be read from the raw partition. [keepIccid] is a card's
+     * ICCID, with or without the `F`s the modem pads it with, or null to keep none; GL records the current card again
+     * when it next goes online.
      * development.md, "Clearing the SIM history", explains what and why.
      */
     fun clearHistory(keepIccid: String?, overwrite: Boolean = true) {
@@ -675,8 +675,6 @@ class Router(private val shell: Shell) {
         pruneSimMap(SIM_MAP, keep)
         pruneApnHistory(APN_HISTORY, keep)
         pruneEsimRecords(keep)
-        // Earlier versions of the app derived each card's IMEIs from it, which networks' records then find.
-        run("rm -f $CHURN/secret").check("delete the secret")
         if (overwrite) overwriteFreeSpace()
     }
 

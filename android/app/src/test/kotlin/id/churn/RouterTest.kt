@@ -161,15 +161,6 @@ class RouterTest {
     }
 
     @Test
-    fun deletesTheSecretOfEarlierVersions() {
-        // As on a router set up by an earlier version of the app.
-        fake.files["/etc/churn/secret"] = ByteArray(32)
-        router.clearHistory(CURRENT_CARD)
-        assertNull(fake.files["/etc/churn/secret"])
-        assertTrue("rm -f /etc/churn/secret" in fake.commands)
-    }
-
-    @Test
     fun overwritesTheFreeSpaceLast() {
         // Only then is everything it deleted in the free space.
         fake.recordCards(OLD_CARD, CURRENT_CARD)

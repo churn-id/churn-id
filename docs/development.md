@@ -517,9 +517,7 @@ so the app compares ICCIDs without the `F`s. The current card is the one
    file keeps its mode, owner and group: `sim_map.json` holds SIM PINs,
    and we haven't recorded GL's modes. It deletes each eSIM record file
    that doesn't name the current card, and empties `log.txt`, which the
-   eSIM manager goes on writing to (verified). It also deletes
-   `/etc/churn/secret`, which routers set up by earlier versions of the
-   app still hold: those versions derived each card's IMEIs from it.
+   eSIM manager goes on writing to (verified).
 4. Except at setup, it fills the free space of the overlay, ext4 on the
    eMMC partition `mmcblk0p59` (2.9 GB). It sets
    `/sys/fs/ext4/mmcblk0p59/reserved_clusters`, the 4096 blocks that ext4

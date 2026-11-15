@@ -760,7 +760,7 @@ private val CHURN_RECORD_SIZES = mapOf("factory" to 32L..32L, "card" to 51L..53L
 
 /**
  * Whether Churn's folder and its files belong to root and have the modes and sizes development.md lists. Another file
- * there, such as the `secret` of earlier versions or one that a write stopped halfway left, only root may read.
+ * there, such as one that a write stopped halfway left, only root may read.
  */
 private fun churnFolderModes(router: Router, folder: ChurnFolder): CheckResult {
     if (!folder.complete) return CheckResult.NotApplicable(R.string.reason_not_set_up)

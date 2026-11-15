@@ -279,11 +279,8 @@ class SwapTest {
     fun step3ClearsTheHistoryOfEarlierCards() {
         val newCard = fake.trayCard!!.iccid
         fake.recordCards("8949000077777777777F", newCard)
-        // As on a router set up by an earlier version of the app.
-        fake.files["/etc/churn/secret"] = ByteArray(32)
         prepareAndRestart()
         giveNewImeis()
-        assertNull(fake.files["/etc/churn/secret"])
         assertTrue(Router(fake).flashLogOff())
         assertNull(fake.files["/etc/sys_log"])
         assertEquals(setOf(newCard), fake.cardsInSimMap)
