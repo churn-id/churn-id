@@ -1093,6 +1093,7 @@ class Controller(private val context: Context) {
             Progress.CONNECTION_CHECK_OFF -> R.string.progress_connection_check_off
             Progress.CONNECTION_CHECK_RESTARTED -> R.string.progress_connection_check_restarted
             Progress.CONNECTION_CHECK_BACK -> R.string.progress_connection_check_back
+            Progress.SWITCHING_AGAIN -> R.string.progress_switching_again
         },
         *args,
     )
@@ -1122,6 +1123,7 @@ class Controller(private val context: Context) {
             Problem.AIRPLANE_MODE_LEFT_ON -> R.string.problem_airplane_mode_left_on
             Problem.CONNECTION_CHECK_ON -> R.string.problem_connection_check_on
             Problem.NEWER_VERSION -> R.string.problem_newer_version
+            Problem.LOCK_FAILED -> R.string.problem_lock_failed
         },
     )
 

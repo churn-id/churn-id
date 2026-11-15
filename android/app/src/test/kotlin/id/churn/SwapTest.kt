@@ -212,6 +212,46 @@ class SwapTest {
     }
 
     @Test
+    fun step1SwitchesAgainWhileGlsCellularManagerIsBusy() {
+        fake.slot2SwitchesRefused = 2
+        swap.prepare()
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertEquals(3, fake.switchTimes.size)
+        assertTrue(fake.switchTimes.zipWithNext().all { (first, next) -> next - first >= 5_000 })
+        assertEquals(
+            listOf(
+                Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SWITCHING_AGAIN, Progress.SWITCHING_AGAIN,
+                Progress.SLOT2_ON_ESIM, Progress.PROFILE_DISABLED,
+            ),
+            progress,
+        )
+        assertSafe()
+    }
+
+    @Test
+    fun step1StopsWhileGlsCellularManagerStaysBusy() {
+        fake.slot2SwitchesRefused = 3
+        assertStops(Problem.LOCK_FAILED) { swap.prepare() }
+        assertEquals(3, fake.switchTimes.size)
+        assertEquals(Slot2.SIM2, fake.slot2)
+        assertTrue(fake.airplaneMode)
+        assertSafe()
+        // Try again runs the step anew.
+        swap.prepare()
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertSafe()
+    }
+
+    @Test
+    fun step1SwitchesOnlyOnceIfGlRefusesForAnotherReason() {
+        fake.slot2SwitchesRefused = 1
+        fake.switchError = "invalid argument"
+        assertStops(Problem.UNEXPECTED_ANSWER) { swap.prepare() }
+        assertEquals(1, fake.switchTimes.size)
+        assertSafe()
+    }
+
+    @Test
     fun step1ChangesNothingWhileTheScheduledRebootIsOn() {
         fake.scheduledReboot = true
         assertStops(Problem.SCHEDULED_REBOOT) { swap.prepare() }
@@ -487,6 +527,17 @@ class SwapTest {
         prepareAndRestart()
         giveNewImeis()
         assertEquals(2, fake.activeSlot)
+        assertSafe()
+    }
+
+    @Test
+    fun step3SwitchesTheActiveSlotAgainWhileGlsCellularManagerIsBusy() {
+        fake.activeSlot = 1
+        prepareAndRestart()
+        fake.activeSlotSwitchesRefused = 1
+        giveNewImeis()
+        assertEquals(2, fake.activeSlot)
+        assertEquals(1, progress.count { it == Progress.SWITCHING_AGAIN })
         assertSafe()
     }
 

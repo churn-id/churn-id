@@ -32,7 +32,7 @@ enum class Progress {
     POWER_CYCLES_PASSED, CARD_READY, GOING_ONLINE, SIM_PACKETS,
     FRAGMENTS_UNCLEAR, INTERFACES_CHANGED, LEAK_WATCH_PASSED, SIM_ONLY, TUNNEL_MADE_ANEW, WIREGUARD_MATCHED,
     WIREGUARD_UNCLEAR, HANDSHAKE, CLOCK_SYNCED, TURN_AIRPLANE_MODE_OFF, CONNECTION_CHECK_OFF,
-    CONNECTION_CHECK_RESTARTED, CONNECTION_CHECK_BACK,
+    CONNECTION_CHECK_RESTARTED, CONNECTION_CHECK_BACK, SWITCHING_AGAIN,
 }
 
 /**
@@ -378,7 +378,7 @@ open class Swap(
 
     protected fun setSlot2(slot2: Slot2) {
         if (router.slot2() != slot2) {
-            router.setSlot2(slot2)
+            switching { router.setSlot2(slot2) }
             if (!poll(SWITCH_TIMEOUT_SECONDS) { router.slot2() == slot2 }) {
                 throw RouterException(Problem.SLOT_NOT_SWITCHED)
             }
@@ -388,11 +388,26 @@ open class Swap(
 
     /** Makes [slot] the active slot, with slot 2 set to [slot2], and checks that the radio is still off. */
     protected fun activate(slot: Int, slot2: Slot2) {
-        router.activateSlot(slot, slot2)
+        switching { router.activateSlot(slot, slot2) }
         if (!poll(SWITCH_TIMEOUT_SECONDS) { router.activeSlot() == "$slot" }) {
             throw RouterException(Problem.SLOT_NOT_SWITCHED)
         }
         checkRadioOff()
+    }
+
+    /** Runs [switch], a slot switch, up to [SWITCH_TRIES] times while GL's cellular manager answers that it is busy. */
+    private fun switching(switch: () -> Unit) {
+        repeat(SWITCH_TRIES - 1) {
+            try {
+                switch()
+                return
+            } catch (e: RouterException) {
+                if (e.problem != Problem.LOCK_FAILED) throw e
+            }
+            report(Progress.SWITCHING_AGAIN)
+            sleep(SWITCH_PAUSE_MILLISECONDS)
+        }
+        switch()
     }
 
     /**
@@ -457,6 +472,13 @@ open class Swap(
         private const val POLL_MILLISECONDS = 2_000L
         private const val RADIO_TIMEOUT_SECONDS = 30
         private const val SWITCH_TIMEOUT_SECONDS = 30
+
+        /**
+         * Slot switches sent before a step stops at GL's "lock failed"; problem_lock_failed says how many. GL refused
+         * 1 of 27 switches in our tests. That it rarely refuses again 5 s later is our guess, not a measurement.
+         */
+        private const val SWITCH_TRIES = 3
+        private const val SWITCH_PAUSE_MILLISECONDS = 5_000L
         private const val CARD_TIMEOUT_SECONDS = 60
 
         /** For the placeholder after a disable request, which showed 5 s after the answer in our recordings. */
