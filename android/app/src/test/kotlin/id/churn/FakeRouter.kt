@@ -617,6 +617,12 @@ class FakeRouter : Shell {
      */
     var bootSkipsChurnRules = false
 
+    /**
+     * The cards that each power-on registered, by their ICCID as the tray card has it, with the IMEIs the modem had
+     * then: the card in the SIM 2 tray while slot 2 is set to it, whatever airplane mode says (design.md, section 6).
+     */
+    val registrations = mutableListOf<Pair<String, ImeiPair>>()
+
     /** Power-on with the settings kept. */
     fun boot() {
         savedImeis?.let {
@@ -624,6 +630,7 @@ class FakeRouter : Shell {
             imei2 = it.imei2
         }
         savedImeis = null
+        trayCard?.takeIf { slot2 == Slot2.SIM2 }?.let { registrations += it.iccid to ImeiPair(imei1, imei2) }
         bootedAt = clock
         bootId = UUID.randomUUID().toString()
         poweredOff = false

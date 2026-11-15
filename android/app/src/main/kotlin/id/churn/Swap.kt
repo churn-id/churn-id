@@ -86,7 +86,7 @@ data class PowerCycleStart(
  * so a step that stopped is simply run again. [ask] shows step 3's question and waits for the user's answer. [check]
  * runs the router checks that a swap relies on, those that block in router-tests.md, and returns the lines of those
  * that failed. Both steps run them before they change slot 2, step 3 once the router has started. The tests of tiers 2
- * and 3 in router-tests.md build on the steps' parts.
+ * and 3 in router-tests.md build on the steps' parts. [cardMayBeOn] starts as the last run of step 3 left it.
  */
 open class Swap(
     protected val router: Router,
@@ -95,7 +95,17 @@ open class Swap(
     private val check: () -> List<String> = { emptyList() },
     private val sleep: (Long) -> Unit = Thread::sleep,
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
+    cardMayBeOn: Boolean = false,
 ) {
+
+    /**
+     * Whether slot 2 may be on the SIM 2 tray while the card there doesn't have its own pair yet: from the switch to
+     * the tray until the pair is saved or slot 2 is back on the built-in eSIM. A power-on meanwhile would register the
+     * card with the IMEIs that the modem has, at step 3 those of the card before it, so a step that stops then says
+     * so.
+     */
+    var cardMayBeOn = cardMayBeOn
+        private set
 
     /**
      * Step 1, up to the shutdown: radio off, slot 2 on the built-in eSIM with no profile enabled. The IMEIs stay the
@@ -141,7 +151,9 @@ open class Swap(
      * [before], the card recorded when step 1 ran, the user is asked whether to keep it. Any other card brings a
      * question too: a card in [places] gets its kept pair, and a new card a random one. The pair is recorded before it
      * is written. Last, with everything in place, [version], the app's version code, is recorded. Returns the card
-     * with its pair, or null if the user canceled, with slot 2 back on the built-in eSIM.
+     * with its pair, or null if the user canceled, with slot 2 back on the built-in eSIM. A step that stops before the
+     * pair is saved puts slot 2 back there too, as far as the connection allows, and [cardMayBeOn] says whether it may
+     * still be on the tray.
      */
     fun giveNewImeis(
         factory: ImeiPair,
@@ -151,13 +163,16 @@ open class Swap(
         random: SecureRandom,
         version: Int,
     ): Card? {
-        startNewImeis(reload = false)
+        // A run that stopped may have left slot 2 on the tray. Without an answer, as for a while after power-on, the
+        // flag stays as that run left it.
+        runCatching { router.slot2() }.getOrNull()?.let { cardMayBeOn = it != Slot2.ESIM }
         val card = try {
+            startNewImeis(reload = false)
             writeCardsImeis(factory, record, before, places, random) ?: return null
-        } catch (e: RouterException) {
-            // Back to the eSIM, so that the card stays off if the router is switched off and on before the next try.
-            setSlot2(Slot2.ESIM)
-            report(Progress.SLOT2_ON_ESIM)
+        } catch (e: Exception) {
+            // Back to the eSIM as far as the connection allows, also after a broken one, so that the card stays off
+            // if the router is switched off and on before the next try. The step stopped for e, which it reports.
+            runCatching { park() }
             throw e
         }
         report(Progress.NEW_IMEIS)
@@ -172,30 +187,33 @@ open class Swap(
     }
 
     /**
-     * Step 3 up to the card in the tray, all while slot 2 is still on the built-in eSIM: airplane mode on, the router
-     * started, the checks passed, the radio off, the SIM 1 tray empty, the Enhanced Kill Switch and Churn's firewall
-     * rules in place, and GL's connection check off for the SIM. With [reload], for the dry run, the network and the
-     * firewall reload and the connection check restarts even if the switch is on, the rules are in place and the check
-     * is off.
+     * Step 3 up to the card in the tray: airplane mode on, the router started, the checks passed, the radio off, slot 2
+     * on the built-in eSIM, the SIM 1 tray empty, the Enhanced Kill Switch and Churn's firewall rules in place, and
+     * GL's connection check off for the SIM. With [reload], for the dry run, the network and the firewall reload and
+     * the connection check restarts even if the switch is on, the rules are in place and the check is off.
      */
     protected fun startNewImeis(reload: Boolean) {
         // Before the wait, in case the user turned it off, so that the radio goes off after its burst at power-on.
         turnAirplaneModeOn()
-        // Rule 5, checked again in case the VPN was deleted since step 1. Slot 2 is still on the eSIM, so the step can
-        // stop here and run again once one is set up, and the user learns it before the wait.
+        // Rule 5, checked again in case the VPN was deleted since step 1. Slot 2 is on the eSIM, as step 1 left it, or
+        // goes back there as the step stops, so the step can stop here and run again once one is set up, and the user
+        // learns it before the wait.
         if (!router.vpnSetUp()) throw RouterException(Problem.VPN_GONE)
         waitForStart()
         runChecks()
         waitForRadioOff()
+        // Before anything that might turn the radio on: an earlier run that lost its connection may have left slot 2
+        // on the tray. Not before the radio is off, since a switch checks that it is.
+        park()
         // A card in the SIM 1 tray registers at every power-on, whatever airplane mode says (design.md, section 6), so
-        // at step 4 it would go out with the new card and link the two. Slot 2 is still on the eSIM, so the step can
-        // stop here and run again once the user has taken the card out.
+        // at step 4 it would go out with the new card and link the two. Slot 2 is on the eSIM, so the step can stop
+        // here and run again once the user has taken the card out.
         if (router.cardInSim1Tray()) throw RouterException(Problem.SIM1_CARD)
         report(Progress.SIM1_EMPTY)
         // Step 4 lets the router go online, so the Enhanced Kill Switch and Churn's firewall rules must be in place
         // by then (rule 5), and GL's connection check, which pings past the rules, off for the SIM. Turning the switch
         // on takes a network reload, adding the rules a firewall reload, and turning the check off a restart of it,
-        // which reloads the network too. Each might turn the radio on, so all come while slot 2 is still on the eSIM.
+        // which reloads the network too. Each might turn the radio on, so all come while slot 2 is on the eSIM.
         turnKillSwitchOn(reload)
         putFirewallInPlace(reload)
         turnConnectionCheckOff(reload)
@@ -252,6 +270,8 @@ open class Swap(
         // it runs again.
         if (card != record) router.recordCard(card)
         router.writeImeis(card.imeis)
+        // Saved, so a power-on would now register the card with its own pair.
+        cardMayBeOn = false
         checkRadioOff()
         return card
     }
@@ -262,13 +282,22 @@ open class Swap(
      * the router is switched off and on before they answer.
      */
     private fun askAbout(iccid: String, choose: () -> Card?): Card? {
-        setSlot2(Slot2.ESIM)
-        report(Progress.SLOT2_ON_ESIM)
+        park()
         val chosen = choose() ?: return null
         // The pair was chosen for this card, so it mustn't go to another.
         if (cardInTray(again = true) != iccid) throw RouterException(Problem.CARD_CHANGED)
         report(Progress.SAME_CARD)
         return chosen
+    }
+
+    /** Puts slot 2 back on the built-in eSIM, unless it is there already, so that the card in the tray is off. */
+    private fun park() {
+        if (router.slot2() == Slot2.ESIM) {
+            cardMayBeOn = false
+            return
+        }
+        setSlot2(Slot2.ESIM)
+        report(Progress.SLOT2_ON_ESIM)
     }
 
     /**
@@ -378,11 +407,14 @@ open class Swap(
 
     protected fun setSlot2(slot2: Slot2) {
         if (router.slot2() != slot2) {
+            // Before the switch to the tray: once GL has it, a power-on would register the card there.
+            if (slot2 == Slot2.SIM2) cardMayBeOn = true
             switching { router.setSlot2(slot2) }
             if (!poll(SWITCH_TIMEOUT_SECONDS) { router.slot2() == slot2 }) {
                 throw RouterException(Problem.SLOT_NOT_SWITCHED)
             }
         }
+        cardMayBeOn = slot2 == Slot2.SIM2
         checkRadioOff()
     }
 
