@@ -7,10 +7,11 @@ works the way it does. How to build on it is in
 [development.md](development.md); why Churn's IMEIs keep the router's own
 TAC is in [tac.md](tac.md).
 
-Status: draft. A first prototype of the app implements sections 3 to 5, 7
-and 8; it hasn't been tested on a router yet. *Verified* means we observed
-it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
-*inferred* means reasoned but not yet tested.
+Status: draft. The app implements sections 3 to 5, 7 and 8 and has run
+swaps on our Mudi 7; [router-tests.md](router-tests.md) lists what is still
+untested. *Verified* means we observed it on a Mudi 7 with GL firmware
+4.10.0 and a Quectel RG650V-EU modem; *inferred* means reasoned but not yet
+tested.
 
 ## 1. Goal and threat model
 
@@ -95,8 +96,8 @@ instead.
 - **Host key:** trusted on first use after showing its fingerprint. A new or
   changed key is never accepted silently.
 - **Password:** stored with the Android Keystore.
-- **Dependencies:** an SSH library (sshj, which brings Bouncy Castle) and
-  AndroidX, nothing else.
+- **Dependencies:** an SSH library (sshj, which brings Bouncy Castle),
+  nothing else.
 - **Modem access:** every AT channel of the modem is held open by a GL or
   Quectel daemon (verified), so the app sends AT commands through GL's own
   command-line tool, which arbitrates between them. Every modem operation
@@ -261,9 +262,13 @@ repository has no separate router component.
   to `/etc/sysupgrade.conf`. Otherwise an upgrade would lose the factory
   IMEIs and the record, and setup would run again and could record already
   rewritten IMEIs as the factory ones. A factory reset still deletes both;
-  the README says to restore the factory IMEIs first. If the folder is lost
-  anyway, setup can write the factory IMEIs back from the phone's copy
-  (section 7).
+  the README says to restore the factory IMEIs first. Nothing else on the
+  router keeps them: a search of the flash's other partitions found no
+  copy, and the label under the battery shows none (verified). If the
+  folder is lost anyway, setup can write the factory IMEIs back from the
+  phone's copy (section 7). Without that copy, as on another phone, setup
+  can't tell IMEIs that Churn wrote from the factory ones, so its text
+  names the case.
 - **Deleted by a restore.** Once the restore script has undone everything
   else, it deletes the folder, itself included, and the folder's line in
   `/etc/sysupgrade.conf`. It still runs to its end, since the shell reads

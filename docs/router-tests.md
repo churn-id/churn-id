@@ -15,7 +15,9 @@ simulated Mudi 7 (`FakeRouter`) built from these claims, so a claim that
 turns out wrong makes the simulation wrong too. *Verified* means we
 observed it by hand on a Mudi 7 with GL firmware 4.10.0 and a Quectel
 RG650V-EU modem; *inferred* means not yet tested; *open* means one of the
-open questions in design.md or development.md.
+open questions in design.md or development.md. A claim becomes *verified*
+only through a manual run of its test that is dated and documented in an
+issue, and its status then names that issue.
 
 Each claim has an ID, a letter for its section and a number, such as M3.
 The app's checks, commit messages and pull requests name claims by their
@@ -380,9 +382,9 @@ From development.md, "AT commands (RG650V-EU)", and design.md, section 6.
 | M7 | `AT+QPRTPARA=1` saves the written IMEIs; without it, a reboot 5 s after a write brought the earlier IMEIs back | verified | Write and save a test pair, reboot and read it; then the earlier pair the same way | 3 |
 | M8 | `AT+QPRTPARA=1` also overwrites the modem's backup of its settings | inferred | None known: we know no command that reads the backup | – |
 
-The app doesn't send `AT+CFUN=1`, `AT+CFUN=4`, `AT+CPIN?`, `AT+QCCID`,
-`AT+GSN`, `AT+CGSN` or `AT+QUIMSLOT`, so development.md's claims about
-them need no test. It never sends `AT+QUIMSUB` with a value, which
+The app doesn't send `AT+CFUN=1`, `AT+CFUN=4`, `AT+QCCID`, `AT+GSN`,
+`AT+CGSN` or `AT+QUIMSLOT`, so development.md's claims about them need no
+test. It never sends `AT+QUIMSUB` with a value, which
 blue-merle v2 reports breaks the AT channel until a reboot.
 
 ## uci settings

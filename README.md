@@ -7,8 +7,10 @@ numbers the mobile network sees). Together with the rules below, this keeps
 your mobile carrier from building a location history that leads back to
 you.
 
-**Status:** in development. A first prototype of the app guides you through
-a SIM swap. It hasn't been tested on a router yet, so don't rely on it.
+**Status:** in development. The app has run swaps on our Mudi 7, but parts
+of what it relies on are still untested
+([router-tests.md](docs/router-tests.md) lists them), and there is no
+release yet, so don't rely on it.
 
 ## Why change SIM and IMEI?
 
@@ -92,8 +94,10 @@ work on its own.
 ## What you need
 
 - A GL.iNet Mudi 7 (GL-E5800). We test with GL firmware 4.10.0. The app
-  checks the router before each swap, so on another version it stops if
-  the router doesn't work the way Churn relies on.
+  checks the router before each swap and stops if a check it relies on
+  fails, for example after a firmware upgrade. Not everything Churn relies
+  on can be checked that way: [router-tests.md](docs/router-tests.md)
+  lists what we have verified and what not yet.
 - An Android phone running a system built for privacy, such as GrapheneOS.
 - A USB-C cable to connect the phone to the router, ideally the router's
   own cable.
@@ -156,6 +160,18 @@ For maximum privacy, also follow these rules where you can:
 
 The reasons for each rule are in the
 [design document](docs/design.md#8-usage-rules).
+
+## Removing Churn
+
+Before a factory reset, and before you stop using Churn or give the router
+away, tap Remove Churn from this router in the app. It writes the router's
+factory IMEIs back and undoes everything else Churn changed. Without the
+app, `sh /etc/churn/restore.sh` over SSH does the same.
+
+A factory reset deletes Churn's folder on the router, and nothing else on
+the router or its label shows the factory IMEIs. After a reset, only the
+phone that ran the last swap can still put them back, from a copy it keeps
+with the app's data.
 
 ## Legal
 
