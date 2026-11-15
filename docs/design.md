@@ -96,8 +96,8 @@ instead.
 - **Host key:** trusted on first use after showing its fingerprint. A new or
   changed key is never accepted silently.
 - **Password:** stored with the Android Keystore.
-- **Dependencies:** an SSH library (sshj, which brings Bouncy Castle) and
-  AndroidX, nothing else.
+- **Dependencies:** an SSH library (sshj, which brings Bouncy Castle),
+  nothing else.
 - **Modem access:** every AT channel of the modem is held open by a GL or
   Quectel daemon (verified), so the app sends AT commands through GL's own
   command-line tool, which arbitrates between them. Every modem operation
