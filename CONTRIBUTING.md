@@ -74,8 +74,9 @@ cd android
 CI does the same for every pull request and every push to `main`; download
 the bundle from the workflow run's artifacts (`churn-release-aab`). It
 also checks the spelling of the Markdown files and the app's source with
-cspell (word list in `cspell.json`) and lints the Markdown files with
-markdownlint-cli2 (`.markdownlint.json`).
+cspell (word list in `cspell.json`), lints the Markdown files with
+markdownlint-cli2 (`.markdownlint.json`) and lints `restore.sh` with
+ShellCheck (`-S warning`).
 
 The unit tests run against a simulated Mudi 7. Tests on a real router are
 listed in [docs/router-tests.md](docs/router-tests.md); the app runs the
