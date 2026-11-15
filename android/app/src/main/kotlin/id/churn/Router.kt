@@ -1397,7 +1397,9 @@ class Router(private val shell: Shell) {
         /**
          * Fills the overlay's free space with zeros, then frees 512 MB of it again. ext4 keeps back free space that
          * even root can't fill, 16 MB on the Mudi 7, and copies of deleted files would stay in it, so the fill sets
-         * that reserve to 0 and puts it back at the end, or when the run is stopped; a reboot also puts it back.
+         * that reserve to 0 and puts it back at the end, or when the run is stopped; a reboot also puts it back. A
+         * run doesn't start while the reserve reads 0, as after a run killed before it put the reserve back, since it
+         * would then put back 0.
          *
          * 64 MB parts come first, each flushed to the flash before the next, so the partition is full only briefly. It
          * is 2.9 GB, so `dd` stops at a full partition after at most 47 parts. Files of 4 KB then take the single free
@@ -1416,6 +1418,7 @@ class Router(private val shell: Shell) {
             dev=${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1; exit }' /proc/mounts)
             reserve=/sys/fs/ext4/${'$'}{dev##*/}/reserved_clusters
             size=${'$'}(cat ${'$'}reserve)
+            [ "${'$'}size" -gt 0 ] 2>/dev/null || { echo "ext4's reserve is ${'$'}{size:-unreadable}"; exit 3; }
             zeros=/overlay/churn-zeros
             free_kb() { df -k /overlay | awk 'END { print ${'$'}(NF - 4) - ${'$'}(NF - 3) }'; }
             trim() {

@@ -47,6 +47,8 @@ check() {
 
 between() { [ "$1" -ge "$2" ] && [ "$1" -lt "$3" ]; }
 not() { ! "$@"; }
+# Whether the last run whose output went to $work/out printed $1.
+printed() { grep -qF "$1" "$work/out"; }
 
 # Runs $1 as Churn's SSH connection runs a command: with the router's shell.
 on_router() {
@@ -197,6 +199,17 @@ check "the reserve is back" [ "$(reserve)" -eq 4096 ]
 check "no fill file is left" [ -z "$(find "$root/overlay" -maxdepth 1 -name 'churn-fill.*')" ]
 check "the zero files are as before" [ "$(ls "$root/overlay/churn-zeros")" = "$zeros" ]
 
+# As a run killed before it set the reserve back leaves it.
+echo "== An overwrite that finds ext4's reserve at 0"
+echo 0 > "$ext4/reserved_clusters"
+written=$(written_kb)
+overwrite > "$work/out" 2>&1 && status=0 || status=$?
+check "it exits with 3" [ "$status" -eq 3 ]
+check "it says why" printed "ext4's reserve is 0"
+check "it writes nothing" [ $(($(written_kb) - written)) -lt 1024 ]
+check "the zero files are as before" [ "$(ls "$root/overlay/churn-zeros")" = "$zeros" ]
+echo 4096 > "$ext4/reserved_clusters"
+
 # As a power cut leaves it after a run moved its parts and before it freed
 # the 512 MB: zero files take all of it, and the mount sets the reserve back.
 echo "== An overwrite that finds the partition full"
@@ -253,7 +266,6 @@ called() { grep -qxF "$1" "$root/tmp/calls"; }
 # The line in /tmp/calls of the first call that starts with $1.
 call_line() { grep -nF "$1" "$root/tmp/calls" | sed -n '1s/:.*//p'; }
 restore() { on_router 'sh /etc/churn/restore.sh' > "$work/out" 2>&1; }
-printed() { grep -qF "$1" "$work/out"; }
 
 echo "== restore.sh after the overwrites"
 set_up

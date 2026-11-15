@@ -541,7 +541,9 @@ so the app compares ICCIDs without the `F`s. The current card is the one
    `/overlay/churn-zeros`, lowest number first, until 512 MB of the
    partition are free. When a signal stops the run, a trap deletes the fill
    files, syncs, sets the reserve back and frees the 512 MB the same way; a
-   reboot sets the reserve back too.
+   reboot sets the reserve back too. A run that finds the reserve at 0, as
+   a run killed before it set the reserve back leaves it, exits with 3
+   before it changes anything, since it would put back 0.
 
 We ran these steps as a script on our router, with step 4 still without
 the reserve and the 4 KB files. The router had seen two old cards, A and
