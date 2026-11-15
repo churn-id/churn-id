@@ -1032,7 +1032,9 @@ For maximum privacy, also follow these rules where you can:
 
 The app also tells the user, before first use, that rewriting an IMEI is a
 criminal offense in some countries, for example under the UK's Mobile
-Telephones (Re-programming) Act 2002.
+Telephones (Re-programming) Act 2002, and that making sure it is legal
+where they use the router is up to them. Neither the app nor these
+documents say where it is legal, since that would be legal advice.
 
 ## 9. Distribution
 
@@ -1106,9 +1108,8 @@ Design:
   the user's places. For now we assume a provider that keeps no logs
   (section 1).
 
-Legal and distribution:
+Distribution:
 
-- Is rewriting an IMEI legal in Switzerland and other markets?
 - Does Google Play's Device and Network Abuse policy allow an app that
   changes IMEIs?
 

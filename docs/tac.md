@@ -103,9 +103,6 @@ None is known yet, so Churn's IMEIs use the router's own TAC only.
   units shipped. A random serial far outside that block could stand out to
   someone who sees many Mudi 7 IMEIs (inferred). Serials stay uniform over
   all 6 digits until IMEIs from more units are known.
-- **Legality:** rewriting an IMEI is a criminal offense in some countries,
-  for example under the UK's Mobile Telephones (Re-programming) Act 2002.
-  Switzerland and other markets are not checked yet.
 
 ## Sources
 

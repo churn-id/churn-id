@@ -592,4 +592,4 @@ Some claims no test on the router can confirm:
   provider can match, not on the router.
 - What the flash chips keep beneath the partition after the overwrite
   (design.md, section 7). Only reading the chips themselves would show it.
-- The legal and distribution questions in design.md, section 10.
+- The distribution question in design.md, section 10.

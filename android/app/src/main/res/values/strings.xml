@@ -4,7 +4,7 @@
 
     <!-- First start -->
     <string name="intro_title">Before you start</string>
-    <string name="legal_notice">Churn rewrites your router\'s IMEIs. Rewriting an IMEI is a criminal offense in some countries, for example under the UK\'s Mobile Telephones (Re-programming) Act 2002. Check the law where you use the router.</string>
+    <string name="legal_notice">Churn rewrites your router\'s IMEIs. Rewriting an IMEI is a criminal offense in some countries, for example under the UK\'s Mobile Telephones (Re-programming) Act 2002. Making sure that it is legal where you use the router is up to you.</string>
     <string name="intro_rules">Churn only protects you if you follow its rules every time. You can read them again from the router screen.</string>
     <string name="intro_accept">I understand</string>
 

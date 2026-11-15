@@ -176,7 +176,8 @@ with the app's data.
 ## Legal
 
 Changing an IMEI is a criminal offense in some countries, for example in the
-United Kingdom. Check the law where you use the router.
+United Kingdom. Making sure that it is legal where you use the router is up
+to you. Nothing in this repository is legal advice.
 
 ## Contributing
 
