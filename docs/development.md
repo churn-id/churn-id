@@ -524,7 +524,10 @@ so the app compares ICCIDs without the `F`s. The current card is the one
    upgrade that changed it; the clearing's stop covers a file that
    changed since the check.
 4. Except at setup, it fills the free space of the overlay, ext4 on the
-   eMMC partition `mmcblk0p59` (2.9 GB). It sets
+   eMMC partition `mmcblk0p59` (2.9 GB). It holds the lock
+   `/var/lock/churn-overwrite.lock` from start to end, so that a run that
+   outlived the app's connection and the next one don't overlap;
+   `restore.sh` takes it too before it deletes the zero files. It sets
    `/sys/fs/ext4/mmcblk0p59/reserved_clusters`, the 4096 blocks that ext4
    keeps free even from root, to 0, and makes the directory
    `/overlay/churn-zeros`, the link `/etc/churn/zeros` to it, and 16
@@ -694,7 +697,7 @@ untested, and the router checks look for it.
 | `/etc/churn/version` | 600 | The version code of the app whose step 3 last ran to its end, as a decimal number on one line. Written last, so only there after a swap; without it, the app counts the router as version 1 |
 | `/etc/churn/log_file` | 600 | GL's `system.@system[0].log_file` as it was before the app first deleted it. Only there after the app has deleted it |
 | `/etc/churn/kmwan` | 600 | GL's `kmwan.modem_cpu.disabled` as it was before step 3 first turned GL's connection check off for the SIM, or an empty line if it wasn't set. Only there after that |
-| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, deletes `card`, sets `log_file` back from Churn's copy and deletes the copy, deletes `/overlay/churn-zeros`, the link to it and any fill files, sets `kmwan.modem_cpu.disabled` back from Churn's copy and deletes the copy, then removes Churn's firewall rules and, last, deletes `/etc/churn/` itself |
+| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, deletes `card`, sets `log_file` back from Churn's copy and deletes the copy, waits for a free-space overwrite still running, deletes `/overlay/churn-zeros`, the link to it and any fill files, sets `kmwan.modem_cpu.disabled` back from Churn's copy and deletes the copy, then removes Churn's firewall rules and, last, deletes `/etc/churn/` itself |
 | `/etc/churn/zeros` | – | Link to `/overlay/churn-zeros`, made by the free-space overwrite |
 | `/etc/nftables.d/churn.nft` | 644 | Churn's firewall rules, from `Router.firewallRules` |
 | `/overlay/churn-zeros/` | – | Files of zeros from the free-space overwrite, up to 64 MB each and numbered, that take all but 512 MB of the free space. Beside the router's own files, so that upgrades and tools reading `/etc` skip them (design.md, section 5) |

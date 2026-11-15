@@ -1373,6 +1373,9 @@ class Router(private val shell: Shell) {
         const val DEFAULT_POLICY = "route_policy.@default[0].enabled"
         const val VPN_TO_MAIN = "network.vpn_to_main"
         private const val LOCK = "/var/lock/churn.lock"
+
+        /** The free-space overwrite's own lock, which restore.sh takes too. */
+        private const val OVERWRITE_LOCK = "/var/lock/churn-overwrite.lock"
         const val SYSUPGRADE = "/etc/sysupgrade.conf"
         private const val ESIM_API = "http://127.0.0.1:3456/sdk/v1"
 
@@ -1401,6 +1404,10 @@ class Router(private val shell: Shell) {
          * run doesn't start while the reserve reads 0, as after a run killed before it put the reserve back, since it
          * would then put back 0.
          *
+         * A run holds [OVERWRITE_LOCK] from start to end. A run that the app's connection lost most likely goes on,
+         * and the next one then waits for it, and finds the partition mostly filled, instead of deleting its fill
+         * files. restore.sh takes the lock too before it deletes the zero files. Modem commands don't wait for it.
+         *
          * 64 MB parts come first, each flushed to the flash before the next, so the partition is full only briefly. It
          * is 2.9 GB, so `dd` stops at a full partition after at most 47 parts. Files of 4 KB then take the single free
          * blocks between small files that the parts leave, where old versions of GL's config files are. Their
@@ -1415,6 +1422,7 @@ class Router(private val shell: Shell) {
          * deletes both.
          */
         internal val OVERWRITE_FREE_SPACE = """
+            exec 8>$OVERWRITE_LOCK && flock 8 || exit 2
             dev=${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1; exit }' /proc/mounts)
             reserve=/sys/fs/ext4/${'$'}{dev##*/}/reserved_clusters
             size=${'$'}(cat ${'$'}reserve)

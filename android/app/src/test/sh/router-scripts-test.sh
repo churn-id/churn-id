@@ -139,6 +139,14 @@ copies() {
 }
 
 overwrite() { on_router "$(cat "$scripts/overwrite-free-space.sh")"; }
+# Waits until a run started in the background has begun to fill.
+filling() {
+	i=0
+	while [ ! -e "$root/overlay/churn-fill.0" ] && [ "$i" -lt 300 ]; do
+		sleep 0.1
+		i=$((i + 1))
+	done
+}
 
 # GL's files on the overlay. Each uci commit writes a file anew and renames
 # it over the old one, whose blocks stay as they were. Files written in
@@ -186,11 +194,7 @@ echo "== An overwrite that a signal stops"
 zeros=$(ls "$root/overlay/churn-zeros")
 env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin chroot "$root" /bin/sh -c "$(cat "$scripts/overwrite-free-space.sh")" &
 pid=$!
-i=0
-while [ ! -e "$root/overlay/churn-fill.0" ] && [ "$i" -lt 300 ]; do
-	sleep 0.1
-	i=$((i + 1))
-done
+filling
 check "the reserve is 0 while it fills" [ "$(reserve)" -eq 0 ]
 kill -TERM "$pid"
 wait "$pid" && status=0 || status=$?
@@ -209,6 +213,18 @@ check "it says why" printed "ext4's reserve is 0"
 check "it writes nothing" [ $(($(written_kb) - written)) -lt 1024 ]
 check "the zero files are as before" [ "$(ls "$root/overlay/churn-zeros")" = "$zeros" ]
 echo 4096 > "$ext4/reserved_clusters"
+
+echo "== Two overwrites at once"
+overwrite > /dev/null &
+pid=$!
+filling
+overwrite > /dev/null && status=0 || status=$?
+wait "$pid" && first=0 || first=$?
+check "the first exits with 0" [ "$first" -eq 0 ]
+check "the second, which waits for it, exits with 0" [ "$status" -eq 0 ]
+check "the reserve is back" [ "$(reserve)" -eq 4096 ]
+check "512 MB to 576 MB are free" between "$(free_kb)" 524288 589824
+check "no fill file is left" [ -z "$(find "$root/overlay" -maxdepth 1 -name 'churn-fill.*')" ]
 
 # As a power cut leaves it after a run moved its parts and before it freed
 # the 512 MB: zero files take all of it, and the mount sets the reserve back.
@@ -314,6 +330,21 @@ check "it says why" printed "Can't read /etc/churn/factory."
 check "airplane mode is as it was" [ "$(setting glconfig.general.airplane_mode)" = 0 ]
 check "the modem has the card's IMEIs" [ "$(cat "$root/tmp/imei7") $(cat "$root/tmp/imei11")" = "$CARD1 $CARD2" ]
 check "Churn's folder is kept" [ -e "$root/etc/churn/card" ]
+
+echo "== restore.sh while an overwrite fills"
+mkdir -p "$root/etc/churn"
+set_up
+overwrite > /dev/null &
+pid=$!
+filling
+restore && status=0 || status=$?
+wait "$pid" && first=0 || first=$?
+check "it exits with 0" [ "$status" -eq 0 ]
+check "the overwrite, which it waits for, exits with 0" [ "$first" -eq 0 ]
+check "the zero files are gone" [ ! -e "$root/overlay/churn-zeros" ]
+check "no fill file is left" [ -z "$(find "$root/overlay" -maxdepth 1 -name 'churn-fill.*')" ]
+check "the free space is back" [ "$(free_kb)" -gt 900000 ]
+check "Churn's folder is gone" [ ! -e "$root/etc/churn" ]
 
 echo "$failed failed"
 [ "$failed" -eq 0 ]

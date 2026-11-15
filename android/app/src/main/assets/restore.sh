@@ -63,6 +63,11 @@ if [ -s "$DIR/log_file" ]; then
 	rm -f "$DIR/log_file"
 fi
 
+# A free-space overwrite that outlived the app's connection may still be
+# filling the flash. It holds this lock until it has ended.
+exec 8>/var/lock/churn-overwrite.lock && flock 8 ||
+	fail "The factory IMEIs are back, but waiting for Churn's overwrite of the free space failed."
+
 # The zero files that take most of the flash's free space between
 # clearings, the link to them, and fill files left by a clearing that
 # stopped.
