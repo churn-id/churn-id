@@ -7,8 +7,10 @@ numbers the mobile network sees). Together with the rules below, this keeps
 your mobile carrier from building a location history that leads back to
 you.
 
-**Status:** in development. A first prototype of the app guides you through
-a SIM swap. It hasn't been tested on a router yet, so don't rely on it.
+**Status:** in development. The app has run swaps on our Mudi 7, but parts
+of what it relies on are still untested
+([router-tests.md](docs/router-tests.md) lists them), and there is no
+release yet, so don't rely on it.
 
 ## Why change SIM and IMEI?
 

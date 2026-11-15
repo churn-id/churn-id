@@ -7,10 +7,11 @@ works the way it does. How to build on it is in
 [development.md](development.md); why Churn's IMEIs keep the router's own
 TAC is in [tac.md](tac.md).
 
-Status: draft. A first prototype of the app implements sections 3 to 5, 7
-and 8; it hasn't been tested on a router yet. *Verified* means we observed
-it on a Mudi 7 with GL firmware 4.10.0 and a Quectel RG650V-EU modem;
-*inferred* means reasoned but not yet tested.
+Status: draft. The app implements sections 3 to 5, 7 and 8 and has run
+swaps on our Mudi 7; [router-tests.md](router-tests.md) lists what is still
+untested. *Verified* means we observed it on a Mudi 7 with GL firmware
+4.10.0 and a Quectel RG650V-EU modem; *inferred* means reasoned but not yet
+tested.
 
 ## 1. Goal and threat model
 
