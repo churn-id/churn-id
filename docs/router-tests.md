@@ -172,10 +172,15 @@ router with no SIM and no profile enabled on the built-in eSIM:
 6. It sets the router up again as the setup screen does, with the card's
    record, the IMEIs it had, Churn's firewall rules and GL's connection
    check off, and keeps the recorded card's SIM history (F12).
-7. It clears the SIM history as step 3 does, keeping the recorded card's.
-   With the zero files gone, the overwrite fills all of the free space and
-   prints nothing for minutes, and the clearing has to end on the same SSH
-   connection (H17). It then checks:
+7. It writes GL's card files again unchanged, as a clearing writes them,
+   and checks that `ls -ln` shows the same mode, owner and group as before
+   (H20); without card files, H20 stays unconfirmed. The clearing itself
+   writes them only if they name an earlier card, which they don't once
+   the router is set up again. Next, it clears the SIM history as step 3
+   does, keeping the recorded card's. With the zero files gone, the
+   overwrite fills all of the free space and prints nothing for minutes,
+   and the clearing has to end on the same SSH connection (H17). It then
+   checks:
    - that ext4's reserve is as before the clearing (H13);
    - that GL's card files and the eSIM manager's records parse (H14);
    - that about 512 MB are free, with the zero files' folder holding the
@@ -542,6 +547,7 @@ and 10.
 | H17 | The SSH connection stays open through the overwrite, which prints nothing for minutes | inferred | The removal test's first clearing, which fills about 2.9 GB | 2 |
 | H18 | The flash rates its own wear, and reported under 10% used on our router after our tests | verified | `life_time` and `pre_eol_info` in `/sys/block/mmcblk0/device/`, which the debug log records at every connection; the check also fails once the flash warns that its life or its spare blocks are running out | 1 |
 | H19 | GL writes files in `/etc` every minute, so with the log's file off, the clock after a power-on still resumes from about the time of the power-off | verified with the SIM online | The files in `/etc` that something other than Churn wrote in the last 2 minutes, from 2 minutes after a power-on, in airplane mode too | 1 |
+| H20 | The clearing's writes keep the mode, owner and group of GL's card files, since it writes them through a copy made with BusyBox's `cp -p` | inferred | The removal test writes GL's card files again unchanged, as a clearing writes them, and compares `ls -ln` before and after | 2 |
 
 ## Churn's files and firmware upgrades
 

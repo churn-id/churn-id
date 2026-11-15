@@ -756,6 +756,23 @@ class Router(private val shell: Shell) {
         readFile(path)?.let { path to runCatching { JSONObject(it.toString(Charsets.UTF_8)) }.getOrNull() }
     }.toMap()
 
+    /**
+     * The mode, owner and group of each of GL's card files, as `ls -ln` lists them, by path; a file that isn't there is
+     * left out. Listed privately, since the times say when swaps ran.
+     */
+    fun cardFileModes(): Map<String, String> {
+        val output = runPrivately("ls -lnA $CELLULAR")
+        if (output.status != 0) throw unexpected(CELLULAR)
+        return output.text.lines().map { it.trim().split(Regex("\\s+"), limit = 9) }
+            .filter { it.size == 9 && "$CELLULAR/${it[8]}" in setOf(SIM_MAP, APN_HISTORY) }
+            .associate { "$CELLULAR/${it[8]}" to "${it[0]} ${it[2]} ${it[3]}" }
+    }
+
+    /** Writes GL's card files again unchanged, as a clearing writes them, for the removal test. */
+    fun rewriteCardFiles() {
+        for (path in listOf(SIM_MAP, APN_HISTORY)) readFile(path)?.let { writeFile(path, it) }
+    }
+
     /** The eSIM manager's record files, one per chip. */
     private fun esimRecordFiles() =
         // GL names each file by the chip's 32-digit id; other names are left alone rather than passed to the shell.
@@ -765,9 +782,12 @@ class Router(private val shell: Shell) {
     private fun readJson(path: String) =
         readFile(path)?.let { runCatching { JSONObject(it.toString(Charsets.UTF_8)) }.getOrNull() }
 
-    /** Writes [content] to [path], which only root can change. Used for GL's own files, not Churn's folder. */
+    /**
+     * Writes [content] to [path], one of GL's own files rather than Churn's, through a copy that keeps the file's mode,
+     * owner and group, which a new file wouldn't: `sim_map.json` holds SIM PINs.
+     */
     private fun writeFile(path: String, content: ByteArray) =
-        run("umask 022 && cat > $path.new && mv $path.new $path", content).check(path)
+        run("cp -p $path $path.new && cat > $path.new && mv $path.new $path", content).check(path)
 
     /** An ICCID without the trailing `F`s the modem pads one of 18 or 19 digits with, for comparing GL's forms. */
     private fun iccidKey(iccid: String) = iccid.trim().trimEnd('F', 'f')

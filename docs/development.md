@@ -507,11 +507,13 @@ so the app compares ICCIDs without the `F`s. The current card is the one
    path that would need quoting in the shell is left out.
 3. It rewrites both card files with only the current card's entry,
    through a new file renamed over the old one, and leaves a file that
-   doesn't parse as it is. It deletes each eSIM record file that doesn't
-   name the current card, and empties `log.txt`, which the eSIM manager
-   goes on writing to (verified). It also deletes `/etc/churn/secret`,
-   which routers set up by earlier versions of the app still hold: those
-   versions derived each card's IMEIs from it.
+   doesn't parse as it is. It makes the new file with `cp -p`, so that the
+   file keeps its mode, owner and group: `sim_map.json` holds SIM PINs,
+   and we haven't recorded GL's modes. It deletes each eSIM record file
+   that doesn't name the current card, and empties `log.txt`, which the
+   eSIM manager goes on writing to (verified). It also deletes
+   `/etc/churn/secret`, which routers set up by earlier versions of the
+   app still hold: those versions derived each card's IMEIs from it.
 4. Except at setup, it fills the free space of the overlay, ext4 on the
    eMMC partition `mmcblk0p59` (2.9 GB). It sets
    `/sys/fs/ext4/mmcblk0p59/reserved_clusters`, the 4096 blocks that ext4

@@ -230,6 +230,20 @@ class RouterTest {
     }
 
     @Test
+    fun keepsTheModeOwnerAndGroupOfTheCardFilesItRewrites() {
+        fake.recordCards(OLD_CARD, CURRENT_CARD)
+        // As GL might keep them: sim_map.json holds SIM PINs.
+        fake.cardFileModes[FakeRouter.SIM_MAP] = "-rw------- 0 0"
+        fake.cardFileModes[FakeRouter.APN_HISTORY] = "-rw-r----- 0 50"
+        val modes = mapOf(FakeRouter.SIM_MAP to "-rw------- 0 0", FakeRouter.APN_HISTORY to "-rw-r----- 0 50")
+        assertEquals(modes, router.cardFileModes())
+        router.clearHistory(CURRENT_CARD)
+        assertEquals(setOf(CURRENT_CARD), fake.cardsInSimMap)
+        assertEquals(setOf(CURRENT_CARD), fake.cardsInApnHistory)
+        assertEquals(modes, router.cardFileModes())
+    }
+
+    @Test
     fun rewritesOnlyCardFilesThatChange() {
         fake.recordCards(CURRENT_CARD)
         router.clearHistory(CURRENT_CARD)

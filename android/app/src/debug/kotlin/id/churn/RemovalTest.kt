@@ -160,6 +160,27 @@ class RemovalTest(
      */
     private fun clear(start: RemovalStart, numbers: List<String>) {
         val reserve = router.overlay()?.reserve
+        // A clearing writes GL's card files only if they name an earlier card, which they don't once the router is set
+        // up again, so the test writes them again unchanged, as a clearing would.
+        part("H20") {
+            val modes = router.cardFileModes()
+            if (modes.isEmpty()) {
+                report(Progress.NO_CARD_FILES)
+            } else {
+                router.rewriteCardFiles()
+                val after = router.cardFileModes()
+                modes.forEach { (path, mode) ->
+                    val now = after[path] ?: "gone"
+                    if (now != mode) {
+                        throw RouterException(
+                            Problem.UNEXPECTED_ANSWER,
+                            "${path.substringAfterLast('/')} was $mode before a write, $now after it",
+                        )
+                    }
+                }
+                report(Progress.CARD_FILE_MODES_KEPT)
+            }
+        }
         // The overwrite prints nothing until it ends, and a connection that closes meanwhile fails the command.
         part("H17") {
             report(Progress.CLEARING_HISTORY)

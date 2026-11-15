@@ -139,7 +139,8 @@ class RemovalTestTest {
                 Progress.SIM1_EMPTY, Progress.RESTORED, Progress.FACTORY_IMEIS, Progress.FOLDER_GONE,
                 Progress.LOG_SETTING_BACK, Progress.LOG_WRITTEN, Progress.ZERO_FILES_GONE,
                 Progress.CONNECTION_CHECK_BACK, Progress.FIREWALL_GONE, Progress.SET_UP_AGAIN,
-                Progress.CLEARING_HISTORY, Progress.CONNECTION_KEPT, Progress.RESERVE_BACK, Progress.CARD_FILES_PARSE,
+                Progress.CARD_FILE_MODES_KEPT, Progress.CLEARING_HISTORY, Progress.CONNECTION_KEPT,
+                Progress.RESERVE_BACK, Progress.CARD_FILES_PARSE,
                 Progress.ZEROS_KEEP_SPACE, Progress.READING_PARTITION, Progress.IMSIS_GONE, Progress.ICCIDS_GONE,
                 Progress.CLEARING_HISTORY, Progress.FREE_SPACE_FILLED, Progress.CLEARED_QUICKLY,
                 Progress.REMOVAL_PASSED,
@@ -412,6 +413,34 @@ class RemovalTestTest {
     }
 
     @Test
+    fun removalTestStopsWhenAWriteChangesTheModeOfACardFile() {
+        // As GL might keep it, since it holds SIM PINs.
+        fake.cardFileModes[FakeRouter.SIM_MAP] = "-rw------- 0 0"
+        fake.copyDropsModes = true
+        try {
+            run()
+            throw AssertionError("The test didn't stop")
+        } catch (e: RouterException) {
+            assertEquals("sim_map.json was -rw------- 0 0 before a write, -rw-r--r-- 0 0 after it", e.detail)
+        }
+        assertEquals(listOf("H20"), test.testing)
+        // Before the clearing, with the router set up again.
+        assertTrue(Progress.CLEARING_HISTORY !in progress)
+        assertEquals(listOf(kept, null), saves)
+        assertSafe()
+    }
+
+    @Test
+    fun removalTestLeavesH20UnconfirmedWithoutCardFiles() {
+        fake.files.remove(FakeRouter.SIM_MAP)
+        fake.files.remove(FakeRouter.APN_HISTORY)
+        run()
+        assertTrue(Progress.NO_CARD_FILES in progress)
+        assertTrue(Progress.CARD_FILE_MODES_KEPT !in progress)
+        assertEquals(Progress.REMOVAL_PASSED, progress.last())
+    }
+
+    @Test
     fun removalTestStopsWhenACardFileNoLongerParsesAfterTheClearing() {
         fake.overwriteCutsSimMap = true
         assertStops(Problem.UNEXPECTED_ANSWER) { run() }
@@ -604,6 +633,7 @@ class RemovalTestTest {
         assertEquals(
             setOf(
                 "F7", "F8", "F9", "F10", "F11", "F12", "F15", "H3", "H10", "H11", "H13", "H14", "H15", "H16", "H17",
+                "H20",
             ),
             claims,
         )

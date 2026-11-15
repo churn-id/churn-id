@@ -159,6 +159,18 @@ class FakeRouter : Shell {
     var overwriteCutsSimMap = false
 
     /**
+     * The mode, owner and group of GL's card files, as `ls -ln` shows them, where they aren't those of a new file of
+     * root's, `-rw-r--r-- 0 0`. We haven't recorded GL's own.
+     */
+    val cardFileModes = mutableMapOf<String, String>()
+
+    /**
+     * For a `cp -p` that doesn't keep a file's mode, owner and group, against H20 in router-tests.md. Only the removal
+     * test's tests use it.
+     */
+    var copyDropsModes = false
+
+    /**
      * What files held before they were deleted or replaced, which stays on the overlay's raw partition until the
      * free-space overwrite fills the free space.
      */
@@ -746,10 +758,21 @@ class FakeRouter : Shell {
         if (command == "id -u dnsmasq") return ok("$dnsmasqUid\n")
         if (command == "id -u dnsmasq_vpn") return ok("456\n")
         if (DNS_SERVERS.matches(command)) return ok(dnsServers.joinToString("") { "$it\n" })
+        // A new file, of root's.
         Regex("""umask 022 && cat > (\S+)\.new && mv \S+ \S+""").matchEntire(command)?.let {
             freed(files.put(it.groupValues[1], input!!))
+            cardFileModes.remove(it.groupValues[1])
             return ok("")
         }
+        // A copy, which keeps the file's mode, owner and group.
+        Regex("""cp -p (\S+) \S+\.new && cat > \S+\.new && mv \S+ \S+""").matchEntire(command)?.let {
+            val path = it.groupValues[1]
+            if (path !in files) return Output(1, ByteArray(0), "cp: can't stat '$path': No such file or directory\n")
+            freed(files.put(path, input!!))
+            if (copyDropsModes) cardFileModes.remove(path)
+            return ok("")
+        }
+        if (command == "ls -lnA /etc/config/cellular") return cellularListing()
         if (command == "fw4 reload") return fw4Reload()
         if (command == "uci set 'kmwan.modem_cpu.disabled=1' && uci commit 'kmwan'") {
             if (kmwanSimMissing) return Output(1, ByteArray(0), "uci: Invalid argument\n")
@@ -1319,6 +1342,18 @@ class FakeRouter : Shell {
             line(modeNames[modes["/etc/churn/$name"]] ?: "-rw-r--r--", files.getValue("/etc/churn/$name").size, name)
         } + (zerosLink?.let { line("lrwxrwxrwx", it.length, "zeros -> $it") } ?: "")
         return ok(text)
+    }
+
+    /** GL's folder of card files as BusyBox's `ls -ln` lists it, with any time. */
+    private fun cellularListing(): Output {
+        val paths = files.keys.filter { it.startsWith("/etc/config/cellular/") }.sorted()
+        return ok(
+            paths.joinToString("") { path ->
+                val (mode, owner, group) = (cardFileModes[path] ?: "-rw-r--r-- 0 0").split(" ")
+                val (size, name) = files.getValue(path).size to path.substringAfterLast('/')
+                "%-10s %4d %-8s %-8s %8d Nov  5 21:00 %s\n".format(mode, 1, owner, group, size, name)
+            },
+        )
     }
 
     private fun ok(text: String) = Output(0, text.toByteArray(), "")
