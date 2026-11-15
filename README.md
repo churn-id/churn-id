@@ -161,6 +161,18 @@ For maximum privacy, also follow these rules where you can:
 The reasons for each rule are in the
 [design document](docs/design.md#8-usage-rules).
 
+## Removing Churn
+
+Before a factory reset, and before you stop using Churn or give the router
+away, tap Remove Churn from this router in the app. It writes the router's
+factory IMEIs back and undoes everything else Churn changed. Without the
+app, `sh /etc/churn/restore.sh` over SSH does the same.
+
+A factory reset deletes Churn's folder on the router, and nothing else on
+the router or its label shows the factory IMEIs. After a reset, only the
+phone that ran the last swap can still put them back, from a copy it keeps
+with the app's data.
+
 ## Legal
 
 Changing an IMEI is a criminal offense in some countries, for example in the

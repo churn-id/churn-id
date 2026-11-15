@@ -262,9 +262,13 @@ repository has no separate router component.
   to `/etc/sysupgrade.conf`. Otherwise an upgrade would lose the factory
   IMEIs and the record, and setup would run again and could record already
   rewritten IMEIs as the factory ones. A factory reset still deletes both;
-  the README says to restore the factory IMEIs first. If the folder is lost
-  anyway, setup can write the factory IMEIs back from the phone's copy
-  (section 7).
+  the README says to restore the factory IMEIs first. Nothing else on the
+  router keeps them: a search of the flash's other partitions found no
+  copy, and the label under the battery shows none (verified). If the
+  folder is lost anyway, setup can write the factory IMEIs back from the
+  phone's copy (section 7). Without that copy, as on another phone, setup
+  can't tell IMEIs that Churn wrote from the factory ones, so its text
+  names the case.
 - **Deleted by a restore.** Once the restore script has undone everything
   else, it deletes the folder, itself included, and the folder's line in
   `/etc/sysupgrade.conf`. It still runs to its end, since the shell reads
