@@ -842,16 +842,26 @@ class Router(private val shell: Shell) {
 
     /**
      * The runs of 15 and of 18 to 20 digits, such as ICCIDs, IMSIs and IMEIs, in GL's card files, the eSIM manager's
-     * records and log, and the system log's files at [logFile], if any. Read privately, since they name cards.
+     * records and log, and the system log's files at [logFile], if any. The router picks them out, since each of the
+     * log's files can reach 128 MB, and the answer is read privately, since it names cards.
      */
     fun numbersInCardFilesAndLogs(logFile: String?): Set<String> {
         // A path that would need quoting is left out rather than passed to the shell.
         val logs = listOfNotNull(logFile, logFile?.let { "$it.old" }).filter { it.matches(PATH) }
         val paths = listOf(SIM_MAP, APN_HISTORY, "$ESIM/log.txt") + esimRecordFiles() + logs
-        return paths.flatMap { path ->
-            val text = readFile(path)?.toString(Charsets.ISO_8859_1) ?: return@flatMap emptyList()
-            DIGITS.findAll(text).map { it.value }.filter { it.length == 15 || it.length in 18..20 }.toList()
-        }.toSet()
+        val output = runPrivately(NUMBERS_IN_FILES, paths.joinToString("") { "$it\n" }.toByteArray())
+        if (output.status != 0) throw unexpected("Reading the numbers in GL's files")
+        return output.text.lines().filter { it.isNotEmpty() }.toSet()
+    }
+
+    /**
+     * Has the router print [kb] kB of zeros and returns how many bytes came back, for the dry run's check of an answer
+     * larger than the SSH connection's window (C11). Run privately, which keeps the zeros out of the debug log.
+     */
+    fun zerosRead(kb: Int): Int {
+        val output = runPrivately("dd if=/dev/zero bs=1024 count=$kb 2>/dev/null")
+        if (output.status != 0) throw unexpected("dd")
+        return output.stdout.size
     }
 
     /**
@@ -1057,8 +1067,8 @@ class Router(private val shell: Shell) {
     private fun run(command: String, input: ByteArray? = null, timeoutSeconds: Long = 30) =
         shell.run(command, input, timeoutSeconds)
 
-    private fun runPrivately(command: String, timeoutSeconds: Long = 30) =
-        shell.runPrivately(command, input = null, timeoutSeconds)
+    private fun runPrivately(command: String, input: ByteArray? = null, timeoutSeconds: Long = 30) =
+        shell.runPrivately(command, input, timeoutSeconds)
 
     private fun Output.check(what: String) {
         if (status != 0) throw unexpected(what, this)
@@ -1201,6 +1211,18 @@ class Router(private val shell: Shell) {
             ' ${'$'}t ${'$'}t.raw ${'$'}t.files
         """.trimIndent()
 
+        /**
+         * Prints each run of 15 or of 18 to 20 digits in the files that its input names, a path per line, once, with
+         * runs of digits as [COUNT_NUMBERS] counts them. A file that isn't there is left out.
+         */
+        private val NUMBERS_IN_FILES = """
+            while IFS= read -r f; do
+            	[ -e "${'$'}f" ] || continue
+            	tr -cs '0-9' '\n' < "${'$'}f"
+            	echo
+            done | grep -E '^([0-9]{15}|[0-9]{18,20})${'$'}' | sort -u
+        """.trimIndent()
+
         /** The leak watch's table in the router's firewall, with its counters. */
         private const val LEAK_TABLE = "churn_watch"
 
@@ -1267,8 +1289,6 @@ class Router(private val shell: Shell) {
 
         /** A path the shell takes as it is, without quoting. */
         private val PATH = Regex("/[A-Za-z0-9._/-]+")
-
-        private val DIGITS = Regex("[0-9]+")
 
         /** The kernel's folder for the eMMC flash, which holds its estimates of its wear. */
         private const val FLASH = "/sys/block/mmcblk0/device"

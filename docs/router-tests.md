@@ -123,7 +123,9 @@ settings can:
    and the spacing of the factory IMEIs written and read back, and then
    the earlier pair, each with the radio still off after it (M6).
 7. Airplane mode, the radio and both IMEIs read 20 times in a row while
-   GL's services run, every answer checked (P5).
+   GL's services run, every answer checked (P5), and then an answer of
+   3 MB, larger than the SSH connection's window, which has to come back
+   whole (C11).
 8. Slot 2 switched back to the built-in eSIM, and its setting and the
    active slot put back (S2, S3).
 
@@ -167,8 +169,9 @@ router with no SIM and no profile enabled on the built-in eSIM:
      `/etc/sysupgrade.conf` gone (F11).
 5. It reads the ICCIDs and IMSIs that GL's card files, the eSIM manager's
    records and log, and GL's system log name, with what `logread` wrote
-   since `restore.sh`. It keeps them in memory only, out of the screen and
-   the debug log.
+   since `restore.sh`. The router picks them out of the files, which keeps
+   the answer small, since each of the log's files can reach 128 MB. The
+   test keeps them in memory only, out of the screen and the debug log.
 6. It sets the router up again as the setup screen does, with the card's
    record, the IMEIs it had, Churn's firewall rules and GL's connection
    check off, and keeps the recorded card's SIM history (F12).
@@ -375,6 +378,7 @@ check runs, so they have no check of their own.
 | C8 | A step goes on while the phone is locked: the foreground service keeps the app running, and GrapheneOS keeps a USB connection made before the lock | inferred | Lock the phone while step 3 runs, and unlock it a minute later: the step has gone on | 4 |
 | C9 | Android may end the app's connection to the router while the phone is locked and no step runs, and the next step then connects anew | the reconnect verified, the cause inferred | Let the phone lock on step 1's screen for 10 minutes, then tap Start: the step runs | 4 |
 | C10 | The step a swap has reached survives Android stopping the app and a restart of the phone, and the app opens at that step | inferred | Stop the app in Android's settings at step 2, and restart the phone at another swap's step 2 | 4 |
+| C11 | An answer larger than the SSH connection's window of 2 MB comes back whole, since the app has sshj open the window again as data comes in | inferred | The dry run reads 3 MB of zeros from the router | 2 |
 
 ## Modem
 

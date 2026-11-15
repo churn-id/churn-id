@@ -889,6 +889,16 @@ class FakeRouter : Shell {
             if (overwriteCutsSimMap) files[SIM_MAP]?.let { files[SIM_MAP] = it.copyOf(it.size / 2) }
             return ok("")
         }
+        if (command == NUMBERS_IN_FILES) {
+            val texts = input!!.toString(Charsets.UTF_8).lines().mapNotNull { files[it]?.toString(Charsets.ISO_8859_1) }
+            val numbers = texts.flatMap { text -> Regex("[0-9]+").findAll(text).map { it.value } }
+                .filter { it.length == 15 || it.length in 18..20 }
+            return ok(numbers.toSortedSet().joinToString("") { "$it\n" })
+        }
+        // The dry run's answer larger than the SSH connection's window.
+        Regex("""dd if=/dev/zero bs=1024 count=(\d+) 2>/dev/null""").matchEntire(command)?.let {
+            return Output(0, ByteArray(it.groupValues[1].toInt() * 1024), "")
+        }
         if (command.startsWith("t=/tmp/churn-numbers\n")) {
             numbersCounted = input!!.toString(Charsets.UTF_8).lines().filter { it.isNotEmpty() }
             val inFiles = files.values.toList()
@@ -1417,6 +1427,15 @@ class FakeRouter : Shell {
 
         /** The bytes of a ping as BusyBox's ping sends it by default, with 56 bytes of data. */
         private const val PING_BYTES = 84
+
+        /** Router's script that picks the numbers out of GL's files, as the removal test sends it. */
+        private val NUMBERS_IN_FILES = """
+            while IFS= read -r f; do
+            	[ -e "${'$'}f" ] || continue
+            	tr -cs '0-9' '\n' < "${'$'}f"
+            	echo
+            done | grep -E '^([0-9]{15}|[0-9]{18,20})${'$'}' | sort -u
+        """.trimIndent()
 
         /** The leak watch's counters as [Router.addLeakCounters] adds them. */
         private val LEAK_COUNTERS = """

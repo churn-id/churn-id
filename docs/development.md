@@ -31,6 +31,12 @@ these claims with the test, built or planned, for each on a real router.
 - SSH as `root` with the router's admin password, using sshj. Show the host
   key fingerprint on first use and refuse a changed key unless the user
   accepts it again. Keep the password in the Android Keystore.
+- The app reads a command's answer once the command has ended. In sshj
+  0.41.2, a session channel's window is 2 MB, and sshj opens it again
+  only as the app reads, so a router that has sent 2 MB would wait until
+  the command's timeout. The app has sshj open the window as data comes
+  in, and sshj then keeps up to 16 MB of each of the command's outputs
+  (both verified in sshj's code). No command prints that much.
 - sshj takes its algorithms from the security provider named `BC`.
   Android's own provider of that name is a reduced one, so the app replaces
   it with Bouncy Castle's full provider, last in line.

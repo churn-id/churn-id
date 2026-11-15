@@ -258,6 +258,22 @@ class RouterTest {
     }
 
     @Test
+    fun picksTheNumbersOutOfGlsFilesAndLogsOnTheRouter() {
+        fake.recordCards(OLD_CARD, CURRENT_CARD)
+        // A log's file of almost 4 MB, of which each number comes back once. Runs of 16 or 21 digits are no card's.
+        val lines = "user.info Diag_Lib[1]: iccid[$OLD_CARD]\n".repeat(80_000) +
+            "user.info Diag_Lib[1]: imsi[228010000000002] 1234567890123456 123456789012345678901\n"
+        fake.files["/etc/sys_log.old"] = lines.toByteArray()
+        var largest = 0
+        val router = Router { command, input, timeout ->
+            fake.run(command, input, timeout).also { largest = maxOf(largest, it.stdout.size) }
+        }
+        val numbers = router.numbersInCardFilesAndLogs("/etc/sys_log")
+        assertEquals(setOf(OLD_CARD.removeSuffix("F"), CURRENT_CARD.removeSuffix("F"), "228010000000002"), numbers)
+        assertTrue(largest < 1000)
+    }
+
+    @Test
     fun seesARouterWithoutVpn() {
         fake.vpnTunnel = null
         assertFalse(router.vpnSetUp())

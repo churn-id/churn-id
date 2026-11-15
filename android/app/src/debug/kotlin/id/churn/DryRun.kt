@@ -46,6 +46,7 @@ class DryRun(
             // Where step 3 writes a card's pair.
             part("M6") { writeTestImeis(start.imeis, factory, random) }
             part("P5") { readRepeatedly(start.imeis) }
+            part("C11") { readLongAnswer() }
             part("S2", "S3") {
                 setSlot2(Slot2.ESIM)
                 report(Progress.SLOT2_ON_ESIM)
@@ -115,11 +116,23 @@ class DryRun(
         report(Progress.ANSWERS_MATCHED)
     }
 
+    /** Reads an answer larger than the SSH connection's window, which has to come back whole. */
+    private fun readLongAnswer() {
+        val read = router.zerosRead(LONG_ANSWER_KB)
+        if (read != LONG_ANSWER_KB * 1024) {
+            throw RouterException(Problem.UNEXPECTED_ANSWER, "$read of ${LONG_ANSWER_KB * 1024} bytes came back")
+        }
+        report(Progress.LONG_ANSWER_READ)
+    }
+
     companion object {
         /** Debug builds have the dry run. */
         const val AVAILABLE = true
 
         /** How many times P5's part reads, as progress_answers_matched and router-tests.md say. */
         private const val READS = 20
+
+        /** The size of C11's answer in kB: 3 MB, more than the SSH connection's window of 2 MB. */
+        private const val LONG_ANSWER_KB = 3000
     }
 }
