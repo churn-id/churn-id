@@ -576,6 +576,7 @@ From design.md, sections 4 and 7.
 | W7 | The router screen names the card in SIM 2: a place card by its name or digits, the recorded travel card by its digits, and with slot 2 on the built-in eSIM says the card is off | inferred | Open the router screen after step 4 with a place card and with a travel card, and after canceling at step 3's question | 4 |
 | W8 | Step 3 stops at an empty SIM 2 tray with slot 2 back on the built-in eSIM, and clears nothing | inferred | Switch the router on at step 2 with the tray empty | 4 |
 | W9 | Step 3 stops when the VPN is gone, while the new card is still off, and runs again once a VPN is set up, without another step 1 | inferred | Delete the VPN at step 2, before step 3 starts, and set it up again from its configuration file | 4 |
+| W10 | If the SIM 2 tray still holds the card from before the swap, step 3 says so and asks whether to keep it, with slot 2 on the built-in eSIM until the answer. Continue keeps the card's IMEIs, and step 4 says that the router keeps the card | inferred | Swap with the card left in the tray at step 2, cancel at the question, switch the router on again at step 2 and continue | 4 |
 
 ## Beyond the router
 

@@ -38,9 +38,13 @@ class SwapTest {
     )
     private val factory = ImeiPair(fake.imei1, fake.imei2)
 
+    /** The card that the record named when step 1 last ran, which the app notes for step 3. */
+    private var before: String? = null
+
     /** Step 1, the shutdown and the next power-on. Returns the IMEIs the router had, which stay until step 3. */
     private fun prepareAndRestart(): ImeiPair {
         val oldImeis = ImeiPair(fake.imei1, fake.imei2)
+        before = record()?.iccid
         swap.prepare()
         swap.shutDown()
         fake.boot()
@@ -48,7 +52,7 @@ class SwapTest {
     }
 
     /** Step 3, with the record that the app reads first. Null if the user canceled. */
-    private fun giveNewImeis() = swap.giveNewImeis(factory, record(), places, SecureRandom(), VERSION)
+    private fun giveNewImeis() = swap.giveNewImeis(factory, record(), before, places, SecureRandom(), VERSION)
 
     private fun recordedVersion() = Router(fake).readChurnFolder().version
 
@@ -712,13 +716,81 @@ class SwapTest {
     }
 
     @Test
+    fun aFirstSwapAsksOnlyAboutTheNewCard() {
+        prepareAndRestart()
+        val card = giveNewImeis()!!
+        assertEquals(listOf(Question.NewCard(card.iccid)), asked)
+    }
+
+    @Test
     fun keepingTheOldCardKeepsItsImeis() {
         prepareAndRestart()
-        val first = giveNewImeis()
-        prepareAndRestart()
+        val first = giveNewImeis()!!
+        val oldImeis = prepareAndRestart()
+        progress.clear()
+        answer = Answer.CONTINUE
+        whileAsked = {
+            // So that the card stays off if the router is switched off and on before the answer.
+            assertEquals(Slot2.ESIM, fake.slot2)
+            assertSafe()
+        }
         assertEquals(first, giveNewImeis())
-        // The recorded card brings no question.
-        assertEquals(1, asked.size)
+        // Asked, so that a user who put it back by mistake doesn't go on with it, believing it new.
+        assertEquals(Question.CardFromBefore(first.iccid, place = null), asked.last())
+        assertEquals(first.imeis, oldImeis)
+        assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
+        assertEquals(first, record())
+        assertEquals(
+            listOf(Progress.CARD_FROM_BEFORE, Progress.SLOT2_ON_ESIM, Progress.SLOT2_BACK_ON_SIM2, Progress.SAME_CARD),
+            progress.dropWhile { it != Progress.CARD_FROM_BEFORE }.take(4),
+        )
+        assertFalse(Progress.CARD_FOUND in progress)
+        assertSafe()
+    }
+
+    @Test
+    fun keepingAPlaceCardNamesIt() {
+        prepareAndRestart()
+        answer = Answer.PLACE_CARD
+        val place = giveNewImeis()!!
+        prepareAndRestart()
+        answer = Answer.CONTINUE
+        assertEquals(place, giveNewImeis())
+        assertEquals(Question.CardFromBefore(place.iccid, PlaceCard(place)), asked.last())
+    }
+
+    @Test
+    fun cancelingAtTheOldCardLeavesSlot2OnTheEsim() {
+        prepareAndRestart()
+        val first = giveNewImeis()!!
+        val oldImeis = prepareAndRestart()
+        answer = Answer.CANCEL
+        assertNull(giveNewImeis())
+        assertEquals(Question.CardFromBefore(first.iccid, place = null), asked.last())
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
+        assertEquals(first, record())
+        assertSafe()
+        // Back at step 2, the user puts in the new card.
+        swap.shutDown()
+        fake.trayCard = OTHER_CARD
+        fake.boot()
+        answer = Answer.TRAVEL_CARD
+        val second = giveNewImeis()!!
+        assertEquals(Question.NewCard(second.iccid), asked.last())
+    }
+
+    @Test
+    fun step3RunAgainAfterTheNewCardAsksNothingMore() {
+        prepareAndRestart()
+        giveNewImeis()
+        prepareAndRestart()
+        fake.trayCard = OTHER_CARD
+        val second = giveNewImeis()!!
+        val questions = asked.size
+        // Run again, as after a shutdown that failed: the record names the new card now.
+        assertEquals(second, giveNewImeis())
+        assertEquals(questions, asked.size)
     }
 
     private companion object {

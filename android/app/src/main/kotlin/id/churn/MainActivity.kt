@@ -217,7 +217,11 @@ class MainActivity : Activity() {
             Step.GO_ONLINE -> Triple(
                 4,
                 R.string.step4_title,
-                if (controller.placeCardIn) R.string.step4_text_place_card else R.string.step4_text,
+                when {
+                    controller.cardKept -> R.string.step4_text_kept
+                    controller.placeCardIn -> R.string.step4_text_place_card
+                    else -> R.string.step4_text
+                },
             )
         }
         paragraph(getString(R.string.step_number, number))
@@ -392,6 +396,13 @@ class MainActivity : Activity() {
                 paragraph(getString(R.string.step3_cancel))
                 button(R.string.step3_place_card_answer) { controller.answer(Answer.PLACE_CARD) }
                 button(R.string.step3_travel_card_answer) { controller.answer(Answer.TRAVEL_CARD) }
+            }
+            is Question.CardFromBefore -> {
+                val text = question.place?.let { getString(R.string.step3_place_card_from_before, label(it)) }
+                    ?: getString(R.string.step3_card_from_before, question.iccid.takeLast(4))
+                paragraph(text)
+                paragraph(getString(R.string.step3_cancel))
+                button(R.string.step3_continue) { controller.answer(Answer.CONTINUE) }
             }
         }
         button(R.string.cancel) { controller.answer(Answer.CANCEL) }
