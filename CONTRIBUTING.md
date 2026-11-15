@@ -72,8 +72,9 @@ cd android
 ```
 
 CI does the same for every pull request and every push to `main`; download
-the bundle from the workflow run's artifacts (`churn-release-aab`). It
-also checks the spelling of the Markdown files and the app's source with
+the bundle from the workflow run's artifacts (`churn-release-aab-unsigned`,
+and for `main` the signed `churn-release-aab`, see "Signing"). It also
+checks the spelling of the Markdown files and the app's source with
 cspell (word list in `cspell.json`), lints the Markdown files with
 markdownlint-cli2 (`.markdownlint.json`) and lints `restore.sh` and the
 test script below with ShellCheck (`-S warning`). After the build,
@@ -110,14 +111,19 @@ release needs in order.
 
 ## Signing
 
-Release bundles are signed with a Google Play upload key supplied through
-the environment variables `CHURN_KEYSTORE_PATH`, `CHURN_KEYSTORE_PASSWORD`,
-`CHURN_KEY_ALIAS` and `CHURN_KEY_PASSWORD`. Without them the bundle is
-unsigned. Key material is never committed.
+Release bundles are signed with a Google Play upload key. Locally,
+`bundleRelease` signs with the key that the environment variables
+`CHURN_KEYSTORE_PATH`, `CHURN_KEYSTORE_PASSWORD`, `CHURN_KEY_ALIAS` and
+`CHURN_KEY_PASSWORD` supply. Without them the bundle is unsigned. Key
+material is never committed.
 
-For CI, a GitHub Actions environment named `release` with deployment
-branches restricted to `main` must exist. In it these secrets must be set
-(not as repository secrets, which every branch can read):
+CI builds and tests without the key. For `main`, the Sign release bundle
+job then signs the bundle with the JDK's `jarsigner`. No Gradle and no
+code from the repository run in that job, so no build plugin, dependency
+or test can read the key. It needs a GitHub Actions environment named
+`release` with deployment branches restricted to `main`. In it these
+secrets must be set (not as repository secrets, which every branch can
+read):
 
 | Secret                      | Contents                                   |
 |-----------------------------|--------------------------------------------|
