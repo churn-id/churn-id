@@ -36,11 +36,24 @@ want to link the identity used before a SIM swap to the one used after it.
    fixed list of foreign TACs becomes "Churn user if the TAC is in this list
    and the modem is an RG650V". The router's own TAC is shared with every
    unmodified Mudi 7.
-3. **Collisions with real phones.** Popular phone TACs have most of their
+3. **Collisions with real devices.** Popular phone TACs have most of their
    1,000,000 serials in use, so a random serial is likely some real phone's
    IMEI (inferred). On the same network that looks like a clone, and if that
    phone is blocklisted, the carrier refuses the router. A niche router TAC
-   has far fewer units, so collisions are rare.
+   has far fewer units, so collisions are less likely, though not rare.
+   With N Mudi 7s on TAC `35609021`, each with two IMEIs, the IMEI that
+   slot 2 shows the network after a swap is a real unit's with a
+   probability of about 2N in 1,000,000. That is 1% per swap at N = 5,000,
+   and 10% at N = 50,000, or two in three over ten swaps. GL doesn't
+   publish N, so these numbers are inferred; a TAC's 1,000,000 serials cap
+   it at 500,000.
+
+   A collision harms the real unit's owner too. The carrier's records then
+   show the Churn user's traffic under that person's IMEI, so whoever
+   follows that IMEI is led to the wrong person. If both are on the same
+   network at once, clone detection may block that person's device
+   (inferred). Serials from outside the block that real units use would
+   collide less, but stand out more ("Serial range" below).
 4. **Carrier behavior stays as before.** Carriers apply policy per TAC; for
    example, Cisco's mobility management selects operator policy by TAC
    (verified). With the own TAC, plans, tethering rules and data-SIM checks
@@ -48,11 +61,12 @@ want to link the identity used before a SIM swap to the one used after it.
    unpredictably, and using one to get around hotspot rules can breach the
    SIM's terms.
 
-The cost: in the carrier's records both identities carry the Mudi 7 TAC, a
-rare device. Keeping them apart then rests on time and place, which the swap
-procedure and the usage rules separate (design.md, sections 7 and 8). With a
-foreign TAC, point 1 gives the same linkage through the capability set, plus
-the signature of point 2.
+The cost to the user: in the carrier's records both identities carry the
+Mudi 7 TAC, a rare device. Keeping them apart then rests on time and place,
+which the swap procedure and the usage rules separate (design.md, sections
+7 and 8). With a foreign TAC, point 1 gives the same linkage through the
+capability set, plus the signature of point 2. The cost to others is point
+3's collisions.
 
 ## Rejected options
 
@@ -89,9 +103,6 @@ None is known yet, so Churn's IMEIs use the router's own TAC only.
   units shipped. A random serial far outside that block could stand out to
   someone who sees many Mudi 7 IMEIs (inferred). Serials stay uniform over
   all 6 digits until IMEIs from more units are known.
-- **Legality:** rewriting an IMEI is a criminal offense in some countries,
-  for example under the UK's Mobile Telephones (Re-programming) Act 2002.
-  Switzerland and other markets are not checked yet.
 
 ## Sources
 

@@ -54,6 +54,13 @@ after it.
   whatever its IMEI.
 - **Accepted trade-off:** the phone holds a root SSH credential for the
   router.
+- **Cost to others:** Churn's IMEIs keep the TAC of every real Mudi 7, so a
+  random serial can be a real unit's IMEI. The carrier's records then show
+  the Churn user's traffic under that IMEI, which leads whoever follows it
+  to the unit's owner, and clone detection may block that owner's device
+  while both are on the same network (inferred). The chance grows with the
+  number of units on the TAC, about 2 in 1,000,000 per unit at each swap
+  ([tac.md](tac.md), point 3).
 
 ## 2. Architecture
 
@@ -1025,7 +1032,9 @@ For maximum privacy, also follow these rules where you can:
 
 The app also tells the user, before first use, that rewriting an IMEI is a
 criminal offense in some countries, for example under the UK's Mobile
-Telephones (Re-programming) Act 2002.
+Telephones (Re-programming) Act 2002, and that making sure it is legal
+where they use the router is up to them. Neither the app nor these
+documents say where it is legal, since that would be legal advice.
 
 ## 9. Distribution
 
@@ -1099,9 +1108,8 @@ Design:
   the user's places. For now we assume a provider that keeps no logs
   (section 1).
 
-Legal and distribution:
+Distribution:
 
-- Is rewriting an IMEI legal in Switzerland and other markets?
 - Does Google Play's Device and Network Abuse policy allow an app that
   changes IMEIs?
 
