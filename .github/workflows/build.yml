@@ -21,6 +21,7 @@ jobs:
           files: |
             **/*.md
             android/app/src/**
+            fastlane/**
           incremental_files_only: false
 
       - uses: DavidAnson/markdownlint-cli2-action@21c1be1b93ad9ed58fa840aacc3f279cde2a72ff # v24.2.0

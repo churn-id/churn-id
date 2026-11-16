@@ -75,10 +75,11 @@ CI does the same for every pull request and every push to `main`; download
 the bundle and the APK from the workflow run's artifacts
 (`churn-release-aab-unsigned` and `churn-release-apk-unsigned`, and for
 `main` the signed `churn-release-aab` and `churn-release-apk`, see
-"Signing"). It also checks the spelling of the Markdown files and the app's
-source with cspell (word list in `cspell.json`), lints the Markdown files
-with markdownlint-cli2 (`.markdownlint.json`) and lints `restore.sh` and the
-test script below with ShellCheck (`-S warning`). After the build,
+"Signing"). It also checks the spelling of the Markdown files, the app's
+source and F-Droid's store listing in `fastlane/` with cspell (word list in
+`cspell.json`), lints the Markdown files with markdownlint-cli2
+(`.markdownlint.json`) and lints `restore.sh` and the test script below with
+ShellCheck (`-S warning`). After the build,
 `RouterScriptsTest` has written the scripts in `Router`'s companion to
 `android/app/build/router-scripts/`, as the app sends them. CI lints the
 shell scripts there with ShellCheck too and checks the firewall rules
