@@ -97,6 +97,12 @@ class FakeRouter : Shell {
     /** For a modem that refuses IMEI writes. */
     var imeiWritesRefused = false
 
+    /** For a modem that answers IMEI writes with OK and keeps its pair, as only a broken one would. */
+    var imeiWritesIgnored = false
+
+    /** For a modem that takes IMEI 1 and refuses IMEI 2, as only a broken one would: a pair written halfway. */
+    var imei2WriteRefused = false
+
     /**
      * For an `AT+QPRTPARA=1` that doesn't save the written IMEIs, against M7 in router-tests.md. Only the power cycle
      * test's tests use it.
@@ -1164,6 +1170,8 @@ class FakeRouter : Shell {
             command == "AT+EGMR=0,7" -> atOk("+EGMR: \"$imei1\"")
             command == "AT+EGMR=0,11" -> atOk("+EGMR: \"$imei2\"")
             imeiWrite != null && imeiWritesRefused -> ok("\r\nERROR\r\n")
+            imeiWrite?.groupValues?.get(1) == "11" && imei2WriteRefused -> ok("\r\nERROR\r\n")
+            imeiWrite != null && imeiWritesIgnored -> atOk()
             imeiWrite != null -> {
                 val (item, imei) = imeiWrite.destructured
                 change("IMEI $item")

@@ -644,6 +644,45 @@ class SwapTest {
     }
 
     @Test
+    fun step3StopsWhenTheModemKeepsItsPairAfterTheWrites() {
+        val oldImeis = prepareAndRestart()
+        fake.imeiWritesIgnored = true
+        assertStops(Problem.IMEIS_NOT_KEPT) { giveNewImeis() }
+        // Back on the eSIM, so that the card stays off while the modem has the earlier pair.
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertFalse(swap.cardMayBeOn)
+        assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
+        // Recorded before the write, so that a rerun writes the same pair.
+        val recorded = record()!!
+        assertNotEquals(oldImeis, recorded.imeis)
+        fake.imeiWritesIgnored = false
+        assertEquals(recorded, giveNewImeis())
+        assertEquals(recorded.imeis, ImeiPair(fake.imei1, fake.imei2))
+        // The recorded card brings no question.
+        assertEquals(1, asked.size)
+    }
+
+    @Test
+    fun aPairWrittenHalfwayGoesAtPowerOnAndTheRerunWritesBoth() {
+        val oldImeis = prepareAndRestart()
+        fake.imei2WriteRefused = true
+        assertStops(Problem.UNEXPECTED_ANSWER) { giveNewImeis() }
+        assertEquals(Slot2.ESIM, fake.slot2)
+        val recorded = record()!!
+        assertEquals(ImeiPair(recorded.imeis.imei1, oldImeis.imei2), ImeiPair(fake.imei1, fake.imei2))
+        // AT+QPRTPARA=1 never came, so the power-on brings the earlier pair back.
+        fake.boot()
+        assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
+        fake.imei2WriteRefused = false
+        val changes = fake.changes.size
+        assertEquals(recorded, giveNewImeis())
+        assertEquals(recorded.imeis, ImeiPair(fake.imei1, fake.imei2))
+        val written = fake.changes.drop(changes).map { it.substringBefore(" at ") }.filter { it.startsWith("IMEI") }
+        assertEquals(listOf("IMEI 7", "IMEI 11"), written)
+        assertEquals(1, asked.size)
+    }
+
+    @Test
     fun aNewCardGetsANewPairAndReplacesTheRecord() {
         val firstCard = fake.trayCard
         prepareAndRestart()
