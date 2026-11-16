@@ -330,6 +330,9 @@
     <string name="progress_partition_unchecked">No file holds any of the cards\' ICCIDs and IMSIs any more, so a failed read of the raw partition couldn\'t be told, and H10 and H11 stay unconfirmed.</string>
     <string name="progress_free_space_filled">Clearing again wrote about as much as the free space, so the zero files spared the rest of the flash (H15).</string>
     <string name="progress_cleared_quickly">With the zero files in place, clearing again took under a minute (H16).</string>
+    <string name="progress_reading_probe">Counting on the raw partition the probe that the test left before clearing again: the made-up names of a file it deleted and of one it wrote anew, and that file\'s lines before and after. Reading the partition takes a few minutes.</string>
+    <string name="progress_names_gone">No copy of the deleted file\'s name is left on the raw partition (H22).</string>
+    <string name="progress_old_content_gone">No copy of what the file held before it was written anew is left on the raw partition (H23).</string>
     <string name="progress_removal_passed">The removal test passed.</string>
     <string name="progress_network_lost">The phone lost the router\'s network %1$d s after poweroff (B5).</string>
     <string name="progress_new_boot_id">The router has a new boot ID, so poweroff shut it down and it started anew (B4, B6).</string>

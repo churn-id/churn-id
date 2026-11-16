@@ -196,11 +196,27 @@ router with no SIM and no profile enabled on the built-in eSIM:
      none of the numbers that files hold counts as failed. If files hold
      none, as on a router never swapped since setup, whose clearing keeps no
      card's numbers, H10 and H11 stay unconfirmed.
-8. It clears the SIM history again, now with the zero files in place, as
+8. It leaves a probe of made-up digits in `/overlay/churn-probe` for the
+   second clearing, as step 3 writes Churn's record of the card anew
+   before its clearing, which deletes eSIM records before its overwrite.
+   The probe's first file is named by 32 digits, as the eSIM manager
+   names a record by its chip's EID, and holds lines like those of
+   Churn's record of a card, an ICCID and two IMEIs, which the test
+   writes anew through a new file. The second file, named the same way,
+   the test deletes. It syncs before the delete, so that the directory's
+   block with both names reaches the flash and ext4's journal.
+9. It clears the SIM history again, now with the zero files in place, as
    at every swap after the first. By ext4's `lifetime_write_kbytes`, the
    clearing has to write about as much as the free space it found, not
    the zero files' space again (H15), and it has to take under a minute
    (H16). Its fill too has to leave at most 64 kB free (H21).
+10. It reads the raw partition again, which takes a few minutes. The
+    probe's first file, by its name and its new lines, has to be there, or
+    the read counts as failed, but neither the second file's name (H22)
+    nor the first file's old lines (H23). The test reports on both claims,
+    also when one of them fails, and deletes the probe. A router that
+    stops answering keeps the probe until the next removal test, which
+    deletes it first.
 
 Like step 1, the test leaves airplane mode on and slot 2 on the built-in
 eSIM. A removal test that stops before it set the router up again does so at
@@ -550,6 +566,8 @@ and 10.
 | H19 | GL writes files in `/etc` every minute, so with the log's file off, the clock after a power-on still resumes from about the time of the power-off | verified with the SIM online | The files in `/etc` that something other than Churn wrote in the last 2 minutes, from 2 minutes after a power-on, in airplane mode too | 1 |
 | H20 | The clearing's writes keep the mode, owner and group of GL's card files, since it writes them through a copy made with BusyBox's `cp -p` | inferred | The removal test writes GL's card files again unchanged, as a clearing writes them, and compares `ls -ln` before and after | 2 |
 | H21 | The overwrite's fill leaves at most 64 kB of the overlay free | inferred from our router, where the 4 KB files found no free block after the 64 MB parts | The overwrite prints the free space after its fill and fails above 64 kB, at the removal test's clearings as at every swap | 2 |
+| H22 | After a clearing, the raw partition holds no copy of the name of a file deleted before its overwrite, such as the EID that names an eSIM record | open: on a disk image, ext4's journal still held such names after the fill (#122) | The removal test's probe: a file named by 32 made-up digits, deleted after a sync before the second clearing; afterwards, its name is counted on the raw partition, which has to hold the name of the probe's other file | 2 |
+| H23 | After a clearing, the raw partition holds no copy of what a small file, such as Churn's record of a card, held before it was written anew | inferred from ext4's defaults, which journal no file data and keep it out of the inodes | The removal test's probe: a file with made-up lines as in Churn's record of a card, written anew through a new file before the second clearing; afterwards, its old lines are counted on the raw partition, which has to hold the new ones | 2 |
 
 ## Churn's files and firmware upgrades
 

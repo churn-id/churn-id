@@ -1,5 +1,7 @@
 package id.churn
 
+import java.security.SecureRandom
+
 /**
  * Tier 2's removal test (router-tests.md, "Removal and clearing"): restore.sh run as Remove Churn runs it, the router
  * then set up again as it was, with the card's record, the IMEIs it had, Churn's firewall rules and GL's connection
@@ -21,11 +23,12 @@ class RemovalTest(
         private set
 
     /**
-     * Runs the test, in the app with the version code [version]. [save] gets what setting the router up again takes,
-     * before restore.sh runs, to keep on the phone, and null once the router is set up again. A test that stops sets
-     * the router up again if the radio is still off, and otherwise leaves that to [setUpAgain].
+     * Runs the test, in the app with the version code [version], with [random] making up the digits of the probe that
+     * the second clearing is to leave no trace of. [save] gets what setting the router up again takes, before
+     * restore.sh runs, to keep on the phone, and null once the router is set up again. A test that stops sets the
+     * router up again if the radio is still off, and otherwise leaves that to [setUpAgain].
      */
-    fun run(version: Int, save: (RemovalStart?) -> Unit) {
+    fun run(version: Int, random: SecureRandom, save: (RemovalStart?) -> Unit) {
         val folder = router.readChurnFolder()
         val factory = folder.factory ?: throw RouterException(Problem.NOT_SET_UP)
         // As in the dry run: airplane mode on, the radio off, and slot 2 on the built-in eSIM with no profile enabled,
@@ -136,7 +139,7 @@ class RemovalTest(
         testing = emptyList()
         save(null)
         report(Progress.SET_UP_AGAIN)
-        clear(start, numbers)
+        clear(start, numbers, random)
         report(Progress.REMOVAL_PASSED)
     }
 
@@ -156,9 +159,10 @@ class RemovalTest(
     /**
      * Clears the SIM history as step 3 does, with the router set up again as [start] says it was. restore.sh deleted
      * the zero files, so the overwrite fills all of the free space, about 2.9 GB, and takes minutes. Afterwards, those
-     * of [numbers] that no file holds any more must be nowhere on the partition.
+     * of [numbers] that no file holds any more must be nowhere on the partition. Then it clears again, with a probe of
+     * made-up digits from [random] left before.
      */
-    private fun clear(start: RemovalStart, numbers: List<String>) {
+    private fun clear(start: RemovalStart, numbers: List<String>, random: SecureRandom) {
         val reserve = router.overlay()?.reserve
         // A clearing writes GL's card files only if they name an earlier card, which they don't once the router is set
         // up again, so the test writes them again unchanged, as a clearing would.
@@ -248,7 +252,19 @@ class RemovalTest(
             part("H10") { checkGone(imsis, "IMSIs", Progress.IMSIS_GONE, Progress.NO_IMSIS) }
             part("H11") { checkGone(iccids, "ICCIDs", Progress.ICCIDS_GONE, Progress.NO_ICCIDS) }
         }
-        clearAgain(start)
+        // As step 3 writes Churn's record of the card anew before its clearing, which deletes eSIM records before its
+        // overwrite.
+        val probe = Probe(random)
+        try {
+            part("H22", "H23") { router.leaveProbe(probe.kept, probe.deleted, probe.before, probe.after) }
+            clearAgain(start)
+            countProbe(probe)
+        } catch (e: Exception) {
+            // As far as the router lets it: one that doesn't answer keeps the probe until the next removal test.
+            runCatching { router.removeProbe() }
+            throw e
+        }
+        part("H22", "H23") { router.removeProbe() }
         testing = emptyList()
     }
 
@@ -284,6 +300,41 @@ class RemovalTest(
                 throw RouterException(Problem.UNEXPECTED_ANSWER, "Clearing again took ${millis / 1000} s")
             }
             report(Progress.CLEARED_QUICKLY)
+        }
+    }
+
+    /**
+     * Counts [probe] on the raw partition after the second clearing: the name of the file that is still there and what
+     * it holds must be on it, but neither the name of the deleted file (H22) nor what the file held before (H23).
+     */
+    private fun countProbe(probe: Probe) {
+        part("H22", "H23") {
+            report(Progress.READING_PROBE)
+            val numbers = listOf(probe.kept, probe.deleted) + probe.before + probe.after
+            val raw = numbers.zip(router.countOnPartition(numbers)) { number, count -> number to count.raw }.toMap()
+            // A read that misses what is still there would miss copies too.
+            val missing = listOfNotNull(
+                "name".takeIf { raw.getValue(probe.kept) == 0 },
+                "lines".takeIf { probe.after.any { raw.getValue(it) == 0 } },
+            )
+            if (missing.isNotEmpty()) {
+                throw RouterException(
+                    Problem.UNEXPECTED_ANSWER,
+                    "The raw partition doesn't hold the probe file's ${missing.joinToString(" and ")}",
+                )
+            }
+            val names = raw.getValue(probe.deleted)
+            val lines = probe.before.sumOf { raw.getValue(it) }
+            // Both, also when one fails, so that each run measures both claims.
+            if (names == 0) report(Progress.NAMES_GONE)
+            if (lines == 0) report(Progress.OLD_CONTENT_GONE)
+            if (names > 0 || lines > 0) {
+                throw RouterException(
+                    Problem.UNEXPECTED_ANSWER,
+                    "The raw partition still holds $names copies of the deleted file's name (H22) and $lines copies " +
+                        "of the lines the file held before it was written anew (H23)",
+                )
+            }
         }
     }
 
@@ -368,7 +419,28 @@ class RemovalTest(
         /** How many digits an IMSI has, as an IMEI does; an ICCID has 18 to 20. */
         private const val IMSI_LENGTH = 15
 
+        /** How many digits the eSIM manager names a record file by, the chip's EID. */
+        private const val EID_LENGTH = 32
+
         /** How restore.sh's last line ends, which only a script that ran to its end prints. */
         const val LAST_LINE_END = "Airplane mode is on."
+
+        /** [count] digits from [random]. */
+        private fun digits(random: SecureRandom, count: Int) = (1..count).joinToString("") { "${random.nextInt(10)}" }
+    }
+
+    /**
+     * The probe's made-up digits, from [random]: the names of the file that stays, [kept], and of the one deleted,
+     * [deleted], as many digits as the eSIM manager's record files are named by, and the lines that the file held
+     * [before] and holds [after], an ICCID and two IMEIs each, as Churn's record of a card holds them.
+     */
+    private class Probe(random: SecureRandom) {
+        val kept = digits(random, EID_LENGTH)
+        val deleted = digits(random, EID_LENGTH)
+        val before = record(random)
+        val after = record(random)
+
+        private fun record(random: SecureRandom) =
+            listOf("89" + digits(random, 17), digits(random, IMSI_LENGTH), digits(random, IMSI_LENGTH))
     }
 }
