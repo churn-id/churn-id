@@ -20,7 +20,7 @@ enum class Step {
 /** What a step, or a test of router-tests.md, reports as it goes. */
 enum class Progress {
     UNTESTED_PLATFORM, AIRPLANE_MODE_ON, RADIO_OFF, SLOT2_ON_ESIM, NO_PROFILE, DISABLING_AGAIN, PROFILE_DISABLED,
-    WAITING_FOR_START, SIM1_EMPTY, KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND,
+    WAITING_FOR_START, SIM1_EMPTY, KILL_SWITCH_ON, FIREWALL, SLOT2_ON_SIM2, SLOT2_ACTIVE, CARD_FOUND, CARD_FROM_BEFORE,
     SLOT2_BACK_ON_SIM2, SAME_CARD, NEW_IMEIS, CLEARING_HISTORY, SHUTTING_DOWN, NETWORK_RELOADED, FIREWALL_RELOADED,
     SLOT1_ACTIVE, TRAY_EMPTY, ESIM_SILENT, TEST_IMEIS, EARLIER_IMEIS, ANSWERS_MATCHED, PUT_BACK, DRY_RUN_PASSED,
     RESTORED, FACTORY_IMEIS, FOLDER_GONE, LOG_SETTING_BACK, LOG_WRITTEN, ZERO_FILES_GONE, FIREWALL_GONE,
@@ -136,15 +136,23 @@ open class Swap(
     fun restartedSince(bootId: String?) = bootId == null || router.bootId() != bootId
 
     /**
-     * Step 3: slot 2 on the new card, which gets a pair of its own. The card in [record] keeps its pair. Any other
-     * card brings a question: a card in [places] gets its kept pair, and a new card a random one. The pair is
-     * recorded before it is written. Last, with everything in place, [version], the app's version code, is recorded.
-     * Returns the card with its pair, or null if the user canceled, with slot 2 back on the built-in eSIM.
+     * Step 3: slot 2 on the new card, which gets a pair of its own. The card in [record] keeps its pair. If it is also
+     * [before], the card recorded when step 1 ran, the user is asked whether to keep it. Any other card brings a
+     * question too: a card in [places] gets its kept pair, and a new card a random one. The pair is recorded before it
+     * is written. Last, with everything in place, [version], the app's version code, is recorded. Returns the card
+     * with its pair, or null if the user canceled, with slot 2 back on the built-in eSIM.
      */
-    fun giveNewImeis(factory: ImeiPair, record: Card?, places: PlaceCards, random: SecureRandom, version: Int): Card? {
+    fun giveNewImeis(
+        factory: ImeiPair,
+        record: Card?,
+        before: String?,
+        places: PlaceCards,
+        random: SecureRandom,
+        version: Int,
+    ): Card? {
         startNewImeis(reload = false)
         val card = try {
-            writeCardsImeis(factory, record, places, random) ?: return null
+            writeCardsImeis(factory, record, before, places, random) ?: return null
         } catch (e: RouterException) {
             // Back to the eSIM, so that the card stays off if the router is switched off and on before the next try.
             setSlot2(Slot2.ESIM)
@@ -219,12 +227,26 @@ open class Swap(
     }
 
     /** Switches slot 2 to the SIM 2 tray and gives the card there its pair; null if the user cancels. */
-    private fun writeCardsImeis(factory: ImeiPair, record: Card?, places: PlaceCards, random: SecureRandom): Card? {
+    private fun writeCardsImeis(
+        factory: ImeiPair,
+        record: Card?,
+        before: String?,
+        places: PlaceCards,
+        random: SecureRandom,
+    ): Card? {
         val iccid = cardInTray()
-        report(Progress.CARD_FOUND)
-        val card = record?.takeIf { it.iccid == iccid }
-            ?: askAbout(Card(iccid, Imei.random(random, factory)), places)
-            ?: return null
+        val recorded = record?.takeIf { it.iccid == iccid }
+        val card = if (recorded != null && iccid == before) {
+            // The card from before the swap, kept after all or left in by mistake. Without a question, a user who
+            // meant to put in a new card would go on with this one, believing it new.
+            report(Progress.CARD_FROM_BEFORE)
+            askAbout(iccid) {
+                recorded.takeIf { ask(Question.CardFromBefore(iccid, places.find(iccid))) == Answer.CONTINUE }
+            }
+        } else {
+            report(Progress.CARD_FOUND)
+            recorded ?: askAbout(iccid) { places.choose(Card(iccid, Imei.random(random, factory)), ask) }
+        } ?: return null
         // Recorded before the IMEIs are written, so that a step stopped in between gives the card the same pair when
         // it runs again.
         if (card != record) router.recordCard(card)
@@ -234,16 +256,16 @@ open class Swap(
     }
 
     /**
-     * Asks the user about [card], which has a new random pair, and returns it as they chose, with slot 2 on the tray
-     * again; null if they cancel. Meanwhile slot 2 is on the built-in eSIM, so that the card stays off if the router
-     * is switched off and on before they answer.
+     * Asks the user about the card [iccid] with [choose], and returns the card with the pair they chose, with slot 2
+     * on the tray again; null if they cancel. Meanwhile slot 2 is on the built-in eSIM, so that the card stays off if
+     * the router is switched off and on before they answer.
      */
-    private fun askAbout(card: Card, places: PlaceCards): Card? {
+    private fun askAbout(iccid: String, choose: () -> Card?): Card? {
         setSlot2(Slot2.ESIM)
         report(Progress.SLOT2_ON_ESIM)
-        val chosen = places.choose(card, ask) ?: return null
+        val chosen = choose() ?: return null
         // The pair was chosen for this card, so it mustn't go to another.
-        if (cardInTray(again = true) != card.iccid) throw RouterException(Problem.CARD_CHANGED)
+        if (cardInTray(again = true) != iccid) throw RouterException(Problem.CARD_CHANGED)
         report(Progress.SAME_CARD)
         return chosen
     }

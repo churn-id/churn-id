@@ -173,8 +173,12 @@ class Controller(private val context: Context) {
     /** Whether the user confirmed in step 1 that "Power On with Charger" is off, for this swap. Main thread only. */
     var chargerChecked = false
 
-    /** What step 4 says: whether the new card is a place card, and the last digits of the card to destroy. */
+    /**
+     * What step 4 says: whether the new card is a place card, whether the user kept the card from before the swap, and
+     * the last digits of the card to destroy.
+     */
     val placeCardIn get() = saved.placeCardIn
+    val cardKept get() = saved.cardKept
     val cardToDestroy get() = saved.cardToDestroy
 
     /** The debug log, which the app keeps while [debugLogOn]. */
@@ -335,14 +339,22 @@ class Controller(private val context: Context) {
                     return@runStep Screen.Swapping(Step.SWAP_CARD, error = error)
                 }
                 val factory = folder.factory!!
-                val card =
-                    swap.giveNewImeis(factory, folder.card, saved.placeCards, SecureRandom(), BuildConfig.VERSION_CODE)
+                val card = swap.giveNewImeis(
+                    factory,
+                    folder.card,
+                    saved.cardBeforeSwap,
+                    saved.placeCards,
+                    SecureRandom(),
+                    BuildConfig.VERSION_CODE,
+                )
                 if (card == null) {
                     // Canceled at the question, with slot 2 back on the eSIM: the user puts in another card.
                     shutDown(swap, next = Step.SWAP_CARD)
                 } else {
                     saved.wrote(card.imeis, factory = factory)
                     saved.placeCardIn = saved.placeCards.find(card.iccid) != null
+                    // The card from before the swap, kept at step 3's question with its recorded pair.
+                    saved.cardKept = card == folder.card && card.iccid == saved.cardBeforeSwap
                     val destroy = saved.placeCards.toDestroy(before = saved.cardBeforeSwap, after = card.iccid)
                     saved.cardToDestroy = destroy?.takeLast(4)
                     shutDown(swap, next = Step.GO_ONLINE)
@@ -1011,6 +1023,7 @@ class Controller(private val context: Context) {
             Progress.SLOT2_ON_SIM2 -> R.string.progress_slot2_on_sim2
             Progress.SLOT2_ACTIVE -> R.string.progress_slot2_active
             Progress.CARD_FOUND -> R.string.progress_card_found
+            Progress.CARD_FROM_BEFORE -> R.string.progress_card_from_before
             Progress.SLOT2_BACK_ON_SIM2 -> R.string.progress_slot2_back_on_sim2
             Progress.SAME_CARD -> R.string.progress_same_card
             Progress.NEW_IMEIS -> R.string.progress_new_imeis

@@ -166,8 +166,9 @@ IMSI.
 Step 3 records the card in `/etc/churn/card` (section 5): its ICCID and its
 pair, written before the IMEIs. When step 3 runs again with the same card,
 because it stopped or because the user kept the old card, it takes the
-recorded pair, so the card keeps its IMEIs. Any other card gets its pair
-after a question (below) and replaces the record.
+recorded pair, so the card keeps its IMEIs. For the old card, step 3 first
+asks whether to keep it (section 7). Any other card gets its pair after a
+question (below) and replaces the record.
 
 A travel card used again after other cards therefore gets a new pair. Its
 issuer then sees its IMEI change, which shows that the IMEI was rewritten
@@ -437,21 +438,26 @@ every boot:
    (below), turns GL's Enhanced Kill Switch on if it is off, puts Churn's
    firewall rules in place if they are missing or differ and turns GL's
    connection check off for the SIM if it is on, then switches slot 2 to
-   SIM 2 in airplane mode and reads the ICCID. Unless the card is the
-   recorded one, the app switches slot 2 back to the built-in eSIM while it
-   asks the user about the card (section 4), so that the card stays off if
-   the router is switched off and on before the answer, then switches it to
-   SIM 2 again and checks that the card is the same. It records the card
-   with its pair, writes the pair, saves and verifies it, clears the
-   router's record of earlier cards (below), records its own version and
-   shuts the router down. If it finds no usable card, it switches slot 2
-   back to the built-in eSIM, so the card stays off at the next power-on,
-   and stops, clearing nothing.
+   SIM 2 in airplane mode and reads the ICCID. Unless step 3 already
+   recorded the card earlier in this swap, the app switches slot 2 back to
+   the built-in eSIM while it asks the user about the card (section 4), so
+   that the card stays off if the router is switched off and on before the
+   answer, then switches it to SIM 2 again and checks that the card is the
+   same. For the card from before the swap, the question is whether to keep
+   it: a user who put it back by mistake would otherwise go on with it,
+   believing it new. It records the card with its pair, writes the pair,
+   saves and verifies it, clears the router's record of earlier cards
+   (below), records its own version and shuts the router down. If it finds
+   no usable card, it switches slot 2 back to the built-in eSIM, so the card
+   stays off at the next power-on, and stops, clearing nothing.
 4. The user switches the router on later, at another place and time, and
    turns airplane mode off there. The new card registers at that power-on,
    whatever airplane mode says (section 6). A place card is switched on at
    its own place only (rule 1). The app also tells the user to destroy the
    card taken out, unless it is a place card or still in SIM 2 (rule 8).
+   For a card the user kept, step 4 says that the router keeps it with its
+   IMEIs. With no new card to keep apart from it, the card may go online
+   wherever rule 1 allows.
 
 Step 3 ends with a shutdown, which emits nothing (section 6), rather than
 leaving the router on in airplane mode until the user goes online. The
@@ -495,9 +501,9 @@ goes when the swap ends or is canceled.
   the shutdown before it. Before each shutdown the app notes the boot ID,
   which Linux makes new at every power-on. Right after step 1 the router
   stays on the cable for a while as it shuts down, and step 3 must not
-  start on it then: with the old card still in the tray, it would end the
-  swap as if the user had kept that card. The check also catches a
-  shutdown that didn't happen.
+  start on it then: with the old card still in the tray, it would ask
+  whether to keep that card before the user had a chance to swap it. The
+  check also catches a shutdown that didn't happen.
 - After the shutdown that ends steps 1 and 3, the app waits for the router
   to leave the cable, and warns if it is still there after two minutes.
   Leaving the cable only means that the router's network went: the router

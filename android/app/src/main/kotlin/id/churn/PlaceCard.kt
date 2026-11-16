@@ -17,6 +17,12 @@ sealed interface Question {
 
     /** Any other card but the recorded one, by its ICCID's digits: a new place card, a travel card, or cancel. */
     data class NewCard(val iccid: String) : Question
+
+    /**
+     * The card from before this swap, still the recorded one, by its ICCID's digits, and [place] if it is a place
+     * card: continue, which keeps it with its pair, or cancel the swap.
+     */
+    data class CardFromBefore(val iccid: String, val place: PlaceCard?) : Question
 }
 
 enum class Answer { CONTINUE, PLACE_CARD, TRAVEL_CARD, CANCEL }

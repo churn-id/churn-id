@@ -75,6 +75,11 @@ class Saved(context: Context) {
         get() = preferences.getBoolean(PLACE_CARD_IN, false)
         set(value) = save { putBoolean(PLACE_CARD_IN, value) }
 
+    /** Whether step 3 kept the card from before the swap with its pair, which step 4 then tells the user. */
+    var cardKept: Boolean
+        get() = preferences.getBoolean(CARD_KEPT, false)
+        set(value) = save { putBoolean(CARD_KEPT, value) }
+
     /** The last four digits of the ICCID of the card that step 4 tells the user to destroy. */
     var cardToDestroy: String?
         get() = preferences.getString(CARD_TO_DESTROY, null)
@@ -82,7 +87,8 @@ class Saved(context: Context) {
 
     /** Forgets the swap under way, once it ended or the user canceled it. */
     fun endSwap() = save {
-        listOf(STEP, BOOT_ID, CARD_BEFORE_SWAP, FIRST_SWAP, PLACE_CARD_IN, CARD_TO_DESTROY).forEach { remove(it) }
+        listOf(STEP, BOOT_ID, CARD_BEFORE_SWAP, FIRST_SWAP, PLACE_CARD_IN, CARD_KEPT, CARD_TO_DESTROY)
+            .forEach { remove(it) }
     }
 
     /**
@@ -224,6 +230,7 @@ class Saved(context: Context) {
         const val CARD_BEFORE_SWAP = "card_before_swap"
         const val FIRST_SWAP = "first_swap"
         const val PLACE_CARD_IN = "place_card_in"
+        const val CARD_KEPT = "card_kept"
         const val CARD_TO_DESTROY = "card_to_destroy"
         const val BOOT_ID = "boot_id"
         const val DEBUG_LOG = "debug_log"
