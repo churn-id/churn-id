@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    # Anyone who can push can start a workflow; only the owner releases.
+    if: github.ref == 'refs/heads/main' && github.triggering_actor == github.repository_owner
+    uses: ./.github/workflows/build.yml
+    # Without it, the sign job reads the release environment's secrets as empty.
+    secrets: inherit
+
+  draft:
+    name: Draft release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: churn-release-apk
+          path: apk
+
+      - name: Draft a release with the signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          aapt2=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)/aapt2
+          version=$("$aapt2" dump badging apk/app-release.apk | sed -n "s/.* versionName='\([^']*\)'.*/\1/p")
+          if [ -z "$version" ]; then
+            echo "::error::The APK names no versionName."
+            exit 1
+          fi
+          mv apk/app-release.apk "apk/churn-$version.apk"
+          # The tag comes into being when the draft is published.
+          gh release create "v$version" --draft --target "$GITHUB_SHA" --title "Churn $version" \
+            --generate-notes "apk/churn-$version.apk"

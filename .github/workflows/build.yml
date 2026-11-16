@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # The Release workflow runs this one first.
+  workflow_call:
 
 permissions:
   contents: read

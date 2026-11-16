@@ -144,6 +144,22 @@ read):
 
 Builds of pull requests and other branches are always unsigned.
 
+## Releases
+
+1. In a pull request, raise `versionCode` and `versionName` in
+   `android/app/build.gradle.kts`, and add F-Droid's changelog for the new
+   version code as
+   `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
+2. Once it has merged, start the Release workflow on `main` from the
+   repository's Actions tab. It runs the Build workflow, whose sign job
+   signs the APK, and then drafts a GitHub release `v<versionName>` with
+   that APK as `churn-<versionName>.apk`. For anyone but the repository's
+   owner, the workflow skips its jobs.
+3. Run the release tests in [docs/release-tests.md](docs/release-tests.md)
+   with that APK.
+4. Publish the draft, which creates the tag. F-Droid builds each version
+   from its tag, once Churn is in F-Droid's repository.
+
 ## History
 
 On 2026-10-01 the repository was recreated and its history rewritten. Early
