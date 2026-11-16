@@ -477,6 +477,10 @@ goes when the swap ends or is canceled.
 
 - The step reached is saved, and a foreground service keeps the app alive,
   so the procedure resumes after the screen locks or Android stops the app.
+  While a step runs, the service also holds a wake lock, so that the phone
+  doesn't sleep in the middle of the step once the screen is off, when a
+  stalled read could outlast its command's timeout. The lock ends with the
+  step, or after an hour at the latest.
 - While the app works on the router, it keeps the phone's screen on, as a
   video player does. A swap failed when we let the screen go dark and
   worked when we kept it on. One way a locked phone breaks a swap:

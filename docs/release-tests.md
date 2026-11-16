@@ -163,7 +163,9 @@ At the first swap of a run, also:
    by itself.
 4. Answer step 3's question a minute after it shows, with Travel card
    (W1). The card answers as the eSIM does (E10), and the first clearing
-   takes a few minutes.
+   takes a few minutes. Lock the phone as soon as step 3 lists that it is
+   clearing the SIM history, and unlock it five minutes later: the step
+   has gone on (C8).
 5. Step 4 asks to destroy no card, since no card was recorded before the
    swap. Tap Done and switch to the debug build. Switch the router on,
    connect, and run the leak watch (D9, D11, D16, D21, U10), which stands
