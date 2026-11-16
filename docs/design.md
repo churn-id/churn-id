@@ -462,7 +462,7 @@ Step 4, not step 2, says to destroy the card taken out: until step 3 has
 given the new card its IMEIs, the old card is the fallback, as when the user
 keeps it after all. Step 1 notes on the phone which card the record names,
 since step 3 replaces the record and may run more than once. The note
-goes once step 3 has used it, or when the user cancels the swap.
+goes when the swap ends or is canceled.
 
 ### App behavior
 
