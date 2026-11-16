@@ -76,7 +76,12 @@ the bundle from the workflow run's artifacts (`churn-release-aab`). It
 also checks the spelling of the Markdown files and the app's source with
 cspell (word list in `cspell.json`), lints the Markdown files with
 markdownlint-cli2 (`.markdownlint.json`) and lints `restore.sh` with
-ShellCheck (`-S warning`).
+ShellCheck (`-S warning`). After the build, `RouterScriptsTest` has
+written the scripts in `Router`'s companion to
+`android/app/build/router-scripts/`, as the app sends them. CI lints the
+shell scripts there with ShellCheck too and checks the firewall rules
+with `nft -c`, so a script added to the companion goes into the test as
+well.
 
 The unit tests run against a simulated Mudi 7. Tests on a real router are
 listed in [docs/router-tests.md](docs/router-tests.md); the app runs the

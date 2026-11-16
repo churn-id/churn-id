@@ -1352,7 +1352,8 @@ class FakeRouter : Shell {
         private val DNS_SERVERS =
             Regex("""netstat -lnup \| while .* udp\*:53 \| udp\*:2153\) .* \| sort -u""", RegexOption.DOT_MATCHES_ALL)
         /** How [Router.overlay] reads the overlay's line in `/proc/mounts` and its reserve. */
-        private val OVERLAY = Regex("""set -- .* /proc/mounts\)\necho .*/reserved_clusters 2>/dev/null\)""")
+        private val OVERLAY =
+            Regex("""# shellcheck .*\nset -- .* /proc/mounts\)\necho .*/reserved_clusters 2>/dev/null\)""")
 
         /** How [Router.logFollowers] lists the `logread -f` processes. */
         private val LOG_FOLLOWERS = Regex("""for c in /proc/\[0-9]\*/cmdline; .* \| grep -E '\^\[\^ ]\*logread .*""")

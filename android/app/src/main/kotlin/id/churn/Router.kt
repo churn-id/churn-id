@@ -1093,8 +1093,8 @@ class Router(private val shell: Shell) {
          * dnsmasq started with a configuration file (`-C`) the file named there in `resolv-file`, separated by `|`.
          * Nothing in the loop reads its input, which is netstat's list, other than `read`.
          */
-        private val DNS_SERVERS = """
-            netstat -lnup | while read -r proto recv send local foreign program; do
+        internal val DNS_SERVERS = """
+            netstat -lnup | while read -r proto _ _ local _ program; do
             	case "${'$'}proto ${'$'}local" in udp*:53 | udp*:2153) ;; *) continue ;; esac
             	pid=${'$'}{program%%/*}
             	conf=${'$'}(tr '\000' '\n' < /proc/${'$'}pid/cmdline | sed -n '/^-C${'$'}/{n;p;}')
@@ -1108,7 +1108,7 @@ class Router(private val shell: Shell) {
          * Where Churn's link to the zero files leads, how many kB `du` counts in Churn's folder, and the paths of the
          * link or the zero files that `sysupgrade -l` lists, one per line.
          */
-        private val ZEROS_LINK = """
+        internal val ZEROS_LINK = """
             [ -L $CHURN/zeros ] || exit 3
             readlink $CHURN/zeros || exit 1
             du -sk $CHURN 2>/dev/null | cut -f 1
@@ -1117,7 +1117,7 @@ class Router(private val shell: Shell) {
         """.trimIndent()
 
         /** How many of Churn's zero files' folder and of any fill files there are, and the kB they take. */
-        private val ZERO_FILES = """
+        internal val ZERO_FILES = """
             sync
             set -- /overlay/churn-zeros /overlay/churn-fill.*
             n=0
@@ -1127,10 +1127,10 @@ class Router(private val shell: Shell) {
         """.trimIndent()
 
         /** The overlay's free space in kB, as the free-space overwrite counts it. */
-        private val OVERLAY_FREE = "sync; df -k /overlay | awk 'END { print ${'$'}(NF - 4) - ${'$'}(NF - 3) }'"
+        internal val OVERLAY_FREE = "sync; df -k /overlay | awk 'END { print ${'$'}(NF - 4) - ${'$'}(NF - 3) }'"
 
         /** The kB written to the overlay's partition since its file system was made, after a sync. */
-        private val OVERLAY_WRITTEN = """
+        internal val OVERLAY_WRITTEN = """
             sync
             dev=${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1; exit }' /proc/mounts)
             cat /sys/fs/ext4/${'$'}{dev##*/}/lifetime_write_kbytes
@@ -1141,7 +1141,7 @@ class Router(private val shell: Shell) {
          * whole run of digits, and prints the two counts for each, in the input's order. The zero files hold only
          * zeros, so it skips them. The numbers stay in /tmp, which is in RAM, until it ends.
          */
-        private val COUNT_NUMBERS = """
+        internal val COUNT_NUMBERS = """
             t=/tmp/churn-numbers
             trap 'rm -f ${'$'}t ${'$'}t.raw ${'$'}t.files' EXIT
             trap 'exit 1' HUP INT TERM PIPE
@@ -1174,7 +1174,7 @@ class Router(private val shell: Shell) {
          * each packet on to the next chain. The first two lines delete a table that an earlier watch left, in the
          * same change.
          */
-        private val LEAK_COUNTERS = """
+        internal val LEAK_COUNTERS = """
             table inet $LEAK_TABLE
             delete table inet $LEAK_TABLE
             table inet $LEAK_TABLE {
@@ -1199,7 +1199,7 @@ class Router(private val shell: Shell) {
          * over its peers, whose keys stay on the router; and the fragments that the router made of IPv4 and of IPv6
          * packets since it started.
          */
-        private val SIM_TRAFFIC = """
+        internal val SIM_TRAFFIC = """
             cd /sys/class/net || exit 1
             awk 'FNR == 1 { print FILENAME, ${'$'}1 }' rmnet_data*/ifindex rmnet_data*/statistics/tx_packets
             wireguard() {
@@ -1222,7 +1222,7 @@ class Router(private val shell: Shell) {
         """.trimIndent()
 
         /** Prints WireGuard's latest handshake with any peer, then chrony's reference, see [TunnelClock]. */
-        private val TUNNEL_CLOCK = """
+        internal val TUNNEL_CLOCK = """
             h=${'$'}(wg show all latest-handshakes) || exit 1
             c=${'$'}(chronyc -c tracking) || exit 1
             echo "${'$'}h" | awk '${'$'}3 > m { m = ${'$'}3 } END { print "handshake", m + 0 }'
@@ -1241,13 +1241,14 @@ class Router(private val shell: Shell) {
         private val FLASH_WEAR = Regex("""0x([0-9a-f]{2}) 0x([0-9a-f]{2})\s+0x([0-9a-f]{2})""")
 
         /** The overlay's device and file system type, and the blocks that ext4 keeps back from it. */
-        private val OVERLAY = """
+        internal val OVERLAY = """
+            # shellcheck disable=SC2046 # awk's two fields are split on purpose, and a missing reserve adds none.
             set -- ${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1, ${'$'}3; exit }' /proc/mounts)
             echo ${'$'}1 ${'$'}2 ${'$'}(cat /sys/fs/ext4/${'$'}{1##*/}/reserved_clusters 2>/dev/null)
         """.trimIndent()
 
         /** The command line of each `logread -f` process, its arguments separated by spaces. */
-        private const val LOG_FOLLOWERS = "for c in /proc/[0-9]*/cmdline; do tr '\\000' ' ' < \$c; echo; done " +
+        internal const val LOG_FOLLOWERS = "for c in /proc/[0-9]*/cmdline; do tr '\\000' ' ' < \$c; echo; done " +
             "2>/dev/null | grep -E '^[^ ]*logread .*-f'"
 
         /** GL's two settings of the Enhanced Kill Switch: `0`, and absent, while it is on. */
@@ -1292,7 +1293,7 @@ class Router(private val shell: Shell) {
          * the next run fills about 0.5 GB instead of 2.9 GB. `/etc/churn/zeros` links to the folder, and restore.sh
          * deletes both.
          */
-        private val OVERWRITE_FREE_SPACE = """
+        internal val OVERWRITE_FREE_SPACE = """
             dev=${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1; exit }' /proc/mounts)
             reserve=/sys/fs/ext4/${'$'}{dev##*/}/reserved_clusters
             size=${'$'}(cat ${'$'}reserve)
