@@ -28,6 +28,10 @@ jobs:
         with:
           globs: '**/*.md'
 
+      - name: Lint restore.sh
+        if: ${{ !cancelled() }}
+        run: shellcheck -S warning android/app/src/main/assets/restore.sh
+
   bundle:
     name: Release bundle
     runs-on: ubuntu-latest
