@@ -15,9 +15,11 @@
         android:label="@string/app_name"
         android:theme="@android:style/Theme.DeviceDefault">
 
+        <!-- singleTop: a tap on the notification shows the open screen rather than a second one over it. -->
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

@@ -206,9 +206,12 @@ At the first swap of a run, also:
 2. At step 2, take the normal SIM card out and put the adapter card in.
    Stop the app in Android's settings and open it again: it shows step 2
    (C10). Switch the router on.
-3. Answer step 3's question with Place card. Step 3 lists that it turned
-   the Enhanced Kill Switch on, added Churn's firewall rules and turned
-   GL's connection check off. The clearing takes under a minute (H16).
+3. While step 3 waits for the router to finish starting, pull down the
+   notification shade and tap Churn's notification: the step's lines keep
+   coming (C12). Answer step 3's question with Place card. Step 3 lists
+   that it turned the Enhanced Kill Switch on, added Churn's firewall
+   rules and turned GL's connection check off. The clearing takes under a
+   minute (H16).
 4. Step 4 asks to destroy the normal SIM card, which you keep for the
    tests (W4), and says to switch the router on only at the place card's
    place. Go online.
