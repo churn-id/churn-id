@@ -722,6 +722,24 @@ class SwapTest {
     }
 
     @Test
+    fun aQuestionLeftUnansweredStopsStep3WithTheCardOff() {
+        val oldImeis = prepareAndRestart()
+        // As the app's wait for the answer ends after 10 minutes.
+        whileAsked = { throw RouterException(Problem.NOT_ANSWERED) }
+        assertStops(Problem.NOT_ANSWERED) { giveNewImeis() }
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertFalse(swap.cardMayBeOn)
+        assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
+        assertNull(record())
+        assertSafe()
+        // Try again asks again.
+        whileAsked = {}
+        val card = giveNewImeis()!!
+        assertEquals(listOf(Question.NewCard(card.iccid), Question.NewCard(card.iccid)), asked)
+        assertEquals(card.imeis, ImeiPair(fake.imei1, fake.imei2))
+    }
+
+    @Test
     fun aNewPlaceCardJoinsThePlaceListBeforeItsImeisAreWritten() {
         val oldImeis = prepareAndRestart()
         answer = Answer.PLACE_CARD

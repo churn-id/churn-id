@@ -13,6 +13,7 @@ import java.net.SocketTimeoutException
 import java.security.SecureRandom
 import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
 
 /** What the screen shows. [MainActivity] draws it. */
 sealed interface Screen {
@@ -592,10 +593,14 @@ class Controller(private val context: Context) {
                         // Drops an answer left from an earlier question, such as a second tap.
                         answers.clear()
                         update(question)
-                        answers.take().also {
-                            debugLog.add("  $it")
-                            update()
-                        }
+                        // Left open, the question would keep the phone's screen, the app and the router on until both
+                        // batteries ran out. The step stops instead, with slot 2 on the built-in eSIM, where it is
+                        // throughout the question.
+                        val answer = answers.poll(ANSWER_WAIT_MINUTES, TimeUnit.MINUTES)
+                            ?: throw RouterException(Problem.NOT_ANSWERED)
+                        debugLog.add("  $answer")
+                        update()
+                        answer
                     },
                     check = { runChecks(router, folder, CHECKS.filter { it.blocks }).failures },
                     cardMayBeOn = carried,
@@ -1127,6 +1132,7 @@ class Controller(private val context: Context) {
             Problem.NO_CARD -> R.string.problem_no_card
             Problem.SIM1_CARD -> R.string.problem_sim1_card
             Problem.CARD_CHANGED -> R.string.problem_card_changed
+            Problem.NOT_ANSWERED -> R.string.problem_not_answered
             Problem.NOT_SET_UP -> R.string.problem_not_set_up
             Problem.NOT_STARTED -> R.string.problem_not_started
             Problem.KILL_SWITCH_OFF -> R.string.problem_kill_switch_off
@@ -1164,5 +1170,8 @@ class Controller(private val context: Context) {
          */
         const val SHUTDOWN_WAIT_SECONDS = 120
         const val RETRY_MILLISECONDS = 3_000L
+
+        /** How long step 3 waits for the user's answer to its question, as problem_not_answered says. */
+        const val ANSWER_WAIT_MINUTES = 10L
     }
 }

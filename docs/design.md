@@ -446,13 +446,15 @@ every boot:
    on before the answer, then switches it to SIM 2 again and checks that the
    card is the same. For the card from before the swap, the question is
    whether to keep it: a user who put it back by mistake would otherwise go
-   on with it, believing it new. It records the card with its pair, writes
-   the pair, saves and verifies it, clears the router's record of earlier
-   cards (below), records its own version and shuts the router down. If it
-   finds no usable card, it stops. Whenever the step stops before the pair
-   is saved, it switches slot 2 back to the built-in eSIM as far as the
-   connection allows, so that the card stays off at the next power-on, and
-   it clears nothing.
+   on with it, believing it new. A question left unanswered for 10 minutes
+   stops the step, so that a phone left on it doesn't drain its battery and
+   the router's, and the step asks again when it runs again. It records the
+   card with its pair, writes the pair, saves and verifies it, clears the
+   router's record of earlier cards (below), records its own version and
+   shuts the router down. If it finds no usable card, it stops. Whenever the
+   step stops before the pair is saved, it switches slot 2 back to the
+   built-in eSIM as far as the connection allows, so that the card stays off
+   at the next power-on, and it clears nothing.
 4. The user switches the router on later, at another place and time, and
    turns airplane mode off there. The new card registers at that power-on,
    whatever airplane mode says (section 6). A place card is switched on at
