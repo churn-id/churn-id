@@ -111,9 +111,42 @@ jobs:
           sudo apt-get install -y -q busybox-static
           sudo sh android/app/src/test/sh/router-scripts-test.sh router-scripts
 
+  rebuild:
+    name: Reproducible APK
+    needs: bundle
+    runs-on: ubuntu-latest
+    # Like F-Droid's build: from a checkout in a folder of its own, and
+    # without setup-gradle, so without Gradle's caches.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: rebuild
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: churn-release-apk-unsigned
+          path: first
+
+      - name: Build the release APK again and compare
+        working-directory: rebuild/android
+        run: |
+          ./gradlew --no-daemon assembleRelease
+          first=$GITHUB_WORKSPACE/first/app-release-unsigned.apk
+          again=app/build/outputs/apk/release/app-release-unsigned.apk
+          if ! cmp -s "$first" "$again"; then
+            echo "::error::The APK built again differs from the Release bundle job's."
+            diff <(unzip -lv "$first") <(unzip -lv "$again") || true
+            exit 1
+          fi
+
   sign:
     name: Sign release bundle and APK
-    needs: [bundle, router-scripts]
+    needs: [bundle, router-scripts, rebuild]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     # Signing secrets live in the "release" environment, which only main may

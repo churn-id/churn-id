@@ -102,6 +102,12 @@ from `android/`:
 sudo sh app/src/test/sh/router-scripts-test.sh app/build/router-scripts
 ```
 
+CI's Reproducible APK job builds the release APK again, on another runner,
+from a checkout in another folder and without Gradle's caches, and fails
+unless it matches the first build byte for byte. F-Droid ships our signed
+APK only if its own build of the same commit matches ours too (design.md,
+section 9).
+
 The unit tests run against a simulated Mudi 7. Tests on a real router are
 listed in [docs/router-tests.md](docs/router-tests.md); the app runs the
 first of them, its read-only checks, whenever it connects, and debug builds
