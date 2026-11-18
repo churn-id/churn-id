@@ -134,7 +134,6 @@
     <string name="check_radio_answer">The modem answers AT commands, and AT+CFUN? with the radio on or off</string>
     <string name="check_imeis_read">The modem reads both IMEIs, each a valid one with the factory TAC</string>
     <string name="check_slot2_answer">The modem says whether slot 2 is on the SIM 2 tray or the eSIM</string>
-    <string name="check_slot2_subscription">The modem names slot 2\'s subscription SUB2</string>
     <string name="check_modem_settings">The modem lists only the settings we searched for one that starts the radio off at power-on</string>
     <string name="check_airplane_mode">With GL\'s airplane mode on, the radio is off once the router has started</string>
     <string name="check_scheduled_reboot">GL keeps its scheduled reboot where Churn reads it</string>

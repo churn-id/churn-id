@@ -57,8 +57,6 @@ these claims with the test, built or planned, for each on a real router.
 - Accept a step only when the expected answer and `OK` arrive. Anything else
   means the step is repeated, never assumed done. After every write, read
   the value back.
-- Never send `AT+QUIMSUB` with a value, only `AT+QUIMSUB?`. blue-merle v2
-  reports that setting it breaks the AT channel until reboot.
 
 ## AT commands (RG650V-EU)
 
@@ -68,7 +66,6 @@ these claims with the test, built or planned, for each on a real router.
 | Radio on | `AT+CFUN=1` | verified |
 | Radio off | `AT+CFUN=4` | verified |
 | SIM present | `AT+CPIN?`: `+CME ERROR: 10` = no SIM | verified |
-| Subscription of slot 2's card | `AT+QUIMSUB?`: `2,"SUB2"`, also while slot 1 is the active slot | verified |
 | Slot 2's card | `AT+QSIMTYPE="slot2"`: `0` SIM 2 tray, `1` eSIM | verified |
 | Read IMEI 1 | `AT+EGMR=0,7` | verified |
 | Read IMEI 2 | `AT+EGMR=0,11` | verified |
