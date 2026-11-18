@@ -572,7 +572,8 @@ image of the overlay's size, the first overwrite wrote 2.9 GB and the
 second 0.5 GB. Neither left a copy of the outgoing card, a run stopped by
 a signal left the zero files and the reserve as they were before it, a
 run that found the partition full freed the 512 MB, and e2fsck found the
-file system clean (verified on the images).
+file system clean (verified on the images). CI repeats these runs on a
+1 GiB image at every build (CONTRIBUTING.md, "Building").
 
 ## After power-on
 

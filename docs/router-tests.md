@@ -206,6 +206,10 @@ flash, as before Churn, and names any card used since the router started.
 Setting the router up again turns that off and deletes the file, and the
 test's first clearing overwrites what was written.
 
+CI runs `restore.sh` and the overwrite too, with BusyBox's shell on a disk
+image and stand-ins for GL's commands (CONTRIBUTING.md, "Building"). That
+tests the scripts, but not GL's firmware or the router's flash.
+
 ## Power cycles
 
 Debug builds also have a Power cycles button on the router screen, for
