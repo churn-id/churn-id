@@ -78,7 +78,7 @@ class LeakWatch(
         if (!router.simConnectionCheckOff()) notReady("GL's connection check is on for the SIM")
         report(Progress.CONNECTION_CHECK_OFF)
         // WireGuard might send over another uplink instead, past the counters.
-        router.routes("main").firstOrNull { it.startsWith("default ") && !SIM_ROUTE.containsMatchIn(it) }?.let {
+        router.defaultRouteDevices().firstOrNull { !it.matches(SIM_DEVICE) }?.let {
             notReady("The router has an uplink other than the SIM: $it")
         }
         report(Progress.SIM_ONLY)
@@ -248,7 +248,7 @@ class LeakWatch(
         private const val IPV4_UDP_HEADERS = 28
         private const val IPV6_UDP_HEADERS = 48
 
-        /** A route over one of the SIM's data interfaces. */
-        private val SIM_ROUTE = Regex(""" dev rmnet_data\d+( |$)""")
+        /** The SIM's data interfaces. */
+        private val SIM_DEVICE = Regex("rmnet_data[0-9]+")
     }
 }

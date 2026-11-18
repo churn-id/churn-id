@@ -63,6 +63,27 @@ class DebugLogTest {
     }
 
     @Test
+    fun masksIpAndMacAddresses() {
+        assertEquals(
+            "default via … dev rmnet_data0 src …, …, …/64, …%br-lan, …:…, link/ether … brd …",
+            DebugLog.mask(
+                "default via 10.0.0.1 dev rmnet_data0 src 10.0.0.2, 2001:db8:5c1:7e3:a0b1:c2d3:e4f5:617, " +
+                    "2001:db8:5c1::/64, fe80::1%br-lan, ::ffff:10.0.0.2, " +
+                    "link/ether 02:00:00:00:00:01 brd ff:ff:ff:ff:ff:ff",
+            ),
+        )
+        // As netstat lists the addresses that the router listens on.
+        assertEquals("…:22 …:* …:3456 …:*", DebugLog.mask("0.0.0.0:22 0.0.0.0:* :::3456 :::*"))
+    }
+
+    @Test
+    fun keepsTimesVersionsAndRulesThatLookLikeAddresses() {
+        val text = "Sun Oct 11 11:17:08 2026, GL firmware 4.10.0 (OpenWrt 23.05.4), " +
+            "6000:\tfrom all fwmark 0x8000/0xf000 lookup main, Debug esim: (ipa:383)"
+        assertEquals(text, DebugLog.mask(text))
+    }
+
+    @Test
     fun leavesOutFilesTheVpnSettingsAndTheClock() {
         fake.files[Router.FIREWALL] = "table inet churn { }\n".toByteArray()
         assertFalse(router.firewallInPlace())
@@ -78,6 +99,25 @@ class DebugLogTest {
     }
 
     @Test
+    fun leavesOutTheRoutersAddressesWhileItChecksTheRouter() {
+        val text = checkTheRouter()
+        for (address in FakeRouter.ADDRESSES) assertFalse("$address in\n$text", address in text)
+        // What the checks read of the SIM's interface, the tunnel's and the USB-C port.
+        assertTrue(text, "  exit 0\n        | true\n        | rmnet_data0\n" in text)
+        assertTrue(text, "  exit 0\n        | true\n        | wgclient1\n" in text)
+        assertTrue(text, "  exit 0\n        | br-lan\n" in text)
+    }
+
+    @Test
+    fun masksTheAddressesThatTheChecksRead() {
+        val text = checkTheRouter()
+        // The hosts that GL's connection check pings, and the addresses that the router listens on.
+        assertTrue(text, "        | ping,… ping,… ping,… ping,…\n" in text)
+        assertTrue(text, " …:22 " in text && " …:3456 " in text)
+        assertFalse(text, Regex("[0-9]+(\\.[0-9]+){3}").containsMatchIn(text))
+    }
+
+    @Test
     fun masksNumbersBeforeItCutsACommandOrAnAnswer() {
         val iccid = "8944000000000000123F"
         // Without masking first, the cuts at 300 and 2,000 characters would leave the ICCID's first digits.
@@ -87,6 +127,19 @@ class DebugLogTest {
         assertTrue(text, "$ echo ${"x".repeat(290)}…\n" in text)
         assertTrue(text, "| ${"x".repeat(1_990)}…\n" in text)
         assertFalse(text, "8944" in text)
+    }
+
+    @Test
+    fun masksAddressesBeforeItCutsACommandOrAnAnswer() {
+        for (address in listOf("192.168.8.123", "2001:db8:5c1:7e3:a0b1:c2d3:e4f5:617", "02:00:00:12:34:56")) {
+            // Without masking first, the cuts at 300 and 2,000 characters would leave the address's first part.
+            val shell = log.record { _, _, _ -> Output(0, ("x".repeat(1_990) + " $address").toByteArray(), "") }
+            shell.run("echo " + "x".repeat(290) + " $address", input = null, timeoutSeconds = 10)
+        }
+        val text = file.readText()
+        assertEquals(text, 3, text.split("$ echo ${"x".repeat(290)} …\n").size - 1)
+        assertEquals(text, 3, text.split("| ${"x".repeat(1_990)} …\n").size - 1)
+        for (part in listOf("192", "2001", "02:0")) assertFalse(text, part in text)
     }
 
     @Test
@@ -188,5 +241,21 @@ class DebugLogTest {
         assertFalse(log.isEmpty)
         log.delete()
         assertTrue(log.isEmpty)
+    }
+
+    /**
+     * The log after every check ran on the router, online and with the tunnel up, so that the SIM's interface and the
+     * tunnel's have their addresses.
+     */
+    private fun checkTheRouter(): String {
+        val notes = object : CheckNotes {
+            override fun get(key: String): String? = null
+
+            override fun set(key: String, value: String?) {}
+        }
+        log.start("Checking the router")
+        val context = CheckContext(router.readChurnFolder(), notes)
+        for (check in CHECKS) log.add(check.run(router, context).toString())
+        return file.readText()
     }
 }

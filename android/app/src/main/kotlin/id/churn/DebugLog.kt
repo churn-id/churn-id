@@ -31,8 +31,9 @@ object EsimTime {
  * section 7). While it is [on], it records every command the app sends to the router with the router's answer, what
  * each step reports, why a job or step stopped, and the lines GL's eSIM manager logs during steps 1 and 3. Each job
  * or step starts a section, and times count in seconds from its start. Numbers of 12 digits or more, such as ICCIDs,
- * IMSIs and IMEIs, stay out, and so do the answers to [Shell.runPrivately], such as files' contents and the time of
- * day, so that the log ties no cards to each other or to times. It keeps the last [SWAPS] swaps.
+ * IMSIs and IMEIs, stay out, and so do IP and MAC addresses, which can point to a card, the user's VPN account or the
+ * router, and the answers to [Shell.runPrivately], such as files' contents and the time of day, so that the log ties
+ * no cards to each other or to times. It keeps the last [SWAPS] swaps.
  *
  * [watchEsim], [copyEsim] and [stopWatchingEsim] run on the thread that runs the router's jobs.
  */
@@ -231,10 +232,27 @@ class DebugLog(
             Router.TEST_IMSI to "[built-in eSIM test IMSI]",
         )
 
+        /** A group of an IPv6 address: up to four hex digits. */
+        private const val GROUP = "[0-9A-Fa-f]{1,4}"
+
         /**
-         * [text] without numbers of 12 digits or more, such as ICCIDs, IMSIs and IMEIs. Those that name no card show
-         * by name.
+         * IP addresses and MAC addresses, such as `10.0.0.2`, `2001:db8:0:1:2:3:4:5`, `fe80::1` and
+         * `02:00:00:00:00:01`. IPv4 addresses go first, so that none is left in part after an IPv6 address that holds
+         * it, as `::ffff:10.0.0.2` does. A colon may follow an IPv6 address, as netstat's port does in `:::22`.
          */
-        fun mask(text: String) = LONG_NUMBER.replace(text) { NO_CARD[it.value] ?: "…" }
+        private val ADDRESSES = listOf(
+            Regex("""(?<![0-9])([0-9]{1,3}\.){3}[0-9]{1,3}(?![0-9])"""),
+            Regex("(?<![0-9A-Fa-f:])(($GROUP:){7}$GROUP|($GROUP(:$GROUP)*)?::($GROUP(:$GROUP)*)?)(?![0-9A-Fa-f])"),
+            Regex("(?<![0-9A-Fa-f:])[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}(?![0-9A-Fa-f:])"),
+        )
+
+        /**
+         * [text] without numbers of 12 digits or more, such as ICCIDs, IMSIs and IMEIs, and without IP and MAC
+         * addresses. Numbers that name no card show by name.
+         */
+        fun mask(text: String): String {
+            val numbers = LONG_NUMBER.replace(text) { NO_CARD[it.value] ?: "…" }
+            return ADDRESSES.fold(numbers) { masked, address -> address.replace(masked, "…") }
+        }
     }
 }

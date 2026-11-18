@@ -108,8 +108,8 @@ class ChecksTest {
 
     @Test
     fun commandCheckFailsWithoutACommandChurnRuns() {
-        fake.absentCommands += listOf("curl", "nft")
-        assertEquals(CheckResult.Failed("Missing: curl, nft."), run("P2"))
+        fake.absentCommands += listOf("curl", "nft", "jsonfilter")
+        assertEquals(CheckResult.Failed("Missing: curl, nft, jsonfilter."), run("P2"))
     }
 
     @Test
@@ -412,7 +412,7 @@ class ChecksTest {
 
     @Test
     fun usbPortCheckFailsWithoutTheUsbPortsDevice() {
-        fake.failing += "ip link show ecm0"
+        fake.failing += "ip -o link show ecm0"
         assertEquals(CheckResult.Failed("The router has no network device ecm0."), run("K7"))
     }
 
@@ -507,6 +507,17 @@ class ChecksTest {
     @Test
     fun ownTrafficCheckDoesNotApplyOverAnotherUplink() {
         fake.answers["ip route show table main"] = "default via 192.168.1.1 dev eth0 proto static metric 3\n"
+        assertEquals(CheckResult.NotApplicable(R.string.reason_other_uplink), run("D5"))
+    }
+
+    @Test
+    fun ownTrafficCheckDoesNotApplyOverSeveralUplinks() {
+        // A default route over several devices, which names none on its first line.
+        fake.answers["ip route show table main"] = """
+            default proto static metric 1
+            	nexthop via 10.0.0.1 dev rmnet_data0 weight 1
+            	nexthop via 192.168.1.1 dev eth0 weight 1
+        """.trimIndent() + "\n"
         assertEquals(CheckResult.NotApplicable(R.string.reason_other_uplink), run("D5"))
     }
 

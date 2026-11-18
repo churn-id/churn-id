@@ -37,10 +37,13 @@ class FakeRouter : Shell {
     /** uci settings that replace the router's own, or remove them for null, such as another GL firmware might hold. */
     val uciAnswers = mutableMapOf<String, String?>()
 
-    /** Answers to commands that replace the router's own, such as another GL firmware might give. */
+    /**
+     * Answers to commands that replace the router's own, such as another GL firmware might give, also where another
+     * tool on the router narrows a command's answer before it comes back, as `jsonfilter` does for `ifstatus`.
+     */
     val answers = mutableMapOf<String, String>()
 
-    /** Commands that fail, such as on a firmware without what they read. */
+    /** Commands that fail, such as on a firmware without what they read, also where another tool narrows the answer. */
     val failing = mutableSetOf<String>()
 
     /** Milliseconds, advanced by the tests' sleep. */
@@ -644,9 +647,14 @@ class FakeRouter : Shell {
         commands += command
         val body = command.removePrefix(LOCK)
         if (body == command && MODEM.any { it in command }) unlocked += command
-        answers[body]?.let { return ok(it) }
-        if (body in failing) return Output(1, ByteArray(0), "")
-        return answer(body, input)
+        return respond(body, input)
+    }
+
+    /** The answer to [command], or the one the tests give in its place. */
+    private fun respond(command: String, input: ByteArray? = null): Output {
+        answers[command]?.let { return ok(it) }
+        if (command in failing) return Output(1, ByteArray(0), "")
+        return answer(command, input)
     }
 
     private fun answer(command: String, input: ByteArray?): Output {
@@ -685,6 +693,16 @@ class FakeRouter : Shell {
         // As our Mudi 7 listed them, with other addresses on the cellular network.
         if (command == "ip route show table 16800") return Output(2, ByteArray(0), "Dump terminated\n")
         if (command == "ip route show table main") return ok(mainRoutes())
+        ROUTE_COUNT.matchEntire(command)?.let {
+            val routes = respond("ip route show table ${it.groupValues[1]}")
+            return Output(0, "${routes.text.count { c -> c == '\n' }}\n".toByteArray(), routes.stderr)
+        }
+        if (command == DEFAULT_ROUTE_DEVICES) {
+            val routes = respond("ip route show table main")
+            val devices = routes.text.lines().map(::fields).filter { it.firstOrNull() == "default" }
+                .map { fields -> fields.zipWithNext().lastOrNull { it.first == "dev" }?.second ?: "-" }
+            return Output(0, devices.joinToString("") { "$it\n" }.toByteArray(), routes.stderr)
+        }
         if (command == "wg show all fwmark") {
             return ok(vpnTunnel?.takeIf { tunnelUp }?.let { "$it\t$wireguardMark\n" } ?: "")
         }
@@ -692,13 +710,27 @@ class FakeRouter : Shell {
             return ok((NETWORK_DEVICES + listOfNotNull(vpnTunnel?.takeIf { tunnelUp })).joinToString("") { "$it\n" })
         }
         Regex("""ifstatus (\w+)""").matchEntire(command)?.let { return interfaceStatus(it.groupValues[1]) }
-        // As our Mudi 7 showed it, with another hardware address.
-        if (command == "ip link show ecm0") {
+        INTERFACE_STATUS.matchEntire(command)?.let {
+            val status = respond("ifstatus ${it.groupValues[1]}")
+            if (status.status != 0) return Output(3, ByteArray(0), status.stderr)
+            // As jsonfilter prints them: a string as it is, anything else as JSON. A missing field gives 1 (inferred).
+            val json = JSONObject(status.text)
+            val values = listOf("up", "l3_device").mapNotNull { field -> json.opt(field)?.toString() }
+            return Output(if (values.size < 2) 1 else 0, values.joinToString("") { "$it\n" }.toByteArray(), "")
+        }
+        // As our Mudi 7 showed it without -o, with another hardware address, on one line as -o puts it (inferred).
+        if (command == "ip -o link show ecm0") {
             val master = usbBridge?.let { " master $it" } ?: ""
             return ok(
                 "26: ecm0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast$master state UP mode DEFAULT " +
-                    "group default qlen 1000\n    link/ether 02:00:00:00:00:01 brd ff:ff:ff:ff:ff:ff\n",
+                    "group default qlen 1000\\    link/ether $USB_MAC brd ff:ff:ff:ff:ff:ff\n",
             )
+        }
+        if (command == USB_BRIDGE) {
+            val link = respond("ip -o link show ecm0")
+            if (link.status != 0) return Output(3, ByteArray(0), link.stderr)
+            val bridges = fields(link.text).zipWithNext().filter { it.first == "master" }.map { it.second }
+            return ok(bridges.joinToString("") { "$it\n" })
         }
         if (command == "uci -q show route_policy") return ok(routePolicy())
         if (command == "uci -q show chrony") return ok(CHRONY)
@@ -1235,28 +1267,47 @@ class FakeRouter : Shell {
      * mode the cellular interface is down, and its routes are gone (inferred).
      */
     private fun mainRoutes(): String {
-        val sim = "default via 10.0.0.1 dev rmnet_data0 proto static src 10.0.0.2 metric 1 mtu 1500\n" +
-            "8.8.4.4 dev rmnet_data0 proto static scope link metric 1\n" +
-            "8.8.8.8 dev rmnet_data0 proto static scope link metric 1\n" +
-            "10.0.0.0/30 dev rmnet_data0 proto kernel scope link src 10.0.0.2\n"
-        val lan = "169.254.21.0/24 dev ecm0 proto kernel scope link src 169.254.21.1\n" +
-            "192.168.8.0/24 dev br-lan proto kernel scope link src 192.168.8.1\n"
-        val wan = "default via 192.168.1.1 dev eth0 proto static src 192.168.1.2 metric 10\n".takeIf { wiredUplink }
+        val sim = "default via $SIM_GATEWAY dev rmnet_data0 proto static src $SIM_ADDRESS metric 1 mtu 1500\n" +
+            SIM_DNS.sorted().joinToString("") { "$it dev rmnet_data0 proto static scope link metric 1\n" } +
+            "10.0.0.0/30 dev rmnet_data0 proto kernel scope link src $SIM_ADDRESS\n"
+        val lan = "169.254.21.0/24 dev ecm0 proto kernel scope link src $USB_ADDRESS\n" +
+            "192.168.8.0/24 dev br-lan proto kernel scope link src $LAN_ADDRESS\n"
+        val wan = "default via 192.168.1.1 dev eth0 proto static src $WAN_ADDRESS metric 10\n".takeIf { wiredUplink }
         val kept = sim.lines().first().takeIf { keepsSimRoute }?.let { "$it\n" }
         return (if (airplaneModeInUse) kept.orEmpty() + lan else sim + lan) + wan.orEmpty()
     }
 
-    /** `ifstatus` of the network interface [name], shortened, as OpenWrt's netifd gives it. */
+    /**
+     * `ifstatus` of the network interface [name], shortened, as OpenWrt's netifd gives it: while the interface is up,
+     * with its device, its addresses, its route and its DNS servers.
+     */
     private fun interfaceStatus(name: String): Output {
         val (up, device) = when (name) {
             vpnTunnel -> tunnelUp to name
             "modem_cpu" -> !airplaneModeInUse to simDevice
             else -> return Output(1, "Interface $name not found\n".toByteArray(), "")
         }
-        val status = JSONObject().put("up", up).put("pending", false).put("available", true)
-        if (up) status.put("l3_device", device)
-        return ok(status.toString(1))
+        val addresses = if (name == "modem_cpu") {
+            mapOf(
+                "ipv4-address" to listOf(mapOf("address" to SIM_ADDRESS, "mask" to 30)),
+                "ipv6-address" to listOf(mapOf("address" to SIM_IPV6, "mask" to 64)),
+                "route" to listOf(mapOf("target" to "0.0.0.0", "mask" to 0, "nexthop" to SIM_GATEWAY)),
+                "dns-server" to SIM_DNS + SIM_IPV6_DNS,
+            )
+        } else {
+            mapOf(
+                "ipv4-address" to listOf(mapOf("address" to TUNNEL_ADDRESS, "mask" to 32)),
+                "ipv6-address" to listOf(mapOf("address" to TUNNEL_IPV6, "mask" to 128)),
+                "dns-server" to listOf(TUNNEL_DNS),
+            )
+        }
+        val status = mapOf("up" to up, "pending" to false, "available" to true) +
+            if (up) mapOf("l3_device" to device) + addresses else emptyMap()
+        return ok(JSONObject(status).toString(1))
     }
+
+    /** A line's fields, as awk splits them. */
+    private fun fields(line: String) = line.trim().split(Regex("\\s+")).filter(String::isNotEmpty)
 
     /** The MD5 sum of the first [count] bytes of [bytes], or of all of them if there are fewer. */
     private fun md5(bytes: ByteArray, count: Int) =
@@ -1379,6 +1430,26 @@ class FakeRouter : Shell {
         const val ESIM_DB = "/root/esim/db"
         const val ESIM_LOG = "/root/esim/log.txt"
 
+        /**
+         * The addresses that the router's answers hold, other ones than our Mudi 7's: the SIM's while it is online,
+         * over IPv4 and IPv6, its gateway's and its DNS servers'; the tunnel's own and its DNS server's; the
+         * router's on the LAN, on the USB-C port and on a wired uplink; and the USB-C port's hardware address.
+         */
+        private const val SIM_ADDRESS = "10.0.0.2"
+        private const val SIM_GATEWAY = "10.0.0.1"
+        private const val SIM_IPV6 = "2001:db8:5c1:7e3:a0b1:c2d3:e4f5:617"
+        private val SIM_DNS = listOf("198.51.100.53", "198.51.100.54")
+        private const val SIM_IPV6_DNS = "2001:db8:5c1::53"
+        private const val TUNNEL_ADDRESS = "10.66.12.34"
+        private const val TUNNEL_IPV6 = "fd00:66::12:34"
+        private const val TUNNEL_DNS = "10.66.0.1"
+        private const val LAN_ADDRESS = "192.168.8.1"
+        private const val USB_ADDRESS = "169.254.21.1"
+        private const val WAN_ADDRESS = "192.168.1.2"
+        private const val USB_MAC = "02:00:00:00:00:01"
+        val ADDRESSES = SIM_DNS + listOf(SIM_ADDRESS, SIM_GATEWAY, SIM_IPV6, SIM_IPV6_DNS, TUNNEL_ADDRESS, TUNNEL_IPV6,
+            TUNNEL_DNS, LAN_ADDRESS, USB_ADDRESS, WAN_ADDRESS, USB_MAC)
+
         /** Sunday, October 11, 2026, 11:17:08 UTC: the router's clock at [clock] 0. */
         private const val START_TIME = 1_791_717_428L
 
@@ -1390,6 +1461,17 @@ class FakeRouter : Shell {
         private const val KILL_SWITCH_ON = "uci set 'route_policy.@default[0].enabled=0' && " +
             "{ uci -q delete 'network.vpn_to_main' || true; } && uci commit route_policy && uci commit network && " +
             "/etc/init.d/network reload"
+        /** How [Router.routeCount] counts a table's routes. */
+        private val ROUTE_COUNT = Regex("""ip route show table (\w+) \| wc -l""")
+        /** How [Router.defaultRouteDevices] reads the main table's default routes. */
+        private const val DEFAULT_ROUTE_DEVICES = "ip route show table main | awk '\$1 == \"default\" { d = \"-\"; " +
+            "for (i = 2; i < NF; i++) if (\$i == \"dev\") d = \$(i + 1); print d }'"
+        /** How [Router.interfaceStatus] reads whether an interface is up and its device. */
+        private val INTERFACE_STATUS =
+            Regex("""s=\$\(ifstatus (\w+)\) \|\| exit 3; echo "\${'$'}s" \| jsonfilter -e '@\.up' -e '@\.l3_device'""")
+        /** How [Router.bridge] reads the bridge of the USB-C port's network device. */
+        private const val USB_BRIDGE = "l=\$(ip -o link show ecm0) || exit 3; " +
+            "echo \"\$l\" | awk '{ for (i = 1; i < NF; i++) if (\$i == \"master\") print \$(i + 1) }'"
         /** How [Router.missingCommands] looks for commands. */
         private val COMMAND_LOOKUP =
             Regex("for c in ([a-z0-9_ ]+); do command -v \\\$c >/dev/null \\|\\| echo \\\$c; done")

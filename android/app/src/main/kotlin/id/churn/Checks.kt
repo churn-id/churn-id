@@ -139,7 +139,7 @@ private fun platformTested(router: Router): CheckResult {
 }
 
 /** The commands Churn runs on the router besides the shell's own and BusyBox's usual ones. */
-private val CHURN_COMMANDS = listOf("flock", "curl", "ubus", "fw4", "nft")
+private val CHURN_COMMANDS = listOf("flock", "curl", "ubus", "fw4", "nft", "jsonfilter")
 
 /** Whether the router's shell finds the commands [names]. */
 private fun commandsFound(router: Router, names: List<String>): CheckResult {
@@ -295,7 +295,7 @@ internal fun killSwitchRules(router: Router): CheckResult {
     if (tunnels.isEmpty()) return CheckResult.NotApplicable(R.string.reason_no_vpn)
     if (!router.enhancedKillSwitch()) return CheckResult.NotApplicable(R.string.reason_kill_switch_off)
     val rules = spacedRules(router)
-    val tunnelUp = tunnels.any { router.interfaceStatus(it)?.optBoolean("up") == true }
+    val tunnelUp = tunnels.any { router.interfaceStatus(it)?.up == true }
     val missing = (KILL_SWITCH_RULES + listOfNotNull(TUNNEL_RULE.takeIf { tunnelUp })).filter { it !in rules }
     return if (missing.isEmpty()) CheckResult.Passed else CheckResult.Failed("Missing: ${missing.joinToString(", ")}.")
 }
@@ -304,13 +304,11 @@ internal fun killSwitchRules(router: Router): CheckResult {
 private fun spacedRules(router: Router) = router.ipRules().map { it.replace(Regex("\\s+"), " ") }
 
 /** Whether the USB-C port's network device is in `br-lan`, whose unmarked traffic the blackhole at 9920 stops. */
-private fun usbPortInLan(router: Router): CheckResult {
-    val link = router.link("ecm0") ?: return CheckResult.Failed("The router has no network device ecm0.")
-    return when (val bridge = Regex(""" master (\S+) """).find(link.lineSequence().first())?.groupValues?.get(1)) {
-        "br-lan" -> CheckResult.Passed
-        null -> CheckResult.Failed("ecm0 is in no bridge.")
-        else -> CheckResult.Failed("ecm0 is in ${bridge.take(20)}, not br-lan.")
-    }
+private fun usbPortInLan(router: Router) = when (val bridge = router.bridge("ecm0")) {
+    "br-lan" -> CheckResult.Passed
+    null -> CheckResult.Failed("The router has no network device ecm0.")
+    "" -> CheckResult.Failed("ecm0 is in no bridge.")
+    else -> CheckResult.Failed("ecm0 is in ${bridge.take(20)}, not br-lan.")
 }
 
 /** Whether a uci setting holds one of [expected], given its [value], or null if it isn't set. */
@@ -387,10 +385,9 @@ private fun ownTrafficRoutes(router: Router): CheckResult {
     if ("1: from all iif lo lookup 16800" !in spacedRules(router)) {
         return CheckResult.Failed("ip rule show lists no rule at priority 1 to table 16800.")
     }
-    if (router.routes("16800").isNotEmpty()) return CheckResult.Failed("Table 16800 has routes.")
-    val route = router.routes("main").firstOrNull { it.startsWith("default ") } ?: return CheckResult.Passed
-    val device = Regex(""" dev (\S+)""").find(route)?.groupValues?.get(1)
-    if (device?.matches(SIM_INTERFACE) == true) return CheckResult.Passed
+    if (router.routeCount("16800") > 0) return CheckResult.Failed("Table 16800 has routes.")
+    val device = router.defaultRouteDevices().firstOrNull() ?: return CheckResult.Passed
+    if (device.matches(SIM_INTERFACE)) return CheckResult.Passed
     return CheckResult.NotApplicable(R.string.reason_other_uplink)
 }
 
@@ -448,8 +445,8 @@ private fun simInterfaces(router: Router): CheckResult {
     }
     val status = router.interfaceStatus("modem_cpu")
         ?: return CheckResult.Failed("GL has no network interface modem_cpu.")
-    if (!status.optBoolean("up")) return CheckResult.Passed
-    val device = status.optString("l3_device")
+    if (!status.up) return CheckResult.Passed
+    val device = status.device.orEmpty()
     if (device.matches(SIM_INTERFACE)) return CheckResult.Passed
     return CheckResult.Failed("GL's cellular interface uses ${device.take(20).ifEmpty { "no device" }}.")
 }

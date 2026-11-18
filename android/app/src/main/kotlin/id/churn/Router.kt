@@ -77,6 +77,12 @@ sealed interface Slot2Card {
 data class Platform(val gl: String, val openwrt: String, val modem: String, val revision: String)
 
 /**
+ * A network interface as `ifstatus` gives it: whether it is [up], and the network device it uses, [device], which
+ * OpenWrt's netifd names only while the interface is up.
+ */
+data class InterfaceStatus(val up: Boolean, val device: String?)
+
+/**
  * The file system mounted on `/overlay`: its [device], as `/proc/mounts` names it, its [type], and the blocks that
  * ext4 keeps back from it, [reserve], or null without ext4's `reserved_clusters` file for it.
  */
@@ -418,11 +424,25 @@ class Router(private val shell: Shell) {
             .filter { uci("network.$it") == "interface" }
     }
 
-    /** The routes in the routing table [table], one per line as `ip route show` lists them; none for an empty table. */
-    fun routes(table: String): List<String> {
+    /**
+     * How many routes the routing table [table] holds, as `ip route show` lists them. Only the count comes back, so
+     * that the debug log gets none of the routes' addresses.
+     */
+    fun routeCount(table: String): Int {
         require(table.matches(Regex("[a-z0-9]+")))
-        // For an empty table, ip says "Dump terminated" and exits with 2.
-        return run("ip route show table $table").text.lines().filter { it.isNotBlank() && it != "Dump terminated" }
+        // For an empty table, ip says "Dump terminated" on its error output and exits with 2, but wc's status counts.
+        val output = run("ip route show table $table | wc -l")
+        return output.text.trim().toIntOrNull()?.takeIf { output.status == 0 } ?: throw unexpected("ip route", output)
+    }
+
+    /**
+     * The network device of each default route in the main routing table, in the order of `ip route show`, or `-` for
+     * one that names none. Only the devices come back, so that the debug log gets none of the routes' addresses.
+     */
+    fun defaultRouteDevices(): List<String> {
+        val output = run(DEFAULT_ROUTE_DEVICES)
+        output.check("ip route")
+        return output.text.lines().map(String::trim).filter(String::isNotEmpty)
     }
 
     /** The mark that each WireGuard interface sends with, by interface, as `wg show` gives it, such as `0x8000`. */
@@ -505,19 +525,37 @@ class Router(private val shell: Shell) {
         return output.text.lines().filter(String::isNotBlank)
     }
 
-    /** The network device [name] as `ip link show` lists it; null if there is no such one. */
-    fun link(name: String): String? {
+    /**
+     * The bridge that the network device [name] is in, as `ip link show` names it after `master`: an empty string for
+     * none, and null if there is no such device. Only the bridge comes back, so that the debug log doesn't get the
+     * device's hardware address.
+     */
+    fun bridge(name: String): String? {
         require(name.matches(Regex("[A-Za-z0-9_.-]+")))
-        val output = run("ip link show $name")
-        return if (output.status == 0) output.text else null
+        val output = run(
+            "l=\$(ip -o link show $name) || exit 3; " +
+                "echo \"\$l\" | awk '{ for (i = 1; i < NF; i++) if (\$i == \"master\") print \$(i + 1) }'",
+        )
+        if (output.status == 3) return null
+        val lines = output.text.lines().map(String::trim).filter(String::isNotEmpty)
+        if (output.status != 0 || lines.size > 1) throw unexpected("ip link show $name", output)
+        return lines.firstOrNull().orEmpty()
     }
 
-    /** The state of the network interface [name] as `ifstatus` gives it, such as `up`; null if there is no such one. */
-    fun interfaceStatus(name: String): JSONObject? {
+    /**
+     * Whether the network interface [name] is up, and the device it uses, as `ifstatus` gives them; null if there is no
+     * such interface. Only these two fields come back, so that the debug log gets none of the interface's addresses,
+     * such as its gateway's and its DNS servers'.
+     */
+    fun interfaceStatus(name: String): InterfaceStatus? {
         require(name.matches(Regex("[A-Za-z0-9_]+")))
-        val output = run("ifstatus $name")
-        if (output.status != 0) return null
-        return runCatching { JSONObject(output.text) }.getOrNull() ?: throw unexpected("ifstatus $name", output)
+        val output = run("s=\$(ifstatus $name) || exit 3; echo \"\$s\" | jsonfilter -e '@.up' -e '@.l3_device'")
+        if (output.status == 3) return null
+        val lines = output.text.lines().map(String::trim).filter(String::isNotEmpty)
+        val up = lines.firstOrNull()?.toBooleanStrictOrNull()
+        // jsonfilter exits with 1 if a field is missing, as the device is while the interface is down (inferred).
+        if (up == null || output.status !in 0..1 || lines.size > 2) throw unexpected("ifstatus $name", output)
+        return InterfaceStatus(up, device = lines.getOrNull(1))
     }
 
     /**
@@ -1131,6 +1169,13 @@ class Router(private val shell: Shell) {
 
         /** Churn's copy of [KMWAN_SIM] as GL had it. */
         private const val KMWAN_COPY = "$CHURN/kmwan"
+
+        /**
+         * Prints the network device of each default route in the main routing table, or `-` for one that names none,
+         * as a route over several devices doesn't on its first line.
+         */
+        internal const val DEFAULT_ROUTE_DEVICES = "ip route show table main | awk '\$1 == \"default\" { d = \"-\"; " +
+            "for (i = 2; i < NF; i++) if (\$i == \"dev\") d = \$(i + 1); print d }'"
 
         /**
          * For each socket listening on UDP port 53 or 2153, its port, its program, the program's user ID, and for
