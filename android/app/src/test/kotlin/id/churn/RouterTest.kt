@@ -242,10 +242,40 @@ class RouterTest {
     }
 
     @Test
-    fun leavesACardFileItCannotReadAsItIs() {
+    fun stopsAtACardFileThatDoesNotParse() {
+        // As in a format of another firmware, which may still name earlier cards.
+        fake.recordCards(OLD_CARD, CURRENT_CARD)
         fake.files[FakeRouter.SIM_MAP] = "{ \"$OLD_CARD\": ".toByteArray()
-        router.clearHistory(CURRENT_CARD)
+        assertStops("/etc/config/cellular/sim_map.json doesn't parse") { router.clearHistory(CURRENT_CARD) }
         assertArrayEquals("{ \"$OLD_CARD\": ".toByteArray(), fake.files[FakeRouter.SIM_MAP])
+        assertFalse(fake.freeSpaceOverwritten)
+    }
+
+    @Test
+    fun stopsAtAnApnHistoryWithoutItsList() {
+        fake.recordCards(OLD_CARD, CURRENT_CARD)
+        fake.files[FakeRouter.APN_HISTORY] = """{"history": [{"iccid": "$OLD_CARD"}]}""".toByteArray()
+        assertStops("/etc/config/cellular/history_apn_database.json has no apns list") {
+            router.clearHistory(CURRENT_CARD)
+        }
+        assertFalse(fake.freeSpaceOverwritten)
+    }
+
+    @Test
+    fun stopsAtAnEsimRecordThatDoesNotParseWithoutNamingIt() {
+        fake.recordCards(OLD_CARD, CURRENT_CARD)
+        val record = fake.files.keys.first { it.startsWith(FakeRouter.ESIM_DB) }
+        fake.files[record] = "{\"records\": ".toByteArray()
+        // Its name is the chip's EID.
+        assertStops("A record in /root/esim/db doesn't parse") { router.clearHistory(CURRENT_CARD) }
+        assertTrue(record in fake.files)
+        assertFalse(fake.freeSpaceOverwritten)
+    }
+
+    @Test
+    fun clearsWithoutCardFiles() {
+        router.clearHistory(CURRENT_CARD)
+        assertTrue(fake.freeSpaceOverwritten)
     }
 
     @Test
@@ -601,6 +631,17 @@ class RouterTest {
     @Test(expected = IllegalArgumentException::class)
     fun writesOnlyValidImeis() {
         router.writeImeis(ImeiPair("356090213059464", "356090213059539"))
+    }
+
+    /** Runs [run], which has to stop at an unexpected answer with the [detail]. */
+    private fun assertStops(detail: String, run: () -> Unit) {
+        try {
+            run()
+            throw AssertionError("It didn't stop")
+        } catch (e: RouterException) {
+            assertEquals(Problem.UNEXPECTED_ANSWER, e.problem)
+            assertEquals(detail, e.detail)
+        }
     }
 
     private companion object {

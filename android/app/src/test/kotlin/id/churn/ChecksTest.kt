@@ -989,6 +989,17 @@ class ChecksTest {
     }
 
     @Test
+    fun cardFileCheckStopsStepsOneAndThreeAtAFileThatDoesNotParse() {
+        // As in a format of another firmware, which the clearing would stop at.
+        writeFolder(SWAPPED.card)
+        fake.recordCards("8941000000000000015F")
+        fake.files[Router.SIM_MAP] = "{".toByteArray()
+        // The checks that steps 1 and 3 run, as the Controller picks them.
+        val failed = CHECKS.filter { it.blocks && it.run(router, CheckContext(SWAPPED, notes)) is CheckResult.Failed }
+        assertTrue(failed.any { "H4" in it.ids })
+    }
+
+    @Test
     fun cardFileCheckDoesNotApplyWithoutCardFiles() {
         assertEquals(CheckResult.NotApplicable(R.string.reason_no_card_files), run("H4"))
     }
