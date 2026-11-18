@@ -260,11 +260,7 @@ where the router emitted nothing at power-on (B8):
 7. It writes, saves and reads back the earlier pair, shuts the router down
    a second time, as in step 5, and checks the next power-on as in step 6,
    with the earlier pair.
-8. With no card answering in either tray, it sets airplane mode off and on
-   again without the commit, and times how long the modem takes to report
-   its radio on and then off, at most 30 s each (U2). It then commits
-   airplane mode on, as before.
-9. It puts slot 2's setting and the active slot back.
+8. It puts slot 2's setting and the active slot back.
 
 Like a swap, the test leaves airplane mode and the Enhanced Kill Switch on,
 Churn's firewall rules in place and GL's connection check off for the SIM.
@@ -406,7 +402,7 @@ From development.md, "uci settings".
 | ID | Claim | Status | Check | Tier |
 | --- | --- | --- | --- | --- |
 | U1 | `glconfig.general.airplane_mode` is `0` or `1`, and with `1` the modem answers `+CFUN: 4` once the router has started | verified | Read both once uptime is past 120 s | 1, blocks |
-| U2 | Setting `glconfig.general.airplane_mode` turns airplane mode on or off at once, before the commit | verified | Turn airplane mode off and on again, and time how long the modem takes to answer `+CFUN: 4` | 3 |
+| U2 | Setting `glconfig.general.airplane_mode` turns airplane mode on or off at once, before the commit | verified with a card in; with both trays empty, the modem still answered `+CFUN: 4` 31 s after the setting went to `0` (#105) | With a card in, set airplane mode off without the commit and time how long the modem takes to answer `+CFUN: 1`, then on again until it answers `+CFUN: 4` | 4 |
 | U3 | `uci commit` makes a change survive a reboot | inferred | Read airplane mode, the kill switch settings and GL's connection check setting after a reboot | 3 |
 | U4 | `gl_timer.reboot.enable` is GL's scheduled reboot | verified | The setting exists and is `0` or `1` | 1, blocks |
 | U5 | `network.modem_cpu.iccid` holds the ICCID of the card GL uses, a 19-digit one with a trailing `F` | verified | It is an ICCID or absent | 1 |

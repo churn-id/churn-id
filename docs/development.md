@@ -105,7 +105,10 @@ A change needs `uci set` followed by `uci commit <config>`, where
 already returns the new value, but
 `/etc/config/<config>` still holds the old one (verified). GL's
 `cellular_manager` switches airplane mode right after `uci set`, without a
-commit (verified); for the other settings this is untested. The app still
+commit (verified with a card in); for the other settings this is untested.
+With both trays empty, the modem still answered `+CFUN: 4` 31 s after the
+setting went to `'0'` without a commit, and whether GL turns the radio on
+without a card at all, committed or not, is untested. The app still
 commits every change, so it survives a reboot (inferred from OpenWrt's
 `uci`, which keeps uncommitted changes in RAM).
 
