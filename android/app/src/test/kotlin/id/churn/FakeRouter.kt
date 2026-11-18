@@ -37,6 +37,12 @@ class FakeRouter : Shell {
     /** uci settings that replace the router's own, or remove them for null, such as another GL firmware might hold. */
     val uciAnswers = mutableMapOf<String, String?>()
 
+    /** What `uci get` answers for a setting that isn't there, as on our Mudi 7 (U11). */
+    var uciNotFound = "uci: Entry not found"
+
+    /** uci configs that don't load, as after a power loss during a commit, which `uci get` answers with an error. */
+    val brokenConfigs = mutableSetOf<String>()
+
     /**
      * Answers to commands that replace the router's own, such as another GL firmware might give, also where another
      * tool on the router narrows a command's answer before it comes back, as `jsonfilter` does for `ifstatus`.
@@ -679,7 +685,7 @@ class FakeRouter : Shell {
         Regex("""ubus -t 30 call cellular.modem set_feature_config '(.*)'""").matchEntire(command)?.let {
             return setFeatureConfig(JSONObject(it.groupValues[1]))
         }
-        Regex("""uci -q get '(.*)'""").matchEntire(command)?.let { return uciGet(it.groupValues[1]) }
+        Regex("""uci get '(.*)'""").matchEntire(command)?.let { return uciGet(it.groupValues[1]) }
         val airplaneModeSet = Regex("""uci set 'glconfig.general.airplane_mode=([01])' && uci commit 'glconfig'""")
         airplaneModeSet.matchEntire(command)?.let {
             inUseBeforeCommit = airplaneModeInUse
@@ -1206,20 +1212,21 @@ class FakeRouter : Shell {
         return ok("{\n\t\"ok\": true,\n\t\"changed\": true\n}\n")
     }
 
-    private fun uciGet(key: String): Output = if (key in uciAnswers) {
-        uciAnswers[key]?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
+    private fun uciGet(key: String): Output = if (key.substringBefore('.') in brokenConfigs) {
+        Output(1, ByteArray(0), "$UCI_PARSE_ERROR\n")
+    } else if (key in uciAnswers) {
+        uciAnswers[key]?.let { ok("$it\n") } ?: notFound()
     } else when (key) {
         "glconfig.general.airplane_mode" -> ok(if (stagedAirplaneMode ?: airplaneMode) "1\n" else "0\n")
         "gl_timer.reboot.enable" -> ok(if (scheduledReboot) "1\n" else "0\n")
         "network.modem_cpu.dds_id" -> ok("$activeSlot\n")
-        "system.@system[0].log_file" -> logFile?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
-        "network.modem_cpu.iccid" -> modemCpuIccid?.let { ok("$it\n") } ?: Output(1, ByteArray(0), "")
+        "system.@system[0].log_file" -> logFile?.let { ok("$it\n") } ?: notFound()
+        "network.modem_cpu.iccid" -> modemCpuIccid?.let { ok("$it\n") } ?: notFound()
         "kmwan.modem_cpu.tracks" -> ok("ping,1.1.1.1 ping,8.8.8.8 ping,208.67.222.222 ping,208.67.220.220\n")
-        "kmwan.modem_cpu.disabled" -> kmwanSimDisabled?.takeIf { !kmwanSimMissing }?.let { ok("$it\n") }
-            ?: Output(1, ByteArray(0), "")
+        "kmwan.modem_cpu.disabled" -> kmwanSimDisabled?.takeIf { !kmwanSimMissing }?.let { ok("$it\n") } ?: notFound()
         "route_policy.@default[0]" -> ok("default\n")
         "route_policy.@default[0].enabled" -> ok(if (killSwitchSet) "0\n" else "1\n")
-        "network.vpn_to_main" -> if (killSwitchSet) Output(1, ByteArray(0), "") else ok("rule\n")
+        "network.vpn_to_main" -> if (killSwitchSet) notFound() else ok("rule\n")
         "network.wgclient1" -> ok("interface\n")
         // The tunnel's WireGuard peer and its IP Masquerading, as our Mudi 7 listed them.
         "network.wgclient1.config" -> ok("peer_2010\n")
@@ -1227,8 +1234,11 @@ class FakeRouter : Shell {
         // Only for ignoresATunnelThatIsNotWireGuard: with the interface present, only the WireGuard check can reject
         // that tunnel.
         "network.ovpnclient1" -> ok("interface\n")
-        else -> Output(1, ByteArray(0), "")
+        else -> notFound()
     }
+
+    /** `uci get`'s answer for a setting that isn't there, on stderr as OpenWrt's uci writes its errors. */
+    private fun notFound() = Output(1, ByteArray(0), "$uciNotFound\n")
 
     /**
      * As our Mudi 7 showed it with one WireGuard tunnel, shortened. GL's process policies name the tunnel's interface
@@ -1437,6 +1447,9 @@ class FakeRouter : Shell {
         const val APN_HISTORY = "/etc/config/cellular/history_apn_database.json"
         const val ESIM_DB = "/root/esim/db"
         const val ESIM_LOG = "/root/esim/log.txt"
+
+        /** What `uci get` answers for a setting in one of the [brokenConfigs], as OpenWrt's uci words a parse error. */
+        const val UCI_PARSE_ERROR = "uci: Parse error (invalid command) at line 12, byte 1"
 
         /**
          * The addresses that the router's answers hold, other ones than our Mudi 7's: the SIM's while it is online,

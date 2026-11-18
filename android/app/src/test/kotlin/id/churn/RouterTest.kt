@@ -55,6 +55,19 @@ class RouterTest {
     }
 
     @Test
+    fun stopsAtASettingThatUciCannotRead() {
+        // As after a power loss during a commit. None of these may take the setting for unset.
+        fake.brokenConfigs += listOf("system", "gl_timer", "network")
+        val error = FakeRouter.UCI_PARSE_ERROR
+        assertStops("uci get system.@system[0].log_file: $error") { router.flashLogOff() }
+        assertStops("uci get gl_timer.reboot.enable: $error") { router.scheduledReboot() }
+        assertStops("uci get network.vpn_to_main: $error") { router.killSwitchSettings() }
+        // Before it deletes anything, with the log perhaps still on.
+        assertStops("uci get system.@system[0].log_file: $error") { router.clearHistory(CURRENT_CARD) }
+        assertTrue(fake.commands.none { it.startsWith("rm ") })
+    }
+
+    @Test
     fun refusesAnEmptyBootId() {
         fake.bootId = ""
         try {

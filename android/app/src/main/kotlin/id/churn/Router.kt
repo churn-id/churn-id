@@ -1085,7 +1085,7 @@ class Router(private val shell: Shell) {
         if (!ok) throw unexpected("set_feature_config", output)
     }
 
-    /** The uci setting [key] as it is, for the router checks; null if it isn't set. */
+    /** The uci setting [key] as it is, for the router checks; null if it isn't set, as [uci] reads it. */
     fun setting(key: String) = uci(key)
 
     /**
@@ -1098,9 +1098,16 @@ class Router(private val shell: Shell) {
             .associate { it.substringBefore('=') to it.substringAfter('=').removeSurrounding("'") }
     }
 
+    /**
+     * The uci setting [key], or null if it isn't set. A read that fails for another reason, such as of a config that
+     * doesn't load, throws instead of reading as unset.
+     */
     private fun uci(key: String): String? {
-        val output = run("uci -q get ${quote(key)}")
-        return if (output.status == 0) output.text.trim() else null
+        val output = run("uci get ${quote(key)}")
+        if (output.status == 0) return output.text.trim()
+        // From either output: the answer we have (U11) came from a terminal, which shows both.
+        if ((output.text + output.stderr).trim() == UCI_NOT_FOUND) return null
+        throw unexpected("uci get $key", output)
     }
 
     private fun uciSet(key: String, value: String) {
@@ -1164,6 +1171,9 @@ class Router(private val shell: Shell) {
 
         /** GL's scheduled reboot, `1` on and `0` off. */
         const val SCHEDULED_REBOOT = "gl_timer.reboot.enable"
+
+        /** What `uci get` answers for an option, section or config that isn't there, exiting with 1 (U11). */
+        private const val UCI_NOT_FOUND = "uci: Entry not found"
 
         /** The form of a `location_id` that the slot switches put into their requests. */
         val LOCATION_ID = Regex("[A-Za-z0-9_]+")
