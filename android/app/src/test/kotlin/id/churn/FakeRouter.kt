@@ -159,6 +159,18 @@ class FakeRouter : Shell {
     var overwriteCutsSimMap = false
 
     /**
+     * The mode, owner and group of GL's card files, as `ls -ln` shows them, where they aren't those of a new file of
+     * root's, `-rw-r--r-- 0 0`. We haven't recorded GL's own.
+     */
+    val cardFileModes = mutableMapOf<String, String>()
+
+    /**
+     * For a `cp -p` that doesn't keep a file's mode, owner and group, against H20 in router-tests.md. Only the removal
+     * test's tests use it.
+     */
+    var copyDropsModes = false
+
+    /**
      * What files held before they were deleted or replaced, which stays on the overlay's raw partition until the
      * free-space overwrite fills the free space.
      */
@@ -746,10 +758,21 @@ class FakeRouter : Shell {
         if (command == "id -u dnsmasq") return ok("$dnsmasqUid\n")
         if (command == "id -u dnsmasq_vpn") return ok("456\n")
         if (DNS_SERVERS.matches(command)) return ok(dnsServers.joinToString("") { "$it\n" })
+        // A new file, of root's.
         Regex("""umask 022 && cat > (\S+)\.new && mv \S+ \S+""").matchEntire(command)?.let {
             freed(files.put(it.groupValues[1], input!!))
+            cardFileModes.remove(it.groupValues[1])
             return ok("")
         }
+        // A copy, which keeps the file's mode, owner and group.
+        Regex("""cp -p (\S+) \S+\.new && cat > \S+\.new && mv \S+ \S+""").matchEntire(command)?.let {
+            val path = it.groupValues[1]
+            if (path !in files) return Output(1, ByteArray(0), "cp: can't stat '$path': No such file or directory\n")
+            freed(files.put(path, input!!))
+            if (copyDropsModes) cardFileModes.remove(path)
+            return ok("")
+        }
+        if (command == "ls -lnA /etc/config/cellular") return cellularListing()
         if (command == "fw4 reload") return fw4Reload()
         if (command == "uci set 'kmwan.modem_cpu.disabled=1' && uci commit 'kmwan'") {
             if (kmwanSimMissing) return Output(1, ByteArray(0), "uci: Invalid argument\n")
@@ -865,6 +888,16 @@ class FakeRouter : Shell {
             // Only a firmware broken against H14 gets here.
             if (overwriteCutsSimMap) files[SIM_MAP]?.let { files[SIM_MAP] = it.copyOf(it.size / 2) }
             return ok("")
+        }
+        if (command == NUMBERS_IN_FILES) {
+            val texts = input!!.toString(Charsets.UTF_8).lines().mapNotNull { files[it]?.toString(Charsets.ISO_8859_1) }
+            val numbers = texts.flatMap { text -> Regex("[0-9]+").findAll(text).map { it.value } }
+                .filter { it.length == 15 || it.length in 18..20 }
+            return ok(numbers.toSortedSet().joinToString("") { "$it\n" })
+        }
+        // The dry run's answer larger than the SSH connection's window.
+        Regex("""dd if=/dev/zero bs=1024 count=(\d+) 2>/dev/null""").matchEntire(command)?.let {
+            return Output(0, ByteArray(it.groupValues[1].toInt() * 1024), "")
         }
         if (command.startsWith("t=/tmp/churn-numbers\n")) {
             numbersCounted = input!!.toString(Charsets.UTF_8).lines().filter { it.isNotEmpty() }
@@ -1321,6 +1354,18 @@ class FakeRouter : Shell {
         return ok(text)
     }
 
+    /** GL's folder of card files as BusyBox's `ls -ln` lists it, with any time. */
+    private fun cellularListing(): Output {
+        val paths = files.keys.filter { it.startsWith("/etc/config/cellular/") }.sorted()
+        return ok(
+            paths.joinToString("") { path ->
+                val (mode, owner, group) = (cardFileModes[path] ?: "-rw-r--r-- 0 0").split(" ")
+                val (size, name) = files.getValue(path).size to path.substringAfterLast('/')
+                "%-10s %4d %-8s %-8s %8d Nov  5 21:00 %s\n".format(mode, 1, owner, group, size, name)
+            },
+        )
+    }
+
     private fun ok(text: String) = Output(0, text.toByteArray(), "")
 
     companion object {
@@ -1382,6 +1427,15 @@ class FakeRouter : Shell {
 
         /** The bytes of a ping as BusyBox's ping sends it by default, with 56 bytes of data. */
         private const val PING_BYTES = 84
+
+        /** Router's script that picks the numbers out of GL's files, as the removal test sends it. */
+        private val NUMBERS_IN_FILES = """
+            while IFS= read -r f; do
+            	[ -e "${'$'}f" ] || continue
+            	tr -cs '0-9' '\n' < "${'$'}f"
+            	echo
+            done | grep -E '^([0-9]{15}|[0-9]{18,20})${'$'}' | sort -u
+        """.trimIndent()
 
         /** The leak watch's counters as [Router.addLeakCounters] adds them. */
         private val LEAK_COUNTERS = """

@@ -247,7 +247,10 @@ class Router(private val shell: Shell) {
         )
     }
 
-    /** Slot 2's ICCID as the modem gives it, with a trailing `F` for 19 digits; null if the card doesn't answer. */
+    /**
+     * Slot 2's ICCID as the modem gives it, with a trailing `F` for 19 digits and most likely two for 18; null if the
+     * card doesn't answer.
+     */
     fun slot2Iccid() = slot2Answer("AT+ICCID")?.after("+ICCID:")?.takeIf { it.matches(Regex("[0-9A-Fa-f]{18,20}")) }
 
     /** Slot 2's IMSI; null if the card doesn't answer. */
@@ -660,32 +663,43 @@ class Router(private val shell: Shell) {
     /**
      * Removes the record GL keeps of past SIMs on the flash: it turns GL's system log to the flash off (saving the
      * original setting first, so [restoreFactoryImeis] can put it back), deletes the log files, keeps only the card
-     * with [keepIccid] in GL's card files and the eSIM manager's records, empties the eSIM log, deletes the secret
-     * that earlier versions of the app kept, and with [overwrite] overwrites the free space so that deleted copies
-     * can't be read from the raw partition. [keepIccid] is a card's ICCID, with or without the `F` the modem pads a
-     * 19-digit one with, or null to keep none; GL records the current card again when it next goes online.
+     * with [keepIccid] in GL's card files and the eSIM manager's records, empties the eSIM log, and with [overwrite]
+     * overwrites the free space so that deleted copies can't be read from the raw partition. [keepIccid] is a card's
+     * ICCID, with or without the `F`s the modem pads it with, or null to keep none; GL records the current card again
+     * when it next goes online.
      * development.md, "Clearing the SIM history", explains what and why.
      */
     fun clearHistory(keepIccid: String?, overwrite: Boolean = true) {
         val keep = keepIccid?.let(::iccidKey)
-        turnFlashLogOff()
-        run("rm -f $SYS_LOG $SYS_LOG.old").check("delete the system log")
+        deleteLogs(turnFlashLogOff())
         pruneSimMap(SIM_MAP, keep)
         pruneApnHistory(APN_HISTORY, keep)
         pruneEsimRecords(keep)
-        // Earlier versions of the app derived each card's IMEIs from it, which networks' records then find.
-        run("rm -f $CHURN/secret").check("delete the secret")
         if (overwrite) overwriteFreeSpace()
     }
 
-    /** Turns GL's flash system log off and saves its original setting, unless it is already off. */
-    private fun turnFlashLogOff() {
-        val current = uci(LOG_FILE) ?: return
+    /**
+     * Turns GL's flash system log off and saves its original setting, unless it is already off. Returns the file the
+     * log went to until now, or null if it was off.
+     */
+    private fun turnFlashLogOff(): String? {
+        val current = uci(LOG_FILE) ?: return null
         // Saved once, so restore.sh can turn the log back on as it was.
         if (readFile("$CHURN/log_file") == null) writeChurnFile("log_file", (current + "\n").toByteArray())
         run("uci delete ${quote(LOG_FILE)} && uci commit system").check("turn the system log off")
         // Stops GL's logread from writing the file; an open file would keep its data on the flash after deletion.
         run("/etc/init.d/log reload").check("reload the log service")
+        return current
+    }
+
+    /**
+     * Deletes the system log's files, each with its `.old`: [SYS_LOG], the file that GL's setting named before Churn
+     * turned the log off, as Churn's copy has it, and [current], the one the log went to until now. A path that would
+     * need quoting is left out rather than passed to the shell.
+     */
+    private fun deleteLogs(current: String?) {
+        val logs = listOfNotNull(SYS_LOG, logFileCopy(), current).distinct().filter { it.matches(PATH) }
+        run("rm -f " + logs.joinToString(" ") { "$it $it.old" }).check("delete the system log")
     }
 
     /** Keeps only the object named by [keep] in GL's `sim_map.json`, which holds one object per ICCID. */
@@ -740,6 +754,23 @@ class Router(private val shell: Shell) {
         readFile(path)?.let { path to runCatching { JSONObject(it.toString(Charsets.UTF_8)) }.getOrNull() }
     }.toMap()
 
+    /**
+     * The mode, owner and group of each of GL's card files, as `ls -ln` lists them, by path; a file that isn't there is
+     * left out. Listed privately, since the times say when swaps ran.
+     */
+    fun cardFileModes(): Map<String, String> {
+        val output = runPrivately("ls -lnA $CELLULAR")
+        if (output.status != 0) throw unexpected(CELLULAR)
+        return output.text.lines().map { it.trim().split(Regex("\\s+"), limit = 9) }
+            .filter { it.size == 9 && "$CELLULAR/${it[8]}" in setOf(SIM_MAP, APN_HISTORY) }
+            .associate { "$CELLULAR/${it[8]}" to "${it[0]} ${it[2]} ${it[3]}" }
+    }
+
+    /** Writes GL's card files again unchanged, as a clearing writes them, for the removal test. */
+    fun rewriteCardFiles() {
+        for (path in listOf(SIM_MAP, APN_HISTORY)) readFile(path)?.let { writeFile(path, it) }
+    }
+
     /** The eSIM manager's record files, one per chip. */
     private fun esimRecordFiles() =
         // GL names each file by the chip's 32-digit id; other names are left alone rather than passed to the shell.
@@ -749,11 +780,14 @@ class Router(private val shell: Shell) {
     private fun readJson(path: String) =
         readFile(path)?.let { runCatching { JSONObject(it.toString(Charsets.UTF_8)) }.getOrNull() }
 
-    /** Writes [content] to [path], which only root can change. Used for GL's own files, not Churn's folder. */
+    /**
+     * Writes [content] to [path], one of GL's own files rather than Churn's, through a copy that keeps the file's mode,
+     * owner and group, which a new file wouldn't: `sim_map.json` holds SIM PINs.
+     */
     private fun writeFile(path: String, content: ByteArray) =
-        run("umask 022 && cat > $path.new && mv $path.new $path", content).check(path)
+        run("cp -p $path $path.new && cat > $path.new && mv $path.new $path", content).check(path)
 
-    /** An ICCID without the trailing `F` the modem pads a 19-digit one with, for comparing the forms GL stores. */
+    /** An ICCID without the trailing `F`s the modem pads one of 18 or 19 digits with, for comparing GL's forms. */
     private fun iccidKey(iccid: String) = iccid.trim().trimEnd('F', 'f')
 
     private fun pretty(json: JSONObject) = (json.toString(2) + "\n").toByteArray()
@@ -806,16 +840,26 @@ class Router(private val shell: Shell) {
 
     /**
      * The runs of 15 and of 18 to 20 digits, such as ICCIDs, IMSIs and IMEIs, in GL's card files, the eSIM manager's
-     * records and log, and the system log's files at [logFile], if any. Read privately, since they name cards.
+     * records and log, and the system log's files at [logFile], if any. The router picks them out, since each of the
+     * log's files can reach 128 MB, and the answer is read privately, since it names cards.
      */
     fun numbersInCardFilesAndLogs(logFile: String?): Set<String> {
         // A path that would need quoting is left out rather than passed to the shell.
         val logs = listOfNotNull(logFile, logFile?.let { "$it.old" }).filter { it.matches(PATH) }
         val paths = listOf(SIM_MAP, APN_HISTORY, "$ESIM/log.txt") + esimRecordFiles() + logs
-        return paths.flatMap { path ->
-            val text = readFile(path)?.toString(Charsets.ISO_8859_1) ?: return@flatMap emptyList()
-            DIGITS.findAll(text).map { it.value }.filter { it.length == 15 || it.length in 18..20 }.toList()
-        }.toSet()
+        val output = runPrivately(NUMBERS_IN_FILES, paths.joinToString("") { "$it\n" }.toByteArray())
+        if (output.status != 0) throw unexpected("Reading the numbers in GL's files")
+        return output.text.lines().filter { it.isNotEmpty() }.toSet()
+    }
+
+    /**
+     * Has the router print [kb] kB of zeros and returns how many bytes came back, for the dry run's check of an answer
+     * larger than the SSH connection's window (C11). Run privately, which keeps the zeros out of the debug log.
+     */
+    fun zerosRead(kb: Int): Int {
+        val output = runPrivately("dd if=/dev/zero bs=1024 count=$kb 2>/dev/null")
+        if (output.status != 0) throw unexpected("dd")
+        return output.stdout.size
     }
 
     /**
@@ -1021,8 +1065,8 @@ class Router(private val shell: Shell) {
     private fun run(command: String, input: ByteArray? = null, timeoutSeconds: Long = 30) =
         shell.run(command, input, timeoutSeconds)
 
-    private fun runPrivately(command: String, timeoutSeconds: Long = 30) =
-        shell.runPrivately(command, input = null, timeoutSeconds)
+    private fun runPrivately(command: String, input: ByteArray? = null, timeoutSeconds: Long = 30) =
+        shell.runPrivately(command, input, timeoutSeconds)
 
     private fun Output.check(what: String) {
         if (status != 0) throw unexpected(what, this)
@@ -1165,6 +1209,18 @@ class Router(private val shell: Shell) {
             ' ${'$'}t ${'$'}t.raw ${'$'}t.files
         """.trimIndent()
 
+        /**
+         * Prints each run of 15 or of 18 to 20 digits in the files that its input names, a path per line, once, with
+         * runs of digits as [COUNT_NUMBERS] counts them. A file that isn't there is left out.
+         */
+        internal val NUMBERS_IN_FILES = """
+            while IFS= read -r f; do
+            	[ -e "${'$'}f" ] || continue
+            	tr -cs '0-9' '\n' < "${'$'}f"
+            	echo
+            done | grep -E '^([0-9]{15}|[0-9]{18,20})${'$'}' | sort -u
+        """.trimIndent()
+
         /** The leak watch's table in the router's firewall, with its counters. */
         private const val LEAK_TABLE = "churn_watch"
 
@@ -1232,8 +1288,6 @@ class Router(private val shell: Shell) {
         /** A path the shell takes as it is, without quoting. */
         private val PATH = Regex("/[A-Za-z0-9._/-]+")
 
-        private val DIGITS = Regex("[0-9]+")
-
         /** The kernel's folder for the eMMC flash, which holds its estimates of its wear. */
         private const val FLASH = "/sys/block/mmcblk0/device"
 
@@ -1264,6 +1318,7 @@ class Router(private val shell: Shell) {
         /** GL's uci value for the ICCID of the active card. */
         const val MODEM_ICCID = "network.modem_cpu.iccid"
 
+        /** The file that GL's setting for its system log named on our Mudi 7. */
         private const val SYS_LOG = "/etc/sys_log"
         private const val CELLULAR = "/etc/config/cellular"
 

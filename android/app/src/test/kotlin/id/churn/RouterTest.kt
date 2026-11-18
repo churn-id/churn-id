@@ -131,12 +131,33 @@ class RouterTest {
     }
 
     @Test
-    fun deletesTheSecretOfEarlierVersions() {
-        // As on a router set up by an earlier version of the app.
-        fake.files["/etc/churn/secret"] = ByteArray(32)
+    fun deletesTheLogWhereGlsSettingPutsIt() {
+        // As after a firmware upgrade that turned the log back on, with another file than the one Churn's copy names.
+        fake.files["/etc/churn/log_file"] = "/etc/sys_log\n".toByteArray()
+        fake.logFile = "/etc/messages"
+        fake.files["/etc/messages"] = LOG_LINES
+        fake.files["/etc/messages.old"] = LOG_LINES
         router.clearHistory(CURRENT_CARD)
-        assertNull(fake.files["/etc/churn/secret"])
-        assertTrue("rm -f /etc/churn/secret" in fake.commands)
+        assertNull(fake.files["/etc/messages"])
+        assertNull(fake.files["/etc/messages.old"])
+    }
+
+    @Test
+    fun deletesTheLogWhereChurnsCopyOfGlsSettingPutIt() {
+        // With the log off and its file left, as after a clearing that stopped before it deleted the file.
+        fake.logFile = null
+        fake.files["/etc/churn/log_file"] = "/etc/messages\n".toByteArray()
+        fake.files["/etc/messages"] = LOG_LINES
+        router.clearHistory(CURRENT_CARD)
+        assertNull(fake.files["/etc/messages"])
+    }
+
+    @Test
+    fun leavesOutALogPathThatWouldNeedQuoting() {
+        fake.logFile = "/etc/sys_log /etc/config"
+        router.clearHistory(CURRENT_CARD)
+        assertTrue("rm -f /etc/sys_log /etc/sys_log.old" in fake.commands)
+        assertTrue(fake.commands.none { it.startsWith("rm -f") && "/etc/config" in it })
     }
 
     @Test
@@ -200,6 +221,20 @@ class RouterTest {
     }
 
     @Test
+    fun keepsTheModeOwnerAndGroupOfTheCardFilesItRewrites() {
+        fake.recordCards(OLD_CARD, CURRENT_CARD)
+        // As GL might keep them: sim_map.json holds SIM PINs.
+        fake.cardFileModes[FakeRouter.SIM_MAP] = "-rw------- 0 0"
+        fake.cardFileModes[FakeRouter.APN_HISTORY] = "-rw-r----- 0 50"
+        val modes = mapOf(FakeRouter.SIM_MAP to "-rw------- 0 0", FakeRouter.APN_HISTORY to "-rw-r----- 0 50")
+        assertEquals(modes, router.cardFileModes())
+        router.clearHistory(CURRENT_CARD)
+        assertEquals(setOf(CURRENT_CARD), fake.cardsInSimMap)
+        assertEquals(setOf(CURRENT_CARD), fake.cardsInApnHistory)
+        assertEquals(modes, router.cardFileModes())
+    }
+
+    @Test
     fun rewritesOnlyCardFilesThatChange() {
         fake.recordCards(CURRENT_CARD)
         router.clearHistory(CURRENT_CARD)
@@ -211,6 +246,22 @@ class RouterTest {
         fake.files[FakeRouter.SIM_MAP] = "{ \"$OLD_CARD\": ".toByteArray()
         router.clearHistory(CURRENT_CARD)
         assertArrayEquals("{ \"$OLD_CARD\": ".toByteArray(), fake.files[FakeRouter.SIM_MAP])
+    }
+
+    @Test
+    fun picksTheNumbersOutOfGlsFilesAndLogsOnTheRouter() {
+        fake.recordCards(OLD_CARD, CURRENT_CARD)
+        // A log's file of almost 4 MB, of which each number comes back once. Runs of 16 or 21 digits are no card's.
+        val lines = "user.info Diag_Lib[1]: iccid[$OLD_CARD]\n".repeat(80_000) +
+            "user.info Diag_Lib[1]: imsi[228010000000002] 1234567890123456 123456789012345678901\n"
+        fake.files["/etc/sys_log.old"] = lines.toByteArray()
+        var largest = 0
+        val router = Router { command, input, timeout ->
+            fake.run(command, input, timeout).also { largest = maxOf(largest, it.stdout.size) }
+        }
+        val numbers = router.numbersInCardFilesAndLogs("/etc/sys_log")
+        assertEquals(setOf(OLD_CARD.removeSuffix("F"), CURRENT_CARD.removeSuffix("F"), "228010000000002"), numbers)
+        assertTrue(largest < 1000)
     }
 
     @Test
@@ -559,6 +610,9 @@ class RouterTest {
 
         /** A card with a 20-digit ICCID, which GL stores without an `F`. */
         const val OLD_CARD_20 = "89320000555555555555"
+
+        /** Lines of GL's system log that name a card. */
+        val LOG_LINES = "user.info Diag_Lib[1]: iccid[$OLD_CARD]\n".toByteArray()
 
         /** A valid pair with the fake router's TAC and spacing. */
         val PAIR = ImeiPair("356090213059463", "356090213059539")

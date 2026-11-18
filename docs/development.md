@@ -31,6 +31,12 @@ these claims with the test, built or planned, for each on a real router.
 - SSH as `root` with the router's admin password, using sshj. Show the host
   key fingerprint on first use and refuse a changed key unless the user
   accepts it again. Keep the password in the Android Keystore.
+- The app reads a command's answer once the command has ended. In sshj
+  0.41.2, a session channel's window is 2 MB, and sshj opens it again
+  only as the app reads, so a router that has sent 2 MB would wait until
+  the command's timeout. The app has sshj open the window as data comes
+  in, and sshj then keeps up to 16 MB of each of the command's outputs
+  (both verified in sshj's code). No command prints that much.
 - sshj takes its algorithms from the security provider named `BC`.
   Android's own provider of that name is a reduced one, so the app replaces
   it with Bouncy Castle's full provider, last in line.
@@ -491,7 +497,7 @@ earlier cards. On our Mudi 7, GL kept it in these files (verified):
 | `/root/esim/log.txt` | The eSIM manager's log, which names profiles by ICCID |
 
 GL stores a 19-digit ICCID with a trailing `F` and a 20-digit one without,
-so the app compares ICCIDs without the `F`. The current card is the one
+so the app compares ICCIDs without the `F`s. The current card is the one
 `network.modem_cpu.iccid` names, or at step 3 the one in slot 2.
 `Router.clearHistory` clears the files in this order:
 
@@ -501,14 +507,17 @@ so the app compares ICCIDs without the `F`. The current card is the one
    `logread -f -F` that writes the file, and `logd` goes on with its
    buffer in RAM (verified). A file still open would keep its data on the
    flash after it is deleted.
-2. It deletes both log files.
+2. It deletes the log's files, each with its `.old`: `/etc/sys_log`, the
+   file that Churn's copy of the setting names, and the one the setting
+   named until step 1, since another firmware may log to another file. A
+   path that would need quoting in the shell is left out.
 3. It rewrites both card files with only the current card's entry,
    through a new file renamed over the old one, and leaves a file that
-   doesn't parse as it is. It deletes each eSIM record file that doesn't
-   name the current card, and empties `log.txt`, which the eSIM manager
-   goes on writing to (verified). It also deletes `/etc/churn/secret`,
-   which routers set up by earlier versions of the app still hold: those
-   versions derived each card's IMEIs from it.
+   doesn't parse as it is. It makes the new file with `cp -p`, so that the
+   file keeps its mode, owner and group: `sim_map.json` holds SIM PINs,
+   and we haven't recorded GL's modes. It deletes each eSIM record file
+   that doesn't name the current card, and empties `log.txt`, which the
+   eSIM manager goes on writing to (verified).
 4. Except at setup, it fills the free space of the overlay, ext4 on the
    eMMC partition `mmcblk0p59` (2.9 GB). It sets
    `/sys/fs/ext4/mmcblk0p59/reserved_clusters`, the 4096 blocks that ext4
@@ -687,7 +696,10 @@ The pairs are specified in design.md, section 4. Notes for implementing
 them:
 
 - **ICCID read from the modem:** keep the digits only. The modem pads a
-  19-digit ICCID with a trailing `F` (verified), which is dropped.
+  19-digit ICCID with a trailing `F` (verified), and most likely an 18-digit
+  one with two, since the card keeps it in 10 bytes, two digits to a byte
+  (inferred: we have had no such card). The `F`s are dropped, and with them
+  an ICCID has at most 20 characters.
 - **Serial:** draw `s` with `SecureRandom.nextInt(n)`, which is unbiased.
 - **Luhn:** the standard algorithm. Example: `49015420323751` gets check
   digit `8`.

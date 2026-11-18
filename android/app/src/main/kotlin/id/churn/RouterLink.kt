@@ -198,6 +198,9 @@ class RouterConnection private constructor(
 
     override fun run(command: String, input: ByteArray?, timeoutSeconds: Long): Output =
         ssh.startSession().use { session ->
+            // The answer is read once the command ends. Unless sshj opens the channel's window again as data comes in,
+            // it does so only as the app reads, and a router that has sent 2 MB waits for it until the timeout (C11).
+            session.autoExpand = true
             val running = session.exec(command)
             // Closing standard input sends end-of-file, also when there is no input.
             running.outputStream.use { if (input != null) it.write(input) }

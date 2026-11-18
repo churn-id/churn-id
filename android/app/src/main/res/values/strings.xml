@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Churn</string>
+    <!-- Begins each warning, so that its color isn't the only sign of one -->
+    <string name="warning">Warning: %1$s</string>
 
     <!-- First start -->
     <string name="intro_title">Before you start</string>
@@ -300,6 +302,7 @@
     <string name="progress_test_imeis">A test pair of IMEIs is written and read back (M6).</string>
     <string name="progress_earlier_imeis">The earlier IMEIs are written and read back.</string>
     <string name="progress_answers_matched">Airplane mode, the radio and both IMEIs read the same 20 times in a row (P5).</string>
+    <string name="progress_long_answer_read">An answer of 3 MB, more than the SSH connection\'s window of 2 MB, came back whole (C11).</string>
     <string name="progress_put_back">Slot 2, the active slot and the IMEIs are as they were before the test.</string>
     <string name="progress_dry_run_passed">The dry run passed.</string>
     <string name="progress_restored">restore.sh ran to its end (F12).</string>
@@ -311,6 +314,8 @@
     <string name="progress_firewall_gone">Churn\'s firewall rules, their chains and their line in /etc/sysupgrade.conf are gone (F11).</string>
     <string name="progress_connection_check_back">GL\'s setting for its connection check over the SIM is as Churn\'s copy had it (F15).</string>
     <string name="progress_set_up_again">The router is set up again, with the card\'s record, the IMEIs it had, Churn\'s firewall rules and GL\'s connection check as before.</string>
+    <string name="progress_card_file_modes_kept">GL\'s card files kept their mode, owner and group when written again (H20).</string>
+    <string name="progress_no_card_files">GL has no card files, so H20 stays unconfirmed.</string>
     <string name="progress_connection_kept">The clearing ended with the SSH connection still open, though it printed nothing for minutes (H17).</string>
     <string name="progress_reserve_back">ext4\'s reserve of free space is back as before the clearing (H13).</string>
     <string name="progress_card_files_parse">GL\'s card files and the eSIM manager\'s records parse (H14).</string>

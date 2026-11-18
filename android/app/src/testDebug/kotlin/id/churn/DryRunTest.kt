@@ -23,10 +23,14 @@ class DryRunTest {
         /** Runs after each command that [fake] answered, with the command. */
         var after: (String) -> Unit = {}
 
+        /** The most bytes of an answer that come back. */
+        var cutAt = Int.MAX_VALUE
+
         override fun run(command: String, input: ByteArray?, timeoutSeconds: Long): Output {
             if (breakAt(command)) broken = true
             if (broken) throw IOException("Broken pipe")
-            return fake.run(command, input, timeoutSeconds).also { after(command) }
+            val output = fake.run(command, input, timeoutSeconds).also { after(command) }
+            return Output(output.status, output.stdout.copyOf(minOf(output.stdout.size, cutAt)), output.stderr)
         }
     }
     private val progress = mutableListOf<Progress>()
@@ -101,7 +105,7 @@ class DryRunTest {
                 Progress.NETWORK_RELOADED, Progress.FIREWALL_RELOADED, Progress.CONNECTION_CHECK_RESTARTED,
                 Progress.SLOT1_ACTIVE, Progress.SLOT2_ON_SIM2, Progress.SLOT2_ACTIVE, Progress.TRAY_EMPTY,
                 Progress.ESIM_SILENT, Progress.TEST_IMEIS, Progress.EARLIER_IMEIS, Progress.ANSWERS_MATCHED,
-                Progress.SLOT2_ON_ESIM, Progress.PUT_BACK, Progress.DRY_RUN_PASSED,
+                Progress.LONG_ANSWER_READ, Progress.SLOT2_ON_ESIM, Progress.PUT_BACK, Progress.DRY_RUN_PASSED,
             ),
             progress,
         )
@@ -134,7 +138,7 @@ class DryRunTest {
     @Test
     fun dryRunConfirmsTier2ClaimsOfTestingMd() {
         run()
-        assertEquals(setOf("S2", "S3", "K8", "D19", "D23", "U6", "E4", "M6", "P5"), claims)
+        assertEquals(setOf("S2", "S3", "K8", "D19", "D23", "U6", "E4", "M6", "P5", "C11"), claims)
         for (id in claims) {
             val tiers = ChecksTest.TIERS[id] ?: throw AssertionError("$id isn't a claim in router-tests.md")
             assertTrue("$id isn't a tier 2 claim in router-tests.md", "2" in tiers)
@@ -251,6 +255,17 @@ class DryRunTest {
         val before = state()
         assertStops(Problem.UNEXPECTED_ANSWER) { run() }
         assertEquals(listOf("P5"), dryRun.testing)
+        assertEquals(before, state())
+        assertEquals(listOf(before, null), saves)
+    }
+
+    @Test
+    fun dryRunStopsWhenAnAnswerLargerThanTheWindowComesBackCut() {
+        // At the window of sshj's session channels, 2 MB.
+        shell.cutAt = 2_097_152
+        val before = state()
+        assertStops(Problem.UNEXPECTED_ANSWER) { run() }
+        assertEquals(listOf("C11"), dryRun.testing)
         assertEquals(before, state())
         assertEquals(listOf(before, null), saves)
     }

@@ -1037,6 +1037,7 @@ class Controller(private val context: Context) {
             Progress.TEST_IMEIS -> R.string.progress_test_imeis
             Progress.EARLIER_IMEIS -> R.string.progress_earlier_imeis
             Progress.ANSWERS_MATCHED -> R.string.progress_answers_matched
+            Progress.LONG_ANSWER_READ -> R.string.progress_long_answer_read
             Progress.RESTORED -> R.string.progress_restored
             Progress.FACTORY_IMEIS -> R.string.progress_factory_imeis
             Progress.FOLDER_GONE -> R.string.progress_folder_gone
@@ -1045,6 +1046,8 @@ class Controller(private val context: Context) {
             Progress.ZERO_FILES_GONE -> R.string.progress_zero_files_gone
             Progress.FIREWALL_GONE -> R.string.progress_firewall_gone
             Progress.SET_UP_AGAIN -> R.string.progress_set_up_again
+            Progress.CARD_FILE_MODES_KEPT -> R.string.progress_card_file_modes_kept
+            Progress.NO_CARD_FILES -> R.string.progress_no_card_files
             Progress.CONNECTION_KEPT -> R.string.progress_connection_kept
             Progress.RESERVE_BACK -> R.string.progress_reserve_back
             Progress.CARD_FILES_PARSE -> R.string.progress_card_files_parse

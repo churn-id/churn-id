@@ -8,8 +8,10 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Build
+import android.os.Bundle
 import android.text.InputType
 import android.view.Menu
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.CheckBox
@@ -38,6 +40,13 @@ class MainActivity : Activity() {
 
     /** The Router checks dialog while it is open, which follows the router screen behind it. */
     private var checksDialog: AlertDialog? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // The screens show the IMEIs, the router's key fingerprint and the last digits of cards' ICCIDs, which
+        // screenshots and the recent apps' preview would keep. The debug log stands in for screenshots in bug reports.
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
 
     override fun onStart() {
         super.onStart()
@@ -434,7 +443,7 @@ class MainActivity : Activity() {
                 confirm(getString(R.string.place_card_forget_text)) { controller.forgetPlaceCard(place.card.iccid) }
             }
             .setNegativeButton(R.string.cancel, null)
-            .show()
+            .showSecurely()
     }
 
     private fun renamePlaceCard(place: PlaceCard) {
@@ -459,7 +468,7 @@ class MainActivity : Activity() {
                 controller.namePlaceCard(place.card.iccid, name.text.toString())
             }
             .setNegativeButton(R.string.cancel, null)
-            .show()
+            .showSecurely()
     }
 
     private fun rules(): String {
@@ -480,7 +489,7 @@ class MainActivity : Activity() {
             .setTitle(R.string.rules_title)
             .setMessage(rules())
             .setPositiveButton(android.R.string.ok, null)
-            .show()
+            .showSecurely()
     }
 
     /** The checks of the router screen drawn last, which may be newer than the page. */
@@ -490,7 +499,7 @@ class MainActivity : Activity() {
             .setMessage(checksText((drawn as? Screen.Home)?.checks))
             .setPositiveButton(android.R.string.ok, null)
             .setOnDismissListener { checksDialog = null }
-            .show()
+            .showSecurely()
     }
 
     /** What the Router checks dialog says: how far the checks have got, and the results of [checks] so far. */
@@ -523,7 +532,7 @@ class MainActivity : Activity() {
             .setPositiveButton(R.string.debug_log_share) { _, _ -> shareDebugLog() }
             .setNeutralButton(R.string.debug_log_delete) { _, _ -> controller.debugLog.delete() }
             .setNegativeButton(R.string.close, null)
-            .show()
+            .showSecurely()
         val empty = controller.debugLog.isEmpty
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = !empty
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL).isEnabled = !empty
@@ -543,7 +552,13 @@ class MainActivity : Activity() {
             .setMessage(message)
             .setPositiveButton(android.R.string.ok) { _, _ -> action() }
             .setNegativeButton(R.string.cancel, null)
-            .show()
+            .showSecurely()
+    }
+
+    /** Shows the dialog, whose window, like the screens', screenshots and the recent apps' preview leave out. */
+    private fun AlertDialog.Builder.showSecurely(): AlertDialog = create().apply {
+        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        show()
     }
 
     /** The foreground service's notification needs this permission from Android 13 on; the swap works without. */
@@ -608,9 +623,10 @@ class MainActivity : Activity() {
         setPadding(0, 0, 0, dp(12))
     }.also { addView(it) }
 
+    /** A line in amber that begins with "Warning:", so that its color isn't the only sign of a warning. */
     private fun LinearLayout.warning(text: String) = addView(
         textView().apply {
-            this.text = text
+            this.text = getString(R.string.warning, text)
             textSize = 16f
             setTextColor(Color.rgb(0xFF, 0xB3, 0x00))
             setTextIsSelectable(true)
