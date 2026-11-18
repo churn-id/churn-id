@@ -392,7 +392,7 @@ class RemovalTestTest {
             throw AssertionError("The test didn't stop")
         } catch (_: IOException) {
         }
-        assertEquals(listOf("H17"), test.testing)
+        assertEquals(listOf("H17", "H21"), test.testing)
         // Set up again before the clearing, so nothing is left to do.
         assertEquals(listOf(kept, null), saves)
         assertEquals(before, state())
@@ -438,6 +438,12 @@ class RemovalTestTest {
         assertTrue(Progress.NO_CARD_FILES in progress)
         assertTrue(Progress.CARD_FILE_MODES_KEPT !in progress)
         assertEquals(Progress.REMOVAL_PASSED, progress.last())
+    }
+
+    @Test
+    fun removalTestStopsWhenTheClearingsFillFallsShort() {
+        fake.overwriteFillFallsShort = true
+        assertStopsAfterTheClearing("H17", "H21")
     }
 
     @Test
@@ -601,7 +607,7 @@ class RemovalTestTest {
             throw AssertionError("The test didn't stop")
         } catch (_: IOException) {
         }
-        assertEquals(listOf("H15", "H16"), test.testing)
+        assertEquals(listOf("H15", "H16", "H21"), test.testing)
         assertEquals(listOf(kept, null), saves)
         assertSafe()
     }
@@ -633,7 +639,7 @@ class RemovalTestTest {
         assertEquals(
             setOf(
                 "F7", "F8", "F9", "F10", "F11", "F12", "F15", "H3", "H10", "H11", "H13", "H14", "H15", "H16", "H17",
-                "H20",
+                "H20", "H21",
             ),
             claims,
         )

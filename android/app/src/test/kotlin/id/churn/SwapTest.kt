@@ -4,6 +4,7 @@ import java.security.SecureRandom
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -302,6 +303,21 @@ class SwapTest {
         assertEquals(Progress.CLEARING_HISTORY, progress.last())
         // The version comes after this last check.
         assertNull(recordedVersion())
+    }
+
+    @Test
+    fun step3StopsAtAnOverwriteWhoseFillFallsShort() {
+        prepareAndRestart()
+        fake.overwriteFillFallsShort = true
+        val stop = assertStops(Problem.UNEXPECTED_ANSWER) { giveNewImeis() }
+        assertEquals("overwrite the free space: 1024 kB free after the fill", stop.detail)
+        assertEquals(Progress.CLEARING_HISTORY, progress.last())
+        assertNull(recordedVersion())
+        assertSafe()
+        // Try again clears the history again and ends the step.
+        fake.overwriteFillFallsShort = false
+        assertNotNull(giveNewImeis())
+        assertEquals(VERSION, recordedVersion())
     }
 
     @Test

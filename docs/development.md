@@ -524,24 +524,37 @@ so the app compares ICCIDs without the `F`s. The current card is the one
    upgrade that changed it; the clearing's stop covers a file that
    changed since the check.
 4. Except at setup, it fills the free space of the overlay, ext4 on the
-   eMMC partition `mmcblk0p59` (2.9 GB). It sets
-   `/sys/fs/ext4/mmcblk0p59/reserved_clusters`, the 4096 blocks that ext4
-   keeps free even from root, to 0, and makes the directory
-   `/overlay/churn-zeros`, the link `/etc/churn/zeros` to it, and 16
-   directories `/overlay/churn-fill.d<n>`.
-   It writes files `/overlay/churn-fill.<n>` of 64 MB from `/dev/zero`,
-   with a `sync` after each, until `dd` fails on the full partition, then
-   files of 4 KB into the directories, at most 300 in each, until `dd`
-   fails again. Then it syncs, because the zeros of a file deleted before
-   they are written out never reach the flash (verified on a disk image).
-   Only then does it delete the 4 KB files and move the 64 MB files into
+   eMMC partition `mmcblk0p59` (2.9 GB). It holds the lock
+   `/var/lock/churn-overwrite.lock` from start to end, so that a run that
+   outlived the app's connection and the next one don't overlap;
+   `restore.sh` takes it too before it deletes the zero files. It makes
+   the directory `/overlay/churn-zeros` and the link `/etc/churn/zeros` to
+   it, sets `/sys/fs/ext4/mmcblk0p59/reserved_clusters`, the 4096 blocks
+   that ext4 keeps free even from root, to 0, and only then makes 16
+   directories `/overlay/churn-fill.d<n>`, so that they fit on a partition
+   that is full but for the reserve, as a power cut before the end of a
+   run leaves it. It writes files `/overlay/churn-fill.<n>` of 64 MB from
+   `/dev/zero`, with a `sync` after each, until `dd` fails on the full
+   partition, then files of 4 KB into the directories, at most 300 in
+   each, until `dd` fails again. Then it syncs, because the zeros of a
+   file deleted before they are written out never reach the flash
+   (verified on a disk image), and prints how much is still free, which
+   should be nothing; more than 64 kB fails the run. Only then does it
+   delete the 4 KB files and move the 64 MB files into
    `/overlay/churn-zeros`, numbered on from the files there, so the folder
    gains only flushed parts, and none from a run that stops. It syncs again
    and sets the reserve back. Last, it deletes files in
    `/overlay/churn-zeros`, lowest number first, until 512 MB of the
-   partition are free. When a signal stops the run, a trap deletes the fill
-   files, syncs, sets the reserve back and frees the 512 MB the same way; a
-   reboot sets the reserve back too.
+   partition are free. A run that fails once it has set the reserve still
+   does all of this, and then exits with the status of its first failure:
+   5 if it couldn't set the reserve to 0, 6 for the free space left after
+   the fill, and 7 if it couldn't set the reserve back. Without the lock it
+   exits with 2, and without the folder or the link with 4. When a signal
+   stops the run, a trap deletes the fill files, syncs, sets the reserve
+   back, frees the 512 MB the same way and exits with 1; a reboot sets the
+   reserve back too. A run that finds the reserve at 0, as a run killed
+   before it set the reserve back leaves it, exits with 3 before it
+   changes anything, since it would put back 0.
 
 We ran these steps as a script on our router, with step 4 still without
 the reserve and the 4 KB files. The router had seen two old cards, A and
@@ -692,7 +705,7 @@ untested, and the router checks look for it.
 | `/etc/churn/version` | 600 | The version code of the app whose step 3 last ran to its end, as a decimal number on one line. Written last, so only there after a swap; without it, the app counts the router as version 1 |
 | `/etc/churn/log_file` | 600 | GL's `system.@system[0].log_file` as it was before the app first deleted it. Only there after the app has deleted it |
 | `/etc/churn/kmwan` | 600 | GL's `kmwan.modem_cpu.disabled` as it was before step 3 first turned GL's connection check off for the SIM, or an empty line if it wasn't set. Only there after that |
-| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, deletes `card`, sets `log_file` back from Churn's copy and deletes the copy, deletes `/overlay/churn-zeros`, the link to it and any fill files, sets `kmwan.modem_cpu.disabled` back from Churn's copy and deletes the copy, then removes Churn's firewall rules and, last, deletes `/etc/churn/` itself |
+| `/etc/churn/restore.sh` | 700 | Shipped in the app's assets. Takes the lock, turns airplane mode on and checks that the radio is off, writes the IMEIs from `factory`, reads them back and saves them, deletes `card`, sets `log_file` back from Churn's copy and deletes the copy, waits for a free-space overwrite still running, deletes `/overlay/churn-zeros`, the link to it and any fill files, sets `kmwan.modem_cpu.disabled` back from Churn's copy and deletes the copy, then removes Churn's firewall rules and, last, deletes `/etc/churn/` itself |
 | `/etc/churn/zeros` | – | Link to `/overlay/churn-zeros`, made by the free-space overwrite |
 | `/etc/nftables.d/churn.nft` | 644 | Churn's firewall rules, from `Router.firewallRules` |
 | `/overlay/churn-zeros/` | – | Files of zeros from the free-space overwrite, up to 64 MB each and numbered, that take all but 512 MB of the free space. Beside the router's own files, so that upgrades and tools reading `/etc` skip them (design.md, section 5) |

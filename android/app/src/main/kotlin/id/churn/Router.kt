@@ -1373,6 +1373,9 @@ class Router(private val shell: Shell) {
         const val DEFAULT_POLICY = "route_policy.@default[0].enabled"
         const val VPN_TO_MAIN = "network.vpn_to_main"
         private const val LOCK = "/var/lock/churn.lock"
+
+        /** The free-space overwrite's own lock, which restore.sh takes too. */
+        private const val OVERWRITE_LOCK = "/var/lock/churn-overwrite.lock"
         const val SYSUPGRADE = "/etc/sysupgrade.conf"
         private const val ESIM_API = "http://127.0.0.1:3456/sdk/v1"
 
@@ -1397,15 +1400,28 @@ class Router(private val shell: Shell) {
         /**
          * Fills the overlay's free space with zeros, then frees 512 MB of it again. ext4 keeps back free space that
          * even root can't fill, 16 MB on the Mudi 7, and copies of deleted files would stay in it, so the fill sets
-         * that reserve to 0 and puts it back at the end, or when the run is stopped; a reboot also puts it back.
+         * that reserve to 0 and puts it back at the end, or when the run is stopped; a reboot also puts it back. A
+         * run doesn't start while the reserve reads 0, as after a run killed before it put the reserve back, since it
+         * would then put back 0.
+         *
+         * A run holds [OVERWRITE_LOCK] from start to end. A run that the app's connection lost most likely goes on,
+         * and the next one then waits for it, and finds the partition mostly filled, instead of deleting its fill
+         * files. restore.sh takes the lock too before it deletes the zero files. Modem commands don't wait for it.
          *
          * 64 MB parts come first, each flushed to the flash before the next, so the partition is full only briefly. It
          * is 2.9 GB, so `dd` stops at a full partition after at most 47 parts. Files of 4 KB then take the single free
          * blocks between small files that the parts leave, where old versions of GL's config files are. Their
-         * directories are made beforehand with at most 300 names each, so that they never need a new block on the full
-         * partition. Everything is flushed before the 4 KB files are deleted and the parts are kept, since the zeros of
-         * a file deleted before they are written out never reach the flash. Fill files left by an earlier run that
-         * stopped are deleted first.
+         * directories are made beforehand, once the reserve is 0, so that a partition full but for the reserve has room
+         * for them, and with at most 300 names each, so that they never need a new block on the full partition.
+         * Everything is flushed before the 4 KB files are deleted and the parts are kept, since the zeros of a file
+         * deleted before they are written out never reach the flash. Fill files left by an earlier run that stopped
+         * are deleted first.
+         *
+         * After the fill, a run prints the free space left, which should be none, and fails above 64 kB. From the
+         * reserve on, a run that fails still deletes its fill files, puts the reserve back and frees the 512 MB below,
+         * and then exits with the status of its first failure: 2 without the lock, 3 for a reserve that reads 0, 4
+         * without the zero files' folder or its link, 5 for a reserve it can't set to 0, 6 for free space left after
+         * the fill and 7 for a reserve it can't set back. A signal makes it exit with 1.
          *
          * The 64 MB parts stay, in `/overlay/churn-zeros` beside the router's own files, and the oldest are deleted
          * only until 512 MB are free, also when the run is stopped. Deleted data can then only be in those 512 MB, so
@@ -1413,10 +1429,14 @@ class Router(private val shell: Shell) {
          * deletes both.
          */
         internal val OVERWRITE_FREE_SPACE = """
+            exec 8>$OVERWRITE_LOCK && flock 8 || exit 2
             dev=${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1; exit }' /proc/mounts)
             reserve=/sys/fs/ext4/${'$'}{dev##*/}/reserved_clusters
             size=${'$'}(cat ${'$'}reserve)
+            [ "${'$'}size" -gt 0 ] 2>/dev/null || { echo "ext4's reserve is ${'$'}{size:-unreadable}"; exit 3; }
             zeros=/overlay/churn-zeros
+            status=0
+            fail() { [ "${'$'}status" -gt 0 ] || status=${'$'}1; }
             free_kb() { df -k /overlay | awk 'END { print ${'$'}(NF - 4) - ${'$'}(NF - 3) }'; }
             trim() {
             	for f in ${'$'}(ls ${'$'}zeros | sort -n); do
@@ -1426,13 +1446,12 @@ class Router(private val shell: Shell) {
             	done
             }
             rm -rf /overlay/churn-fill.*
-            mkdir -p ${'$'}zeros
-            ln -sfn ${'$'}zeros $CHURN/zeros
+            ln -sfn ${'$'}zeros $CHURN/zeros && mkdir -p ${'$'}zeros || exit 4
+            trap 'rm -rf /overlay/churn-fill.*; sync; echo ${'$'}size > ${'$'}reserve; trim; exit 1' HUP INT TERM PIPE
+            echo 0 > ${'$'}reserve || fail 5
             d=0
             while [ "${'$'}d" -lt 16 ]; do mkdir /overlay/churn-fill.d${'$'}d; d=${'$'}((d + 1)); done
             sync
-            trap 'rm -rf /overlay/churn-fill.*; sync; echo ${'$'}size > ${'$'}reserve; trim; exit 1' HUP INT TERM PIPE
-            echo 0 > ${'$'}reserve
             i=0
             while [ "${'$'}i" -lt 256 ] && dd if=/dev/zero of=/overlay/churn-fill.${'$'}i bs=1M count=64 2>/dev/null; do
             	sync
@@ -1449,6 +1468,9 @@ class Router(private val shell: Shell) {
             	d=${'$'}((d + 1))
             done
             sync
+            left=${'$'}(free_kb)
+            echo "${'$'}left kB free after the fill"
+            [ "${'$'}left" -le 64 ] || fail 6
             rm -rf /overlay/churn-fill.d*
             n=${'$'}(ls ${'$'}zeros | sort -n | tail -n 1)
             for f in /overlay/churn-fill.*; do
@@ -1456,8 +1478,9 @@ class Router(private val shell: Shell) {
             	mv ${'$'}f ${'$'}zeros/${'$'}n
             done
             sync
-            echo ${'$'}size > ${'$'}reserve
+            echo ${'$'}size > ${'$'}reserve || fail 7
             trim
+            exit ${'$'}status
         """.trimIndent()
 
         /**

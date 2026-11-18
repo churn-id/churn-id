@@ -47,6 +47,8 @@ check() {
 
 between() { [ "$1" -ge "$2" ] && [ "$1" -lt "$3" ]; }
 not() { ! "$@"; }
+# Whether the last run whose output went to $work/out printed $1.
+printed() { grep -qF "$1" "$work/out"; }
 
 # Runs $1 as Churn's SSH connection runs a command: with the router's shell.
 on_router() {
@@ -137,6 +139,14 @@ copies() {
 }
 
 overwrite() { on_router "$(cat "$scripts/overwrite-free-space.sh")"; }
+# Waits until a run started in the background has begun to fill.
+filling() {
+	i=0
+	while [ ! -e "$root/overlay/churn-fill.0" ] && [ "$i" -lt 300 ]; do
+		sleep 0.1
+		i=$((i + 1))
+	done
+}
 
 # GL's files on the overlay. Each uci commit writes a file anew and renames
 # it over the old one, whose blocks stay as they were. Files written in
@@ -157,8 +167,9 @@ done
 echo "== The first overwrite"
 check "the image holds old versions of GL's file" [ "$(copies "$ICCID")" -gt 1 ]
 check "ext4 keeps 4096 blocks back" [ "$(reserve)" -eq 4096 ]
-overwrite && status=0 || status=$?
+overwrite > "$work/out" && status=0 || status=$?
 check "it exits with 0" [ "$status" -eq 0 ]
+check "it says what the fill left free" printed "kB free after the fill"
 check "the reserve is back" [ "$(reserve)" -eq 4096 ]
 check "no fill file is left" [ -z "$(find "$root/overlay" -maxdepth 1 -name 'churn-fill.*')" ]
 check "the zero files are in /overlay/churn-zeros" [ -n "$(ls "$root/overlay/churn-zeros")" ]
@@ -172,7 +183,7 @@ echo "== The next overwrite"
 rewrite next
 free=$(free_kb)
 written=$(written_kb)
-overwrite && status=0 || status=$?
+overwrite > /dev/null && status=0 || status=$?
 check "it exits with 0" [ "$status" -eq 0 ]
 check "it writes only the free space, which the zero files left" \
 	between $(($(written_kb) - written)) "$free" $((free + 16384))
@@ -184,11 +195,7 @@ echo "== An overwrite that a signal stops"
 zeros=$(ls "$root/overlay/churn-zeros")
 env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin chroot "$root" /bin/sh -c "$(cat "$scripts/overwrite-free-space.sh")" &
 pid=$!
-i=0
-while [ ! -e "$root/overlay/churn-fill.0" ] && [ "$i" -lt 300 ]; do
-	sleep 0.1
-	i=$((i + 1))
-done
+filling
 check "the reserve is 0 while it fills" [ "$(reserve)" -eq 0 ]
 kill -TERM "$pid"
 wait "$pid" && status=0 || status=$?
@@ -197,17 +204,52 @@ check "the reserve is back" [ "$(reserve)" -eq 4096 ]
 check "no fill file is left" [ -z "$(find "$root/overlay" -maxdepth 1 -name 'churn-fill.*')" ]
 check "the zero files are as before" [ "$(ls "$root/overlay/churn-zeros")" = "$zeros" ]
 
+# As a run killed before it set the reserve back leaves it.
+echo "== An overwrite that finds ext4's reserve at 0"
+echo 0 > "$ext4/reserved_clusters"
+written=$(written_kb)
+overwrite > "$work/out" 2>&1 && status=0 || status=$?
+check "it exits with 3" [ "$status" -eq 3 ]
+check "it says why" printed "ext4's reserve is 0"
+check "it writes nothing" [ $(($(written_kb) - written)) -lt 1024 ]
+check "the zero files are as before" [ "$(ls "$root/overlay/churn-zeros")" = "$zeros" ]
+echo 4096 > "$ext4/reserved_clusters"
+
+echo "== An overwrite on a read-only overlay"
+mount -o remount,ro "$root/overlay"
+overwrite > "$work/out" 2>&1 && status=0 || status=$?
+mount -o remount,rw "$root/overlay"
+check "it exits with 6, for the free space it couldn't fill" [ "$status" -eq 6 ]
+check "it says how much" printed "kB free after the fill"
+check "the reserve is back" [ "$(reserve)" -eq 4096 ]
+check "the zero files are as before" [ "$(ls "$root/overlay/churn-zeros")" = "$zeros" ]
+
+echo "== Two overwrites at once"
+overwrite > /dev/null &
+pid=$!
+filling
+overwrite > /dev/null && status=0 || status=$?
+wait "$pid" && first=0 || first=$?
+check "the first exits with 0" [ "$first" -eq 0 ]
+check "the second, which waits for it, exits with 0" [ "$status" -eq 0 ]
+check "the reserve is back" [ "$(reserve)" -eq 4096 ]
+check "512 MB to 576 MB are free" between "$(free_kb)" 524288 589824
+check "no fill file is left" [ -z "$(find "$root/overlay" -maxdepth 1 -name 'churn-fill.*')" ]
+
 # As a power cut leaves it after a run moved its parts and before it freed
-# the 512 MB: zero files take all of it, and the mount sets the reserve back.
+# the 512 MB: the parts take all of the partition but what the run's 4 KB
+# files took, which it deleted, and the mount sets the reserve back.
 echo "== An overwrite that finds the partition full"
 echo 0 > "$ext4/reserved_clusters"
+mkdir "$root/overlay/small"
 n=$(ls "$root/overlay/churn-zeros" | sort -n | tail -n 1)
 while n=$((n + 1)) && dd if=/dev/zero of="$root/overlay/churn-zeros/$n" bs=1M count=64 2>/dev/null; do :; done
-while n=$((n + 1)) && dd if=/dev/zero of="$root/overlay/churn-zeros/$n" bs=4k count=1 2>/dev/null; do :; done
+i=0
+while dd if=/dev/zero of="$root/overlay/small/$i" bs=4k count=1 2>/dev/null; do i=$((i + 1)); done
+rm -r "$root/overlay/small"
 echo 4096 > "$ext4/reserved_clusters"
 check "not even a directory fits" not mkdir "$root/overlay/test" 2>/dev/null
-# Without its folders for the 4 KB files, which don't fit either.
-overwrite 2>/dev/null && status=0 || status=$?
+overwrite > /dev/null && status=0 || status=$?
 check "it exits with 0" [ "$status" -eq 0 ]
 check "the reserve is back" [ "$(reserve)" -eq 4096 ]
 check "512 MB to 576 MB are free" between "$(free_kb)" 524288 589824
@@ -253,7 +295,6 @@ called() { grep -qxF "$1" "$root/tmp/calls"; }
 # The line in /tmp/calls of the first call that starts with $1.
 call_line() { grep -nF "$1" "$root/tmp/calls" | sed -n '1s/:.*//p'; }
 restore() { on_router 'sh /etc/churn/restore.sh' > "$work/out" 2>&1; }
-printed() { grep -qF "$1" "$work/out"; }
 
 echo "== restore.sh after the overwrites"
 set_up
@@ -302,6 +343,21 @@ check "it says why" printed "Can't read /etc/churn/factory."
 check "airplane mode is as it was" [ "$(setting glconfig.general.airplane_mode)" = 0 ]
 check "the modem has the card's IMEIs" [ "$(cat "$root/tmp/imei7") $(cat "$root/tmp/imei11")" = "$CARD1 $CARD2" ]
 check "Churn's folder is kept" [ -e "$root/etc/churn/card" ]
+
+echo "== restore.sh while an overwrite fills"
+mkdir -p "$root/etc/churn"
+set_up
+overwrite > /dev/null &
+pid=$!
+filling
+restore && status=0 || status=$?
+wait "$pid" && first=0 || first=$?
+check "it exits with 0" [ "$status" -eq 0 ]
+check "the overwrite, which it waits for, exits with 0" [ "$first" -eq 0 ]
+check "the zero files are gone" [ ! -e "$root/overlay/churn-zeros" ]
+check "no fill file is left" [ -z "$(find "$root/overlay" -maxdepth 1 -name 'churn-fill.*')" ]
+check "the free space is back" [ "$(free_kb)" -gt 900000 ]
+check "Churn's folder is gone" [ ! -e "$root/etc/churn" ]
 
 echo "$failed failed"
 [ "$failed" -eq 0 ]

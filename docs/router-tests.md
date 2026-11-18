@@ -182,8 +182,9 @@ router with no SIM and no profile enabled on the built-in eSIM:
    the router is set up again. Next, it clears the SIM history as step 3
    does, keeping the recorded card's. With the zero files gone, the
    overwrite fills all of the free space and prints nothing for minutes,
-   and the clearing has to end on the same SSH connection (H17). It then
-   checks:
+   and the clearing has to end on the same SSH connection (H17), with its
+   fill leaving at most 64 kB free, which the overwrite checks itself
+   (H21). It then checks:
    - that ext4's reserve is as before the clearing (H13);
    - that GL's card files and the eSIM manager's records parse (H14);
    - that about 512 MB are free, with the zero files' folder holding the
@@ -199,7 +200,7 @@ router with no SIM and no profile enabled on the built-in eSIM:
    at every swap after the first. By ext4's `lifetime_write_kbytes`, the
    clearing has to write about as much as the free space it found, not
    the zero files' space again (H15), and it has to take under a minute
-   (H16).
+   (H16). Its fill too has to leave at most 64 kB free (H21).
 
 Like step 1, the test leaves airplane mode on and slot 2 on the built-in
 eSIM. A removal test that stops before it set the router up again does so at
@@ -552,6 +553,7 @@ and 10.
 | H18 | The flash rates its own wear, and reported under 10% used on our router after our tests | verified | `life_time` and `pre_eol_info` in `/sys/block/mmcblk0/device/`, which the debug log records at every connection; the check also fails once the flash warns that its life or its spare blocks are running out | 1 |
 | H19 | GL writes files in `/etc` every minute, so with the log's file off, the clock after a power-on still resumes from about the time of the power-off | verified with the SIM online | The files in `/etc` that something other than Churn wrote in the last 2 minutes, from 2 minutes after a power-on, in airplane mode too | 1 |
 | H20 | The clearing's writes keep the mode, owner and group of GL's card files, since it writes them through a copy made with BusyBox's `cp -p` | inferred | The removal test writes GL's card files again unchanged, as a clearing writes them, and compares `ls -ln` before and after | 2 |
+| H21 | The overwrite's fill leaves at most 64 kB of the overlay free | inferred from our router, where the 4 KB files found no free block after the 64 MB parts | The overwrite prints the free space after its fill and fails above 64 kB, at the removal test's clearings as at every swap | 2 |
 
 ## Churn's files and firmware upgrades
 
