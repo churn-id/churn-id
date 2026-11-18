@@ -17,8 +17,9 @@ android {
     // For the version code that step 3 records on the router.
     buildFeatures.buildConfig = true
 
-    // The upload key is supplied by CI (or a local environment) and never
-    // committed. Without it, bundleRelease produces an unsigned bundle.
+    // For local builds, the upload key comes from the environment and is never
+    // committed. Without it, bundleRelease produces an unsigned bundle, as in
+    // CI, which signs the bundle in a job of its own (CONTRIBUTING.md).
     val keystorePath: String? = System.getenv("CHURN_KEYSTORE_PATH")
 
     signingConfigs {

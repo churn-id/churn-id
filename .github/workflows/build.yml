@@ -35,9 +35,6 @@ jobs:
   bundle:
     name: Release bundle
     runs-on: ubuntu-latest
-    # Signing secrets live in the "release" environment, which only main may
-    # use. Builds of any other ref get no environment and stay unsigned.
-    environment: ${{ github.ref == 'refs/heads/main' && 'release' || '' }}
     defaults:
       run:
         working-directory: android
@@ -52,33 +49,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
       - name: Test and build release bundle
-        env:
-          KEYSTORE_B64: ${{ secrets.CHURN_UPLOAD_KEYSTORE_B64 }}
-          CHURN_KEYSTORE_PASSWORD: ${{ secrets.CHURN_UPLOAD_PASSWORD }}
-          CHURN_KEY_ALIAS: upload
-          CHURN_KEY_PASSWORD: ${{ secrets.CHURN_UPLOAD_PASSWORD }}
         run: |
           set -o pipefail
-          if [ -n "$KEYSTORE_B64" ]; then
-            # Pasted secrets often pick up line breaks or spaces; base64 has neither.
-            if ! printf '%s' "$KEYSTORE_B64" | tr -d ' \t\r\n' | base64 -d > "$RUNNER_TEMP/upload.jks"; then
-              echo "::error::CHURN_UPLOAD_KEYSTORE_B64 is not valid base64."
-              exit 1
-            fi
-            if ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" \
-                -storepass "$CHURN_KEYSTORE_PASSWORD" >/dev/null 2>&1; then
-              echo "::error::Cannot open the upload keystore: the file is damaged or CHURN_UPLOAD_PASSWORD is wrong."
-              exit 1
-            fi
-            if ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" \
-                -storepass "$CHURN_KEYSTORE_PASSWORD" -alias "$CHURN_KEY_ALIAS" >/dev/null 2>&1; then
-              echo "::error::The upload keystore has no key with the alias '$CHURN_KEY_ALIAS'."
-              exit 1
-            fi
-            export CHURN_KEYSTORE_PATH="$RUNNER_TEMP/upload.jks"
-          else
-            echo "::warning::No upload keystore configured; the bundle is unsigned and Play will reject it."
-          fi
           ./gradlew --no-daemon test bundleRelease 2>&1 | tee "$RUNNER_TEMP/gradle.log"
 
       - name: Report Gradle failure
@@ -108,7 +80,7 @@ jobs:
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: churn-release-aab
+          name: churn-release-aab-unsigned
           path: android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
           retention-days: 14
@@ -130,3 +102,58 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q busybox-static
           sudo sh android/app/src/test/sh/router-scripts-test.sh router-scripts
+
+  sign:
+    name: Sign release bundle
+    needs: [bundle, router-scripts]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Signing secrets live in the "release" environment, which only main may
+    # use. No Gradle and no code from the repository run in this job, so no
+    # build plugin, dependency or test can read the upload key.
+    environment: release
+    steps:
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: churn-release-aab-unsigned
+          path: bundle
+
+      - name: Sign the bundle with the upload key
+        env:
+          KEYSTORE_B64: ${{ secrets.CHURN_UPLOAD_KEYSTORE_B64 }}
+          CHURN_KEYSTORE_PASSWORD: ${{ secrets.CHURN_UPLOAD_PASSWORD }}
+          CHURN_KEY_ALIAS: upload
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::The release environment has no CHURN_UPLOAD_KEYSTORE_B64."
+            exit 1
+          fi
+          # Pasted secrets often pick up line breaks or spaces; base64 has neither.
+          if ! printf '%s' "$KEYSTORE_B64" | tr -d ' \t\r\n' | base64 -d > "$RUNNER_TEMP/upload.jks"; then
+            echo "::error::CHURN_UPLOAD_KEYSTORE_B64 is not valid base64."
+            exit 1
+          fi
+          if ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" \
+              -storepass:env CHURN_KEYSTORE_PASSWORD >/dev/null 2>&1; then
+            echo "::error::Cannot open the upload keystore: the file is damaged or CHURN_UPLOAD_PASSWORD is wrong."
+            exit 1
+          fi
+          if ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" \
+              -storepass:env CHURN_KEYSTORE_PASSWORD -alias "$CHURN_KEY_ALIAS" >/dev/null 2>&1; then
+            echo "::error::The upload keystore has no key with the alias '$CHURN_KEY_ALIAS'."
+            exit 1
+          fi
+          jarsigner -keystore "$RUNNER_TEMP/upload.jks" -storepass:env CHURN_KEYSTORE_PASSWORD \
+            bundle/app-release.aab "$CHURN_KEY_ALIAS"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: churn-release-aab
+          path: bundle/app-release.aab
+          if-no-files-found: error
+          retention-days: 14
