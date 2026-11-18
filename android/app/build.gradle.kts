@@ -61,7 +61,11 @@ dependencies {
     testImplementation("org.json:json:20260814")
 }
 
-// ChecksTest reads docs/router-tests.md, so a change there runs the tests again.
+// ChecksTest reads docs/router-tests.md, and RulesTest the rules in README.md, docs/design.md and strings.xml, so a
+// change there runs the tests again.
 tasks.withType<Test>().configureEach {
     inputs.file("../../docs/router-tests.md")
+    inputs.file("../../README.md")
+    inputs.file("../../docs/design.md")
+    inputs.file("src/main/res/values/strings.xml")
 }

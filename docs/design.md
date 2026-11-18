@@ -824,8 +824,8 @@ Choices and their effects:
 
 ## 8. Usage rules
 
-The app and the README show these rules in this wording. Here, each is
-followed by its reason.
+The app and the README show these rules in this wording, and a unit test
+keeps the three the same. Here, each is followed by its reason.
 
 Each card's network records where and when the card was used. Churn's new
 IMEIs keep these records apart, and the rules keep everything else from
