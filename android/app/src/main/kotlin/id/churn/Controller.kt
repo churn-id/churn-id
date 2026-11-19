@@ -566,6 +566,9 @@ class Controller(private val context: Context) {
         context.startForegroundService(Intent(context, SwapService::class.java))
         worker.execute {
             debugLog.start(context.getString(R.string.step_number, step.ordinal + 1))
+            // As step 3's last run left it, until this run's Swap knows better.
+            val carried = step == Step.NEW_IMEIS && saved.cardMayBeOn
+            var mayBeOn = { carried }
             val next = try {
                 if (openConnection() == null) report(context.getString(R.string.waiting_for_router))
                 val router = router(waitSeconds)
@@ -593,14 +596,17 @@ class Controller(private val context: Context) {
                         }
                     },
                     check = { runChecks(router, folder, CHECKS.filter { it.blocks }).failures },
+                    cardMayBeOn = carried,
                 )
+                mayBeOn = { swap.cardMayBeOn }
                 // The next step's screen keeps the step's lines, so that the user can still read them.
                 body(swap, folder).copy(log = log.toList(), logStep = step)
             } catch (e: UntrustedHostKey) {
                 trustKey(e)
             } catch (e: Exception) {
-                Screen.Swapping(step, log.toList(), error = stopped(e))
+                Screen.Swapping(step, log.toList(), error = stopped(e, cardMayBeOn = mayBeOn()))
             } finally {
+                saved.cardMayBeOn = mayBeOn()
                 // The last copy, unless the step made it before shutting the router down.
                 debugLog.stopWatchingEsim()
             }
@@ -983,8 +989,15 @@ class Controller(private val context: Context) {
         return Screen.TrustKey(e.key, e.fingerprint, e.changed)
     }
 
-    /** What the screen says about [e], which the debug log keeps too. */
-    private fun stopped(e: Exception) = describe(e).also { debugLog.error(it, e) }
+    /**
+     * What the screen says about [e], which the debug log keeps too. While the card in the SIM 2 tray [cardMayBeOn]
+     * without its own pair, the warning not to switch the router off takes its place.
+     */
+    private fun stopped(e: Exception, cardMayBeOn: Boolean = false): String {
+        val message = describe(e)
+        return (if (cardMayBeOn) context.getString(R.string.error_card_may_be_on) else message)
+            .also { debugLog.error(it, e) }
+    }
 
     private fun describe(e: Exception): String {
         // Whatever failed, it failed because the router left the cable.
@@ -1093,6 +1106,7 @@ class Controller(private val context: Context) {
             Progress.CONNECTION_CHECK_OFF -> R.string.progress_connection_check_off
             Progress.CONNECTION_CHECK_RESTARTED -> R.string.progress_connection_check_restarted
             Progress.CONNECTION_CHECK_BACK -> R.string.progress_connection_check_back
+            Progress.SWITCHING_AGAIN -> R.string.progress_switching_again
         },
         *args,
     )
@@ -1122,6 +1136,7 @@ class Controller(private val context: Context) {
             Problem.AIRPLANE_MODE_LEFT_ON -> R.string.problem_airplane_mode_left_on
             Problem.CONNECTION_CHECK_ON -> R.string.problem_connection_check_on
             Problem.NEWER_VERSION -> R.string.problem_newer_version
+            Problem.LOCK_FAILED -> R.string.problem_lock_failed
         },
     )
 

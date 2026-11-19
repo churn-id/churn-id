@@ -343,6 +343,14 @@ answered `+CFUN: 4` before and after each one, although GL's web interface
 refuses to change the active slot in airplane mode. An RF meter showed no
 emission during any of these switches (all verified).
 
+Once in 27 calls in our tests, GL answered
+`{"ok": false, "error": "lock failed"}` instead, right after 20 reads of the
+radio and both IMEIs (router-tests.md, P5), and slot 2 stayed as it was
+(verified). Which lock GL means, and what held it, is unknown. Churn sends
+its commands one at a time, so most likely one of GL's own processes held it
+(inferred). The app asks again 5 s later, and stops the step only at the
+third such answer in a row.
+
 Changing the active slot most likely moves only the data connection, and a
 card in the other slot stays registered while the radio is on (inferred).
 In a recording, GL logged a switch of the data subscription, and slot 2's

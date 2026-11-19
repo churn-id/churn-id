@@ -85,9 +85,18 @@ class Saved(context: Context) {
         get() = preferences.getString(CARD_TO_DESTROY, null)
         set(value) = save { putString(CARD_TO_DESTROY, value) }
 
+    /**
+     * Whether the last run of a swap step stopped while slot 2 may have been on the SIM 2 tray, before the card there
+     * had its own pair, as [Swap.cardMayBeOn] says. The next run of step 3 starts from it, so that a run that stops
+     * before it can read slot 2, as without the cable, warns again.
+     */
+    var cardMayBeOn: Boolean
+        get() = preferences.getBoolean(CARD_MAY_BE_ON, false)
+        set(value) = save { putBoolean(CARD_MAY_BE_ON, value) }
+
     /** Forgets the swap under way, once it ended or the user canceled it. */
     fun endSwap() = save {
-        listOf(STEP, BOOT_ID, CARD_BEFORE_SWAP, FIRST_SWAP, PLACE_CARD_IN, CARD_KEPT, CARD_TO_DESTROY)
+        listOf(STEP, BOOT_ID, CARD_BEFORE_SWAP, FIRST_SWAP, PLACE_CARD_IN, CARD_KEPT, CARD_TO_DESTROY, CARD_MAY_BE_ON)
             .forEach { remove(it) }
     }
 
@@ -232,6 +241,7 @@ class Saved(context: Context) {
         const val PLACE_CARD_IN = "place_card_in"
         const val CARD_KEPT = "card_kept"
         const val CARD_TO_DESTROY = "card_to_destroy"
+        const val CARD_MAY_BE_ON = "card_may_be_on"
         const val BOOT_ID = "boot_id"
         const val DEBUG_LOG = "debug_log"
         const val NOTE = "check_note_"

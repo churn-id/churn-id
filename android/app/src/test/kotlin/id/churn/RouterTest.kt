@@ -474,6 +474,26 @@ class RouterTest {
     }
 
     @Test
+    fun tellsASwitchRefusedWhileGlIsBusyFromOtherRefusals() {
+        fake.slot2SwitchesRefused = 2
+        try {
+            router.setSlot2(Slot2.ESIM)
+            throw AssertionError("The refused switch was taken for done")
+        } catch (e: RouterException) {
+            assertEquals(Problem.LOCK_FAILED, e.problem)
+        }
+        fake.switchError = "invalid argument"
+        try {
+            router.setSlot2(Slot2.ESIM)
+            throw AssertionError("The refused switch was taken for done")
+        } catch (e: RouterException) {
+            assertEquals(Problem.UNEXPECTED_ANSWER, e.problem)
+            assertTrue(e.detail!!, "invalid argument" in e.detail!!)
+        }
+        assertEquals(Slot2.SIM2, fake.slot2)
+    }
+
+    @Test
     fun quotesShellWords() {
         assertEquals("'AT+EGMR=0,7'", Router.quote("AT+EGMR=0,7"))
         assertEquals("'it'\\''s'", Router.quote("it's"))

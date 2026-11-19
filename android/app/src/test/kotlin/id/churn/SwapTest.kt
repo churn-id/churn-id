@@ -1,5 +1,6 @@
 package id.churn
 
+import java.io.IOException
 import java.security.SecureRandom
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -25,8 +26,26 @@ class SwapTest {
     private var checks = { emptyList<String>() }
     private var placesJson: String? = null
     private val places = PlaceCards(load = { placesJson }, save = { placesJson = it })
-    private val swap = Swap(
-        Router(fake),
+
+    /** Runs before each command that a swap sends to the router, and throws to break it off, as a pulled cable does. */
+    private var beforeCommand: (String) -> Unit = {}
+
+    /** The router as the swaps reach it, through [beforeCommand]. */
+    private val shell = object : Shell {
+        override fun run(command: String, input: ByteArray?, timeoutSeconds: Long): Output {
+            beforeCommand(command)
+            return fake.run(command, input, timeoutSeconds)
+        }
+
+        override fun runPrivately(command: String, input: ByteArray?, timeoutSeconds: Long): Output {
+            beforeCommand(command)
+            return fake.runPrivately(command, input, timeoutSeconds)
+        }
+    }
+
+    /** A swap, as the app makes one for each run of a step, with [cardMayBeOn] as step 3's last run left it. */
+    private fun newSwap(cardMayBeOn: Boolean = false) = Swap(
+        Router(shell),
         { progress += it },
         ask = { question ->
             asked += question
@@ -36,7 +55,10 @@ class SwapTest {
         check = { checks() },
         sleep = { fake.clock += it },
         now = { fake.clock },
+        cardMayBeOn = cardMayBeOn,
     )
+
+    private val swap = newSwap()
     private val factory = ImeiPair(fake.imei1, fake.imei2)
 
     /** The card that the record named when step 1 last ran, which the app notes for step 3. */
@@ -52,8 +74,9 @@ class SwapTest {
         return oldImeis
     }
 
-    /** Step 3, with the record that the app reads first. Null if the user canceled. */
-    private fun giveNewImeis() = swap.giveNewImeis(factory, record(), before, places, SecureRandom(), VERSION)
+    /** Step 3 with [swap], and the record that the app reads first. Null if the user canceled. */
+    private fun giveNewImeis(swap: Swap = this.swap) =
+        swap.giveNewImeis(factory, record(), before, places, SecureRandom(), VERSION)
 
     private fun recordedVersion() = Router(fake).readChurnFolder().version
 
@@ -212,6 +235,46 @@ class SwapTest {
     }
 
     @Test
+    fun step1SwitchesAgainWhileGlsCellularManagerIsBusy() {
+        fake.slot2SwitchesRefused = 2
+        swap.prepare()
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertEquals(3, fake.switchTimes.size)
+        assertTrue(fake.switchTimes.zipWithNext().all { (first, next) -> next - first >= 5_000 })
+        assertEquals(
+            listOf(
+                Progress.AIRPLANE_MODE_ON, Progress.RADIO_OFF, Progress.SWITCHING_AGAIN, Progress.SWITCHING_AGAIN,
+                Progress.SLOT2_ON_ESIM, Progress.PROFILE_DISABLED,
+            ),
+            progress,
+        )
+        assertSafe()
+    }
+
+    @Test
+    fun step1StopsWhileGlsCellularManagerStaysBusy() {
+        fake.slot2SwitchesRefused = 3
+        assertStops(Problem.LOCK_FAILED) { swap.prepare() }
+        assertEquals(3, fake.switchTimes.size)
+        assertEquals(Slot2.SIM2, fake.slot2)
+        assertTrue(fake.airplaneMode)
+        assertSafe()
+        // Try again runs the step anew.
+        swap.prepare()
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertSafe()
+    }
+
+    @Test
+    fun step1SwitchesOnlyOnceIfGlRefusesForAnotherReason() {
+        fake.slot2SwitchesRefused = 1
+        fake.switchError = "invalid argument"
+        assertStops(Problem.UNEXPECTED_ANSWER) { swap.prepare() }
+        assertEquals(1, fake.switchTimes.size)
+        assertSafe()
+    }
+
+    @Test
     fun step1ChangesNothingWhileTheScheduledRebootIsOn() {
         fake.scheduledReboot = true
         assertStops(Problem.SCHEDULED_REBOOT) { swap.prepare() }
@@ -263,6 +326,7 @@ class SwapTest {
             ),
             progress,
         )
+        assertFalse(swap.cardMayBeOn)
     }
 
     @Test
@@ -491,6 +555,17 @@ class SwapTest {
     }
 
     @Test
+    fun step3SwitchesTheActiveSlotAgainWhileGlsCellularManagerIsBusy() {
+        fake.activeSlot = 1
+        prepareAndRestart()
+        fake.activeSlotSwitchesRefused = 1
+        giveNewImeis()
+        assertEquals(2, fake.activeSlot)
+        assertEquals(1, progress.count { it == Progress.SWITCHING_AGAIN })
+        assertSafe()
+    }
+
+    @Test
     fun step3TurnsAirplaneModeOnIfItIsOff() {
         prepareAndRestart()
         fake.airplaneMode = false
@@ -509,6 +584,7 @@ class SwapTest {
         // So that the next power-on keeps the card off.
         assertEquals(Slot2.ESIM, fake.slot2)
         assertEquals(Progress.SLOT2_ON_ESIM, progress.last())
+        assertFalse(swap.cardMayBeOn)
         assertSafe()
     }
 
@@ -642,6 +718,7 @@ class SwapTest {
         assertNull(giveNewImeis())
         // Before the shutdown, so that the card stays off at the next power-on.
         assertEquals(Slot2.ESIM, fake.slot2)
+        assertFalse(swap.cardMayBeOn)
         assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
         assertNull(record())
         assertNull(recordedVersion())
@@ -687,6 +764,7 @@ class SwapTest {
         assertStops(Problem.VPN_GONE) { giveNewImeis() }
         // Before the wait for the router to finish starting.
         assertEquals(listOf(Progress.AIRPLANE_MODE_ON), progress)
+        assertFalse(swap.cardMayBeOn)
         assertEquals(changes, fake.changes.size)
         assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
         assertEquals(Slot2.ESIM, fake.slot2)
@@ -815,6 +893,157 @@ class SwapTest {
         // Run again, as after a shutdown that failed: the record names the new card now.
         assertEquals(second, giveNewImeis())
         assertEquals(questions, asked.size)
+    }
+
+    /**
+     * What a run of step 3 that lost its connection left, in [cutOff]: [sent], the commands that reached the router,
+     * all of the run's without a cut; whether the step warned that the new card may be on, [warned]; and whether the
+     * power-on after it registered the new card with the pair of the card before, [linked].
+     */
+    private class Cut(val sent: List<String>, val warned: Boolean, val linked: Boolean)
+
+    /**
+     * Swaps from a card with a pair of its own to [OTHER_CARD], with step 3's connection broken before its command
+     * [at], counted from 0, as when the cable comes out. The user then switches the router off and on, plugs the cable
+     * in again and taps Try again, and step 3 runs to its end, which the test checks, as it does the next power-on.
+     */
+    private fun cutOff(at: Int?): Cut {
+        prepareAndRestart()
+        giveNewImeis()!!
+        val oldImeis = prepareAndRestart()
+        fake.trayCard = OTHER_CARD
+        val sent = mutableListOf<String>()
+        // The command at the cut and every one after it fail.
+        beforeCommand = { command ->
+            if (sent.size == at) throw IOException("Broken pipe")
+            sent += command
+        }
+        runCatching { giveNewImeis() }
+        val warned = swap.cardMayBeOn
+        fake.boot()
+        val linked = fake.registrations.any { it == OTHER_CARD.iccid to oldImeis }
+        beforeCommand = {}
+        // As the app makes the next run, from what this one left.
+        val rerun = newSwap(cardMayBeOn = warned)
+        val card = giveNewImeis(rerun)!!
+        assertFalse(rerun.cardMayBeOn)
+        assertEquals(card.imeis, ImeiPair(fake.imei1, fake.imei2))
+        assertSafe()
+        rerun.shutDown()
+        fake.boot()
+        assertEquals(OTHER_CARD.iccid to card.imeis, fake.registrations.last())
+        return Cut(sent, warned, linked)
+    }
+
+    @Test
+    fun aStep3CutOffAnywhereWarnsWheneverAPowerOnWouldLinkTheCards() {
+        val all = SwapTest().cutOff(at = null).sent
+        val cuts = all.indices.map { SwapTest().cutOff(at = it) }
+        // While a power-on would link the cards, only what the switches, the card's answer, its record and the write
+        // of its pair need comes, no reload and no clearing.
+        val window = listOf("gl_modem -B cpu AT", "get_result_AT", "uci get", "_feature_config", "/etc/churn/card")
+        assertTrue(cuts.any { it.linked })
+        for ((at, cut) in cuts.withIndex()) {
+            val where = "cut before command $at, ${all[at]}"
+            if (cut.linked) {
+                assertTrue(where, cut.warned)
+                assertTrue(where, window.any { it in all[at] })
+            }
+            // A false alarm comes at most two commands from the window's edges.
+            val near = cuts.subList(maxOf(at - 2, 0), minOf(at + 3, cuts.size))
+            if (cut.warned) assertTrue(where, near.any { it.linked })
+        }
+    }
+
+    @Test
+    fun aStep3WhoseAnswerBreaksOffAfterTheSwitchStillParksSlot2() {
+        prepareAndRestart()
+        // One answer lost, as with sshj's "Timeout expired", on a connection that still works.
+        var lost = false
+        beforeCommand = { command ->
+            if (!lost && "AT+EGMR=1,7" in command) {
+                lost = true
+                throw IOException("Timeout expired")
+            }
+        }
+        val e = runCatching { giveNewImeis() }.exceptionOrNull()
+        assertTrue(e.toString(), e is IOException)
+        // So that the card stays off if the router is switched off and on before the next run.
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertEquals(Progress.SLOT2_ON_ESIM, progress.last())
+        assertFalse(swap.cardMayBeOn)
+        assertSafe()
+        // The pair was recorded before the write, so the next run writes the same one, without a question.
+        val recorded = record()!!
+        assertEquals(recorded, giveNewImeis(newSwap()))
+        assertEquals(recorded.imeis, ImeiPair(fake.imei1, fake.imei2))
+        assertEquals(1, asked.size)
+    }
+
+    @Test
+    fun step3RunAgainParksSlot2BeforeAnythingThatMightTurnTheRadioOn() {
+        prepareAndRestart()
+        // As a run that lost the cable on the tray left it, here with the Enhanced Kill Switch turned off since.
+        fake.slot2 = Slot2.SIM2
+        fake.killSwitchSet = false
+        fake.killSwitchInUse = false
+        progress.clear()
+        fake.changes.clear()
+        giveNewImeis()!!
+        assertEquals(
+            listOf(
+                Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM,
+                Progress.SIM1_EMPTY, Progress.KILL_SWITCH_ON,
+            ),
+            progress.take(6),
+        )
+        assertEquals(listOf("slot 2", "Enhanced Kill Switch"), fake.changes.take(2).map { it.substringBefore(" at ") })
+        assertFalse(swap.cardMayBeOn)
+        assertSafe()
+    }
+
+    @Test
+    fun aStep3ThatFindsSlot2OnTheEsimDropsTheWarning() {
+        prepareAndRestart()
+        // From the warning of a run cut off before GL had its switch to the tray. Right after the power-on the modem
+        // doesn't answer yet, so this run can't read slot 2 at its start.
+        val next = newSwap(cardMayBeOn = true)
+        fake.tray1Card = OTHER_CARD
+        assertStops(Problem.SIM1_CARD) { giveNewImeis(next) }
+        assertFalse(next.cardMayBeOn)
+    }
+
+    @Test
+    fun aStep3ThatFindsSlot2OnTheTrayWarnsUntilARunParksIt() {
+        prepareAndRestart()
+        // As a run that lost the cable on the tray, before the card's pair was saved, left it, with the modem answering
+        // from the start. The connection breaks again right after this run's first command.
+        fake.slot2 = Slot2.SIM2
+        fake.modemAnswersFrom = 0.0
+        var sent = 0
+        beforeCommand = { if (sent++ > 0) throw IOException("Broken pipe") }
+        assertTrue(runCatching { giveNewImeis() }.exceptionOrNull() is IOException)
+        assertTrue(swap.cardMayBeOn)
+        // The next run, after a power-on, stops before its park while the modem doesn't answer, so it can't read slot
+        // 2 and keeps the warning.
+        beforeCommand = {}
+        fake.boot()
+        fake.modemAnswersFrom = Double.MAX_VALUE
+        val next = newSwap(cardMayBeOn = swap.cardMayBeOn)
+        assertStops(Problem.RADIO_ON) { giveNewImeis(next) }
+        assertTrue(next.cardMayBeOn)
+        assertEquals(Slot2.SIM2, fake.slot2)
+        // Once the modem answers, the run after it parks slot 2 first and goes on.
+        fake.modemAnswersFrom = 0.0
+        val last = newSwap(cardMayBeOn = next.cardMayBeOn)
+        progress.clear()
+        giveNewImeis(last)!!
+        assertEquals(
+            listOf(Progress.AIRPLANE_MODE_ON, Progress.WAITING_FOR_START, Progress.RADIO_OFF, Progress.SLOT2_ON_ESIM),
+            progress.take(4),
+        )
+        assertFalse(last.cardMayBeOn)
+        assertSafe()
     }
 
     private companion object {

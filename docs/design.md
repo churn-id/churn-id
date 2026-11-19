@@ -434,22 +434,25 @@ every boot:
    the old card's, which show nothing new where that card was in use until
    step 1 (section 4).
 3. The app checks that a VPN is still set up (below). Once the radio is off
-   after the boot (section 6), it checks that the SIM 1 tray is empty
-   (below), turns GL's Enhanced Kill Switch on if it is off, puts Churn's
-   firewall rules in place if they are missing or differ and turns GL's
-   connection check off for the SIM if it is on, then switches slot 2 to
-   SIM 2 in airplane mode and reads the ICCID. Unless step 3 already
-   recorded the card earlier in this swap, the app switches slot 2 back to
-   the built-in eSIM while it asks the user about the card (section 4), so
-   that the card stays off if the router is switched off and on before the
-   answer, then switches it to SIM 2 again and checks that the card is the
-   same. For the card from before the swap, the question is whether to keep
-   it: a user who put it back by mistake would otherwise go on with it,
-   believing it new. It records the card with its pair, writes the pair,
-   saves and verifies it, clears the router's record of earlier cards
-   (below), records its own version and shuts the router down. If it finds
-   no usable card, it switches slot 2 back to the built-in eSIM, so the card
-   stays off at the next power-on, and stops, clearing nothing.
+   after the boot (section 6), it sets slot 2 back to the built-in eSIM if
+   an earlier run of the step left it on the tray (below), checks that the
+   SIM 1 tray is empty (below), turns GL's Enhanced Kill Switch on if it is
+   off, puts Churn's firewall rules in place if they are missing or differ
+   and turns GL's connection check off for the SIM if it is on, then
+   switches slot 2 to SIM 2 in airplane mode and reads the ICCID. Unless
+   step 3 already recorded the card earlier in this swap, the app switches
+   slot 2 back to the built-in eSIM while it asks the user about the card
+   (section 4), so that the card stays off if the router is switched off and
+   on before the answer, then switches it to SIM 2 again and checks that the
+   card is the same. For the card from before the swap, the question is
+   whether to keep it: a user who put it back by mistake would otherwise go
+   on with it, believing it new. It records the card with its pair, writes
+   the pair, saves and verifies it, clears the router's record of earlier
+   cards (below), records its own version and shuts the router down. If it
+   finds no usable card, it stops. Whenever the step stops before the pair
+   is saved, it switches slot 2 back to the built-in eSIM as far as the
+   connection allows, so that the card stays off at the next power-on, and
+   it clears nothing.
 4. The user switches the router on later, at another place and time, and
    turns airplane mode off there. The new card registers at that power-on,
    whatever airplane mode says (section 6). A place card is switched on at
@@ -512,6 +515,23 @@ goes when the swap ends or is canceled.
 - If the cable comes out while the app works on the router, the app ends
   its connection at once and says so. Otherwise a command would wait for
   an answer until its timeout, minutes for some.
+- From step 3's switch of slot 2 to the SIM 2 tray until the new pair is
+  saved, the modem still has the IMEIs of the card before, so a power-on
+  would register the new card with them and link the two. We accept the risk
+  of a switch-off by hand, a flat battery or a crash in that window: it
+  lasts the seconds to a minute that the switch, the card's answer and the
+  write take, in a step the user is watching. A step that stops in the
+  window, after a broken connection too, sets slot 2 back to the built-in
+  eSIM as far as the connection still allows. If it can't, as when the cable
+  came out, the step says not to switch the router off, and how to go on if
+  the router went off anyway: take the card out first, and put it back once
+  step 3 has stopped at the empty tray. The next run sets slot 2 back to the
+  built-in eSIM once the radio is off, before anything that might turn the
+  radio on, and the app keeps the warning until a run has read slot 2. A
+  throwaway pair written before the switch would close the window, but we
+  reject it for the reasons we reject one in step 1 (section 4), and because
+  a run cut off in the window would show a kept or place card to its network
+  with a one-off IMEI, which hints at a rewrite.
 - Each step says what to do, where, and why, so the rules don't depend on
   the user's memory.
 - Warnings are amber and begin with "Warning:", so that a reader who
@@ -565,11 +585,11 @@ goes when the swap ends or is canceled.
   old. The app accepts only WireGuard tunnels, the only type we have
   tested.
 - Step 3 checks the VPN again, in case it was deleted since step 1, right
-  after it turns airplane mode on. Slot 2 is still on the built-in eSIM
-  then, so the step can stop and run again once a VPN is set up, without
-  another step 1. With the old card out and the new one
-  off, the router has no internet over a SIM, so that VPN has to come from a
-  WireGuard configuration file. Step 3 is the swap's last look at the
+  after it turns airplane mode on. Slot 2 is on the built-in eSIM then, or
+  goes back there as the step stops, so the step can stop and run again once
+  a VPN is set up, without another step 1. With the old card out and the new
+  one off, the router has no internet over a SIM, so that VPN has to come
+  from a WireGuard configuration file. Step 3 is the swap's last look at the
   router. A VPN deleted after it leaves the router without internet, not
   with traffic past the VPN (inferred): Churn's firewall rules let only
   WireGuard's packets out over the SIM and name no tunnel (below).
@@ -578,8 +598,8 @@ goes when the swap ends or is canceled.
   at every power-on (section 6), so at step 4 it would go out with the new
   card and link the two, and nothing else in the app would notice it, since
   the app otherwise reads only the active slot. The check comes too late for
-  step 2's power-on, where that card has already registered. Slot 2 is
-  still on the built-in eSIM, so the step runs again once the user has
+  step 2's power-on, where that card has already registered. Slot 2 is on
+  the built-in eSIM by then, so the step runs again once the user has
   switched the router off and taken the card out. The check also catches a
   new card put into the wrong tray, with a clearer message than the one for
   an empty SIM 2 tray. Such a card has registered where and when the old
@@ -590,8 +610,8 @@ goes when the swap ends or is canceled.
   rules are in place and GL's connection check is off for the SIM (rule
   5). Each takes a reload: of the network, of the firewall, or of the
   check, whose restart reloads the network too. Their effect on the modem
-  is untested, so the app does them while slot 2 is still on the built-in
-  eSIM and then checks that the radio is still off. It leaves each
+  is untested, so the app does them while slot 2 is on the built-in eSIM
+  and then checks that the radio is still off. It leaves each
   tunnel's own Kill Switch as it is, since the Enhanced Kill Switch blocks
   that traffic too (section 10). Setup leaves all three alone: until the
   first swap the router still uses the card it had before Churn, with its

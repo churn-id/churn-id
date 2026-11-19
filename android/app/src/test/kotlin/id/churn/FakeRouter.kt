@@ -222,6 +222,19 @@ class FakeRouter : Shell {
 
     /** For GL's eSIM manager leaving the profile enabled at this many requests, as it did once at our step 1. */
     var esimRequestsIgnored = 0
+
+    /**
+     * For GL's cellular manager refusing this many switches of slot 2 with [switchError], without switching, as it
+     * refused one with "lock failed".
+     */
+    var slot2SwitchesRefused = 0
+
+    /** The same for switches of the active slot. */
+    var activeSlotSwitchesRefused = 0
+    var switchError = "lock failed"
+
+    /** The [clock] at each slot switch that the app asked for. */
+    val switchTimes = mutableListOf<Long>()
     var trayCard: Card? = Card("8941000000000000015F", "228010000000001")
 
     /**
@@ -604,6 +617,12 @@ class FakeRouter : Shell {
      */
     var bootSkipsChurnRules = false
 
+    /**
+     * The cards that each power-on registered, by their ICCID as the tray card has it, with the IMEIs the modem had
+     * then: the card in the SIM 2 tray while slot 2 is set to it, whatever airplane mode says (design.md, section 6).
+     */
+    val registrations = mutableListOf<Pair<String, ImeiPair>>()
+
     /** Power-on with the settings kept. */
     fun boot() {
         savedImeis?.let {
@@ -611,6 +630,7 @@ class FakeRouter : Shell {
             imei2 = it.imei2
         }
         savedImeis = null
+        trayCard?.takeIf { slot2 == Slot2.SIM2 }?.let { registrations += it.iccid to ImeiPair(imei1, imei2) }
         bootedAt = clock
         bootId = UUID.randomUUID().toString()
         poweredOff = false
@@ -1167,11 +1187,21 @@ class FakeRouter : Shell {
     private fun setFeatureConfig(request: JSONObject): Output {
         check(request.getString("location_id") == LOCATION_ID && request.getString("bus") == "cpu")
         val failover = request.getJSONObject("data").getJSONObject("failover")
+        switchTimes += clock
+        val refused = ok("{\n\t\"ok\": false,\n\t\"error\": \"$switchError\"\n}\n")
         if (request.has("slot")) {
+            if (slot2SwitchesRefused > 0) {
+                slot2SwitchesRefused--
+                return refused
+            }
             val type = failover.getJSONArray("slot_type").getJSONObject(1).getInt("type")
             change("slot 2")
             slot2 = Slot2.entries.first { it.type == type }
         } else {
+            if (activeSlotSwitchesRefused > 0) {
+                activeSlotSwitchesRefused--
+                return refused
+            }
             check(failover.getBoolean("esim2_enable") == (slot2 == Slot2.ESIM))
             change("active slot")
             activeSlot = failover.getInt("current_sim")

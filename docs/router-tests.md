@@ -230,9 +230,10 @@ where the router emitted nothing at power-on (B8):
 1. It keeps slot 2's setting, the active slot and the IMEIs on the phone,
    to put them back at the end.
 2. Step 3 up to the card, as in the dry run but without its reloads: the
-   VPN, the router started, the checks marked *blocks*, the radio off, the
-   SIM 1 tray empty, the Enhanced Kill Switch and Churn's firewall rules
-   in place, and GL's connection check off for the SIM.
+   VPN, the router started, the checks marked *blocks*, the radio off,
+   slot 2 on the built-in eSIM, the SIM 1 tray empty, the Enhanced Kill
+   Switch and Churn's firewall rules in place, and GL's connection check
+   off for the SIM.
 3. Slot 2 switched to the SIM 2 tray and made the active slot, where no
    card may answer. A card in the tray, an eSIM adapter card without an
    enabled profile too, stops the test before the router shuts down.
@@ -588,6 +589,7 @@ From design.md, sections 4 and 7.
 | W8 | Step 3 stops at an empty SIM 2 tray with slot 2 back on the built-in eSIM, and clears nothing | inferred | Switch the router on at step 2 with the tray empty | 4 |
 | W9 | Step 3 stops when the VPN is gone, while the new card is still off, and runs again once a VPN is set up, without another step 1 | inferred | Delete the VPN at step 2, before step 3 starts, and set it up again from its configuration file | 4 |
 | W10 | If the SIM 2 tray still holds the card from before the swap, step 3 says so and asks whether to keep it, with slot 2 on the built-in eSIM until the answer. Continue keeps the card's IMEIs, and step 4 says that the router keeps the card | inferred | Swap with the card left in the tray at step 2, cancel at the question, switch the router on again at step 2 and continue | 4 |
+| W11 | A step 3 that loses the cable while slot 2 is on the SIM 2 tray, before the card's pair is saved, says not to switch the router off. Its next run sets slot 2 back to the built-in eSIM once the radio is off, before the SIM 1 check and the reloads | inferred | Pull the cable as soon as "Slot 2 is back on the SIM 2 tray." shows after step 3's question, plug it in again and tap Try again | 4 |
 
 ## Beyond the router
 

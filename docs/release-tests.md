@@ -235,7 +235,11 @@ At the first swap of a run, also:
    Switch the router on: the meter shows only the eSIM's short bursts
    (W2), and the router screen says that the card in SIM 2 is off (W7).
 5. Swap the SIM card again, leaving the card in the tray at step 2, and
-   answer step 3's question with Travel card.
+   answer step 3's question with Travel card. Pull the cable out as soon as
+   "Slot 2 is back on the SIM 2 tray." shows: the app says not to switch the
+   router off (W11). Plug it in again and tap Try again: right after "The
+   radio is off.", step 3 lists that slot 2 is on the built-in eSIM (W11).
+   If it asks about the card again, answer with Travel card.
 6. Step 4 asks to destroy no card, since the card taken out is a place
    card (W4). Go online: GL finds the card's APN again after the clearing
    (H9), and the router screen names it as a travel card, with other IMEIs
