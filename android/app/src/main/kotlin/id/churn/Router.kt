@@ -926,6 +926,26 @@ class Router(private val shell: Shell) {
         return counts
     }
 
+    /**
+     * Leaves the removal test's probe in [PROBE], of made-up digits: a file named [kept] that held the lines [before]
+     * and now holds [after], written anew through a new file as Churn's record of a card is, and one named [deleted],
+     * deleted as the clearing deletes an eSIM record. It syncs before the delete, so that the directory's block with
+     * both names reaches the flash and ext4's journal, and again at its end.
+     */
+    fun leaveProbe(kept: String, deleted: String, before: List<String>, after: List<String>) {
+        // Digits only, which the shell takes as they are.
+        require((listOf(kept, deleted) + before + after).all { it.matches(Regex("[0-9]+")) })
+        val file = "$PROBE/$kept"
+        run(
+            "rm -rf $PROBE && mkdir $PROBE && printf '%s\\n' ${before.joinToString(" ")} > $file && " +
+                ": > $PROBE/$deleted && sync && rm -f $PROBE/$deleted && " +
+                "printf '%s\\n' ${after.joinToString(" ")} > $file.new && mv $file.new $file && sync",
+        ).check(PROBE)
+    }
+
+    /** Deletes the removal test's probe, if it is there. */
+    fun removeProbe() = run("rm -rf $PROBE").check(PROBE)
+
     /** The overlay's free space in kB, after a sync, as the free-space overwrite counts it. */
     fun overlayFreeKb(): Long {
         val output = run(OVERLAY_FREE)
@@ -1400,6 +1420,12 @@ class Router(private val shell: Shell) {
 
         /** The folder of the eSIM manager's records, a file per chip. */
         const val ESIM_RECORDS = "$ESIM/db"
+
+        /**
+         * The removal test's probe: a folder on the overlay's partition beside the zero files' folder, outside the
+         * files the router sees, which the test deletes again.
+         */
+        const val PROBE = "/overlay/churn-probe"
 
         /**
          * Fills the overlay's free space with zeros, then frees 512 MB of it again. ext4 keeps back free space that

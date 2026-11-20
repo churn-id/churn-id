@@ -161,14 +161,32 @@ class FakeRouter : Shell {
      */
     val freeSpace = mutableListOf<ByteArray>()
 
-    /** The numbers the app last counted on the raw partition, which it sends as input. */
-    var numbersCounted = emptyList<String>()
+    /** The numbers of each of the app's counts on the raw partition, which it sends as input. */
+    val numbersCounted = mutableListOf<List<String>>()
 
     /**
-     * For a read of the raw partition that fails without an error and finds no number, against H10 and H11. Only the
-     * removal test's tests use it.
+     * For a read of the raw partition that fails without an error and finds no number, against H10 and H11, and
+     * against the check of the removal test's probe. Only the removal test's tests use it.
      */
     var rawReadFindsNothing = false
+
+    /**
+     * What ext4's metadata, its journal and its inode tables, still holds of names and of small files since deleted
+     * or written anew, where the overwrite doesn't reach. Only a file system broken against H22 or H23 holds any.
+     */
+    private val metadata = mutableListOf<ByteArray>()
+
+    /**
+     * For a journal that, once the overwrite is done, still holds a copy of a directory's block from before a file in
+     * it was deleted, against H22. Only the removal test's tests use it.
+     */
+    var journalKeepsNames = false
+
+    /**
+     * For an ext4 with `inline_data`, which keeps a small file's data in its inode, where it stays once the file is
+     * written anew, against H23. Only the removal test's tests use it.
+     */
+    var inlineData = false
 
     /**
      * GL's system log in RAM since the router started, which `logread` writes to the file [logFile] names when the log
@@ -934,11 +952,32 @@ class FakeRouter : Shell {
             return Output(0, ByteArray(it.groupValues[1].toInt() * 1024), "")
         }
         if (command.startsWith("t=/tmp/churn-numbers\n")) {
-            numbersCounted = input!!.toString(Charsets.UTF_8).lines().filter { it.isNotEmpty() }
+            val numbers = input!!.toString(Charsets.UTF_8).lines().filter { it.isNotEmpty() }
+            numbersCounted += numbers
             val inFiles = files.values.toList()
-            // Only a read broken against H10 and H11 gets here.
-            val raw = if (rawReadFindsNothing) emptyList() else inFiles + freeSpace
-            return ok(numbersCounted.joinToString("") { "${count(raw, it)} ${count(inFiles, it)}\n" })
+            // The directories' blocks hold the names of the files in them.
+            val names = files.keys.map { it.substringAfterLast('/').toByteArray() }
+            // Only a read broken against H10 and H11, or against the probe's check, gets here.
+            val raw = if (rawReadFindsNothing) emptyList() else inFiles + names + freeSpace + metadata
+            return ok(numbers.joinToString("") { "${count(raw, it)} ${count(inFiles, it)}\n" })
+        }
+        // The removal test's probe: a file written, written anew and kept, and one deleted.
+        LEAVE_PROBE.matchEntire(command)?.let {
+            val (before, kept, deleted, after) = it.destructured
+            removeProbe()
+            val held = before.replace(' ', '\n') + "\n"
+            files["$PROBE/$kept"] = (after.replace(' ', '\n') + "\n").toByteArray()
+            // What the directory's block held before the delete, and the file before the write.
+            freed(deleted.toByteArray())
+            freed(held.toByteArray())
+            // Only a file system broken against H22 or H23 gets here.
+            if (journalKeepsNames) metadata += deleted.toByteArray()
+            if (inlineData) metadata += held.toByteArray()
+            return ok("")
+        }
+        if (command == "rm -rf $PROBE") {
+            removeProbe()
+            return ok("")
         }
         Regex("""rm -f (.+)""").matchEntire(command)?.let {
             it.groupValues[1].split(" ").filter(String::isNotBlank).forEach { path -> freed(files.remove(path)) }
@@ -1391,6 +1430,14 @@ class FakeRouter : Shell {
         )
     }
 
+    /** Deletes the removal test's probe, whose names and lines stay on the raw partition. */
+    private fun removeProbe() {
+        files.keys.filter { it.startsWith("$PROBE/") }.forEach { path ->
+            freed(files.remove(path))
+            freed(path.substringAfterLast('/').toByteArray())
+        }
+    }
+
     /** Keeps what a file held before it was deleted or replaced, [content], on the raw partition. */
     private fun freed(content: ByteArray?) {
         if (content != null && content.isNotEmpty()) freeSpace += content
@@ -1476,6 +1523,17 @@ class FakeRouter : Shell {
         private val ESIM_LOG_READ = Regex(
             """date \+%s; s=.*? count=(\d+) .*? o=(\d+); .*? = '([0-9a-f]*)' ] .* n=(\d+); .* tail -c .n """ + ESIM_LOG,
         )
+
+        /**
+         * How [Router.leaveProbe] leaves the removal test's probe: with the lines before, the names of the file kept
+         * and of the one deleted, and the lines after.
+         */
+        private val LEAVE_PROBE = Regex(
+            """rm -rf $PROBE && mkdir $PROBE && printf '%s\\n' ([0-9 ]+) > $PROBE/([0-9]+) && """ +
+                """: > $PROBE/([0-9]+) && sync && rm -f $PROBE/\3 && printf '%s\\n' ([0-9 ]+) > $PROBE/\2\.new && """ +
+                """mv $PROBE/\2\.new $PROBE/\2 && sync""",
+        )
+        private const val PROBE = Router.PROBE
         private const val KILL_SWITCH_ON = "uci set 'route_policy.@default[0].enabled=0' && " +
             "{ uci -q delete 'network.vpn_to_main' || true; } && uci commit route_policy && uci commit network && " +
             "/etc/init.d/network reload"

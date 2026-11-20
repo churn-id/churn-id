@@ -390,7 +390,9 @@ class Controller(private val context: Context) {
     fun openRemovalTest() = show(Screen.RemovalTest())
 
     /** Runs tier 2's removal test (router-tests.md, "Removal and clearing"), which only debug builds have. */
-    fun startRemovalTest() = runRemovalTest { test -> test.run(BuildConfig.VERSION_CODE) { saved.removalStart = it } }
+    fun startRemovalTest() = runRemovalTest { test ->
+        test.run(BuildConfig.VERSION_CODE, SecureRandom()) { saved.removalStart = it }
+    }
 
     /** Sets the router up again as it was before the removal test that stopped. */
     fun setUpAgain() = runRemovalTest { test ->
@@ -1073,6 +1075,9 @@ class Controller(private val context: Context) {
             Progress.PARTITION_UNCHECKED -> R.string.progress_partition_unchecked
             Progress.FREE_SPACE_FILLED -> R.string.progress_free_space_filled
             Progress.CLEARED_QUICKLY -> R.string.progress_cleared_quickly
+            Progress.READING_PROBE -> R.string.progress_reading_probe
+            Progress.NAMES_GONE -> R.string.progress_names_gone
+            Progress.OLD_CONTENT_GONE -> R.string.progress_old_content_gone
             Progress.REMOVAL_PASSED -> R.string.progress_removal_passed
             Progress.PUT_BACK -> R.string.progress_put_back
             Progress.DRY_RUN_PASSED -> R.string.progress_dry_run_passed

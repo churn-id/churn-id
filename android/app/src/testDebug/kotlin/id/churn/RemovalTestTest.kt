@@ -2,6 +2,7 @@ package id.churn
 
 import java.io.File
 import java.io.IOException
+import java.security.SecureRandom
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -100,7 +101,7 @@ class RemovalTestTest {
         router.clearHistory(keepIccid, overwrite = false)
     }
 
-    private fun run() = test.run(version) { saves += it }
+    private fun run() = test.run(version, SecureRandom()) { saves += it }
 
     /** What the test sets up again, as the router has it now. */
     private fun state(): List<Any?> {
@@ -143,7 +144,7 @@ class RemovalTestTest {
                 Progress.RESERVE_BACK, Progress.CARD_FILES_PARSE,
                 Progress.ZEROS_KEEP_SPACE, Progress.READING_PARTITION, Progress.IMSIS_GONE, Progress.ICCIDS_GONE,
                 Progress.CLEARING_HISTORY, Progress.FREE_SPACE_FILLED, Progress.CLEARED_QUICKLY,
-                Progress.REMOVAL_PASSED,
+                Progress.READING_PROBE, Progress.NAMES_GONE, Progress.OLD_CONTENT_GONE, Progress.REMOVAL_PASSED,
             ),
             progress,
         )
@@ -481,10 +482,10 @@ class RemovalTestTest {
         // card's ICCID from GL's card files, but not the IMEIs in the log.
         assertEquals(
             listOf("228010000000001", "228010000000002", "8941000000000000015", "8941000000000000023"),
-            fake.numbersCounted,
+            fake.numbersCounted.first(),
         )
         // Only as input, which the debug log leaves out.
-        for (number in fake.numbersCounted) assertTrue(fake.commands.none { number in it })
+        for (number in fake.numbersCounted.first()) assertTrue(fake.commands.none { number in it })
     }
 
     @Test
@@ -500,7 +501,7 @@ class RemovalTestTest {
                 "228010000000001", "228010000000002", "228010000000003", "8941000000000000015", "8941000000000000023",
                 "8941000000000000031",
             ),
-            fake.numbersCounted,
+            fake.numbersCounted.first(),
         )
         assertEquals(Progress.REMOVAL_PASSED, progress.last())
     }
@@ -553,7 +554,7 @@ class RemovalTestTest {
         // GL's log named no card, so only the card's ICCID, which the card files hold, is there to count.
         fake.logBuffer = ""
         run()
-        assertEquals(listOf("8941000000000000015"), fake.numbersCounted)
+        assertEquals(listOf("8941000000000000015"), fake.numbersCounted.first())
         assertTrue(Progress.NO_IMSIS in progress && Progress.NO_ICCIDS in progress)
         assertTrue(Progress.IMSIS_GONE !in progress && Progress.ICCIDS_GONE !in progress)
         assertEquals(Progress.REMOVAL_PASSED, progress.last())
@@ -565,7 +566,8 @@ class RemovalTestTest {
         fake.files.keys.filter { it.startsWith("/etc/config/cellular/") || it.startsWith("/root/esim/") }
             .forEach { fake.files.remove(it) }
         run()
-        assertTrue(fake.commands.none { it.startsWith("t=/tmp/churn-numbers") })
+        // Only the probe's.
+        assertEquals(1, fake.commands.count { it.startsWith("t=/tmp/churn-numbers") })
         assertTrue(Progress.READING_PARTITION !in progress)
         assertTrue(Progress.NO_IMSIS in progress && Progress.NO_ICCIDS in progress)
     }
@@ -576,7 +578,8 @@ class RemovalTestTest {
         // clearing keeps no card's numbers.
         fake.files.remove("/etc/churn/card")
         run()
-        assertTrue(fake.numbersCounted.isNotEmpty())
+        // The cards' numbers, and then the probe's.
+        assertEquals(2, fake.numbersCounted.size)
         assertTrue(Progress.PARTITION_UNCHECKED in progress)
         val results = listOf(Progress.IMSIS_GONE, Progress.NO_IMSIS, Progress.ICCIDS_GONE, Progress.NO_ICCIDS)
         assertTrue(progress.none { it in results })
@@ -619,6 +622,87 @@ class RemovalTestTest {
         assertStopsAfterTheClearing("H16")
     }
 
+    @Test
+    fun removalTestLeavesTheProbeBeforeClearingAgainAndCountsItAfterwards() {
+        run()
+        val leave = fake.commands.indexOfFirst { it.startsWith("rm -rf ${Router.PROBE} && mkdir") }
+        val overwrites = fake.commands.indices.filter { "dd if=/dev/zero" in fake.commands[it] }
+        assertTrue(overwrites.size == 2 && leave in overwrites[0]..overwrites[1])
+        // The names of the file kept and of the one deleted, and the lines the file held before and holds after.
+        val probe = fake.numbersCounted.last()
+        assertEquals(listOf(32, 32, 19, 15, 15, 19, 15, 15), probe.map { it.length })
+        assertTrue(probe[2].startsWith("89") && probe[5].startsWith("89"))
+        assertEquals(probe.size, probe.toSet().size)
+        assertTrue(fake.files.keys.none { it.startsWith("${Router.PROBE}/") })
+        assertEquals("rm -rf ${Router.PROBE}", fake.commands.last { Router.PROBE in it })
+    }
+
+    @Test
+    fun removalTestMakesUpTheProbeAnewEachTime() {
+        run()
+        val first = fake.numbersCounted.last()
+        run()
+        assertTrue(fake.numbersCounted.last().none { it in first })
+    }
+
+    @Test
+    fun removalTestStopsWhenTheDeletedFilesNameIsLeftOnTheRawPartition() {
+        fake.journalKeepsNames = true
+        assertStopsAfterTheClearing("H22", "H23")
+        // Measured all the same.
+        assertTrue(Progress.NAMES_GONE !in progress && Progress.OLD_CONTENT_GONE in progress)
+        assertTrue(fake.files.keys.none { it.startsWith("${Router.PROBE}/") })
+    }
+
+    @Test
+    fun removalTestStopsWhenWhatTheFileHeldBeforeIsLeftOnTheRawPartition() {
+        fake.inlineData = true
+        assertStopsAfterTheClearing("H22", "H23")
+        assertTrue(Progress.NAMES_GONE in progress && Progress.OLD_CONTENT_GONE !in progress)
+        assertTrue(fake.files.keys.none { it.startsWith("${Router.PROBE}/") })
+    }
+
+    @Test
+    fun removalTestStopsWhenTheRawPartitionDoesNotHoldTheProbe() {
+        // Only at the probe's read, after the first clearing's.
+        shell.before = { if (Progress.CLEARED_QUICKLY in progress) fake.rawReadFindsNothing = true }
+        assertStopsAfterTheClearing("H22", "H23")
+        assertTrue(Progress.NAMES_GONE !in progress && Progress.OLD_CONTENT_GONE !in progress)
+    }
+
+    @Test
+    fun removalTestStopsWhenTheRawPartitionHoldsOnlyPartOfTheProbe() {
+        // As if the read missed the block with the file's last two lines.
+        shell.after = { command ->
+            if (command.startsWith("rm -rf ${Router.PROBE} && mkdir")) {
+                val path = fake.files.keys.single { it.startsWith("${Router.PROBE}/") }
+                fake.files[path] = fake.files.getValue(path).copyOf(20)
+            }
+        }
+        assertStopsAfterTheClearing("H22", "H23")
+    }
+
+    @Test
+    fun removalTestStopsWhenTheConnectionClosesWhileReadingTheProbe() {
+        shell.before = {
+            if (it.startsWith("t=/tmp/churn-numbers") && Progress.CLEARED_QUICKLY in progress) shell.broken = true
+        }
+        try {
+            run()
+            throw AssertionError("The test didn't stop")
+        } catch (_: IOException) {
+        }
+        assertEquals(listOf("H22", "H23"), test.testing)
+        assertEquals(listOf(kept, null), saves)
+        assertSafe()
+        // Left for the next removal test, which deletes it first.
+        assertEquals(1, fake.files.keys.count { it.startsWith("${Router.PROBE}/") })
+        shell.broken = false
+        shell.before = {}
+        removalTest().run(version, SecureRandom()) { saves += it }
+        assertTrue(fake.files.keys.none { it.startsWith("${Router.PROBE}/") })
+    }
+
     /**
      * Runs the test with a clearing or a firmware broken to fail the check of [ids], and checks that it stops there,
      * with the router set up again before the clearing.
@@ -639,7 +723,7 @@ class RemovalTestTest {
         assertEquals(
             setOf(
                 "F7", "F8", "F9", "F10", "F11", "F12", "F15", "H3", "H10", "H11", "H13", "H14", "H15", "H16", "H17",
-                "H20", "H21",
+                "H20", "H21", "H22", "H23",
             ),
             claims,
         )
@@ -691,7 +775,7 @@ class RemovalTestTest {
         val before = state()
         // Once the test kept what setting the router up again takes, so that restore.sh finds the radio on.
         assertStops(Problem.UNEXPECTED_ANSWER) {
-            test.run(version) {
+            test.run(version, SecureRandom()) {
                 saves += it
                 fake.radioStuckOn = true
             }

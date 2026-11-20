@@ -618,6 +618,24 @@ run that found the partition full freed the 512 MB, and e2fsck found the
 file system clean (verified on the images). CI repeats these runs on a
 1 GiB image at every build (CONTRIBUTING.md, "Building").
 
+A file's name can outlive the file. The eSIM manager names each record by
+its chip's EID, which the eSIM provider's server learns when it downloads
+a profile to an adapter card, so a deleted record's name would tie the
+router to every profile that adapter held. Our router runs Linux
+5.15.170 (#122), whose ext4 wipes a deleted file's entry in its
+directory's block (inferred from the version). But ext4's journal,
+64 MiB on the overlay (blocks 360448 to 376831), can keep an older copy
+of the block, with the name, until newer metadata writes take its place:
+on a disk image, the journal still held the names of deleted files after
+the fill (verified on the image, #122). ext4 journals no file data by
+default, so what Churn's record of a card held before step 3 wrote it
+anew went to a block that is free again, which the fill overwrites,
+unless the file system keeps small files in their inodes, as it does
+with the `inline_data` feature (inferred). Whether the fill's own
+metadata writes, those of the 4 KB files above all, turn the journal
+over is open. The removal test checks both after its second clearing,
+with a probe of made-up digits (router-tests.md, H22 and H23).
+
 ## After power-on
 
 At every power-on the modem reports its radio on (`+CFUN: 1`) for about
@@ -709,6 +727,9 @@ untested, and the router checks look for it.
   `log_file` back and reloaded the log service.
 - Whether GL copes with card files that name no card, as they can after a
   clearing at step 3, until it records the new card.
+- Whether ext4's journal still holds the names of files deleted before a
+  clearing, such as the eSIM manager's records, once it is done
+  (router-tests.md, H22).
 
 ## Files on the router
 
