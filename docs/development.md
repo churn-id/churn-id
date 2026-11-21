@@ -662,7 +662,8 @@ app's own content provider, which lets only the app the user picks read
 it.
 
 Each job or step starts a section with a line `== <title>`, and each swap
-with `== New swap`. Every line begins with the seconds since its section
+with `== New swap`, after the lines of a job that was still running when
+the swap began. Every line begins with the seconds since its section
 began. A command shows as `$` and its first line, up to 300 characters,
 followed by its exit status and its answer, up to 2,000 characters, with
 `|` before each line of standard output and `!` before each line of
