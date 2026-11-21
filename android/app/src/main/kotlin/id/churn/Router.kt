@@ -722,12 +722,12 @@ class Router(private val shell: Shell) {
 
     /**
      * Deletes the system log's files, each with its `.old`: [SYS_LOG], the file that GL's setting named before Churn
-     * turned the log off, as Churn's copy has it, and [current], the one the log went to until now. A path that would
-     * need quoting is left out rather than passed to the shell.
+     * turned the log off, as Churn's copy has it, and [current], the one the log went to until now. Each path is
+     * quoted, so the log is deleted wherever the setting puts it.
      */
     private fun deleteLogs(current: String?) {
-        val logs = listOfNotNull(SYS_LOG, logFileCopy(), current).distinct().filter { it.matches(PATH) }
-        run("rm -f " + logs.joinToString(" ") { "$it $it.old" }).check("delete the system log")
+        val logs = listOfNotNull(SYS_LOG, logFileCopy(), current).filter(String::isNotEmpty).distinct()
+        run("rm -f " + logs.joinToString(" ") { "${quote(it)} ${quote("$it.old")}" }).check("delete the system log")
     }
 
     /** Keeps only the object named by [keep] in GL's `sim_map.json`, which holds one object per ICCID. */
@@ -891,8 +891,8 @@ class Router(private val shell: Shell) {
      * log's files can reach 128 MB, and the answer is read privately, since it names cards.
      */
     fun numbersInCardFilesAndLogs(logFile: String?): Set<String> {
-        // A path that would need quoting is left out rather than passed to the shell.
-        val logs = listOfNotNull(logFile, logFile?.let { "$it.old" }).filter { it.matches(PATH) }
+        // The script reads a path per line, so a path with a line break can't be passed.
+        val logs = listOfNotNull(logFile, logFile?.let { "$it.old" }).filter { '\n' !in it }
         val paths = listOf(SIM_MAP, APN_HISTORY, "$ESIM/log.txt") + esimRecordFiles() + logs
         val output = runPrivately(NUMBERS_IN_FILES, paths.joinToString("") { "$it\n" }.toByteArray())
         if (output.status != 0) throw unexpected("Reading the numbers in GL's files")
@@ -1372,9 +1372,6 @@ class Router(private val shell: Shell) {
             echo "${'$'}h" | awk '${'$'}3 > m { m = ${'$'}3 } END { print "handshake", m + 0 }'
             echo "${'$'}c" | awk -F, 'NR == 1 { print "clock", ${'$'}1, ${'$'}4 }'
         """.trimIndent()
-
-        /** A path the shell takes as it is, without quoting. */
-        private val PATH = Regex("/[A-Za-z0-9._/-]+")
 
         /** The kernel's folder for the eMMC flash, which holds its estimates of its wear. */
         private const val FLASH = "/sys/block/mmcblk0/device"
