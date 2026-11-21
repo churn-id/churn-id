@@ -503,6 +503,20 @@ class ChecksTest {
     }
 
     @Test
+    fun dnsRuleCheckDoesNotApplyWhileTheRouterStarts() {
+        fake.boot()
+        // 62 s after a power-on, GL's rules that redirect to port 2153 were missing on our Mudi 7 (#103).
+        fake.clock += 62_000
+        val rules = fake.glDnsRules.toList()
+        fake.glDnsRules.removeAll { "redirect to :2153" in it }
+        assertEquals(CheckResult.NotApplicable(R.string.reason_services_starting), run("D2"))
+        fake.clock += 58_000
+        fake.glDnsRules.clear()
+        fake.glDnsRules += rules
+        assertEquals(CheckResult.Passed, run("D2"))
+    }
+
+    @Test
     fun ownTrafficCheckPassesOnlineOverTheSim() {
         assertEquals(CheckResult.Passed, run("D5"))
     }
@@ -737,6 +751,18 @@ class ChecksTest {
     }
 
     @Test
+    fun locationIdCheckDoesNotApplyWhileTheRouterStarts() {
+        fake.boot()
+        // 73 s after a power-on, GL's cellular manager wasn't there yet on our Mudi 7 (#103).
+        fake.clock += 73_000
+        fake.failing += FEATURE_CONFIG_CALL
+        assertEquals(CheckResult.NotApplicable(R.string.reason_services_starting), run("S1"))
+        fake.clock += 47_000
+        fake.failing -= FEATURE_CONFIG_CALL
+        assertEquals(CheckResult.Passed, run("S1"))
+    }
+
+    @Test
     fun locationIdCheckFailsAtAKeyTheSlotSwitchesCannotName() {
         fake.answers[FEATURE_CONFIG_CALL] = FakeRouter.FEATURE_CONFIG.replace("\"bcpu_p0133_v2c7c\"", "\"bcpu p0133\"")
         assertEquals(
@@ -857,6 +883,18 @@ class ChecksTest {
     fun esimManagerCheckFailsIfNothingListensOnItsPort() {
         fake.answers["netstat -lnt"] = FakeRouter.TCP_PORTS.lines().filter { ":3456" !in it }.joinToString("\n")
         assertEquals(CheckResult.Failed("Nothing listens on TCP port 3456."), run("E5"))
+    }
+
+    @Test
+    fun esimManagerCheckDoesNotApplyWhileTheRouterStarts() {
+        fake.boot()
+        // 62 s after a power-on, nothing listened on the eSIM manager's port yet on our Mudi 7 (#103).
+        fake.clock += 62_000
+        fake.answers["netstat -lnt"] = FakeRouter.TCP_PORTS.lines().filter { ":3456" !in it }.joinToString("\n")
+        assertEquals(CheckResult.NotApplicable(R.string.reason_services_starting), run("E5"))
+        fake.clock += 58_000
+        fake.answers.remove("netstat -lnt")
+        assertEquals(CheckResult.Passed, run("E5"))
     }
 
     @Test

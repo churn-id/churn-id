@@ -456,7 +456,7 @@ connection check", and design.md, sections 7 and 10.
 | ID | Claim | Status | Check | Tier |
 | --- | --- | --- | --- | --- |
 | D1 | The main dnsmasq listens on port 53 and asks the cellular interface's servers; the tunnel's own one listens on port 2153 and asks the VPN's DNS server | verified | The listening ports and the servers in their settings | 1 |
-| D2 | GL's nftables rules redirect devices' lookups marked for the tunnel to port 2153 and drop lookups sent past the router without the mark `0x8000` | verified | The rules are present | 1 |
+| D2 | GL's nftables rules redirect devices' lookups marked for the tunnel to port 2153 and drop lookups sent past the router without the mark `0x8000` | verified | The rules are present, from 2 minutes after a power-on (B20) | 1 |
 | D3 | With the tunnel up, devices' lookups go through the VPN; with it down, they get no answer | verified | A lookup of a made-up name from a device | 4 |
 | D4 | Without Churn's firewall rules, for about 2 s after airplane mode goes off, the main dnsmasq passes devices' lookups on over the SIM | verified | Watch what leaves over the cellular interface after airplane mode goes off | 4 |
 | D5 | Without Churn's firewall rules, what the router sends itself goes over the SIM, past both kill switches: the rule at priority 1 points to an empty table 16800, and the main table's default route goes over `rmnet_data0` | rules verified, traffic inferred | `ip rule show`, how many routes `ip route show` lists in table 16800, and the device of the main table's default route | 1 |
@@ -485,7 +485,7 @@ From development.md, "Switching SIM slots", and design.md, section 6.
 
 | ID | Claim | Status | Check | Tier |
 | --- | --- | --- | --- | --- |
-| S1 | `get_feature_config` has exactly one key whose entry holds `failover`, the modem's `location_id` | verified | Exactly one key holds `failover`, with only letters, digits and `_`, which the app requires | 1, blocks |
+| S1 | `get_feature_config` has exactly one key whose entry holds `failover`, the modem's `location_id` | verified | Exactly one key holds `failover`, with only letters, digits and `_`, which the app requires, from 2 minutes after a power-on (B20) | 1, blocks |
 | S2 | `set_feature_config` sets slot 2 to the tray or the eSIM and makes slot 2 the active slot, answers `"ok": true`, and the new state shows at once in `AT+QSIMTYPE="slot2"` and `dds_id` | verified | Switch slot 2 to the tray, make it the active slot, and switch it back to the eSIM | 2 |
 | S3 | Both switches work in airplane mode, with the modem answering `+CFUN: 4` before and after | verified | `+CFUN: 4` after each switch | 2 |
 | S4 | Both switches emit nothing | verified | RF meter | 4 |
@@ -501,7 +501,7 @@ From development.md, "eSIM profiles", and design.md, section 6.
 | E2 | A 19-digit ICCID comes with a trailing `F` | verified | The answer's format | 1 |
 | E3 | With no profile enabled, slot 2 shows the placeholder ICCID `89000123456789012341` and a 001/01 IMSI | verified | Read both while slot 2 is on the eSIM, as after step 1; neither comes with another | 1 |
 | E4 | The chip answers only while slot 2 is set to the eSIM | inferred | With slot 2 on the empty tray, the placeholder doesn't show | 2 |
-| E5 | GL's eSIM manager listens on port 3456, and its firewall rule `block_lpa_port` keeps devices from reaching it, which would otherwise let them change profiles without a login | verified | The listening port, and the rule's settings as we saw them | 1 |
+| E5 | GL's eSIM manager listens on port 3456, and its firewall rule `block_lpa_port` keeps devices from reaching it, which would otherwise let them change profiles without a login | verified | The listening port, and the rule's settings as we saw them, from 2 minutes after a power-on (B20) | 1 |
 | E6 | Posting `disable` to GL's eSIM manager from the router's shell disables the enabled profile without a login, answers `code` 200, and the placeholder shows within about 5 s, with airplane mode and `+CFUN: 4` holding | verified | Enable GL's pre-installed profile in airplane mode, then run step 1. Tier 4, because a power-on with a profile enabled registers wherever it happens | 4 |
 | E7 | A request sent as soon as the radio is off can leave a profile that was online enabled | verified | Start step 1 several times with slot 2 on the eSIM and its profile online, and count the "still enabled" lines | 4 |
 | E8 | A request at least 35 s after one that left the profile enabled disables it | verified | In those runs, step 1 passes after a "still enabled" line | 4 |
@@ -538,6 +538,7 @@ From development.md, "After power-on", and design.md, section 6.
 | B17 | Every unit shows that test profile | inferred | None: it needs a second router | – |
 | B18 | The eSIM's short bursts carry no IMEI over LTE and 5G, where a device gives it only once the network has authenticated it, which no network can do for the test profile | inferred | None known: it needs the network's side | – |
 | B19 | Once the modem answers after power-on, it repeats each AT command before its answer for a while | verified about 70 s after a power-on, and gone 146 s after it | None needed: the app leaves the repeated command out of every answer, and a unit test runs every check with and without it | – |
+| B20 | GL's DNS rules for the tunnel, its cellular manager's `cellular.modem` and its eSIM manager can come up more than a minute after power-on, and are up within 2 minutes | verified for the first minute (#103); inferred for 2 minutes | D2, S1 and E5, which don't apply in the first 2 minutes after a power-on, pass after them | 1 |
 
 ## SIM history
 

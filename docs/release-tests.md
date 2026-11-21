@@ -268,9 +268,11 @@ At the first swap of a run, also:
 
 1. With the router off, take the adapter card out, disable its profile,
    put it back and switch the router on: the router screen names it as an
-   adapter card with no profile enabled (E13).
-2. Swap the SIM card, leaving the card in the tray at step 2: step 3 stops
-   at it as at an empty tray (E13).
+   adapter card with no profile enabled (E13). If Router checks ran within
+   2 minutes of the power-on, they say that D2, S1 and E5 don't apply (B20).
+2. Within those 2 minutes, swap the SIM card, leaving the card in the tray
+   at step 2: step 1 waits until the router has finished starting before its
+   checks (B20), and step 3 stops at the card as at an empty tray (E13).
 3. Switch the router off, take the card out, enable its profile, put it
    back and switch the router on. Tap Try again: step 3 says in amber that
    the card is the one from before this swap, and its question names the
