@@ -64,20 +64,22 @@ is in [docs/development.md](docs/development.md).
 
 The Android project lives in `android/`; open that folder in Android Studio.
 Locally, with JDK 17 and the Android SDK installed, run the unit tests and
-build a release bundle:
+build a release bundle and APK:
 
 ```sh
 cd android
-./gradlew test bundleRelease
+./gradlew test bundleRelease assembleRelease
 ```
 
 CI does the same for every pull request and every push to `main`; download
-the bundle from the workflow run's artifacts (`churn-release-aab-unsigned`,
-and for `main` the signed `churn-release-aab`, see "Signing"). It also
-checks the spelling of the Markdown files and the app's source with
-cspell (word list in `cspell.json`), lints the Markdown files with
-markdownlint-cli2 (`.markdownlint.json`) and lints `restore.sh` and the
-test script below with ShellCheck (`-S warning`). After the build,
+the bundle and the APK from the workflow run's artifacts
+(`churn-release-aab-unsigned` and `churn-release-apk-unsigned`, and for
+`main` the signed `churn-release-aab` and `churn-release-apk`, see
+"Signing"). It also checks the spelling of the Markdown files, the app's
+source and F-Droid's store listing in `fastlane/` with cspell (word list in
+`cspell.json`), lints the Markdown files with markdownlint-cli2
+(`.markdownlint.json`) and lints `restore.sh` and the test script below with
+ShellCheck (`-S warning`). After the build,
 `RouterScriptsTest` has written the scripts in `Router`'s companion to
 `android/app/build/router-scripts/`, as the app sends them. CI lints the
 shell scripts there with ShellCheck too and checks the firewall rules
@@ -100,6 +102,12 @@ from `android/`:
 sudo sh app/src/test/sh/router-scripts-test.sh app/build/router-scripts
 ```
 
+CI's Reproducible APK job builds the release APK again, on another runner,
+from a checkout in another folder and without Gradle's caches, and fails
+unless it matches the first build byte for byte. F-Droid ships our signed
+APK only if its own build of the same commit matches ours too (design.md,
+section 9).
+
 The unit tests run against a simulated Mudi 7. Tests on a real router are
 listed in [docs/router-tests.md](docs/router-tests.md); the app runs the
 first of them, its read-only checks, whenever it connects, and debug builds
@@ -111,16 +119,20 @@ release needs in order.
 
 ## Signing
 
-Release bundles are signed with a Google Play upload key. Locally,
-`bundleRelease` signs with the key that the environment variables
-`CHURN_KEYSTORE_PATH`, `CHURN_KEYSTORE_PASSWORD`, `CHURN_KEY_ALIAS` and
-`CHURN_KEY_PASSWORD` supply. Without them the bundle is unsigned. Key
-material is never committed.
+Release bundles and APKs are signed with one key, which the variables and
+secrets call the upload key, after Google Play's name for it. It signs the
+APKs on GitHub releases too, so it is the app's lasting identity: Android
+installs an update only if it is signed with the same key. Locally,
+`bundleRelease` and `assembleRelease` sign with the key that the
+environment variables `CHURN_KEYSTORE_PATH`, `CHURN_KEYSTORE_PASSWORD`,
+`CHURN_KEY_ALIAS` and `CHURN_KEY_PASSWORD` supply. Without them, the bundle
+and APK are unsigned. Key material is never committed.
 
 CI builds and tests without the key. For `main`, the Sign release bundle
-job then signs the bundle with the JDK's `jarsigner`. No Gradle and no
-code from the repository run in that job, so no build plugin, dependency
-or test can read the key. It needs a GitHub Actions environment named
+and APK job then signs the bundle with the JDK's `jarsigner` and the APK
+with `apksigner` from the runner's Android SDK. No Gradle and no code from
+the repository run in that job, so no build plugin, dependency or test can
+read the key. It needs a GitHub Actions environment named
 `release` with deployment branches restricted to `main`. In it these
 secrets must be set (not as repository secrets, which every branch can
 read):
@@ -131,6 +143,22 @@ read):
 | `CHURN_UPLOAD_PASSWORD`     | Keystore & key password                    |
 
 Builds of pull requests and other branches are always unsigned.
+
+## Releases
+
+1. In a pull request, raise `versionCode` and `versionName` in
+   `android/app/build.gradle.kts`, and add F-Droid's changelog for the new
+   version code as
+   `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
+2. Once it has merged, start the Release workflow on `main` from the
+   repository's Actions tab. It runs the Build workflow, whose sign job
+   signs the APK, and then drafts a GitHub release `v<versionName>` with
+   that APK as `churn-<versionName>.apk`. For anyone but the repository's
+   owner, the workflow skips its jobs.
+3. Run the release tests in [docs/release-tests.md](docs/release-tests.md)
+   with that APK.
+4. Publish the draft, which creates the tag. F-Droid builds each version
+   from its tag, once Churn is in F-Droid's repository.
 
 ## History
 

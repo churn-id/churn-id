@@ -1079,13 +1079,19 @@ documents say where it is legal, since that would be legal advice.
 
 ## 9. Distribution
 
-[F-Droid](https://f-droid.org/) builds every app version on its own
-servers before publishing it in its repository, which makes it the best
-place to distribute Churn. Because of its reach, Google Play is an obvious
-second choice. However, since Churn helps the user do something that is
-illegal in some jurisdictions, Google might refuse the app outright or
-shadow-ban it. Getting the app into Google Play is therefore a bonus rather
-than a goal.
+Churn ships through [F-Droid](https://f-droid.org/) and as signed APKs on
+GitHub releases. F-Droid builds every app version from source on its own
+servers before publishing it in its repository. We aim for reproducible
+builds: when F-Droid's build matches ours byte for byte, F-Droid ships our
+APK with our signature. Users can then switch between F-Droid and GitHub
+without losing the app's data, including the phone's copy of the factory
+IMEIs, since Android updates an app only with an APK signed with the same
+key.
+
+Because of its reach, Google Play is an obvious further choice. However,
+since Churn helps the user do something that is illegal in some
+jurisdictions, Google might refuse the app outright or shadow-ban it.
+Google Play therefore has very low priority and is not a goal for now.
 
 Churn reimplements rather than copies blue-merle, so it doesn't inherit
 blue-merle's license.

@@ -25,10 +25,10 @@ yet goes through router-tests.md's "New firmware" first.
 
 ## What you need
 
-- The release build: an APK of the commit to be released, from
-  `./gradlew assembleRelease` with the signing variables in
-  [CONTRIBUTING.md](../CONTRIBUTING.md#signing). For a full run, also the
-  debug build of the same commit, from `./gradlew assembleDebug`.
+- The release build: the signed APK of the commit to be released, from
+  the draft release that the Release workflow made
+  ([CONTRIBUTING.md](../CONTRIBUTING.md#releases)). For a full run, also
+  the debug build of the same commit, from `./gradlew assembleDebug`.
 - For the upgrade, the phone with the previous release, installed from an
   APK signed with the same key, and its data.
 - A Mudi 7 with a firmware that `TESTED_PLATFORMS` lists, with GL's
