@@ -737,7 +737,7 @@ class FakeRouter : Shell {
         INTERFACE_STATUS.matchEntire(command)?.let {
             val status = respond("ifstatus ${it.groupValues[1]}")
             if (status.status != 0) return Output(3, ByteArray(0), status.stderr)
-            // As jsonfilter prints them: a string as it is, anything else as JSON. A missing field gives 1 (inferred).
+            // As jsonfilter prints them: a string as it is, anything else as JSON. A missing field gives 1.
             val json = JSONObject(status.text)
             val values = listOf("up", "l3_device").mapNotNull { field -> json.opt(field)?.toString() }
             return Output(if (values.size < 2) 1 else 0, values.joinToString("") { "$it\n" }.toByteArray(), "")

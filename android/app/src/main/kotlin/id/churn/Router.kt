@@ -543,7 +543,7 @@ class Router(private val shell: Shell) {
         if (output.status == 3) return null
         val lines = output.text.lines().map(String::trim).filter(String::isNotEmpty)
         val up = lines.firstOrNull()?.toBooleanStrictOrNull()
-        // jsonfilter exits with 1 if a field is missing, as the device is while the interface is down (inferred).
+        // While the interface is down its device is missing, and jsonfilter then exits with 1, as on our Mudi 7.
         if (up == null || output.status !in 0..1 || lines.size > 2) throw unexpected("ifstatus $name", output)
         return InterfaceStatus(up, device = lines.getOrNull(1))
     }
