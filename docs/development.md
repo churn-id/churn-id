@@ -525,8 +525,9 @@ so the app compares ICCIDs without the `F`s. The current card is the one
    flash after it is deleted.
 2. It deletes the log's files, each with its `.old`: `/etc/sys_log`, the
    file that Churn's copy of the setting names, and the one the setting
-   named until step 1, since another firmware may log to another file. A
-   path that would need quoting in the shell is left out.
+   named until step 1, since another firmware may log to another file.
+   Each path is quoted, so the log is deleted wherever the setting puts
+   it.
 3. It rewrites both card files with only the current card's entry,
    through a new file renamed over the old one. It makes the new file
    with `cp -p`, so that the file keeps its mode, owner and group:
