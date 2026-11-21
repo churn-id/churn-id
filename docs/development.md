@@ -530,13 +530,14 @@ so the app compares ICCIDs without the `F`s. The current card is the one
 3. It rewrites both card files with only the current card's entry,
    through a new file renamed over the old one. It makes the new file
    with `cp -p`, so that the file keeps its mode, owner and group:
-   `sim_map.json` holds SIM PINs, and we haven't recorded GL's modes. It
-   deletes each eSIM record file that doesn't name the current card, and
-   empties `log.txt`, which the eSIM manager goes on writing to
-   (verified). A card file or record that doesn't parse, or an APN
-   history without its `apns` list, stops the clearing, since it may
-   still name earlier cards. Steps 1 and 3 stop before that, when the
-   check of H4 finds a file in another format, as after a firmware
+   `sim_map.json` holds SIM PINs. On our Mudi 7 both are root's, with
+   mode 644, as is GL's `slot_map.json`, which Churn never writes
+   (verified, #153). It deletes each eSIM record file that doesn't name
+   the current card, and empties `log.txt`, which the eSIM manager goes
+   on writing to (verified). A card file or record that doesn't parse,
+   or an APN history without its `apns` list, stops the clearing, since
+   it may still name earlier cards. Steps 1 and 3 stop before that, when
+   the check of H4 finds a file in another format, as after a firmware
    upgrade that changed it; the clearing's stop covers a file that
    changed since the check.
 4. Except at setup, it fills the free space of the overlay, ext4 on the

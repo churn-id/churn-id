@@ -368,7 +368,7 @@ design.md, section 6.
 | ID | Claim | Status | Check | Tier |
 | --- | --- | --- | --- | --- |
 | P1 | GL firmware 4.10.0 (OpenWrt 23.05.4), modem Quectel RG650V-EU | verified | Read `/etc/glversion`, `/etc/openwrt_release` and `ATI`, and compare with the versions we tested | 1 |
-| P2 | The firmware has `flock`, `curl`, `ubus`, `fw4`, `nft` and `jsonfilter` | verified, `jsonfilter` inferred | `command -v` for each | 1, blocks |
+| P2 | The firmware has `flock`, `curl`, `ubus`, `fw4`, `nft` and `jsonfilter` | verified (#153) | `command -v` for each | 1, blocks |
 | P3 | The firmware has `md5sum`, which the debug log uses | inferred | `command -v md5sum` | 1 |
 | P4 | AT commands work through `gl_modem -B cpu AT` | verified | `AT+CFUN?` answers, ending with `OK` | 1, blocks |
 | P5 | `gl_modem` keeps Churn's commands apart from those of GL's daemons | inferred | Read the radio and both IMEIs 20 times in a row while GL's services run, and check every answer | 2 |
@@ -392,8 +392,8 @@ check runs, so they have no check of their own.
 | C8 | A step goes on while the phone is locked: the foreground service keeps the app running, its wake lock keeps the phone awake, and GrapheneOS keeps a USB connection made before the lock | inferred | Lock the phone while step 3 runs, and unlock it a minute later: the step has gone on. Once more during a first clearing, unlocked five minutes later | 4 |
 | C9 | Android may end the app's connection to the router while the phone is locked and no step runs, and the next step then connects anew | the reconnect verified, the cause inferred | Let the phone lock on step 1's screen for 10 minutes, then tap Start: the step runs | 4 |
 | C10 | The step a swap has reached survives Android stopping the app and a restart of the phone, and the app opens at that step | inferred | Stop the app in Android's settings at step 2, and restart the phone at another swap's step 2 | 4 |
-| C11 | An answer larger than the SSH connection's window of 2 MB comes back whole, since the app has sshj open the window again as data comes in | inferred | The dry run reads 3 MB of zeros from the router | 2 |
-| C12 | A tap on Churn's notification while a step runs brings back the step's screen, which goes on listing what the step does | inferred | Tap the notification during step 3: the step's lines keep coming | 4 |
+| C11 | An answer larger than the SSH connection's window of 2 MB comes back whole, since the app has sshj open the window again as data comes in | verified (#153) | The dry run reads 3 MB of zeros from the router | 2 |
+| C12 | A tap on Churn's notification while a step runs brings back the step's screen, which goes on listing what the step does | verified (#153) | Tap the notification during step 3: the step's lines keep coming | 4 |
 
 ## Modem
 
@@ -429,7 +429,7 @@ From development.md, "uci settings".
 | U8 | "Power On with Charger" is not in `uci`, and with it off a charger doesn't switch the router on | verified | Plug in a charger with the router off | 4 |
 | U9 | Where GL keeps "Power On with Charger" | open | None until it's found; the user confirms the setting | – |
 | U10 | Turning airplane mode off on GL's screen writes and commits the setting within seconds. The screen does it with `ubus call cellular.modem set_airplane_mode '{"enable":false}'`, which from a shell answers `{"ok": true}` but changes nothing | verified | `ubus monitor` and `uci changes glconfig` while turning airplane mode off on the screen; the leak watch reads the setting while the user does | 4 |
-| U11 | `uci get` of an option, section or config that isn't there prints `uci: Entry not found` and exits with 1 | verified for an option and a config (#119); inferred from OpenWrt's `uci` for a section | `uci get` of `system.@system[0].nothing`, `network.nothing` and `nothing.nothing` | 1, blocks |
+| U11 | `uci get` of an option, section or config that isn't there prints `uci: Entry not found` and exits with 1 | verified for an option and a config (#119) and for a section (#153) | `uci get` of `system.@system[0].nothing`, `network.nothing` and `nothing.nothing` | 1, blocks |
 
 ## Kill switch and VPN
 
@@ -565,7 +565,7 @@ and 10.
 | H17 | The SSH connection stays open through the overwrite, which prints nothing for minutes | inferred | The removal test's first clearing, which fills about 2.9 GB | 2 |
 | H18 | The flash rates its own wear, and reported under 10% used on our router after our tests | verified | `life_time` and `pre_eol_info` in `/sys/block/mmcblk0/device/`, which the debug log records at every connection; the check also fails once the flash warns that its life or its spare blocks are running out | 1 |
 | H19 | GL writes files in `/etc` every minute, so with the log's file off, the clock after a power-on still resumes from about the time of the power-off | verified with the SIM online | The files in `/etc` that something other than Churn wrote in the last 2 minutes, from 2 minutes after a power-on, in airplane mode too | 1 |
-| H20 | The clearing's writes keep the mode, owner and group of GL's card files, since it writes them through a copy made with BusyBox's `cp -p` | inferred | The removal test writes GL's card files again unchanged, as a clearing writes them, and compares `ls -ln` before and after | 2 |
+| H20 | The clearing's writes keep the mode, owner and group of GL's card files, since it writes them through a copy made with BusyBox's `cp -p` | verified (#153) | The removal test writes GL's card files again unchanged, as a clearing writes them, and compares `ls -ln` before and after | 2 |
 | H21 | The overwrite's fill leaves at most 64 kB of the overlay free | inferred from our router, where the 4 KB files found no free block after the 64 MB parts | The overwrite prints the free space after its fill and fails above 64 kB, at the removal test's clearings as at every swap | 2 |
 | H22 | After a clearing, the raw partition holds no copy of the name of a file deleted before its overwrite, such as the EID that names an eSIM record | open: on a disk image, ext4's journal still held such names after the fill (#122) | The removal test's probe: a file named by 32 made-up digits, deleted after a sync before the second clearing; afterwards, its name is counted on the raw partition, which has to hold the name of the probe's other file | 2 |
 | H23 | After a clearing, the raw partition holds no copy of what a small file, such as Churn's record of a card, held before it was written anew | inferred from ext4's defaults, which journal no file data and keep it out of the inodes | The removal test's probe: a file with made-up lines as in Churn's record of a card, written anew through a new file before the second clearing; afterwards, its old lines are counted on the raw partition, which has to hold the new ones | 2 |
@@ -608,7 +608,7 @@ From design.md, sections 4 and 7.
 | W8 | Step 3 stops at an empty SIM 2 tray with slot 2 back on the built-in eSIM, and clears nothing | inferred | Switch the router on at step 2 with the tray empty | 4 |
 | W9 | Step 3 stops when the VPN is gone, while the new card is still off, and runs again once a VPN is set up, without another step 1 | inferred | Delete the VPN at step 2, before step 3 starts, and set it up again from its configuration file | 4 |
 | W10 | If the SIM 2 tray still holds the card from before the swap, step 3 says so and asks whether to keep it, with slot 2 on the built-in eSIM until the answer. Continue keeps the card's IMEIs, and step 4 says that the router keeps the card | inferred | Swap with the card left in the tray at step 2, cancel at the question, switch the router on again at step 2 and continue | 4 |
-| W11 | A step 3 that loses the cable while slot 2 is on the SIM 2 tray, before the card's pair is saved, says not to switch the router off. Its next run sets slot 2 back to the built-in eSIM once the radio is off, before the SIM 1 check and the reloads | inferred | Pull the cable as soon as "Slot 2 is back on the SIM 2 tray." shows after step 3's question, plug it in again and tap Try again | 4 |
+| W11 | A step 3 that loses the cable while slot 2 is on the SIM 2 tray, before the card's pair is saved, says not to switch the router off. Its next run sets slot 2 back to the built-in eSIM once the radio is off, before the SIM 1 check and the reloads | verified (#153) | Pull the cable as soon as "Slot 2 is back on the SIM 2 tray." shows after step 3's question, plug it in again and tap Try again | 4 |
 
 ## Beyond the router
 
