@@ -163,7 +163,9 @@ At the first swap of a run, also:
    by itself.
 4. Answer step 3's question a minute after it shows, with Travel card
    (W1). The card answers as the eSIM does (E10), and the first clearing
-   takes a few minutes.
+   takes a few minutes. Lock the phone as soon as step 3 lists that it is
+   clearing the SIM history, and unlock it five minutes later: the step
+   has gone on (C8).
 5. Step 4 asks to destroy no card, since no card was recorded before the
    swap. Tap Done and switch to the debug build. Switch the router on,
    connect, and run the leak watch (D9, D11, D16, D21, U10), which stands
@@ -206,9 +208,12 @@ At the first swap of a run, also:
 2. At step 2, take the normal SIM card out and put the adapter card in.
    Stop the app in Android's settings and open it again: it shows step 2
    (C10). Switch the router on.
-3. Answer step 3's question with Place card. Step 3 lists that it turned
-   the Enhanced Kill Switch on, added Churn's firewall rules and turned
-   GL's connection check off. The clearing takes under a minute (H16).
+3. While step 3 waits for the router to finish starting, pull down the
+   notification shade and tap Churn's notification: the step's lines keep
+   coming (C12). Answer step 3's question with Place card. Step 3 lists
+   that it turned the Enhanced Kill Switch on, added Churn's firewall
+   rules and turned GL's connection check off. The clearing takes under a
+   minute (H16).
 4. Step 4 asks to destroy the normal SIM card, which you keep for the
    tests (W4), and says to switch the router on only at the place card's
    place. Go online.

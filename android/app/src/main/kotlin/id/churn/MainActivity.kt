@@ -41,6 +41,12 @@ class MainActivity : Activity() {
     /** The Router checks dialog while it is open, which follows the router screen behind it. */
     private var checksDialog: AlertDialog? = null
 
+    /**
+     * This screen's callback, by which [onStop] tells whether the Controller still has this screen's callbacks. It has
+     * to be one object: each `::render` makes a new one, so `controller.onScreen === ::render` would never be true.
+     */
+    private val screenCallback: (Screen) -> Unit = ::render
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // The screens show the IMEIs, the router's key fingerprint and the last digits of cards' ICCIDs, which
@@ -50,16 +56,20 @@ class MainActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
-        controller.onScreen = ::render
+        controller.onScreen = screenCallback
         controller.onCable = ::showCable
         render(controller.screen)
         controller.startWatching()
     }
 
     override fun onStop() {
-        controller.stopWatching()
-        controller.onScreen = null
-        controller.onCable = null
+        // Android starts a screen opened over this one before it stops this one, so the newer screen's callbacks and
+        // cable watch would go with this one's.
+        if (controller.onScreen === screenCallback) {
+            controller.stopWatching()
+            controller.onScreen = null
+            controller.onCable = null
+        }
         super.onStop()
     }
 
