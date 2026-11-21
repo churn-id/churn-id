@@ -115,6 +115,34 @@ class SwapTest {
     }
 
     @Test
+    fun step1BegunSoonAfterPowerOnWaitsUntilTheRouterHasStarted() {
+        fake.boot()
+        // 73 s after a power-on, GL's cellular manager, which the slot switch uses, wasn't there yet on our Mudi 7
+        // (#103).
+        fake.clock += 73_000
+        var checkedAt = 0.0
+        checks = {
+            checkedAt = fake.uptime
+            emptyList()
+        }
+        swap.prepare()
+        assertEquals(listOf(Progress.WAITING_FOR_START, Progress.AIRPLANE_MODE_ON), progress.take(2))
+        // The checks, and all that comes after them, once the router has started.
+        assertTrue(checkedAt >= Swap.SETTLED_UPTIME_SECONDS)
+        assertEquals(Slot2.ESIM, fake.slot2)
+        assertSafe()
+    }
+
+    @Test
+    fun step1ChangesNothingIfTheRouterDoesNotFinishStarting() {
+        // An uptime that stays under 2 minutes.
+        fake.answers["cat /proc/uptime"] = "73.00 100.00\n"
+        assertStops(Problem.NOT_STARTED) { swap.prepare() }
+        assertEquals(emptyList<String>(), fake.changes)
+        assertFalse(fake.airplaneMode)
+    }
+
+    @Test
     fun step3StartsOnlyOnceTheRouterHasRestarted() {
         swap.prepare()
         val bootId = swap.bootId()

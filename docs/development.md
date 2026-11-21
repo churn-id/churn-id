@@ -650,8 +650,15 @@ doesn't answer AT commands for a while after power-on, so the app keeps
 asking. Once it answers, it repeats each command before its answer for a
 while, as GL's channel to the cards always does (verified about 70 s after a
 power-on, and gone 146 s after it), so the app leaves a first line that is
-the command out of every answer. Step 3 of the swap changes nothing before
-`/proc/uptime` shows 120 s and the modem answers `+CFUN: 4`.
+the command out of every answer. GL's DNS rules for the tunnel, its cellular
+manager's `cellular.modem` and its eSIM manager can come up more than a
+minute after power-on: all three were missing 56 to 62 s after one power-on,
+`cellular.modem` was still missing 73 s after another, and all three were
+there by 127 s after a third (#103). We take them to be up within 2 minutes
+(inferred), so the router checks of D2, S1 and E5 don't apply before
+`/proc/uptime` shows 120 s, and step 1, begun sooner, waits until then
+before its checks. Step 3 of the swap changes nothing before `/proc/uptime`
+shows 120 s and the modem answers `+CFUN: 4`.
 
 ## The debug log
 

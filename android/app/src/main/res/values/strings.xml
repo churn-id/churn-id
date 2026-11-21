@@ -178,6 +178,7 @@
     <string name="reason_not_set_up">Churn hasn\'t set up this router yet.</string>
     <string name="reason_starting">The router started less than 2 minutes ago, so the radio may still be on.</string>
     <string name="reason_just_started">The router started less than 2 minutes ago.</string>
+    <string name="reason_services_starting">The router started less than 2 minutes ago, so GL\'s services may still be starting.</string>
     <string name="reason_no_active_card">GL records no active card at the moment.</string>
     <string name="reason_no_vpn">No WireGuard VPN is set up on the router.</string>
     <string name="reason_kill_switch_off">The Enhanced Kill Switch is off.</string>
@@ -376,7 +377,7 @@
     <string name="problem_not_answered">Churn waited 10 minutes for your answer, so it stopped. Slot 2 is on the built-in eSIM. Tap Try again to answer.</string>
     <string name="problem_not_set_up">Churn\'s folder on the router is missing or damaged. Connect from the start to set the router up again.</string>
     <string name="problem_newer_version">A newer version of Churn ran the last swap on this router, so Churn left the router as it is. Update Churn on this phone, then connect again. This version would put back its own restore script, which doesn\'t undo everything the newer version changes, and its swaps would replace the newer version\'s firewall rules with its own.</string>
-    <string name="problem_not_started">The router didn\'t finish starting, so Churn stopped. Slot 2 is on the built-in eSIM, so you can switch the router off and on again and tap Try again.</string>
+    <string name="problem_not_started">The router didn\'t finish starting, so Churn stopped, at step 1 before changing anything and at step 3 with slot 2 on the built-in eSIM. You can switch the router off and on again and tap Try again.</string>
     <string name="problem_kill_switch_off">The Enhanced Kill Switch didn\'t come on.</string>
     <string name="problem_no_vpn">No WireGuard VPN is set up on the router. Set one up in GL\'s web interface first (rule 5).</string>
     <string name="problem_vpn_gone">No WireGuard VPN is set up on the router any more, so Churn stopped while the new card is off. The router has no internet over a SIM now, so set one up in GL\'s web interface from a WireGuard configuration file (rule 5), then tap Try again.</string>
