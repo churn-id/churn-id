@@ -402,7 +402,11 @@ class SwapTest {
         prepareAndRestart()
         fake.overwriteFillFallsShort = true
         val stop = assertStops(Problem.UNEXPECTED_ANSWER) { giveNewImeis() }
-        assertEquals("overwrite the free space: 1024 kB free after the fill", stop.detail)
+        assertEquals(
+            "overwrite the free space: 1024 kB free after the fill\n" +
+                "ext4's journal turned over with 5 rounds of 4096 folders, writing 90244 kB",
+            stop.detail,
+        )
         assertEquals(Progress.CLEARING_HISTORY, progress.last())
         assertNull(recordedVersion())
         assertSafe()

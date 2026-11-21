@@ -217,9 +217,13 @@ class RemovalTest(
             if (free !in KEPT_FREE_KB - FREE_SLACK_KB until KEPT_FREE_KB + ZERO_FILE_KB) {
                 throw RouterException(Problem.UNEXPECTED_ANSWER, "${free / 1024} MB are free after the clearing")
             }
-            // Their folder, with no fill files left: what isn't free any more went into the zero files.
+            // Their folder, with no fill files or folder of the journal's turnover left: what isn't free any more went
+            // into the zero files.
             if (router.zeroFiles().count != 1) {
-                throw RouterException(Problem.UNEXPECTED_ANSWER, "No folder of zero files, or fill files are left")
+                throw RouterException(
+                    Problem.UNEXPECTED_ANSWER,
+                    "No folder of zero files, or fill files or a turnover's folder are left",
+                )
             }
             report(Progress.ZEROS_KEEP_SPACE)
         }
@@ -270,7 +274,7 @@ class RemovalTest(
 
     /**
      * Clears the SIM history again, now with the zero files in place, as at every swap after the first: the overwrite
-     * fills only the free space, about 512 MB, and so takes under a minute.
+     * fills only the free space, about 512 MB, and turns ext4's journal over, and so takes about a minute.
      */
     private fun clearAgain(start: RemovalStart) {
         var free = 0L
@@ -281,11 +285,12 @@ class RemovalTest(
             val before = router.overlayWrittenKb()
             report(Progress.CLEARING_HISTORY)
             val started = now()
-            router.clearHistory(keep(start))
+            val turnover = router.clearHistory(keep(start))
             millis = now() - started
-            written = router.overlayWrittenKb() - before
+            written = router.overlayWrittenKb() - before - turnover
         }
-        // All of the free space and what ext4 writes to keep track of it, but not the zero files' space again.
+        // All of the free space and what ext4 writes to keep track of it, but not the zero files' space again. What
+        // the journal's turnover wrote, which the overwrite measures, is left out.
         part("H15") {
             if (written !in free - FREE_SLACK_KB..free + WRITE_SLACK_KB) {
                 throw RouterException(
@@ -331,8 +336,8 @@ class RemovalTest(
             if (names > 0 || lines > 0) {
                 throw RouterException(
                     Problem.UNEXPECTED_ANSWER,
-                    "The raw partition still holds $names copies of the deleted file's name (H22) and $lines copies " +
-                        "of the lines the file held before it was written anew (H23)",
+                    "The raw partition still holds ${copies(names)} of the deleted file's name (H22) and " +
+                        "${copies(lines)} of the lines the file held before it was written anew (H23)",
                 )
             }
         }
@@ -348,7 +353,8 @@ class RemovalTest(
         if (left.isNotEmpty()) {
             throw RouterException(
                 Problem.UNEXPECTED_ANSWER,
-                "The raw partition still holds ${left.size} of the ${deleted.size} $kind deleted, ${left.sum()} copies",
+                "The raw partition still holds ${left.size} of the ${deleted.size} $kind deleted, " +
+                    copies(left.sum()),
             )
         }
         report(gone)
@@ -366,6 +372,9 @@ class RemovalTest(
             else number.startsWith("89")
         }.sorted()
     }
+
+    /** [count] copies, in words. */
+    private fun copies(count: Int) = if (count == 1) "1 copy" else "$count copies"
 
     /** Runs [part] of the test, which confirms the claims with the IDs [ids]. */
     private fun part(vararg ids: String, part: () -> Unit) {
@@ -413,8 +422,8 @@ class RemovalTest(
         /** What ext4 writes besides the data at most, for its journal and the fill files' metadata, in kB: 64 MB. */
         private const val WRITE_SLACK_KB = 65_536
 
-        /** How long a clearing with the zero files in place may take, in milliseconds: a minute. */
-        private const val MAX_CLEARING_MILLIS = 60_000
+        /** How long a clearing with the zero files in place may take, in milliseconds: a minute and a half. */
+        private const val MAX_CLEARING_MILLIS = 90_000
 
         /** How many digits an IMSI has, as an IMEI does; an ICCID has 18 to 20. */
         private const val IMSI_LENGTH = 15

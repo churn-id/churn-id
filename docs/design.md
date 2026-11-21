@@ -789,7 +789,10 @@ IMEIs:
    overwrites it: before the clearing, the partition held 460 copies of an
    old card's ICCID, of which only 270 were in files. The zeros stay, as
    files, apart from 512 MB of free space, so deleted data can only be in
-   those 512 MB, and the next overwrite fills only them.
+   those 512 MB, and the next overwrite fills only them. Last, it turns
+   the file system's journal over, so that it keeps no older copy of a
+   folder's list of files with the name of a file since deleted, such as
+   an eSIM record, which the eSIM manager names by its chip's EID.
 
 Choices and their effects:
 
@@ -810,8 +813,9 @@ Choices and their effects:
 - Overwriting all 2.9 GB of free space took about 3 minutes with our
   script on our router, and close to 5 minutes in the app, which keeps
   itself alive meanwhile as during a swap step. Only the first overwrite
-  does that. Later ones fill the 512 MB that the zero files leave free,
-  which should take under a minute (inferred from the first one's speed).
+  does that. Later ones fill the 512 MB that the zero files leave free
+  and turn ext4's journal over, as below, which took about a minute on
+  our router (verified).
   For the last seconds of an overwrite the partition is full and GL can't
   save anything; GL's files stayed intact in our test.
 - Setup leaves the overwrite to the first swap's step 3, so that trying
@@ -850,6 +854,17 @@ Choices and their effects:
   raw partition outside the files that name it (verified). On a disk
   image with 300 old versions of a settings file, it left 299 without
   these changes and none with them (verified on the image).
+- The file system's journal, 64 MB on our router, keeps copies of the
+  file system's own blocks that recent changes wrote, such as a folder's
+  list of files, but not of what files hold, so the fill doesn't reach
+  it. Without the turnover, our router still held the name of a file
+  deleted before a clearing (verified), in the journal (inferred). The
+  turnover's rounds of new folders, which it then deletes, put more
+  blocks through the journal than it holds: on a disk image, they left no
+  deleted file's name and wrote about 88 MB (verified on the image). On
+  our router they left none either and wrote about 90 MB (verified),
+  which added about 15 seconds to a clearing (inferred from its clearings
+  before the turnover).
 
 ## 8. Usage rules
 
