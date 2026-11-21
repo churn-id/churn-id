@@ -913,7 +913,8 @@ class Router(private val shell: Shell) {
      * How often each of [numbers] is on the overlay's raw partition and in the files on it, as a whole run of digits.
      * The router drops its block cache before it reads the partition, so that the reads come from the flash, and
      * again afterwards, since ext4 can make new blocks from cached ones, old data included. The numbers go to the
-     * router as input, which the debug log leaves out, and only counts come back. Reading the 2.9 GB takes minutes.
+     * router as input, which the debug log leaves out, and only counts come back. Reading the 2.9 GB took about 33 s
+     * on our Mudi 7.
      */
     fun countOnPartition(numbers: List<String>): List<NumberCount> {
         val output = run(COUNT_NUMBERS, numbers.joinToString("") { "$it\n" }.toByteArray(), timeoutSeconds = 900)

@@ -191,11 +191,11 @@ router with no SIM and no profile enabled on the built-in eSIM:
      rest of the free space and no fill files left (H15);
    - and that the raw partition holds no copy of the IMSIs (H10) and ICCIDs
      (H11) from step 5 that no file holds any more, those of the earlier
-     cards. It reads the partition from the flash, after dropping the
-     router's block cache, which takes a few minutes, and a read that finds
-     none of the numbers that files hold counts as failed. If files hold
-     none, as on a router never swapped since setup, whose clearing keeps no
-     card's numbers, H10 and H11 stay unconfirmed.
+     cards. It reads the partition from the flash in about half a minute,
+     after dropping the router's block cache, and a read that finds none of
+     the numbers that files hold counts as failed. If files hold none, as on
+     a router never swapped since setup, whose clearing keeps no card's
+     numbers, H10 and H11 stay unconfirmed.
 8. It leaves a probe of made-up digits in `/overlay/churn-probe` for the
    second clearing, as step 3 writes Churn's record of the card anew
    before its clearing, which deletes eSIM records before its overwrite.
@@ -210,7 +210,7 @@ router with no SIM and no profile enabled on the built-in eSIM:
    clearing has to write about as much as the free space it found, not
    the zero files' space again (H15), and it has to take under a minute
    (H16). Its fill too has to leave at most 64 kB free (H21).
-10. It reads the raw partition again, which takes a few minutes. The
+10. It reads the raw partition again, which takes about half a minute. The
     probe's first file, by its name and its new lines, has to be there, or
     the read counts as failed, but neither the second file's name (H22)
     nor the first file's old lines (H23). The test reports on both claims,
