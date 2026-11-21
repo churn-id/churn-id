@@ -88,7 +88,10 @@ class DebugLog(
 
     val isEmpty get() = file.length() == 0L
 
-    /** Marks the start of a swap. */
+    /**
+     * Marks the start of a swap. The Controller writes it on the worker thread, so that it follows the job that was
+     * running when the swap began, such as the router checks, whose last lines would otherwise show under it.
+     */
     @Synchronized
     fun beginSwap() {
         if (on()) file.appendText("\n$SWAP\n")

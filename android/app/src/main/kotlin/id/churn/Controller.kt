@@ -313,7 +313,7 @@ class Controller(private val context: Context) {
     fun beginSwap(status: RouterStatus) {
         saved.firstSwap = status.imeis == status.factory
         chargerChecked = false
-        debugLog.beginSwap()
+        worker.execute { debugLog.beginSwap() }
         show(Screen.Swapping(Step.PREPARE))
     }
 
