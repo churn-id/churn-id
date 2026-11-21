@@ -789,7 +789,10 @@ IMEIs:
    overwrites it: before the clearing, the partition held 460 copies of an
    old card's ICCID, of which only 270 were in files. The zeros stay, as
    files, apart from 512 MB of free space, so deleted data can only be in
-   those 512 MB, and the next overwrite fills only them.
+   those 512 MB, and the next overwrite fills only them. Last, it turns
+   the file system's journal over, so that it keeps no older copy of a
+   folder's list of files with the name of a file since deleted, such as
+   an eSIM record, which the eSIM manager names by its chip's EID.
 
 Choices and their effects:
 
@@ -850,6 +853,16 @@ Choices and their effects:
   raw partition outside the files that name it (verified). On a disk
   image with 300 old versions of a settings file, it left 299 without
   these changes and none with them (verified on the image).
+- The file system's journal, 64 MB on our router, keeps copies of the
+  file system's own blocks that recent changes wrote, such as a folder's
+  list of files, but not of what files hold, so the fill doesn't reach
+  it. Without the turnover, our router still held the name of a file
+  deleted before a clearing (verified), in the journal (inferred). The
+  turnover's rounds of new folders, which it then deletes, put more
+  blocks through the journal than it holds: on a disk image, they left no
+  deleted file's name and wrote about 88 MB (verified on the image),
+  which should take our router under 10 seconds (inferred from its write
+  speed).
 
 ## 8. Usage rules
 

@@ -69,9 +69,9 @@ exec 8>/var/lock/churn-overwrite.lock && flock 8 ||
 	fail "The factory IMEIs are back, but waiting for Churn's overwrite of the free space failed."
 
 # The zero files that take most of the flash's free space between
-# clearings, the link to them, and fill files left by a clearing that
-# stopped.
-rm -rf /overlay/churn-zeros /overlay/churn-fill.* "$DIR/zeros" ||
+# clearings, the link to them, and fill files and folders of the journal's
+# turnover left by a clearing that stopped.
+rm -rf /overlay/churn-zeros /overlay/churn-fill.* /overlay/churn-turnover "$DIR/zeros" ||
 	fail "The factory IMEIs are back, but deleting Churn's zero files in /overlay/churn-zeros failed."
 
 # GL's connection check pings past Churn's firewall rules, so Churn turned

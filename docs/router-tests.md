@@ -188,7 +188,8 @@ router with no SIM and no profile enabled on the built-in eSIM:
    - that ext4's reserve is as before the clearing (H13);
    - that GL's card files and the eSIM manager's records parse (H14);
    - that about 512 MB are free, with the zero files' folder holding the
-     rest of the free space and no fill files left (H15);
+     rest of the free space and no fill files or folder of the journal's
+     turnover left (H15);
    - and that the raw partition holds no copy of the IMSIs (H10) and ICCIDs
      (H11) from step 5 that no file holds any more, those of the earlier
      cards. It reads the partition from the flash in about half a minute,
@@ -206,7 +207,8 @@ router with no SIM and no profile enabled on the built-in eSIM:
    the test deletes. It syncs before the delete, so that the directory's
    block with both names reaches the flash and ext4's journal.
 9. It clears the SIM history again, now with the zero files in place, as
-   at every swap after the first. By ext4's `lifetime_write_kbytes`, the
+   at every swap after the first. By ext4's `lifetime_write_kbytes`, less
+   what the overwrite says its turnover of ext4's journal wrote, the
    clearing has to write about as much as the free space it found, not
    the zero files' space again (H15), and it has to take under a minute
    (H16). Its fill too has to leave at most 64 kB free (H21).
@@ -561,15 +563,15 @@ and 10.
 | H12 | The overlay is ext4 on `mmcblk0p59`, 2.9 GB, and ext4 keeps 4096 blocks back from it in `reserved_clusters` | verified | The overlay's line in `/proc/mounts` and its `reserved_clusters` file | 1, blocks |
 | H13 | The overwrite puts ext4's reserve back at its end, and a trap does when a signal stops it | verified; the trap on a disk image | `reserved_clusters` before and after the removal test's first clearing | 2 |
 | H14 | GL's files stay valid while the overwrite fills the partition | verified once | GL's card files and the eSIM manager's records parse after the removal test's first clearing | 2 |
-| H15 | The overwrite leaves all but 512 MB of the free space in `/overlay/churn-zeros`, so the next one fills only those 512 MB | verified on disk images | The free space and the folder after the removal test's first clearing; `lifetime_write_kbytes` in `/sys/fs/ext4/mmcblk0p59/` before and after its second | 2 |
+| H15 | The overwrite leaves all but 512 MB of the free space in `/overlay/churn-zeros`, so the next one fills only those 512 MB | verified on disk images | The free space and the folder after the removal test's first clearing; `lifetime_write_kbytes` in `/sys/fs/ext4/mmcblk0p59/` before and after its second, less what the overwrite says its turnover of ext4's journal wrote | 2 |
 | H16 | With the zero files in place, an overwrite takes under a minute | inferred from the first overwrite's speed | Time the removal test's second clearing | 2 |
 | H17 | The SSH connection stays open through the overwrite, which prints nothing for minutes | inferred | The removal test's first clearing, which fills about 2.9 GB | 2 |
 | H18 | The flash rates its own wear, and reported under 10% used on our router after our tests | verified | `life_time` and `pre_eol_info` in `/sys/block/mmcblk0/device/`, which the debug log records at every connection; the check also fails once the flash warns that its life or its spare blocks are running out | 1 |
 | H19 | GL writes files in `/etc` every minute, so with the log's file off, the clock after a power-on still resumes from about the time of the power-off | verified with the SIM online | The files in `/etc` that something other than Churn wrote in the last 2 minutes, from 2 minutes after a power-on, in airplane mode too | 1 |
 | H20 | The clearing's writes keep the mode, owner and group of GL's card files, since it writes them through a copy made with BusyBox's `cp -p` | verified (#153) | The removal test writes GL's card files again unchanged, as a clearing writes them, and compares `ls -ln` before and after | 2 |
 | H21 | The overwrite's fill leaves at most 64 kB of the overlay free | inferred from our router, where the 4 KB files found no free block after the 64 MB parts | The overwrite prints the free space after its fill and fails above 64 kB, at the removal test's clearings as at every swap | 2 |
-| H22 | After a clearing, the raw partition holds no copy of the name of a file deleted before its overwrite, such as the EID that names an eSIM record | open: on a disk image, ext4's journal still held such names after the fill (#122) | The removal test's probe: a file named by 32 made-up digits, deleted after a sync before the second clearing; afterwards, its name is counted on the raw partition, which has to hold the name of the probe's other file | 2 |
-| H23 | After a clearing, the raw partition holds no copy of what a small file, such as Churn's record of a card, held before it was written anew | inferred from ext4's defaults, which journal no file data and keep it out of the inodes | The removal test's probe: a file with made-up lines as in Churn's record of a card, written anew through a new file before the second clearing; afterwards, its old lines are counted on the raw partition, which has to hold the new ones | 2 |
+| H22 | After a clearing, the raw partition holds no copy of the name of a file deleted before its overwrite, such as the EID that names an eSIM record | verified on disk images since the overwrite turns ext4's journal over; before, our router still held such a name after the second clearing (#122) | The removal test's probe: a file named by 32 made-up digits, deleted after a sync before the second clearing; afterwards, its name is counted on the raw partition, which has to hold the name of the probe's other file | 2 |
+| H23 | After a clearing, the raw partition holds no copy of what a small file, such as Churn's record of a card, held before it was written anew | verified (#122) | The removal test's probe: a file with made-up lines as in Churn's record of a card, written anew through a new file before the second clearing; afterwards, its old lines are counted on the raw partition, which has to hold the new ones | 2 |
 
 ## Churn's files and firmware upgrades
 
@@ -586,7 +588,7 @@ From development.md, "Files on the router", and design.md, section 5.
 | F7 | `restore.sh` writes, reads back and saves the factory IMEIs, with the radio off | inferred | Run it, then read the IMEIs and the radio, and write the earlier IMEIs back (tier 2); read the IMEIs after a reboot (tier 3) | 2, 3 |
 | F8 | `restore.sh` then deletes Churn's record of the card | inferred | Run it, then check that `/etc/churn/card` is gone, with the folder (tier 2) | 2 |
 | F9 | `restore.sh` then sets GL's `log_file` back from Churn's copy, and deletes the copy | inferred | Run it, then compare the setting with the copy read before; the copy goes with the folder (tier 2) | 2 |
-| F10 | `restore.sh` then deletes `/overlay/churn-zeros`, the link to it and any fill files | inferred | Run it, then check that the folder, any fill files and the link are gone, and that the free space grew by what they took, less 16 MB for what GL writes meanwhile (tier 2) | 2 |
+| F10 | `restore.sh` then deletes `/overlay/churn-zeros`, the link to it, any fill files and any folder of the journal's turnover | inferred | Run it, then check that the folder, any fill files or turnover's folder and the link are gone, and that the free space grew by what they took, less 16 MB for what GL writes meanwhile (tier 2) | 2 |
 | F11 | `restore.sh` then removes Churn's firewall rules and their line in `/etc/sysupgrade.conf` | inferred | Run it, then check that the chains, the file and the line are gone (tier 2) | 2 |
 | F12 | `restore.sh` last deletes `/etc/churn/` and its line in `/etc/sysupgrade.conf`, and still runs to its end | running to its end verified with BusyBox 1.36.1 on a PC, the rest inferred | Run it, then check that the folder and the line are gone and that it printed its last message, and write the folder back (tier 2) | 2 |
 | F13 | A factory reset deletes `/etc/churn/`, Churn's firewall rules and its zero files | inferred | Factory reset after a swap, and set the router up again (F14). It also resets GL's settings, so only the removal comes after it | 4 |
