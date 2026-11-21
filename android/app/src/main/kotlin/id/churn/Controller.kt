@@ -17,6 +17,9 @@ import java.util.concurrent.TimeUnit
 
 /** What the screen shows. [MainActivity] draws it. */
 sealed interface Screen {
+    /** Whether a step or a test is running on the screen. */
+    val running: Boolean get() = false
+
     data object Intro : Screen
     data class Connect(val error: String? = null) : Screen
     data class Working(val title: String) : Screen
@@ -34,7 +37,7 @@ sealed interface Screen {
         val log: List<String> = emptyList(),
         /** The step whose lines [log] holds: [step], or the step that ended before it. */
         val logStep: Step = step,
-        val running: Boolean = false,
+        override val running: Boolean = false,
         val error: String? = null,
         /** Step 3's question, which the running step waits for the user to answer. */
         val question: Question? = null,
@@ -43,7 +46,7 @@ sealed interface Screen {
     /** Tier 2's dry run, which only debug builds have, with the lines it reported. */
     data class DryRun(
         val lines: List<String> = emptyList(),
-        val running: Boolean = false,
+        override val running: Boolean = false,
         val error: String? = null,
         /** Whether the last dry run stopped before it put the router back as it was. */
         val unfinished: Boolean = false,
@@ -52,7 +55,7 @@ sealed interface Screen {
     /** Tier 2's removal test, which only debug builds have, with the lines it reported. */
     data class RemovalTest(
         val lines: List<String> = emptyList(),
-        val running: Boolean = false,
+        override val running: Boolean = false,
         val error: String? = null,
         /** Whether the last removal test stopped before it set the router up again. */
         val unfinished: Boolean = false,
@@ -61,7 +64,7 @@ sealed interface Screen {
     /** Tier 3's power cycle test, which only debug builds have, with the lines it reported. */
     data class PowerCycles(
         val lines: List<String> = emptyList(),
-        val running: Boolean = false,
+        override val running: Boolean = false,
         val error: String? = null,
         /** Whether the test waits for the user to switch the router on again. */
         val waiting: Boolean = false,
@@ -72,7 +75,7 @@ sealed interface Screen {
     /** Tier 4's leak watch, which only debug builds have, with the lines it reported. */
     data class LeakWatch(
         val lines: List<String> = emptyList(),
-        val running: Boolean = false,
+        override val running: Boolean = false,
         val error: String? = null,
     ) : Screen
 }
