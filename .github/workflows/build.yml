@@ -153,7 +153,9 @@ jobs:
     runs-on: ubuntu-latest
     # Signing secrets live in the "release" environment, which only main may
     # use. No Gradle and no code from the repository run in this job, so no
-    # build plugin, dependency or test can read the upload key.
+    # build plugin, dependency or test can read the upload key. The decoded
+    # keystore exists only while the signing step runs, so the steps after it
+    # can't read the file either.
     environment: release
     steps:
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
@@ -177,6 +179,7 @@ jobs:
           CHURN_KEYSTORE_PASSWORD: ${{ secrets.CHURN_UPLOAD_PASSWORD }}
           CHURN_KEY_ALIAS: upload
         run: |
+          trap 'rm -f "$RUNNER_TEMP/upload.jks"' EXIT
           if [ -z "$KEYSTORE_B64" ]; then
             echo "::error::The release environment has no CHURN_UPLOAD_KEYSTORE_B64."
             exit 1
