@@ -272,10 +272,11 @@ At the first swap of a run, also:
 2. Swap the SIM card, leaving the card in the tray at step 2: step 3 stops
    at it as at an empty tray (E13).
 3. Switch the router off, take the card out, enable its profile, put it
-   back and switch the router on. Tap Try again: step 3 says that the card
-   is the one from before this swap, and its question names the place card
-   (W10). Cancel. Once the router is off, switch it on again with the same
-   card: step 3 asks again, and Continue gives the card its IMEIs again.
+   back and switch the router on. Tap Try again: step 3 says in amber that
+   the card is the one from before this swap, and its question names the
+   place card (W10). Cancel. Once the router is off, switch it on again
+   with the same card: step 3 asks again, and Continue gives the card its
+   IMEIs again.
 4. Step 4 says that the router keeps the card with its IMEIs, and asks to
    destroy no card, since the card is still in SIM 2 (W4, W10).
 
