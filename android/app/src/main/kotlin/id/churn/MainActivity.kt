@@ -440,7 +440,9 @@ class MainActivity : Activity() {
             is Question.CardFromBefore -> {
                 val text = question.place?.let { getString(R.string.step3_place_card_from_before, label(it)) }
                     ?: getString(R.string.step3_card_from_before, question.iccid.takeLast(4))
-                paragraph(text)
+                // At step 3, the card from before most likely means that the swap was forgotten or the old card put
+                // back by mistake.
+                warning(text)
                 paragraph(getString(R.string.step3_cancel))
                 button(R.string.step3_continue) { controller.answer(Answer.CONTINUE) }
             }
