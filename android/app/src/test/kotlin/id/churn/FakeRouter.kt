@@ -184,7 +184,8 @@ class FakeRouter : Shell {
 
     /**
      * For a journal that, once the overwrite is done, still holds a copy of a directory's block from before a file in
-     * it was deleted, against H22. Only the removal test's tests use it.
+     * it was deleted, as ours did before the overwrite turned it over (#122), against H22. Only the removal test's
+     * tests use it.
      */
     var journalKeepsNames = false
 
@@ -211,6 +212,12 @@ class FakeRouter : Shell {
 
     /** The free space the overwrite leaves, in kB: 512 MB, but for an overwrite broken against H15. */
     var overwriteKeepsFreeKb = 524_288L
+
+    /**
+     * What the overwrite's turnover of ext4's journal writes, in kB, which it prints: as much as on a disk image with
+     * our Mudi 7's 64 MB journal and its transactions (development.md, "Clearing the SIM history").
+     */
+    var journalTurnoverKb = 90_244L
 
     /** For an overwrite that leaves fill files, against H15. Only the removal test's tests use it. */
     var overwriteLeavesFillFiles = false
@@ -932,9 +939,9 @@ class FakeRouter : Shell {
             // It deletes any fill files first, and keeps all but 512 MB of the free space in zero files. What deleted
             // files held is overwritten, unless the fill fell short.
             fillFilesKb = 0
-            // Writing all of the free space takes its time.
-            lifetimeWrittenKb += overlayFreeKb
-            clock += overlayFreeKb * 1000 / flashWriteKbPerSecond
+            // Writing all of the free space takes its time, as does turning the journal over.
+            lifetimeWrittenKb += overlayFreeKb + journalTurnoverKb
+            clock += (overlayFreeKb + journalTurnoverKb) * 1000 / flashWriteKbPerSecond
             if (!overwriteFillFallsShort) freeSpace.clear()
             zeroFilesKb = maxOf(0, zeroFilesKb + overlayFreeKb - overwriteKeepsFreeKb)
             // Only an overwrite broken against H15 gets here: 4 kB files it didn't delete.
@@ -943,9 +950,10 @@ class FakeRouter : Shell {
             if (overwriteLeavesReserveOff) reservedClusters = 0
             // Only a firmware broken against H14 gets here.
             if (overwriteCutsSimMap) files[SIM_MAP]?.let { files[SIM_MAP] = it.copyOf(it.size / 2) }
+            val turnover = "ext4's journal turned over with 5 rounds of 4096 folders, writing $journalTurnoverKb kB\n"
             // Only a firmware broken against H21 gets here.
-            if (overwriteFillFallsShort) return Output(6, "1024 kB free after the fill\n".toByteArray(), "")
-            return ok("0 kB free after the fill\n")
+            if (overwriteFillFallsShort) return Output(6, "1024 kB free after the fill\n$turnover".toByteArray(), "")
+            return ok("0 kB free after the fill\n$turnover")
         }
         if (command == NUMBERS_IN_FILES) {
             val texts = input!!.toString(Charsets.UTF_8).lines().mapNotNull { files[it]?.toString(Charsets.ISO_8859_1) }

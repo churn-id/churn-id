@@ -561,18 +561,20 @@ so the app compares ICCIDs without the `F`s. The current card is the one
    delete the 4 KB files and move the 64 MB files into
    `/overlay/churn-zeros`, numbered on from the files there, so the folder
    gains only flushed parts, and none from a run that stops. It syncs again
-   and sets the reserve back. Last, it deletes files in
+   and sets the reserve back. Then it deletes files in
    `/overlay/churn-zeros`, lowest number first, until 512 MB of the
-   partition are free. A run that fails once it has set the reserve still
-   does all of this, and then exits with the status of its first failure:
-   5 if it couldn't set the reserve to 0, 6 for the free space left after
-   the fill, and 7 if it couldn't set the reserve back. Without the lock it
-   exits with 2, and without the folder or the link with 4. When a signal
-   stops the run, a trap deletes the fill files, syncs, sets the reserve
-   back, frees the 512 MB the same way and exits with 1; a reboot sets the
-   reserve back too. A run that finds the reserve at 0, as a run killed
-   before it set the reserve back leaves it, exits with 3 before it
-   changes anything, since it would put back 0.
+   partition are free, and last turns ext4's journal over, as the end of
+   this section explains. A run that fails once it has set the reserve
+   still does all of this, and then exits with the status of its first
+   failure: 5 if it couldn't set the reserve to 0, 6 for the free space
+   left after the fill, 7 if it couldn't set the reserve back, and 8 if it
+   couldn't turn the journal over. Without the lock it exits with 2, and
+   without the folder or the link with 4. When a signal stops the run, a
+   trap deletes the fill files and any folder of the turnover, syncs, sets
+   the reserve back, frees the 512 MB the same way and exits with 1; a
+   reboot sets the reserve back too. A run that finds the reserve at 0, as
+   a run killed before it set the reserve back leaves it, exits with 3
+   before it changes anything, since it would put back 0.
 
 We ran these steps as a script on our router, with step 4 still without
 the reserve and the 4 KB files. The router had seen two old cards, A and
@@ -627,16 +629,44 @@ router to every profile that adapter held. Our router runs Linux
 5.15.170 (#122), whose ext4 wipes a deleted file's entry in its
 directory's block (inferred from the version). But ext4's journal,
 64 MiB on the overlay (blocks 360448 to 376831), can keep an older copy
-of the block, with the name, until newer metadata writes take its place:
-on a disk image, the journal still held the names of deleted files after
-the fill (verified on the image, #122). ext4 journals no file data by
+of the block, with the name, until newer metadata writes take its place.
+The fill's own writes don't take it: on a disk image, the journal still
+held the names of deleted files after the fill (verified on the image),
+and on our router, after the second clearing, the removal test found a
+deleted file's name on the raw partition, in no file (verified, #122),
+so in the journal (inferred). jbd2, which writes ext4's journal, starts
+again at the journal's beginning at every mount (verified in Linux
+5.15's source), so a boot that writes little leaves the rest of the
+journal as earlier boots wrote it. ext4 journals no file data by
 default, so what Churn's record of a card held before step 3 wrote it
 anew went to a block that is free again, which the fill overwrites,
 unless the file system keeps small files in their inodes, as it does
-with the `inline_data` feature (inferred). Whether the fill's own
-metadata writes, those of the 4 KB files above all, turn the journal
-over is open. The removal test checks both after its second clearing,
-with a probe of made-up digits (router-tests.md, H22 and H23).
+with the `inline_data` feature (inferred). On our router, the removal
+test found no copy of what a file held before it was written anew
+(verified, #122).
+
+So the overwrite ends by turning the journal over, once the 512 MB are free.
+In five rounds, it makes as many folders in `/overlay/churn-turnover` as the
+journal's largest transaction holds blocks, has ext4 commit them by writing
+a file with `dd`'s `conv=fsync`, and deletes them. jbd2 caps a transaction
+at a quarter of the journal in Linux 5.15 and at a third in Linux 6.12
+(verified in their source), so the five rounds put at least 1.25 times the
+journal's size in new folders' blocks into it, besides what ext4 writes to
+keep track of them. On a disk image with a 64 MiB journal, whose blocks we
+marked before, rounds of 4096 folders, a quarter of the journal as in
+Linux 5.15, left 2903 of the 16,383 log blocks marked after three rounds and
+none after four, and five rounds wrote 88 MiB. They left no deleted file's
+name on the image, and e2fsck found it clean (verified on the image). Since
+the folders are deleted before ext4 writes them to their own place, only the
+journal gets them (inferred from what the rounds wrote): with a `sync` in
+place of `dd`, which the overwrite falls back to, the five rounds wrote
+174 MiB. The overwrite prints the folders a round took and the kB the
+turnover wrote, which the removal test leaves out of what the fill wrote
+(router-tests.md, H15). The removal test checks H22 and H23 after its second
+clearing, with a probe of made-up digits. On our router, it found no copy of
+the deleted file's name either, and the turnover wrote 89 and 93 MiB at its
+two clearings (verified, #174). The second clearing took about 57 s, against
+39 to 44 s before, so the turnover takes about 15 s there (inferred).
 
 ## After power-on
 
@@ -737,9 +767,6 @@ untested, and the router checks look for it.
   `log_file` back and reloaded the log service.
 - Whether GL copes with card files that name no card, as they can after a
   clearing at step 3, until it records the new card.
-- Whether ext4's journal still holds the names of files deleted before a
-  clearing, such as the eSIM manager's records, once it is done
-  (router-tests.md, H22).
 
 ## Files on the router
 

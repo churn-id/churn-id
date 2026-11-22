@@ -695,15 +695,16 @@ class Router(private val shell: Shell) {
      * overwrites the free space so that deleted copies can't be read from the raw partition. [keepIccid] is a card's
      * ICCID, with or without the `F`s the modem pads it with, or null to keep none; GL records the current card again
      * when it next goes online. A card file or eSIM record that is there but doesn't parse stops the clearing.
-     * development.md, "Clearing the SIM history", explains what and why.
+     * development.md, "Clearing the SIM history", explains what and why. Returns the kB that the overwrite's turnover
+     * of ext4's journal wrote, which the removal test leaves out of what the fill wrote, or 0 without [overwrite].
      */
-    fun clearHistory(keepIccid: String?, overwrite: Boolean = true) {
+    fun clearHistory(keepIccid: String?, overwrite: Boolean = true): Long {
         val keep = keepIccid?.let(::iccidKey)
         deleteLogs(turnFlashLogOff())
         pruneSimMap(SIM_MAP, keep)
         pruneApnHistory(APN_HISTORY, keep)
         pruneEsimRecords(keep)
-        if (overwrite) overwriteFreeSpace()
+        return if (overwrite) overwriteFreeSpace() else 0
     }
 
     /**
@@ -779,10 +780,16 @@ class Router(private val shell: Shell) {
 
     /**
      * Overwrites the overlay's free space with zeros, so that copies of deleted files left in it can't be read from
-     * the raw partition. Writes in small parts, each flushed to the flash, so the partition is full only briefly.
-     * On our Mudi 7 it took about 3 minutes; the timeout allows for a slower flash.
+     * the raw partition, then turns ext4's journal over, so that it keeps no older copy of a deleted file's name.
+     * Writes in small parts, each flushed to the flash, so the partition is full only briefly. On our Mudi 7 it took
+     * about 3 minutes; the timeout allows for a slower flash. Returns the kB that the journal's turnover wrote.
      */
-    private fun overwriteFreeSpace() = run(OVERWRITE_FREE_SPACE, timeoutSeconds = 900).check("overwrite the free space")
+    private fun overwriteFreeSpace(): Long {
+        val output = run(OVERWRITE_FREE_SPACE, timeoutSeconds = 900)
+        output.check("overwrite the free space")
+        return TURNOVER_WRITTEN.find(output.text)?.groupValues?.get(1)?.toLongOrNull()
+            ?: throw unexpected("overwrite the free space", output)
+    }
 
     /**
      * GL's card files and the eSIM manager's records, by path, each as JSON, or null if it doesn't parse; a file that
@@ -877,7 +884,7 @@ class Router(private val shell: Shell) {
         return ZerosLink(lines[0], kb, lines.drop(2))
     }
 
-    /** Churn's zero files and any fill files, after a sync. */
+    /** Churn's zero files, any fill files and any folder of the journal's turnover, after a sync. */
     fun zeroFiles(): ZeroFiles {
         val output = run(ZERO_FILES)
         val numbers = output.text.lines().mapNotNull { it.trim().toLongOrNull() }
@@ -1249,10 +1256,13 @@ class Router(private val shell: Shell) {
             true
         """.trimIndent()
 
-        /** How many of Churn's zero files' folder and of any fill files there are, and the kB they take. */
+        /**
+         * How many of Churn's zero files' folder, of any fill files and of a folder of the journal's turnover there
+         * are, and the kB they take.
+         */
         internal val ZERO_FILES = """
             sync
-            set -- /overlay/churn-zeros /overlay/churn-fill.*
+            set -- /overlay/churn-zeros /overlay/churn-fill.* /overlay/churn-turnover
             n=0
             for f; do [ -e "${'$'}f" ] && n=${'$'}((n + 1)); done
             echo ${'$'}n
@@ -1446,23 +1456,39 @@ class Router(private val shell: Shell) {
          * are deleted first.
          *
          * After the fill, a run prints the free space left, which should be none, and fails above 64 kB. From the
-         * reserve on, a run that fails still deletes its fill files, puts the reserve back and frees the 512 MB below,
-         * and then exits with the status of its first failure: 2 without the lock, 3 for a reserve that reads 0, 4
-         * without the zero files' folder or its link, 5 for a reserve it can't set to 0, 6 for free space left after
-         * the fill and 7 for a reserve it can't set back. A signal makes it exit with 1.
+         * reserve on, a run that fails still deletes its fill files, puts the reserve back, frees the 512 MB and turns
+         * the journal over, both below, and then exits with the status of its first failure: 2 without the lock, 3 for
+         * a reserve that reads 0, 4 without the zero files' folder or its link, 5 for a reserve it can't set to 0, 6
+         * for free space left after the fill, 7 for a reserve it can't set back and 8 for a journal it can't turn
+         * over. A signal makes it exit with 1.
          *
          * The 64 MB parts stay, in `/overlay/churn-zeros` beside the router's own files, and the oldest are deleted
          * only until 512 MB are free, also when the run is stopped. Deleted data can then only be in those 512 MB, so
          * the next run fills about 0.5 GB instead of 2.9 GB. `/etc/churn/zeros` links to the folder, and restore.sh
          * deletes both.
+         *
+         * Last, a run turns ext4's journal over, which holds copies of the metadata blocks that recent changes wrote,
+         * among them a directory's block with the names of files since deleted, such as an eSIM record named by its
+         * chip's EID (#122). jbd2 starts writing the journal at its beginning again at every mount, so a boot that
+         * writes little leaves the rest as earlier boots wrote it. In five rounds, a run makes as many folders in
+         * `/overlay/churn-turnover` as the journal's largest transaction holds blocks, a quarter of the journal in the
+         * Mudi 7's Linux 5.15 and a third in Linux 6.12, has ext4 commit them by flushing a file with `dd`'s
+         * `conv=fsync`, and deletes them. Each new folder's block goes to the journal, so the rounds write over all of
+         * it. The run then prints the folders a round took and the kB the turnover wrote, as ext4 counts them, which
+         * the removal test leaves out of what the fill wrote (H15). On a disk image with the Mudi 7's 64 MB journal and
+         * its transactions, the rounds wrote about 88 MB. If `dd` fails, a `sync` commits the folders instead, which
+         * also writes their blocks to their own place on the flash and so about doubles that. A run deletes a
+         * turnover's folder that a run which stopped left, as it does fill files.
          */
         internal val OVERWRITE_FREE_SPACE = """
             exec 8>$OVERWRITE_LOCK && flock 8 || exit 2
             dev=${'$'}(awk '${'$'}2 == "/overlay" { print ${'$'}1; exit }' /proc/mounts)
-            reserve=/sys/fs/ext4/${'$'}{dev##*/}/reserved_clusters
+            ext4=/sys/fs/ext4/${'$'}{dev##*/}
+            reserve=${'$'}ext4/reserved_clusters
             size=${'$'}(cat ${'$'}reserve)
             [ "${'$'}size" -gt 0 ] 2>/dev/null || { echo "ext4's reserve is ${'$'}{size:-unreadable}"; exit 3; }
             zeros=/overlay/churn-zeros
+            turnover=/overlay/churn-turnover
             status=0
             fail() { [ "${'$'}status" -gt 0 ] || status=${'$'}1; }
             free_kb() { df -k /overlay | awk 'END { print ${'$'}(NF - 4) - ${'$'}(NF - 3) }'; }
@@ -1473,9 +1499,26 @@ class Router(private val shell: Shell) {
             		sync
             	done
             }
-            rm -rf /overlay/churn-fill.*
+            turn_over() {
+            	max=${'$'}(awk '/each up to/ { print ${'$'}(NF - 1) }' /proc/fs/jbd2/${'$'}{dev##*/}-8/info) || return
+            	[ "${'$'}max" -gt 0 ] 2>/dev/null || return
+            	kb=${'$'}(cat ${'$'}ext4/lifetime_write_kbytes) || return
+            	r=0
+            	while [ "${'$'}r" -lt 5 ]; do
+            		mkdir ${'$'}turnover && (cd ${'$'}turnover &&
+            			awk -v n=${'$'}max 'BEGIN { for (i = 0; i < n; i++) print i }' | xargs mkdir) || return
+            		dd if=/dev/zero of=${'$'}turnover/z bs=4k count=1 conv=fsync 2>/dev/null || sync
+            		rm -rf ${'$'}turnover
+            		r=${'$'}((r + 1))
+            	done
+            	sync
+            	kb=${'$'}((${'$'}(cat ${'$'}ext4/lifetime_write_kbytes) - kb))
+            	echo "ext4's journal turned over with 5 rounds of ${'$'}max folders, writing ${'$'}kb kB"
+            }
+            rm -rf /overlay/churn-fill.* ${'$'}turnover
             ln -sfn ${'$'}zeros $CHURN/zeros && mkdir -p ${'$'}zeros || exit 4
-            trap 'rm -rf /overlay/churn-fill.*; sync; echo ${'$'}size > ${'$'}reserve; trim; exit 1' HUP INT TERM PIPE
+            trap 'rm -rf /overlay/churn-fill.* ${'$'}turnover; sync; echo ${'$'}size > ${'$'}reserve; trim; exit 1' \
+            	HUP INT TERM PIPE
             echo 0 > ${'$'}reserve || fail 5
             d=0
             while [ "${'$'}d" -lt 16 ]; do mkdir /overlay/churn-fill.d${'$'}d; d=${'$'}((d + 1)); done
@@ -1508,8 +1551,15 @@ class Router(private val shell: Shell) {
             sync
             echo ${'$'}size > ${'$'}reserve || fail 7
             trim
+            turn_over || { echo "ext4's journal wasn't turned over"; fail 8; }
+            rm -rf ${'$'}turnover
+            sync
             exit ${'$'}status
         """.trimIndent()
+
+        /** The overwrite's line on its turnover of ext4's journal, with the kB that the turnover wrote. */
+        private val TURNOVER_WRITTEN =
+            Regex("""^ext4's journal turned over with .*, writing (\d+) kB$""", RegexOption.MULTILINE)
 
         /**
          * Churn's firewall rules, for GL's main DNS server running as user [dnsmasqUid]. development.md, "Churn's

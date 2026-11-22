@@ -213,7 +213,7 @@ At the first swap of a run, also:
    coming (C12). Answer step 3's question with Place card. Step 3 lists
    that it turned the Enhanced Kill Switch on, added Churn's firewall
    rules and turned GL's connection check off. The clearing takes under a
-   minute (H16).
+   minute and a half (H16).
 4. Step 4 asks to destroy the normal SIM card, which you keep for the
    tests (W4), and says to switch the router on only at the place card's
    place. Go online.

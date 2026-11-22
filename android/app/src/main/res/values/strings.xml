@@ -330,7 +330,7 @@
     <string name="progress_no_iccids">GL\'s card files and logs named no ICCID that the clearing deleted, so H11 stays unconfirmed.</string>
     <string name="progress_partition_unchecked">No file holds any of the cards\' ICCIDs and IMSIs any more, so a failed read of the raw partition couldn\'t be told, and H10 and H11 stay unconfirmed.</string>
     <string name="progress_free_space_filled">Clearing again wrote about as much as the free space, so the zero files spared the rest of the flash (H15).</string>
-    <string name="progress_cleared_quickly">With the zero files in place, clearing again took under a minute (H16).</string>
+    <string name="progress_cleared_quickly">With the zero files in place, clearing again took under a minute and a half (H16).</string>
     <string name="progress_reading_probe">Counting on the raw partition the probe that the test left before clearing again: the made-up names of a file it deleted and of one it wrote anew, and that file\'s lines before and after. Reading the partition takes about half a minute.</string>
     <string name="progress_names_gone">No copy of the deleted file\'s name is left on the raw partition (H22).</string>
     <string name="progress_old_content_gone">No copy of what the file held before it was written anew is left on the raw partition (H23).</string>

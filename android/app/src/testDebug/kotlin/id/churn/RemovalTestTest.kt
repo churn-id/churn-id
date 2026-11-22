@@ -616,9 +616,17 @@ class RemovalTestTest {
     }
 
     @Test
-    fun removalTestStopsWhenClearingAgainTakesAMinute() {
-        // 512 MB at 8 MB/s take 64 s.
+    fun removalTestPassesWhenClearingAgainTakesOverAMinute() {
+        // 512 MB and the journal's turnover at 8 MB/s take 75 s.
         fake.flashWriteKbPerSecond = 8_192
+        run()
+        assertEquals(Progress.REMOVAL_PASSED, progress.last())
+    }
+
+    @Test
+    fun removalTestStopsWhenClearingAgainTakesAMinuteAndAHalf() {
+        // 512 MB and the journal's turnover at 6 MB/s take 100 s.
+        fake.flashWriteKbPerSecond = 6_144
         assertStopsAfterTheClearing("H16")
     }
 

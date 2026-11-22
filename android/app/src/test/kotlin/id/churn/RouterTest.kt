@@ -135,6 +135,13 @@ class RouterTest {
     }
 
     @Test
+    fun clearingGivesWhatTheJournalsTurnoverWrote() {
+        // Which the removal test leaves out of what the fill wrote.
+        assertEquals(fake.journalTurnoverKb, router.clearHistory(CURRENT_CARD))
+        assertEquals(0L, router.clearHistory(CURRENT_CARD, overwrite = false))
+    }
+
+    @Test
     fun turnsTheLogOffBeforeDeletingIt() {
         // An open file keeps its data on the flash after it is deleted.
         router.clearHistory(CURRENT_CARD)

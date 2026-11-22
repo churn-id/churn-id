@@ -24,6 +24,9 @@ FACTORY2=356090215000077
 CARD1=356090211234563
 CARD2=356090211235313
 ICCID=8941000000000000015
+# Made up, of 32 digits as an EID that names an eSIM record.
+EID1=89049032000000000000000000000017
+EID2=89049032000000000000000000000025
 
 cleanup() {
 	for m in overlay dev sys proc; do umount "$root/$m" 2>/dev/null || true; done
@@ -139,6 +142,19 @@ copies() {
 }
 
 overwrite() { on_router "$(cat "$scripts/overwrite-free-space.sh")"; }
+# The kB that the last run whose output went to $work/out says its turnover of
+# the journal wrote, or 0.
+turnover_kb() { sed -n "s/^ext4's journal turned over with .*, writing \([0-9]*\) kB$/\1/p" "$work/out" | grep . || echo 0; }
+journal_kb() { dumpe2fs -h "$loop" 2>/dev/null | awk '/^Block size:/ { b = $3 } /^Total journal blocks:/ { j = $4 } END { print j * b / 1024 }'; }
+# Deletes a file named $1 in the eSIM manager's folder, after a sync, so that
+# the directory's block with its name reaches the journal.
+delete_record() {
+	mkdir -p "$root/overlay/upper/root/esim/db"
+	echo '{}' > "$root/overlay/upper/root/esim/db/$1"
+	sync
+	rm "$root/overlay/upper/root/esim/db/$1"
+	sync
+}
 # Waits until a run started in the background has begun to fill.
 filling() {
 	i=0
@@ -165,11 +181,17 @@ while [ "$i" -lt 300 ]; do
 done
 
 echo "== The first overwrite"
+delete_record "$EID1"
 check "the image holds old versions of GL's file" [ "$(copies "$ICCID")" -gt 1 ]
+check "the image holds the deleted record's name" [ "$(copies "$EID1")" -gt 0 ]
 check "ext4 keeps 4096 blocks back" [ "$(reserve)" -eq 4096 ]
 overwrite > "$work/out" && status=0 || status=$?
 check "it exits with 0" [ "$status" -eq 0 ]
 check "it says what the fill left free" printed "kB free after the fill"
+check "it says that it turned the journal over" printed "ext4's journal turned over with 5 rounds of"
+check "the turnover wrote more than the journal holds" [ "$(turnover_kb)" -gt "$(journal_kb)" ]
+check "no copy of the deleted record's name is left" [ "$(copies "$EID1")" -eq 0 ]
+check "no folder of the turnover is left" [ ! -e "$root/overlay/churn-turnover" ]
 check "the reserve is back" [ "$(reserve)" -eq 4096 ]
 check "no fill file is left" [ -z "$(find "$root/overlay" -maxdepth 1 -name 'churn-fill.*')" ]
 check "the zero files are in /overlay/churn-zeros" [ -n "$(ls "$root/overlay/churn-zeros")" ]
@@ -181,15 +203,20 @@ check "Router's count of the numbers finds it once, in a file" \
 
 echo "== The next overwrite"
 rewrite next
+delete_record "$EID2"
+# As a power cut during a turnover leaves it.
+mkdir -p "$root/overlay/churn-turnover/17"
 free=$(free_kb)
 written=$(written_kb)
-overwrite > /dev/null && status=0 || status=$?
+overwrite > "$work/out" && status=0 || status=$?
 check "it exits with 0" [ "$status" -eq 0 ]
-check "it writes only the free space, which the zero files left" \
-	between $(($(written_kb) - written)) "$free" $((free + 16384))
+check "it writes only the free space, which the zero files left, besides the turnover" \
+	between $(($(written_kb) - written - $(turnover_kb))) "$free" $((free + 16384))
 check "the reserve is back" [ "$(reserve)" -eq 4096 ]
 check "512 MB to 576 MB are free" between "$(free_kb)" 524288 589824
 check "only the current version of GL's file is left" [ "$(copies "$ICCID")" -eq 1 ]
+check "no copy of the deleted record's name is left" [ "$(copies "$EID2")" -eq 0 ]
+check "the earlier turnover's folder is gone" [ ! -e "$root/overlay/churn-turnover" ]
 
 echo "== An overwrite that a signal stops"
 zeros=$(ls "$root/overlay/churn-zeros")
@@ -197,11 +224,16 @@ env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin chroot "$root" /bin/sh -c "$(cat "$scr
 pid=$!
 filling
 check "the reserve is 0 while it fills" [ "$(reserve)" -eq 0 ]
+# As a signal during the turnover would find its folder. The static BusyBox
+# runs its own applets whatever the PATH, so the test can't hold the turnover
+# up for the signal.
+mkdir -p "$root/overlay/churn-turnover/9"
 kill -TERM "$pid"
 wait "$pid" && status=0 || status=$?
 check "it exits with 1" [ "$status" -eq 1 ]
 check "the reserve is back" [ "$(reserve)" -eq 4096 ]
 check "no fill file is left" [ -z "$(find "$root/overlay" -maxdepth 1 -name 'churn-fill.*')" ]
+check "no folder of the turnover is left" [ ! -e "$root/overlay/churn-turnover" ]
 check "the zero files are as before" [ "$(ls "$root/overlay/churn-zeros")" = "$zeros" ]
 
 # As a run killed before it set the reserve back leaves it.
@@ -270,7 +302,8 @@ check "tar takes no zero file" [ -z "$(on_router 'tar -cf - /etc/churn 2>/dev/nu
 check "cp -r copies the link" on_router 'cp -r /etc/churn /tmp/copy && [ -L /tmp/copy/zeros ] && rm -r /tmp/copy'
 
 # Churn's files and GL's settings as a swap leaves them, with a fill file
-# that a clearing that stopped left behind, and the firewall rules loaded.
+# and a turnover's folder that a clearing that stopped left behind, and the
+# firewall rules loaded.
 set_up() {
 	cp "$assets/restore.sh" "$assets/README.txt" "$root/etc/churn/"
 	printf '%s\n' "$FACTORY1" "$FACTORY2" > "$root/etc/churn/factory"
@@ -281,6 +314,7 @@ set_up() {
 	[ -L "$root/etc/churn/zeros" ] || ln -s /overlay/churn-zeros "$root/etc/churn/zeros"
 	mkdir -p "$root/overlay/churn-zeros"
 	head -c 65536 /dev/zero > "$root/overlay/churn-fill.3"
+	mkdir -p "$root/overlay/churn-turnover/9"
 	echo "# Churn's firewall rules" > "$root/etc/nftables.d/churn.nft"
 	printf '%s\n' /etc/dropbear/ /etc/churn/ /etc/nftables.d/churn.nft > "$root/etc/sysupgrade.conf"
 	printf '%s\n' glconfig.general.airplane_mode=0 kmwan.modem_cpu.disabled=1 > "$root/tmp/uci"
@@ -296,8 +330,11 @@ called() { grep -qxF "$1" "$root/tmp/calls"; }
 call_line() { grep -nF "$1" "$root/tmp/calls" | sed -n '1s/:.*//p'; }
 restore() { on_router 'sh /etc/churn/restore.sh' > "$work/out" 2>&1; }
 
+zero_files() { on_router "$(cat "$scripts/zero-files.sh")" | sed -n 1p; }
+
 echo "== restore.sh after the overwrites"
 set_up
+check "Router's count finds the zero files' folder, the fill file and the turnover's folder" [ "$(zero_files)" -eq 3 ]
 restore && status=0 || status=$?
 check "it exits with 0" [ "$status" -eq 0 ]
 check "it ran to its end, after deleting itself (F12)" \
@@ -313,6 +350,8 @@ check "and the log service reloaded" called "log reload"
 check "GL's connection check is as GL had it" [ "$(setting kmwan.modem_cpu.disabled)" = 0 ]
 check "the zero files are gone" [ ! -e "$root/overlay/churn-zeros" ]
 check "the fill file is gone" [ ! -e "$root/overlay/churn-fill.3" ]
+check "the turnover's folder is gone" [ ! -e "$root/overlay/churn-turnover" ]
+check "Router's count finds none of them" [ "$(zero_files)" -eq 0 ]
 check "the free space is back" [ "$(free_kb)" -gt 900000 ]
 check "the firewall rules are gone" [ ! -e "$root/etc/nftables.d/churn.nft" ]
 check "and their chains" [ ! -s "$root/tmp/chains" ]
