@@ -986,7 +986,8 @@ class FakeRouter : Shell {
             return ok("")
         }
         Regex("""rm -f (.+)""").matchEntire(command)?.let {
-            it.groupValues[1].split(" ").filter(String::isNotBlank).forEach { path -> freed(files.remove(path)) }
+            val paths = shellWords(it.groupValues[1]) ?: error("Unexpected command: $command")
+            paths.forEach { path -> freed(files.remove(path)) }
             return ok("")
         }
         error("Unexpected command: $command")
@@ -1449,6 +1450,19 @@ class FakeRouter : Shell {
     /** Keeps what a file held before it was deleted or replaced, [content], on the raw partition. */
     private fun freed(content: ByteArray?) {
         if (content != null && content.isNotEmpty()) freeSpace += content
+    }
+
+    /**
+     * The words of [line] as the shell splits them, each quoted as [Router.quote] quotes it or not at all, or null if
+     * an unquoted character such as `;`, `*` or `$` would have the shell do more than split them.
+     */
+    private fun shellWords(line: String): List<String>? {
+        val word = """(?:'[^']*'|\\.|[A-Za-z0-9._/+=,:@%-])+"""
+        if (!line.matches(Regex("$word(?: +$word)*"))) return null
+        val part = Regex("""'([^']*)'|\\(.)|(.)""")
+        return Regex(word).findAll(line).map { w ->
+            part.findAll(w.value).joinToString("") { it.groupValues.drop(1).joinToString("") }
+        }.toList()
     }
 
     /** How often [texts] hold [number], as a whole run of digits. */

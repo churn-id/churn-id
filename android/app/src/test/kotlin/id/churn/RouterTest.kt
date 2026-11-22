@@ -4,6 +4,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -139,7 +140,7 @@ class RouterTest {
         router.clearHistory(CURRENT_CARD)
         val off = fake.commands.indexOfFirst { it.startsWith("uci delete 'system.@system[0].log_file'") }
         val reload = fake.commands.indexOf("/etc/init.d/log reload")
-        val delete = fake.commands.indexOf("rm -f /etc/sys_log /etc/sys_log.old")
+        val delete = fake.commands.indexOf("rm -f '/etc/sys_log' '/etc/sys_log.old'")
         assertTrue(off in 0 until reload && reload < delete)
     }
 
@@ -166,11 +167,27 @@ class RouterTest {
     }
 
     @Test
-    fun leavesOutALogPathThatWouldNeedQuoting() {
+    fun deletesALogWhosePathHasASpaceAsOneFile() {
         fake.logFile = "/etc/sys_log /etc/config"
+        fake.files["/etc/sys_log /etc/config"] = LOG_LINES
+        fake.files["/etc/sys_log /etc/config.old"] = LOG_LINES
+        // A file in place of GL's settings folder, which the path would name if it were split in two.
+        fake.files["/etc/config"] = LOG_LINES
         router.clearHistory(CURRENT_CARD)
-        assertTrue("rm -f /etc/sys_log /etc/sys_log.old" in fake.commands)
-        assertTrue(fake.commands.none { it.startsWith("rm -f") && "/etc/config" in it })
+        assertNull(fake.files["/etc/sys_log /etc/config"])
+        assertNull(fake.files["/etc/sys_log /etc/config.old"])
+        assertNotNull(fake.files["/etc/config"])
+    }
+
+    @Test
+    fun deletesALogWhosePathHasAQuoteAndASemicolon() {
+        // Unquoted, the quote would begin a quoted word and the semicolon would end the command.
+        fake.logFile = "/etc/it's;log"
+        fake.files["/etc/it's;log"] = LOG_LINES
+        fake.files["/etc/it's;log.old"] = LOG_LINES
+        router.clearHistory(CURRENT_CARD)
+        assertNull(fake.files["/etc/it's;log"])
+        assertNull(fake.files["/etc/it's;log.old"])
     }
 
     @Test
@@ -305,6 +322,15 @@ class RouterTest {
         val numbers = router.numbersInCardFilesAndLogs("/etc/sys_log")
         assertEquals(setOf(OLD_CARD.removeSuffix("F"), CURRENT_CARD.removeSuffix("F"), "228010000000002"), numbers)
         assertTrue(largest < 1000)
+    }
+
+    @Test
+    fun picksTheNumbersOutOfALogWhosePathNeedsQuoting() {
+        for (log in listOf("/etc/sys_log /etc/config", "/etc/it's;log")) {
+            fake.files["$log.old"] = "user.info Diag_Lib[1]: imsi[228010000000002]\n".toByteArray()
+            assertTrue(log, "228010000000002" in router.numbersInCardFilesAndLogs(log))
+            fake.files.remove("$log.old")
+        }
     }
 
     @Test
