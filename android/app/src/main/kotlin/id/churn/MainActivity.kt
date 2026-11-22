@@ -274,10 +274,9 @@ class MainActivity : Activity() {
         if (screen.step == Step.PREPARE && controller.firstSwap) paragraph(getString(R.string.step1_first_swap))
         val destroy = controller.cardToDestroy
         if (screen.step == Step.GO_ONLINE && destroy != null) paragraph(getString(R.string.step4_destroy, destroy))
-        if (screen.logStep != screen.step && screen.log.isNotEmpty()) {
-            paragraph(getString(R.string.step_lines, screen.logStep.ordinal + 1))
-        }
-        screen.log.forEach { paragraph("✓ $it") }
+        // A new step starts at the top, so the lines of the step before, which its page keeps, come after its buttons.
+        val earlier = screen.logStep != screen.step
+        if (!earlier) screen.log.forEach { paragraph("✓ $it") }
         if (screen.running) {
             addView(ProgressBar(context))
             return@page
@@ -308,6 +307,11 @@ class MainActivity : Activity() {
             Step.GO_ONLINE -> button(R.string.step4_done) { controller.advance(Step.GO_ONLINE) }
         }
         if (screen.step != Step.GO_ONLINE) button(R.string.cancel_swap) { controller.cancelSwap() }
+        if (earlier && screen.log.isNotEmpty()) {
+            gap()
+            paragraph(getString(R.string.step_lines, screen.logStep.ordinal + 1))
+            screen.log.forEach { paragraph("✓ $it") }
+        }
     }
 
     private fun dryRun(screen: Screen.DryRun, follow: Boolean) = page(follow, keepScreenOn = screen.running) {
