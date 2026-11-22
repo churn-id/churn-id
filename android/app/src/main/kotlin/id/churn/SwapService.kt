@@ -37,7 +37,7 @@ class SwapService : Service() {
         val activity = Intent(this, MainActivity::class.java)
         val open = PendingIntent.getActivity(this, 0, activity, PendingIntent.FLAG_IMMUTABLE)
         val notification = Notification.Builder(this, CHANNEL)
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.notification_title))
             .setContentText(getString(R.string.notification_text))
             .setContentIntent(open)
