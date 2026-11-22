@@ -38,6 +38,15 @@ class MainActivity : Activity() {
     private var drawn: Screen? = null
     private var scrollView: ScrollView? = null
 
+    /**
+     * Whether a step's or a test's page, drawn again with a new line, scrolls to its end to follow its last line: until
+     * the user scrolls up from the end, and again once they scroll back down to it.
+     */
+    private var following = true
+
+    /** Whether the page scrolls to its end once it is laid out, which gives it its height. */
+    private var scrollToEnd = false
+
     /** The Router checks dialog while it is open, which follows the router screen behind it. */
     private var checksDialog: AlertDialog? = null
 
@@ -91,6 +100,18 @@ class MainActivity : Activity() {
             // run isn't lost.
             if (screen.copy(checks = last.checks) == last && screen.checks?.failed == last.checks?.failed) return
         }
+        // While a step or a test runs, and as it stops, its page follows the last line in the scroll view it had. A new
+        // step and step 3's question start at the top, as does a page drawn again while nothing runs.
+        val follow = (screen.running || last?.running == true) && when (screen) {
+            is Screen.Swapping -> last is Screen.Swapping && last.step == screen.step && screen.question == null
+            is Screen.DryRun -> last is Screen.DryRun
+            is Screen.RemovalTest -> last is Screen.RemovalTest
+            is Screen.PowerCycles -> last is Screen.PowerCycles
+            is Screen.LeakWatch -> last is Screen.LeakWatch
+            else -> false
+        }
+        // As a run begins, and once step 3's question goes, the page follows its lines wherever the user had scrolled.
+        if (follow && (last?.running != true || last is Screen.Swapping && last.question != null)) following = true
         when (screen) {
             Screen.Intro -> intro()
             is Screen.Connect -> connect(screen)
@@ -99,11 +120,11 @@ class MainActivity : Activity() {
             is Screen.SetUp -> setUp(screen)
             // The router screen drawn again, such as with a check that failed, stays where the user scrolled to.
             is Screen.Home -> home(screen, keepScroll = last is Screen.Home)
-            is Screen.Swapping -> swapping(screen)
-            is Screen.DryRun -> dryRun(screen)
-            is Screen.RemovalTest -> removalTest(screen)
-            is Screen.PowerCycles -> powerCycles(screen)
-            is Screen.LeakWatch -> leakWatch(screen)
+            is Screen.Swapping -> swapping(screen, follow)
+            is Screen.DryRun -> dryRun(screen, follow)
+            is Screen.RemovalTest -> removalTest(screen, follow)
+            is Screen.PowerCycles -> powerCycles(screen, follow)
+            is Screen.LeakWatch -> leakWatch(screen, follow)
         }
     }
 
@@ -228,7 +249,7 @@ class MainActivity : Activity() {
         button(R.string.forget) { confirm(getString(R.string.forget_text)) { controller.forget() } }
     }
 
-    private fun swapping(screen: Screen.Swapping) = page(keepScreenOn = screen.running) {
+    private fun swapping(screen: Screen.Swapping, follow: Boolean) = page(follow, keepScreenOn = screen.running) {
         val (number, title, text) = when (screen.step) {
             Step.PREPARE -> Triple(1, R.string.step1_title, R.string.step1_text)
             Step.SWAP_CARD -> Triple(2, R.string.step2_title, R.string.step2_text)
@@ -289,7 +310,7 @@ class MainActivity : Activity() {
         if (screen.step != Step.GO_ONLINE) button(R.string.cancel_swap) { controller.cancelSwap() }
     }
 
-    private fun dryRun(screen: Screen.DryRun) = page(keepScreenOn = screen.running) {
+    private fun dryRun(screen: Screen.DryRun, follow: Boolean) = page(follow, keepScreenOn = screen.running) {
         heading(getString(R.string.dry_run))
         paragraph(getString(if (screen.unfinished) R.string.dry_run_unfinished else R.string.dry_run_text))
         screen.lines.forEach { paragraph("✓ $it") }
@@ -312,7 +333,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun removalTest(screen: Screen.RemovalTest) = page(keepScreenOn = screen.running) {
+    private fun removalTest(screen: Screen.RemovalTest, follow: Boolean) = page(follow, keepScreenOn = screen.running) {
         heading(getString(R.string.removal_test))
         paragraph(getString(if (screen.unfinished) R.string.removal_test_unfinished else R.string.removal_test_text))
         screen.lines.forEach { paragraph("✓ $it") }
@@ -337,7 +358,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun powerCycles(screen: Screen.PowerCycles) = page(keepScreenOn = screen.running) {
+    private fun powerCycles(screen: Screen.PowerCycles, follow: Boolean) = page(follow, keepScreenOn = screen.running) {
         heading(getString(R.string.power_cycles))
         val text = when {
             screen.waiting -> R.string.power_cycles_waiting
@@ -377,7 +398,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun leakWatch(screen: Screen.LeakWatch) = page(keepScreenOn = screen.running) {
+    private fun leakWatch(screen: Screen.LeakWatch, follow: Boolean) = page(follow, keepScreenOn = screen.running) {
         heading(getString(R.string.leak_watch))
         paragraph(getString(R.string.leak_watch_text))
         screen.lines.forEach { paragraph("✓ $it") }
@@ -582,9 +603,15 @@ class MainActivity : Activity() {
 
     /**
      * Draws a page with [build]. With [keepScroll], the page takes the place of the last one in its scroll view, which
-     * keeps the scroll position, fitted to the new page at the next layout.
+     * keeps the scroll position, fitted to the new page at the next layout. With [follow], it does the same, and then
+     * scrolls to the new page's end while [following].
      */
-    private fun page(keepScreenOn: Boolean = false, keepScroll: Boolean = false, build: LinearLayout.() -> Unit) {
+    private fun page(
+        follow: Boolean = false,
+        keepScreenOn: Boolean = false,
+        keepScroll: Boolean = false,
+        build: LinearLayout.() -> Unit,
+    ) {
         cableLine = null
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -592,13 +619,24 @@ class MainActivity : Activity() {
             setPadding(padding, padding, padding, padding)
             build()
         }
-        val kept = scrollView?.takeIf { keepScroll }
+        val kept = scrollView?.takeIf { keepScroll || follow }
         val scroll = kept ?: ScrollView(this).apply {
             // Keeps the content clear of the status and navigation bars, which the app draws behind.
             fitsSystemWindows = true
             // Makes a page shorter than the screen as tall as the screen, so that its gaps can share out the rest.
             isFillViewport = true
+            // Scrolling up from the end stops [following], and back down to the end starts it again. A scroll before a
+            // new page is laid out tells nothing, since the page's height isn't known yet.
+            setOnScrollChangeListener { _, _, _, _, _ -> if (!isLayoutRequested) following = !canScrollVertically(1) }
+            addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                if (scrollToEnd) {
+                    scrollToEnd = false
+                    scrollTo(0, getChildAt(0).height)
+                }
+            }
         }
+        if (kept == null) following = true
+        scrollToEnd = follow && following
         // While the app works on the router, the screen stays on, as it does while a video plays, so that the phone
         // doesn't lock. GrapheneOS by default blocks new USB connections on a locked phone, and in step 3 the router,
         // just switched on, connects anew.
