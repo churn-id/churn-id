@@ -85,7 +85,7 @@ data class PowerCycleStart(
  * The router's part of steps 1 and 3. Each run starts from the beginning and checks every state it relies on,
  * so a step that stopped is simply run again. [ask] shows step 3's question and waits for the user's answer. [check]
  * runs the router checks that a swap relies on, those that block in router-tests.md, and returns the lines of those
- * that failed. Both steps run them before they change slot 2, step 3 once the router has started. The tests of tiers 2
+ * that failed. Both steps run them once the router has started and before they change slot 2. The tests of tiers 2
  * and 3 in router-tests.md build on the steps' parts. [cardMayBeOn] starts as the last run of step 3 left it.
  */
 open class Swap(
@@ -117,6 +117,10 @@ open class Swap(
         if (router.scheduledReboot()) throw RouterException(Problem.SCHEDULED_REBOOT)
         // Rule 5. Checked before anything changes, while the old card can still reach the internet to set one up.
         if (!router.vpnSetUp()) throw RouterException(Problem.NO_VPN)
+        // GL's cellular manager and eSIM manager, which the checks, the slot switch and the profile's disabling use,
+        // can come up more than a minute after power-on (B20), so a step begun in the first 2 minutes waits, as step 3
+        // does.
+        if (router.uptimeSeconds() < SETTLED_UPTIME_SECONDS) waitForStart()
         runChecks()
         turnAirplaneModeOn()
         waitForRadioOff()
@@ -219,11 +223,14 @@ open class Swap(
         turnConnectionCheckOff(reload)
     }
 
-    /** Waits until the router has started, when its radio's burst at power-on is over. */
+    /**
+     * Waits until the router has started: its radio's burst at power-on is over, and GL's services that the steps use
+     * are up (B20).
+     */
     protected fun waitForStart() {
         report(Progress.WAITING_FOR_START)
         // At every power-on the radio is on for some 12 s, ending 51 to 58 s after power-on in our measurements,
-        // whatever airplane mode says (design.md, section 6). Slot 2 stays on the eSIM until well after that.
+        // whatever airplane mode says (design.md, section 6). Step 3 keeps slot 2 on the eSIM until well after that.
         if (!poll(BOOT_TIMEOUT_SECONDS) { router.uptimeSeconds() >= SETTLED_UPTIME_SECONDS }) {
             throw RouterException(Problem.NOT_STARTED)
         }
@@ -524,7 +531,10 @@ open class Swap(
         private const val PROFILE_REQUESTS = 3
         private const val BOOT_TIMEOUT_SECONDS = 600
 
-        /** About twice the latest end of the radio-on window we measured after power-on, 58 s. */
+        /**
+         * About twice the latest end of the radio-on window we measured after power-on, 58 s, and when we take GL's
+         * services to be up (B20).
+         */
         const val SETTLED_UPTIME_SECONDS = 120.0
     }
 }

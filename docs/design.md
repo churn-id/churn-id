@@ -564,11 +564,14 @@ goes when the swap ends or is canceled.
   [router-tests.md](router-tests.md)), so that a firmware upgrade that
   changes one shows up. It does so once the router screen shows, so that
   connecting takes no longer, and runs the checks a swap relies on again
-  before steps 1 and 3. The router screen warns if a check failed and lists
-  every result under Router checks, and the debug log keeps them too. A
-  failed check that a swap relies on stops steps 1 and 3 before they change
-  slot 2. On firmware we haven't tested, a swap goes ahead once those
-  checks pass, with a note that the firmware is untested.
+  before steps 1 and 3. Some of GL's services can come up more than a minute
+  after power-on, so the checks that need them don't apply in the first 2
+  minutes, and step 1, begun that soon, waits before its checks, as step 3
+  does. The router screen warns if a check failed and lists every result
+  under Router checks, and the debug log keeps them too. A failed check that
+  a swap relies on stops steps 1 and 3 before they change slot 2. On
+  firmware we haven't tested, a swap goes ahead once those checks pass, with
+  a note that the firmware is untested.
 - When a swap starts on a router with its factory IMEIs, as the first one
   does, step 1 adds that steps 1 to 3 can run at home or at work if the
   router was used there before Churn: until step 3 the router keeps its

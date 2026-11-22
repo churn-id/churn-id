@@ -230,6 +230,12 @@ private fun airplaneModeKept(router: Router): CheckResult {
     }
 }
 
+/**
+ * Whether GL's services may still be starting: its DNS rules for the tunnel, its cellular manager and its eSIM manager,
+ * which we take to be up 2 minutes after power-on (B20).
+ */
+private fun servicesStarting(router: Router) = router.uptimeSeconds() < Swap.SETTLED_UPTIME_SECONDS
+
 /** Whether GL records the active card by an ICCID, as the modem gives it, while it records one. */
 private fun activeCardIccid(router: Router): CheckResult {
     val value = router.setting(Router.MODEM_ICCID) ?: return CheckResult.NotApplicable(R.string.reason_no_active_card)
@@ -370,6 +376,7 @@ private val GL_DNS_DROP = Regex(
 /** Whether GL's firewall has its rules that keep devices' lookups in the tunnel, as development.md describes them. */
 private fun glDnsRules(router: Router): CheckResult {
     if (!router.vpnSetUp()) return CheckResult.NotApplicable(R.string.reason_no_vpn)
+    if (servicesStarting(router)) return CheckResult.NotApplicable(R.string.reason_services_starting)
     val rules = router.firewallLines("redirect to :2153", "lan_drop_leaked_dns")
     val problems = listOfNotNull(
         "No rule redirects devices' lookups marked for the tunnel to port 2153.".takeIf { GL_DNS_REDIRECT !in rules },
@@ -502,6 +509,7 @@ private fun tunnelMasquerading(router: Router): CheckResult {
 
 /** Whether exactly one key of `get_feature_config` holds `failover`: the `location_id` that the slot switches name. */
 private fun locationId(router: Router): CheckResult {
+    if (servicesStarting(router)) return CheckResult.NotApplicable(R.string.reason_services_starting)
     val keys = router.failoverKeys().sorted()
     return when {
         keys.isEmpty() -> CheckResult.Failed("No key of get_feature_config holds failover.")
@@ -573,6 +581,7 @@ private val LPA_RULE = mapOf(
  * reaching it, which would let them change profiles without a login.
  */
 private fun esimManagerBlocked(router: Router): CheckResult {
+    if (servicesStarting(router)) return CheckResult.NotApplicable(R.string.reason_services_starting)
     val port = "Nothing listens on TCP port 3456.".takeIf { 3456 !in router.tcpPorts() }
     val rule = router.settings("firewall.block_lpa_port")
     val problems = if (rule.isEmpty()) {
