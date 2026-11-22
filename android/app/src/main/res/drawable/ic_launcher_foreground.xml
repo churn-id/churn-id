@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Churn's mark on the adaptive icon's 108 dp canvas: a C, cut once. The C
+     is a ring 12 wide around a radius of 21.5, centered at (55.5, 54), open
+     by 90° to the right, with round ends. A band 5 wide through its center,
+     rising 15° to the right, cuts it, and the two pieces are slid 3.5 apart
+     along the band. Nothing reaches farther than 31.7 from the canvas's
+     center, so it stays inside the 66 dp circle that no launcher's mask cuts
+     into. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- The upper piece, which ends at the top right -->
+    <path
+        android:fillColor="#FFB300"
+        android:pathData="M43.46,54.64 L31.78,57.77 A27.5,27.5 0 0,1 78.33,33.65 A6,6 0 0,1 69.84,42.13 A15.5,15.5 0 0,0 43.46,54.64 Z" />
+    <!-- The lower piece, which ends at the bottom right -->
+    <path
+        android:fillColor="#FFB300"
+        android:pathData="M71.56,74.35 A27.5,27.5 0 0,1 26.31,64.41 L37.99,61.28 A15.5,15.5 0 0,0 63.08,65.87 A6,6 0 0,1 71.56,74.35 Z" />
+</vector>
