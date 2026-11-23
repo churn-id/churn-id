@@ -1137,7 +1137,9 @@ builds: when F-Droid's build matches ours byte for byte, F-Droid ships our
 APK with our signature. Users can then switch between F-Droid and GitHub
 without losing the app's data, including the phone's copy of the factory
 IMEIs, since Android updates an app only with an APK signed with the same
-key.
+key. A version whose build doesn't match never reaches F-Droid's users, so
+CI also builds every commit with F-Droid's tools (CONTRIBUTING.md,
+"Building").
 
 Because of its reach, Google Play is an obvious further choice. However,
 since Churn helps the user do something that is illegal in some

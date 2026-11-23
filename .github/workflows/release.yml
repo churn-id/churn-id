@@ -27,6 +27,13 @@ jobs:
           name: churn-release-apk
           path: apk
 
+      # Any job of the run can replace the run's artifacts, so the draft takes
+      # only the APK that the sign job signed.
+      - name: Check that the APK is the sign job's
+        env:
+          APK_SHA256: ${{ needs.build.outputs.apk-sha256 }}
+        run: echo "$APK_SHA256  apk/app-release.apk" | sha256sum --strict -c
+
       - name: Draft a release with the signed APK
         env:
           GH_TOKEN: ${{ github.token }}
