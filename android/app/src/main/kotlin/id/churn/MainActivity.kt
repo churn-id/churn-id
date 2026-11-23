@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.view.Menu
+import android.view.Window
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
@@ -58,9 +59,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // The screens show the IMEIs, the router's key fingerprint and the last digits of cards' ICCIDs, which
-        // screenshots and the recent apps' preview would keep. The debug log stands in for screenshots in bug reports.
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        window.secure()
     }
 
     override fun onStart() {
@@ -594,10 +593,20 @@ class MainActivity : Activity() {
             .showSecurely()
     }
 
-    /** Shows the dialog, whose window, like the screens', screenshots and the recent apps' preview leave out. */
+    /** Shows the dialog, whose window, like the screen's, is [secure]. */
     private fun AlertDialog.Builder.showSecurely(): AlertDialog = create().apply {
-        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        window?.secure()
         show()
+    }
+
+    /**
+     * In release builds, keeps the window out of screenshots, screen recordings and the recent apps' preview, since the
+     * screens show the IMEIs, the router's key fingerprint and the last digits of cards' ICCIDs. The debug log stands in
+     * for screenshots in bug reports. Debug builds, which we never publish, let screenshots capture their windows, for
+     * debugging and for F-Droid's screenshots (CONTRIBUTING.md, "Releases").
+     */
+    private fun Window.secure() {
+        if (!BuildConfig.DEBUG) addFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }
 
     /** The foreground service's notification needs this permission from Android 13 on; the swap works without. */
