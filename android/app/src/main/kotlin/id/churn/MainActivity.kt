@@ -83,9 +83,14 @@ class MainActivity : Activity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menu.add(R.string.debug_log).setOnMenuItemClickListener {
-            showDebugLog()
-            true
+        menu.item(R.string.debug_log) { showDebugLog() }
+        // Debug builds' tests work on the router, so they show only with the router screen. They are in the menu rather
+        // than on the screen, so that the screen looks as in release builds.
+        if (drawn is Screen.Home) {
+            if (DryRun.AVAILABLE) menu.item(R.string.dry_run) { controller.openDryRun() }
+            if (RemovalTest.AVAILABLE) menu.item(R.string.removal_test) { controller.openRemovalTest() }
+            if (PowerCycleTest.AVAILABLE) menu.item(R.string.power_cycles) { controller.openPowerCycles() }
+            if (LeakWatch.AVAILABLE) menu.item(R.string.leak_watch) { controller.openLeakWatch() }
         }
         return true
     }
@@ -93,6 +98,7 @@ class MainActivity : Activity() {
     private fun render(screen: Screen) {
         val last = drawn
         drawn = screen
+        if ((screen is Screen.Home) != (last is Screen.Home)) invalidateOptionsMenu()
         if (screen is Screen.Home && last is Screen.Home) {
             // An open Router checks dialog shows the checks' results as they come.
             checksDialog?.setMessage(checksText(screen.checks))
@@ -238,10 +244,6 @@ class MainActivity : Activity() {
         }
         button(R.string.show_rules) { showRules() }
         button(R.string.router_checks) { showChecks() }
-        if (DryRun.AVAILABLE) button(R.string.dry_run) { controller.openDryRun() }
-        if (RemovalTest.AVAILABLE) button(R.string.removal_test) { controller.openRemovalTest() }
-        if (PowerCycleTest.AVAILABLE) button(R.string.power_cycles) { controller.openPowerCycles() }
-        if (LeakWatch.AVAILABLE) button(R.string.leak_watch) { controller.openLeakWatch() }
         button(R.string.restore) {
             val factory = status.factory
             confirm(getString(R.string.restore_text, factory.imei1, factory.imei2)) { controller.restore() }
@@ -693,6 +695,11 @@ class MainActivity : Activity() {
         this.inputType = inputType
         isSingleLine = true
     }.also { addView(it) }
+
+    private fun Menu.item(text: Int, onClick: () -> Unit) = add(text).setOnMenuItemClickListener {
+        onClick()
+        true
+    }
 
     private fun LinearLayout.button(text: Int, onClick: () -> Unit) = button(getString(text), onClick)
 
