@@ -149,6 +149,9 @@ the build:
 ```
 
 The report is in `android/app/build/reports/jacoco/coverageReport/`.
+CI's Coverage build job builds the coverage build, checks that its APK
+has JaCoCo's counters, and makes a report of the unit tests, which count
+too with `-Pcoverage`.
 
 ## Signing
 
