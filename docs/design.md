@@ -887,8 +887,12 @@ Each rule closes a way to tie cards together, or to the user, that new
 IMEIs leave open: a place, a device, account or identifier that goes along
 from one card to the next, a name, or the timing of a swap (section 1).
 Rules 1 to 8 allow no compromise: breaking one ties cards together or to
-the user, whatever the others do. Rules 9 to 13 make that harder still,
-and some say what to do when one can't be followed.
+the user, whatever the others do. Rules 9 and 10 keep the user's name off
+the cards and off the VPN account that sees them all. That matters as
+much, but the law, or the ways the user can pay, don't always allow it, so
+they apply wherever the user can. Rules 11 to 13 make it harder still to
+tie cards together or to the user, and rule 11 says what to do when it
+can't be followed.
 
 Always follow these rules:
 
@@ -1049,7 +1053,8 @@ Always follow these rules:
    profiles together (rule 6). A place card is the one card that goes back
    in, at its own place only (rule 1).
 
-For maximum privacy, also follow these rules where you can:
+Without these rules, your cards can be tied to your name, so follow them
+wherever you can:
 
 <!-- markdownlint-disable MD029 -->
 9. Use cards that aren't registered to your name.
@@ -1057,7 +1062,15 @@ For maximum privacy, also follow these rules where you can:
    Why: a card registered to a name ties every IMEI it is used with, and
    every place, to that name. Churn can't undo that.
 
-10. Get each new card from a different provider than the last one and than
+10. Pay for the VPN in a way that isn't tied to your name.
+
+    Why: the VPN provider sees each card's IP address in turn, all under
+    one VPN account. If that account is tied to a name, so are all the
+    cards.
+
+For maximum privacy, also follow these rules where you can:
+
+11. Get each new card from a different provider than the last one and than
     your place cards. If you can't, start using it somewhere else and some
     days after you stopped using the last one.
 
@@ -1070,16 +1083,10 @@ For maximum privacy, also follow these rules where you can:
     avoided, a different place and a gap of some days make the stop and the
     start harder to match.
 
-11. Vary when you swap cards, and where you switch the radio on and off.
+12. Vary when you swap cards, and where you switch the radio on and off.
 
     Why: regular habits, such as always swapping on the same day or at the
     same station, can tie cards together without any identifier.
-
-12. Pay for the VPN in a way that isn't tied to your name.
-
-    Why: the VPN provider sees each card's IP address in turn, all under
-    one VPN account. If that account is tied to a name, so are all the
-    cards.
 
 13. Block the SIM 1 tray, for example with a drop of hot glue.
 

@@ -26,19 +26,23 @@ class RulesTest {
         for (key in listOf("rules_intro", "rules_card_kinds")) {
             assertTrue("$name has no paragraph $key: ${STRINGS[key]}", STRINGS[key] in blocks)
         }
-        val always = ARRAYS.getValue("rules_always")
-        val rules = always + ARRAYS.getValue("rules_where_you_can")
+        val rules = GROUPS.flatMap { ARRAYS.getValue(it) }
         val items = blocks.filter { LIST_ITEM.matches(it) }
         assertEquals("The rules in $name", rules.size, items.size)
         rules.forEachIndexed { i, rule -> assertEquals("Rule ${i + 1} in $name", "${i + 1}. $rule", items[i]) }
-        // Each heading comes right before the first rule it introduces.
-        for ((key, first) in mapOf("rules_always_heading" to 0, "rules_where_you_can_heading" to always.size)) {
+        // Each group's heading comes right before the group's first rule.
+        var first = 0
+        for (group in GROUPS) {
             val before = blocks[blocks.indexOf(items[first]) - 1]
-            assertEquals("The heading before rule ${first + 1} in $name", STRINGS[key], before)
+            assertEquals("The heading before rule ${first + 1} in $name", STRINGS["${group}_heading"], before)
+            first += ARRAYS.getValue(group).size
         }
     }
 
     private companion object {
+        /** The groups of rules, in the order the app shows them, each with a heading named after it. */
+        val GROUPS = listOf("rules_always", "rules_your_name", "rules_where_you_can")
+
         val LIST_ITEM = Regex("[0-9]+\\. .*")
 
         /** The app's strings and string arrays, as Android reads them. */

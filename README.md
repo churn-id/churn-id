@@ -146,15 +146,19 @@ Always follow these rules:
    run out of new cards, keep using the current one until you get a new
    one.
 
-For maximum privacy, also follow these rules where you can:
+Without these rules, your cards can be tied to your name, so follow them
+wherever you can:
 
 <!-- markdownlint-disable MD029 -->
 9. Use cards that aren't registered to your name.
-10. Get each new card from a different provider than the last one and than
+10. Pay for the VPN in a way that isn't tied to your name.
+
+For maximum privacy, also follow these rules where you can:
+
+11. Get each new card from a different provider than the last one and than
     your place cards. If you can't, start using it somewhere else and some
     days after you stopped using the last one.
-11. Vary when you swap cards, and where you switch the radio on and off.
-12. Pay for the VPN in a way that isn't tied to your name.
+12. Vary when you swap cards, and where you switch the radio on and off.
 13. Block the SIM 1 tray, for example with a drop of hot glue.
 <!-- markdownlint-enable MD029 -->
 

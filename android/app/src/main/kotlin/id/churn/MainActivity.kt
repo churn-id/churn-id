@@ -510,15 +510,19 @@ class MainActivity : Activity() {
     }
 
     private fun rules(): String {
-        val always = resources.getStringArray(R.array.rules_always)
-        val whereYouCan = resources.getStringArray(R.array.rules_where_you_can)
+        val groups = listOf(
+            R.string.rules_always_heading to R.array.rules_always,
+            R.string.rules_your_name_heading to R.array.rules_your_name,
+            R.string.rules_where_you_can_heading to R.array.rules_where_you_can,
+        )
+        var number = 0
         return buildString {
             append(getString(R.string.rules_intro)).append("\n\n")
-            append(getString(R.string.rules_card_kinds)).append("\n\n")
-            append(getString(R.string.rules_always_heading))
-            always.forEachIndexed { i, rule -> append("\n\n${i + 1}. $rule") }
-            append("\n\n").append(getString(R.string.rules_where_you_can_heading))
-            whereYouCan.forEachIndexed { i, rule -> append("\n\n${always.size + i + 1}. $rule") }
+            append(getString(R.string.rules_card_kinds))
+            for ((heading, rules) in groups) {
+                append("\n\n").append(getString(heading))
+                for (rule in resources.getStringArray(rules)) append("\n\n${++number}. $rule")
+            }
         }
     }
 
