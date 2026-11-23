@@ -46,7 +46,7 @@ It doesn't hide:
 
 - where the router is while it's online;
 - what you do online, or the accounts you use;
-- who bought a SIM, if it's registered to a name;
+- who bought a SIM;
 - that the device is a Mudi 7, which the network can tell from its radio.
 
 Churn only helps together with a VPN. Without one, the websites and apps you
@@ -81,7 +81,7 @@ Roughly from larger to smaller, the pieces are:
    and apps you use. Pay for it in a way that isn't tied to your name.
 4. **Your SIM.** A SIM registered to your name tells the network who you
    are, whatever the router does. Use SIMs that aren't, where the law
-   allows it.
+   allows it, and pay for them in a way that isn't tied to your name.
 5. **Your router's device numbers.** This is the piece Churn handles.
 
 Churn makes sense for you if you've done the first four and don't want
@@ -151,7 +151,7 @@ wherever you can:
 
 <!-- markdownlint-disable MD029 -->
 9. Use cards that aren't registered to your name.
-10. Pay for the VPN in a way that isn't tied to your name.
+10. Pay for your cards and the VPN in a way that isn't tied to your name.
 
 For maximum privacy, also follow these rules where you can:
 

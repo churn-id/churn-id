@@ -1062,11 +1062,13 @@ wherever you can:
    Why: a card registered to a name ties every IMEI it is used with, and
    every place, to that name. Churn can't undo that.
 
-10. Pay for the VPN in a way that isn't tied to your name.
+10. Pay for your cards and the VPN in a way that isn't tied to your name.
 
-    Why: the VPN provider sees each card's IP address in turn, all under
-    one VPN account. If that account is tied to a name, so are all the
-    cards.
+    Why: whoever sells a card, or a top-up for it, can tie the card to the
+    payment, whether or not the card is registered. The VPN provider sees
+    each card's IP address in turn, all under one VPN account. A payment
+    tied to a name ties its card to that name, and a VPN account paid that
+    way ties all the cards to it.
 
 For maximum privacy, also follow these rules where you can:
 

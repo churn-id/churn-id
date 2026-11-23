@@ -28,7 +28,7 @@
     <string name="rules_your_name_heading">Without these rules, your cards can be tied to your name, so follow them wherever you can:</string>
     <string-array name="rules_your_name">
         <item>Use cards that aren\'t registered to your name.</item>
-        <item>Pay for the VPN in a way that isn\'t tied to your name.</item>
+        <item>Pay for your cards and the VPN in a way that isn\'t tied to your name.</item>
     </string-array>
     <string name="rules_where_you_can_heading">For maximum privacy, also follow these rules where you can:</string>
     <string-array name="rules_where_you_can">
