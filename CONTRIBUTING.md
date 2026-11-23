@@ -144,6 +144,12 @@ read):
 
 Builds of pull requests and other branches are always unsigned.
 
+Any job of a workflow run can replace the run's artifacts, but not another
+job's outputs. So the Release bundle job passes the SHA-256 of the bundle
+and APK to the sign job as outputs, and the sign job signs them only if they
+match. In the same way, the Release workflow drafts a release only with the
+APK that the sign job signed.
+
 ## Releases
 
 1. In a pull request, raise `versionCode` and `versionName` in

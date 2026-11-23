@@ -7,6 +7,9 @@ on:
   workflow_dispatch:
   # The Release workflow runs this one first.
   workflow_call:
+    outputs:
+      apk-sha256:
+        value: ${{ jobs.sign.outputs.apk-sha256 }}
 
 permissions:
   contents: read
@@ -38,6 +41,9 @@ jobs:
   bundle:
     name: Release bundle
     runs-on: ubuntu-latest
+    outputs:
+      aab-sha256: ${{ steps.sha256.outputs.aab }}
+      apk-sha256: ${{ steps.sha256.outputs.apk }}
     defaults:
       run:
         working-directory: android
@@ -80,6 +86,14 @@ jobs:
           path: android/app/build/router-scripts/
           if-no-files-found: error
           retention-days: 1
+
+      # For the sign job, which signs only these files.
+      - name: Record the SHA-256 of the bundle and APK
+        id: sha256
+        working-directory: android/app/build/outputs
+        run: |
+          echo "aab=$(sha256sum < bundle/release/app-release.aab | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+          echo "apk=$(sha256sum < apk/release/app-release-unsigned.apk | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -157,6 +171,8 @@ jobs:
     # keystore exists only while the signing step runs, so the steps after it
     # can't read the file either.
     environment: release
+    outputs:
+      apk-sha256: ${{ steps.sign.outputs.apk-sha256 }}
     steps:
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
@@ -173,7 +189,20 @@ jobs:
           name: churn-release-apk-unsigned
           path: apk
 
+      # Any job of the run can replace the run's artifacts, so this job signs
+      # only what the Release bundle job built.
+      - name: Check that the bundle and APK are the Release bundle job's
+        env:
+          AAB_SHA256: ${{ needs.bundle.outputs.aab-sha256 }}
+          APK_SHA256: ${{ needs.bundle.outputs.apk-sha256 }}
+        run: |
+          sha256sum --strict -c <<EOF
+          $AAB_SHA256  bundle/app-release.aab
+          $APK_SHA256  apk/app-release-unsigned.apk
+          EOF
+
       - name: Sign the bundle and APK with the upload key
+        id: sign
         env:
           KEYSTORE_B64: ${{ secrets.CHURN_UPLOAD_KEYSTORE_B64 }}
           CHURN_KEYSTORE_PASSWORD: ${{ secrets.CHURN_UPLOAD_PASSWORD }}
@@ -208,6 +237,7 @@ jobs:
             --ks-key-alias "$CHURN_KEY_ALIAS" --alignment-preserved true \
             --out apk/app-release.apk apk/app-release-unsigned.apk
           "$apksigner" verify apk/app-release.apk
+          echo "apk-sha256=$(sha256sum < apk/app-release.apk | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
