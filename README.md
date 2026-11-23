@@ -46,7 +46,7 @@ It doesn't hide:
 
 - where the router is while it's online;
 - what you do online, or the accounts you use;
-- who bought a SIM, if it's registered to a name;
+- who bought a SIM;
 - that the device is a Mudi 7, which the network can tell from its radio.
 
 Churn only helps together with a VPN. Without one, the websites and apps you
@@ -81,7 +81,13 @@ Roughly from larger to smaller, the pieces are:
    and apps you use. Pay for it in a way that isn't tied to your name.
 4. **Your SIM.** A SIM registered to your name tells the network who you
    are, whatever the router does. Use SIMs that aren't, where the law
-   allows it.
+   allows it, and pay for them in a way that isn't tied to your name.
+   Where SIMs must be registered, you may still be able to buy a profile
+   for an eSIM adapter card from a provider abroad that asks for no ID
+   and takes Monero, such as [Silent Link](https://silent.link/) or
+   [nadanada](https://nadanada.me/). The
+   [design document](docs/design.md#8-usage-rules) says what to watch out
+   for, under rule 9.
 5. **Your router's device numbers.** This is the piece Churn handles.
 
 Churn makes sense for you if you've done the first four and don't want
@@ -146,15 +152,19 @@ Always follow these rules:
    run out of new cards, keep using the current one until you get a new
    one.
 
-For maximum privacy, also follow these rules where you can:
+Without these rules, your cards can be tied to your name, so follow them
+wherever you can:
 
 <!-- markdownlint-disable MD029 -->
 9. Use cards that aren't registered to your name.
-10. Get each new card from a different provider than the last one and than
+10. Pay for your cards and the VPN in a way that isn't tied to your name.
+
+For maximum privacy, also follow these rules where you can:
+
+11. Get each new card from a different provider than the last one and than
     your place cards. If you can't, start using it somewhere else and some
     days after you stopped using the last one.
-11. Vary when you swap cards, and where you switch the radio on and off.
-12. Pay for the VPN in a way that isn't tied to your name.
+12. Vary when you swap cards, and where you switch the radio on and off.
 13. Block the SIM 1 tray, for example with a drop of hot glue.
 <!-- markdownlint-enable MD029 -->
 

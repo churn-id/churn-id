@@ -25,12 +25,15 @@
         <item>Start each swap right after you\'re done with the old card, before you switch the router off. If you\'ve switched it off already, take the old card out before you switch it on again, and start the swap well away from home, work and any other place you return to. Switch the new card on later, and somewhere else.</item>
         <item>Once you\'ve swapped out a travel card, destroy it away from home. If you run out of new cards, keep using the current one until you get a new one.</item>
     </string-array>
+    <string name="rules_your_name_heading">Without these rules, your cards can be tied to your name, so follow them wherever you can:</string>
+    <string-array name="rules_your_name">
+        <item>Use cards that aren\'t registered to your name.</item>
+        <item>Pay for your cards and the VPN in a way that isn\'t tied to your name.</item>
+    </string-array>
     <string name="rules_where_you_can_heading">For maximum privacy, also follow these rules where you can:</string>
     <string-array name="rules_where_you_can">
-        <item>Use cards that aren\'t registered to your name.</item>
         <item>Get each new card from a different provider than the last one and than your place cards. If you can\'t, start using it somewhere else and some days after you stopped using the last one.</item>
         <item>Vary when you swap cards, and where you switch the radio on and off.</item>
-        <item>Pay for the VPN in a way that isn\'t tied to your name.</item>
         <item>Block the SIM 1 tray, for example with a drop of hot glue.</item>
     </string-array>
 
