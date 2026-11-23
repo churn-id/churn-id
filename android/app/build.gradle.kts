@@ -154,16 +154,26 @@ if (coverage.isPresent) {
         )
         data = layout.buildDirectory.file("coverage/run.ec")
     }
-    val coverageReport = tasks.register<CoverageReport>("coverageReport") {
+    tasks.withType<CoverageReport>().configureEach {
         executionData.from(decodeCoverage.flatMap { it.data })
         sourceDirectories.from("src/main/kotlin", "src/debug/kotlin")
         reports.xml.required = true
     }
+    val coverageReport = tasks.register<CoverageReport>("coverageReport")
+    // The unit tests count against the same classes, so what this report shows as missed, no test reaches.
+    val coverageReportWithUnitTests = tasks.register<CoverageReport>("coverageReportWithUnitTests") {
+        val unitTests = tasks.named("testDebugUnitTest")
+        // executionData(TaskCollection) calls tasks.all, which Gradle refuses while it creates this task.
+        executionData(unitTests.get())
+        dependsOn(unitTests)
+    }
     androidComponents {
-        onVariants(selector().withBuildType("debug")) {
-            it.artifacts.forScope(ScopedArtifacts.Scope.PROJECT)
-                .use(coverageReport)
-                .toGet(ScopedArtifact.CLASSES, CoverageReport::jars, CoverageReport::dirs)
+        onVariants(selector().withBuildType("debug")) { variant ->
+            for (report in listOf(coverageReport, coverageReportWithUnitTests)) {
+                variant.artifacts.forScope(ScopedArtifacts.Scope.PROJECT)
+                    .use(report)
+                    .toGet(ScopedArtifact.CLASSES, CoverageReport::jars, CoverageReport::dirs)
+            }
         }
     }
 }
