@@ -93,7 +93,7 @@ could affect. When GL releases a new firmware:
 
 ## Dry run
 
-Debug builds have a Dry run button on the router screen. It runs steps 1
+Debug builds have Dry run in the router screen's menu. It runs steps 1
 and 3 of a swap with the swap's own code on a router with no SIM, both
 trays empty and no profile enabled on the built-in eSIM, as far as the
 steps go without one. With no SIM there is nothing to register, and the
@@ -140,7 +140,7 @@ confirming. The debug log keeps every command.
 
 ## Removal and clearing
 
-Debug builds also have a Removal and clearing button on the router screen,
+Debug builds also have Removal and clearing in the router screen's menu,
 for the tier 2 claims that only running `restore.sh` and a clearing can
 confirm. `restore.sh` deletes the zero files, so that the test's first
 clearing fills all of the flash's free space, about 2.9 GB, and the test
@@ -239,7 +239,7 @@ tests the scripts, but not GL's firmware or the router's flash.
 
 ## Power cycles
 
-Debug builds also have a Power cycles button on the router screen, for
+Debug builds also have Power cycles in the router screen's menu, for
 the tier 3 claims that only a power-on can confirm. The test shuts the
 router down twice, and the user switches it on again each time. It runs
 at home with both trays empty, and with slot 2 on the empty SIM 2 tray,
@@ -294,7 +294,7 @@ debug log keeps every command.
 
 ## Leak watch
 
-Debug builds also have a Leak watch button on the router screen, for the
+Debug builds also have Leak watch in the router screen's menu, for the
 tier 4 claims about going online. The test stands in for step 4 of a
 swap, where the user turns airplane mode off, so it runs where step 4 may
 happen, once the router has been switched on again there (rule 1):

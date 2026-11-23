@@ -686,10 +686,12 @@ goes when the swap ends or is canceled.
   and the copy of the factory IMEIs included, though uninstalls from the
   Play Store don't offer it (inferred).
 - The screens and dialogs show the IMEIs, the router's key fingerprint and
-  the last digits of cards' ICCIDs, so the app sets `FLAG_SECURE` on each
-  of their windows: screenshots and screen recordings leave them out, and
-  the recent apps show no preview of them (inferred). The debug log stands
-  in for screenshots in bug reports.
+  the last digits of cards' ICCIDs, so release builds set `FLAG_SECURE` on
+  each of their windows: screenshots and screen recordings leave them out,
+  and the recent apps show no preview of them (inferred). The debug log
+  stands in for screenshots in bug reports. Debug builds, which we never
+  publish, leave the flag off, for debugging and for F-Droid's screenshots,
+  in which we cover those numbers (CONTRIBUTING.md, "Releases").
 
 ### The router's own traffic
 

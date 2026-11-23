@@ -149,7 +149,9 @@ Builds of pull requests and other branches are always unsigned.
 1. In a pull request, raise `versionCode` and `versionName` in
    `android/app/build.gradle.kts`, and add F-Droid's changelog for the new
    version code as
-   `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
+   `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`. If a
+   screen that F-Droid's screenshots show has changed, take them again in
+   that pull request, as described below.
 2. Once it has merged, start the Release workflow on `main` from the
    repository's Actions tab. It runs the Build workflow, whose sign job
    signs the APK, and then drafts a GitHub release `v<versionName>` with
@@ -159,6 +161,28 @@ Builds of pull requests and other branches are always unsigned.
    with that APK.
 4. Publish the draft, which creates the tag. F-Droid builds each version
    from its tag, once Churn is in F-Droid's repository.
+
+F-Droid's listing shows the screenshots in
+`fastlane/metadata/android/en-US/images/phoneScreenshots/`, named `1.png`,
+`2.png` and so on, and takes them from the tag of the latest release.
+Release builds keep their screens out of screenshots (design.md, section 7),
+so we take them with a debug build of the pull request, on a test phone with
+nothing private on it, and swap in a test card for the screens of a swap.
+The screens show the router's real IMEIs and the last digits of the cards'
+ICCIDs, so we cover each of these numbers with a bar in the text's color, a
+little larger than the digits, which makes it plain that something is
+hidden. Android may write the time and the phone's system into a
+screenshot's metadata, and image editors keep it and may add their own, so
+we then remove all of it:
+
+```sh
+cd fastlane/metadata/android/en-US/images/phoneScreenshots
+exiftool -all= -overwrite_original *.png
+```
+
+`exiftool` then lists no EXIF, XMP or PNG text fields for the files. History
+on `main` is never rewritten, so we look at each file once more before the
+commit: a number left in a screenshot would stay public.
 
 ## History
 

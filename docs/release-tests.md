@@ -96,8 +96,8 @@ meets the router as a new one:
    `ssh-keyscan 192.168.8.1 | ssh-keygen -lf -` on the computer also
    prints.
 4. The setup screen shows the factory IMEIs with no warning. Once the
-   router is set up, the router screen names them as the factory IMEIs
-   and has none of the debug build's test buttons, and Router checks pass
+   router is set up, the router screen names them as the factory IMEIs,
+   its menu has none of the debug build's tests, and Router checks pass
    or don't apply.
 5. Turn GL's scheduled reboot on and tap Refresh: the router screen says
    that a swap needs it off, and its swap button is off. Turn it off

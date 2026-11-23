@@ -30,6 +30,8 @@
     "EPERM",
     "esac",
     "esim",
+    "EXIF",
+    "exiftool",
     "fccid",
     "framebuffer",
     "fwmark",
