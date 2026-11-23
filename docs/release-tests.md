@@ -23,12 +23,35 @@ test card in as a travel card and goes online as section 4 describes, and
 section 6. A firmware that `TESTED_PLATFORMS` in `Checks.kt` doesn't list
 yet goes through router-tests.md's "New firmware" first.
 
+## Coverage pass
+
+Before the first release, and after big changes rather than at every
+release, a coverage pass comes before the full run, to show the code that
+no step reaches. It is a full run of its own with the coverage build
+([CONTRIBUTING.md](../CONTRIBUTING.md#building)), which counts the code
+that runs, in place of both the release build and the debug build. It
+skips section 1, and in section 3, step 4's check that the menu has none
+of the debug build's tests.
+
+The app keeps adding to its coverage file until its data is deleted, so the
+pass begins with the coverage build freshly installed: first uninstall the
+app if the phone has it, without keeping its data.
+
+Each switch between builds still uninstalls the app and installs the
+coverage build again, since the steps after it expect the app's data to
+be gone. Before the uninstall, share the coverage file from Share
+coverage in the menu, along with the debug log, and share it once more at
+the end of the run. Turn the files into a report and attach it, zipped,
+to the run's issue.
+
 ## What you need
 
 - The release build: the signed APK of the commit to be released, from
   the draft release that the Release workflow made
   ([CONTRIBUTING.md](../CONTRIBUTING.md#releases)). For a full run, also
-  the debug build of the same commit, from `./gradlew assembleDebug`.
+  the debug build of the same commit, from `./gradlew assembleDebug`. A
+  coverage pass needs only the coverage build, from
+  `./gradlew assembleDebug -Pcoverage`.
 - For the upgrade, the phone with the previous release, installed from an
   APK signed with the same key, and its data.
 - A Mudi 7 with a firmware that `TESTED_PLATFORMS` lists, with GL's
@@ -315,10 +338,9 @@ In a full run, at the same place, once the router is off after swap 5:
 
 ## Results
 
-Open an issue for the run, with the versions noted above and whether the
-run was full or short. Each failure gets an issue of its own, linked
-there, and after a fix, the steps it affects run again. The release waits
-until the run has passed, or until the run's issue says why a failure
-doesn't hold it up. Claims that the run confirmed for the first time
-become *verified* in router-tests.md, and their status names the run's
-issue.
+Open an issue for the run, with the versions noted above and whether the run
+was full, short or a coverage pass. Each failure gets an issue of its own,
+linked there, and after a fix, the steps it affects run again. The release
+waits until the run has passed, or until the run's issue says why a failure
+doesn't hold it up. Claims that the run confirmed for the first time become
+*verified* in router-tests.md, and their status names the run's issue.
