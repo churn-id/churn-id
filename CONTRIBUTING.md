@@ -106,7 +106,13 @@ CI's Reproducible APK job builds the release APK again, on another runner,
 from a checkout in another folder and without Gradle's caches, and fails
 unless it matches the first build byte for byte. F-Droid ships our signed
 APK only if its own build of the same commit matches ours too (design.md,
-section 9).
+section 9). So the F-Droid build job builds the APK with F-Droid's tools,
+in F-Droid's build server image, as F-Droid's CI builds apps for merge
+requests to its repository, and fails unless that build matches ours. It
+takes F-Droid's latest image and tools, so it can also fail after a change
+on F-Droid's side. On `main`, the next job copies our signature onto
+F-Droid's build and verifies it with F-Droid's own code, as F-Droid does
+before it ships our APK.
 
 The unit tests run against a simulated Mudi 7. Tests on a real router are
 listed in [docs/router-tests.md](docs/router-tests.md); the app runs the
@@ -130,9 +136,10 @@ and APK are unsigned. Key material is never committed.
 
 CI builds and tests without the key. For `main`, the Sign release bundle
 and APK job then signs the bundle with the JDK's `jarsigner` and the APK
-with `apksigner` from the runner's Android SDK. No Gradle and no code from
-the repository run in that job, so no build plugin, dependency or test can
-read the key. It needs a GitHub Actions environment named
+with `apksigner` from the runner's Android SDK, and prints our certificate's
+SHA-256, which F-Droid's metadata for Churn lists. No Gradle and no code
+from the repository run in that job, so no build plugin, dependency or
+test can read the key. It needs a GitHub Actions environment named
 `release` with deployment branches restricted to `main`. In it these
 secrets must be set (not as repository secrets, which every branch can
 read):
@@ -160,9 +167,10 @@ APK that the sign job signed.
    that pull request, as described below.
 2. Once it has merged, start the Release workflow on `main` from the
    repository's Actions tab. It runs the Build workflow, whose sign job
-   signs the APK, and then drafts a GitHub release `v<versionName>` with
-   that APK as `churn-<versionName>.apk`. For anyone but the repository's
-   owner, the workflow skips its jobs.
+   signs the APK, and once all of its jobs have passed, F-Droid's build
+   among them, drafts a GitHub release `v<versionName>` with that APK as
+   `churn-<versionName>.apk`. For anyone but the repository's owner, the
+   workflow skips its jobs.
 3. Run the release tests in [docs/release-tests.md](docs/release-tests.md)
    with that APK.
 4. Publish the draft, which creates the tag. F-Droid builds each version

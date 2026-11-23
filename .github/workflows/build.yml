@@ -236,7 +236,9 @@ jobs:
           "$apksigner" sign --ks "$RUNNER_TEMP/upload.jks" --ks-pass env:CHURN_KEYSTORE_PASSWORD \
             --ks-key-alias "$CHURN_KEY_ALIAS" --alignment-preserved true \
             --out apk/app-release.apk apk/app-release-unsigned.apk
-          "$apksigner" verify apk/app-release.apk
+          # F-Droid's metadata for Churn lists our certificate's SHA-256.
+          "$apksigner" verify --print-certs apk/app-release.apk > "$RUNNER_TEMP/certs.txt"
+          grep 'certificate SHA-256' "$RUNNER_TEMP/certs.txt"
           echo "apk-sha256=$(sha256sum < apk/app-release.apk | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -252,3 +254,138 @@ jobs:
           path: apk/app-release.apk
           if-no-files-found: error
           retention-days: 14
+
+  fdroid:
+    name: F-Droid build
+    needs: bundle
+    runs-on: ubuntu-latest
+    # F-Droid's build server image, set up and run as the "fdroid build" job of
+    # fdroiddata's CI does for merge requests, so that this job builds the
+    # commit as F-Droid's build server would:
+    # https://gitlab.com/fdroid/fdroiddata/-/blob/master/.gitlab-ci.yml
+    # Like that job, it takes the image's current version and F-Droid's
+    # current tools rather than pinned ones.
+    container: registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: churn
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: churn-release-apk-unsigned
+          path: ours
+
+      - name: Set up F-Droid's tools
+        run: |
+          . /etc/profile.d/bsenv.sh
+          apt-get update
+          apt-get dist-upgrade
+          sdkmanager "platform-tools" "build-tools;31.0.0"
+          rm -rf "$fdroidserver"
+          git clone --depth 1 https://gitlab.com/fdroid/fdroidserver.git "$fdroidserver"
+          git -C "$home_vagrant/gradlew-fdroid" pull
+          apt-get install openjdk-21-jdk-headless
+          update-alternatives --set java /usr/lib/jvm/java-21-openjdk-amd64/bin/java
+          java -version
+
+      - name: Build the release APK with F-Droid's tools
+        run: |
+          . /etc/profile.d/bsenv.sh
+          # F-Droid clones the repository. Here it clones a clone of this
+          # checkout, which has the commit on a branch.
+          git -C churn branch fdroid
+          git clone --quiet --branch fdroid churn "$home_vagrant/churn"
+          apk_id=$(PYTHONPATH=$fdroidserver python3 -c \
+            'import sys; from fdroidserver import common; print(*common.get_apk_id(sys.argv[1]))' \
+            ours/app-release-unsigned.apk)
+          read -r _ version_code version_name <<< "$apk_id"
+          # The build of our recipe in F-Droid's repository, for this commit.
+          mkdir -p "$home_vagrant/metadata"
+          cat > "$home_vagrant/metadata/id.churn.yml" <<EOF
+          RepoType: git
+          Repo: $home_vagrant/churn
+          Builds:
+            - versionName: '$version_name'
+              versionCode: $version_code
+              commit: '$(git -C churn rev-parse HEAD)'
+              subdir: android/app
+              gradle:
+                - yes
+          EOF
+          mkdir -p "$home_vagrant"/{logs,tmp,unsigned,.android,.gradle}
+          chown -R vagrant "$home_vagrant"
+          cd "$home_vagrant"
+          sudo --preserve-env --user vagrant env -u CI \
+            PATH="$fdroidserver:$PATH" PYTHONPATH="$fdroidserver:$fdroidserver/examples" \
+            PYTHONUNBUFFERED=true HOME="$home_vagrant" GRADLE_USER_HOME="$home_vagrant/.gradle" \
+            fdroid build --verbose --test --refresh-scanner --on-server --no-tarball "id.churn:$version_code"
+          mkdir "$GITHUB_WORKSPACE/fdroid"
+          cp "tmp/id.churn_$version_code.apk" "$GITHUB_WORKSPACE/fdroid/"
+
+      - name: Compare with the Release bundle job's APK
+        run: |
+          ours=ours/app-release-unsigned.apk
+          fdroid=$(ls fdroid/*.apk)
+          if ! cmp -s "$ours" "$fdroid"; then
+            echo "::error::F-Droid's build differs from the Release bundle job's APK."
+            diff <(unzip -lv "$ours") <(unzip -lv "$fdroid") || true
+            exit 1
+          fi
+
+      # For the signature job, and to look into a difference.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: churn-fdroid-apk-unsigned
+          path: fdroid/*.apk
+          if-no-files-found: ignore
+          retention-days: 14
+
+  fdroid-signature:
+    name: Our signature on F-Droid's build
+    # Only main has the sign job's APK.
+    needs: [fdroid, sign]
+    runs-on: ubuntu-latest
+    container: registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: churn-release-apk
+          path: signed
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: churn-fdroid-apk-unsigned
+          path: fdroid
+
+      # F-Droid ships our APK only if it has more than a v1 signature and if
+      # our signature, copied onto F-Droid's build, verifies there. F-Droid's
+      # tools check both with these functions.
+      - name: Copy our signature onto F-Droid's build and verify it
+        run: |
+          . /etc/profile.d/bsenv.sh
+          rm -rf "$fdroidserver"
+          git clone --depth 1 https://gitlab.com/fdroid/fdroidserver.git "$fdroidserver"
+          PYTHONPATH=$fdroidserver python3 - signed/app-release.apk fdroid/*.apk <<'EOF'
+          import sys
+          import tempfile
+
+          from fdroidserver import common
+
+          common.get_config()
+          signed, built = sys.argv[1:]
+          if common.apkfile_is_v1_signed_only(signed):
+              print("::error::Our APK has only a v1 signature, which F-Droid refuses.")
+              sys.exit(1)
+          with tempfile.TemporaryDirectory() as tmp:
+              error = common.verify_apks(signed, built, tmp)
+          if error:
+              print("::error::Our signature doesn't verify on F-Droid's build.")
+              print(error)
+              sys.exit(1)
+          print("Our signature verifies on F-Droid's build.")
+          EOF
