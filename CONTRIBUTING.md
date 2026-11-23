@@ -141,7 +141,9 @@ JaCoCo adds, which holds when the counts began and when they were taken.
 [docs/release-tests.md](docs/release-tests.md#coverage-pass) says how to
 turn the files that a run shared into reports. CI's Coverage build job
 builds the coverage build, checks that its APK has JaCoCo's counters, and
-makes a report of the unit tests, which count too with `-Pcoverage`.
+makes both reports from the unit tests, which count too with `-Pcoverage`:
+the counts of `CoverageTest` alone stand in for a run's files, and the
+report with all unit tests has to reach more.
 
 ## Signing
 

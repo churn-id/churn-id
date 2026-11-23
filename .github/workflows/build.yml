@@ -176,31 +176,41 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
-      # A run's coverage files come from a phone, so the unit tests' counts
-      # stand in for them, in a line of Base64 as Share coverage writes them.
-      - name: Build the coverage build, and a report of the unit tests
+      # A run's coverage files come from a phone, so the counts of one unit
+      # test class stand in for them, in a line of Base64 as Share coverage
+      # writes them. The report with all unit tests then has to reach more.
+      - name: Build the coverage build, and its reports from the unit tests
         run: |
-          ./gradlew --no-daemon assembleDebug testDebugUnitTest -Pcoverage
+          ./gradlew --no-daemon assembleDebug testDebugUnitTest --tests id.churn.CoverageTest -Pcoverage
           mkdir "$RUNNER_TEMP/coverage"
           base64 -w 0 "$(find app/build -name testDebugUnitTest.exec)" > "$RUNNER_TEMP/coverage/churn-coverage-00000000.txt"
-          ./gradlew --no-daemon coverageReport -Pcoverage="$RUNNER_TEMP/coverage"
+          ./gradlew --no-daemon coverageReport coverageReportWithUnitTests -Pcoverage="$RUNNER_TEMP/coverage"
 
-      - name: Check the counters in the APK, and the report
+      - name: Check the counters in the APK, and the reports
         run: |
           apk=app/build/outputs/apk/debug/app-debug.apk
           unzip -p "$apk" jacoco-agent.properties | grep -x output=none
           unzip -p "$apk" 'classes*.dex' | grep -a -q -F 'Lorg/jacoco/agent/rt/RT;'
           unzip -p "$apk" 'classes*.dex' | grep -a -q -F '$jacocoInit'
-          python3 - app/build/reports/jacoco/coverageReport/coverageReport.xml <<'EOF'
+          python3 - app/build/reports/jacoco <<'EOF'
           import sys
           import xml.etree.ElementTree as ElementTree
 
-          report = ElementTree.parse(sys.argv[1]).getroot()
-          lines = next(c for c in report.findall('counter') if c.get('type') == 'LINE')
-          covered, missed = int(lines.get('covered')), int(lines.get('missed'))
-          print(f"The unit tests reach {covered} of the debug build's {covered + missed} lines.")
-          if covered == 0:
-              sys.exit("The report found none of the unit tests' counts in the debug build's classes.")
+
+          def lines(report):
+              root = ElementTree.parse(f'{sys.argv[1]}/{report}/{report}.xml').getroot()
+              counter = next(c for c in root.findall('counter') if c.get('type') == 'LINE')
+              covered = int(counter.get('covered'))
+              return covered, covered + int(counter.get('missed'))
+
+
+          run, total = lines('coverageReport')
+          both, _ = lines('coverageReportWithUnitTests')
+          print(f"Of the debug build's {total} lines, CoverageTest reaches {run} and all unit tests {both}.")
+          if run == 0:
+              sys.exit("The report found none of the run's counts in the debug build's classes.")
+          if both <= run:
+              sys.exit("The report with the unit tests reaches no more than the run's counts.")
           EOF
 
   sign:
