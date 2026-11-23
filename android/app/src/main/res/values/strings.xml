@@ -404,5 +404,7 @@
     <string name="debug_log_keep">Keep a debug log</string>
     <string name="debug_log_share">Share</string>
     <string name="debug_log_delete">Delete</string>
+    <string name="coverage_share">Share coverage</string>
+    <string name="coverage_failed">Churn couldn\'t add the counts so far to the coverage file.\n\n%1$s</string>
     <string name="close">Close</string>
 </resources>

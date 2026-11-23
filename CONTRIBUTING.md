@@ -123,6 +123,36 @@ goes online at step 4 of a swap and counts what leaves over the SIM.
 [docs/release-tests.md](docs/release-tests.md) puts the tests that each
 release needs in order.
 
+For the release tests' coverage pass, the coverage build is a debug build
+with JaCoCo's counters, which count the code that runs:
+
+```sh
+./gradlew assembleDebug -Pcoverage
+```
+
+Its menu has Share coverage, which adds the counts so far to a file among
+the app's private files and shares that file. The counts live in the
+app's process, which Android can end, so the app also adds them to the
+file whenever it goes to the background and when a step that ran in the
+background ends. Like the debug log, the file is plain text, so that the
+apps that take the debug log take it too, with a line of Base64 each time,
+and it leaves out the time of day: the app drops the session info that
+JaCoCo adds, which holds when the counts began and when they were taken.
+To turn the files that a run shared into one report, put them into a
+folder, such as `~/coverage`, with their names, which begin with
+`churn-coverage-` and end in `.txt`. JaCoCo matches the counts to the
+classes by their checksums, so make the report from the same commit as
+the build:
+
+```sh
+./gradlew coverageReport -Pcoverage="$HOME/coverage"
+```
+
+The report is in `android/app/build/reports/jacoco/coverageReport/`.
+CI's Coverage build job builds the coverage build, checks that its APK
+has JaCoCo's counters, and makes a report of the unit tests, which count
+too with `-Pcoverage`.
+
 ## Signing
 
 Release bundles and APKs are signed with one key, which the variables and

@@ -62,6 +62,8 @@ class SwapService : Service() {
     override fun onDestroy() {
         (application as ChurnApp).controller.onStepEnd = null
         wakeLock.release()
+        // The coverage build's counts from a step that ran with the app in the background.
+        Coverage.save(this)
         super.onDestroy()
     }
 

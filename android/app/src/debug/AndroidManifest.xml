@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!-- Share coverage in the coverage build's menu (Coverage.kt). -->
+        <provider
+            android:name=".CoverageProvider"
+            android:authorities="id.churn.coverage"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
+    </application>
+
+</manifest>

@@ -1,6 +1,18 @@
+import com.android.build.api.artifact.ScopedArtifact
+import com.android.build.api.variant.ScopedArtifacts
+import java.util.Base64
+import javax.inject.Inject
+import org.gradle.testing.jacoco.plugins.JacocoPluginExtension
+import org.gradle.testing.jacoco.tasks.JacocoReport
+
 plugins {
     id("com.android.application")
 }
+
+// With -Pcoverage, the debug build is the coverage build, which counts which of its code runs, and the unit tests
+// count too. -Pcoverage=<folder> names the folder with a run's coverage files for coverageReport (CONTRIBUTING.md,
+// "Building").
+val coverage = providers.gradleProperty("coverage")
 
 android {
     namespace = "id.churn"
@@ -34,6 +46,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            enableAndroidTestCoverage = coverage.isPresent
+            enableUnitTestCoverage = coverage.isPresent
+        }
         release {
             if (keystorePath != null) {
                 signingConfig = signingConfigs.getByName("upload")
@@ -72,4 +88,82 @@ tasks.withType<Test>().configureEach {
     inputs.file("../../README.md")
     inputs.file("../../docs/design.md")
     inputs.file("src/main/res/values/strings.xml")
+}
+
+/**
+ * Gradle's JaCoCo report, of the debug build's classes from the Android Gradle plugin. It leaves out the classes that
+ * the plugin generates for the resources' IDs and the build's settings, which the code only reads constants from.
+ */
+abstract class CoverageReport : JacocoReport() {
+
+    @get:Classpath
+    abstract val jars: ListProperty<RegularFile>
+
+    @get:Classpath
+    abstract val dirs: ListProperty<Directory>
+
+    @get:Inject
+    abstract val archives: ArchiveOperations
+
+    init {
+        val generated = listOf("**/R.class", "**/R$*.class", "**/BuildConfig.class")
+        classDirectories.from(
+            jars.map { it.map { jar -> archives.zipTree(jar).matching { exclude(generated) } } },
+            dirs.map { it.map { dir -> dir.asFileTree.matching { exclude(generated) } } },
+        )
+    }
+}
+
+/** Turns the coverage files that a run shared, a line of Base64 for each save (Coverage.kt), into JaCoCo's data. */
+abstract class DecodeCoverage : DefaultTask() {
+
+    @get:InputFiles
+    abstract val shared: ConfigurableFileCollection
+
+    @get:OutputFile
+    abstract val data: RegularFileProperty
+
+    @TaskAction
+    fun decode() {
+        check(!shared.isEmpty) { "The folder holds no churn-coverage-*.txt files from Share coverage" }
+        data.get().asFile.outputStream().use { out ->
+            shared.forEach { file ->
+                try {
+                    file.forEachLine { out.write(Base64.getDecoder().decode(it)) }
+                } catch (e: IllegalArgumentException) {
+                    throw GradleException("$file holds other lines than Share coverage writes", e)
+                }
+            }
+        }
+    }
+}
+
+if (coverage.isPresent) {
+    apply(plugin = "jacoco")
+    // The version that the Android Gradle plugin counts with.
+    configure<JacocoPluginExtension> { toolVersion = android.testCoverage.jacocoVersion }
+    // CoverageTest then expects JaCoCo's agent in the unit tests (enableUnitTestCoverage).
+    tasks.withType<Test>().configureEach { systemProperty("coverage", "true") }
+
+    val decodeCoverage = tasks.register<DecodeCoverage>("decodeCoverage") {
+        shared.from(
+            coverage.map {
+                require(it.isNotEmpty()) { "Name the folder with the coverage files: -Pcoverage=<folder>" }
+                fileTree(rootDir.resolve(it)) { include("churn-coverage-*.txt") }
+            },
+        )
+        data = layout.buildDirectory.file("coverage/run.ec")
+    }
+    val coverageReport = tasks.register<CoverageReport>("coverageReport") {
+        executionData.from(decodeCoverage.flatMap { it.data })
+        sourceDirectories.from("src/main/kotlin", "src/debug/kotlin")
+        reports.xml.required = true
+    }
+    androidComponents {
+        onVariants(selector().withBuildType("debug")) {
+            it.artifacts.forScope(ScopedArtifacts.Scope.PROJECT)
+                .use(coverageReport)
+                .toGet(ScopedArtifact.CLASSES, CoverageReport::jars, CoverageReport::dirs)
+        }
+    }
 }

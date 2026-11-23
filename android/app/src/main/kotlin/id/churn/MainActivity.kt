@@ -78,11 +78,14 @@ class MainActivity : Activity() {
             controller.onScreen = null
             controller.onCable = null
         }
+        // The coverage build's counts so far, which Android can end with the app in the background.
+        Coverage.save(this)
         super.onStop()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menu.item(R.string.debug_log) { showDebugLog() }
+        if (Coverage.AVAILABLE) menu.item(R.string.coverage_share) { shareCoverage() }
         // Debug builds' tests work on the router, so they show only with the router screen. They are in the menu rather
         // than on the screen, so that the screen looks as in release builds.
         if (drawn is Screen.Home) {
@@ -587,6 +590,23 @@ class MainActivity : Activity() {
             .putExtra(Intent.EXTRA_STREAM, DebugLogProvider.URI)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         startActivity(Intent.createChooser(send, getString(R.string.debug_log)))
+    }
+
+    /** Lets the user pick an app to send the coverage file to, once the counts so far are in it. */
+    private fun shareCoverage() {
+        val failure = Coverage.save(this)
+        if (failure != null) {
+            AlertDialog.Builder(this)
+                .setMessage(getString(R.string.coverage_failed, failure.toString()))
+                .setPositiveButton(R.string.close, null)
+                .showSecurely()
+            return
+        }
+        val send = Intent(Intent.ACTION_SEND)
+            .setType("text/plain")
+            .putExtra(Intent.EXTRA_STREAM, Coverage.uri(this))
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        startActivity(Intent.createChooser(send, getString(R.string.coverage_share)))
     }
 
     private fun confirm(message: String, action: () -> Unit) {

@@ -160,6 +160,49 @@ jobs:
             exit 1
           fi
 
+  coverage:
+    name: Coverage build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      # A run's coverage files come from a phone, so the unit tests' counts
+      # stand in for them, in a line of Base64 as Share coverage writes them.
+      - name: Build the coverage build, and a report of the unit tests
+        run: |
+          ./gradlew --no-daemon assembleDebug testDebugUnitTest -Pcoverage
+          mkdir "$RUNNER_TEMP/coverage"
+          base64 -w 0 "$(find app/build -name testDebugUnitTest.exec)" > "$RUNNER_TEMP/coverage/churn-coverage-00000000.txt"
+          ./gradlew --no-daemon coverageReport -Pcoverage="$RUNNER_TEMP/coverage"
+
+      - name: Check the counters in the APK, and the report
+        run: |
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          unzip -p "$apk" jacoco-agent.properties | grep -x output=none
+          unzip -p "$apk" 'classes*.dex' | grep -a -q -F 'Lorg/jacoco/agent/rt/RT;'
+          unzip -p "$apk" 'classes*.dex' | grep -a -q -F '$jacocoInit'
+          python3 - app/build/reports/jacoco/coverageReport/coverageReport.xml <<'EOF'
+          import sys
+          import xml.etree.ElementTree as ElementTree
+
+          report = ElementTree.parse(sys.argv[1]).getroot()
+          lines = next(c for c in report.findall('counter') if c.get('type') == 'LINE')
+          covered, missed = int(lines.get('covered')), int(lines.get('missed'))
+          print(f"The unit tests reach {covered} of the debug build's {covered + missed} lines.")
+          if covered == 0:
+              sys.exit("The report found none of the unit tests' counts in the debug build's classes.")
+          EOF
+
   sign:
     name: Sign release bundle and APK
     needs: [bundle, router-scripts, rebuild]
