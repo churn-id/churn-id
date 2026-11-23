@@ -82,6 +82,12 @@ Roughly from larger to smaller, the pieces are:
 4. **Your SIM.** A SIM registered to your name tells the network who you
    are, whatever the router does. Use SIMs that aren't, where the law
    allows it, and pay for them in a way that isn't tied to your name.
+   Where SIMs must be registered, you may still be able to buy a profile
+   for an eSIM adapter card from a provider abroad that asks for no ID
+   and takes Monero, such as [Silent Link](https://silent.link/) or
+   [nadanada](https://nadanada.me/). The
+   [design document](docs/design.md#8-usage-rules) says what to watch out
+   for, under rule 9.
 5. **Your router's device numbers.** This is the piece Churn handles.
 
 Churn makes sense for you if you've done the first four and don't want

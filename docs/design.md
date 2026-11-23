@@ -1062,6 +1062,28 @@ wherever you can:
    Why: a card registered to a name ties every IMEI it is used with, and
    every place, to that name. Churn can't undo that.
 
+   Where every card must be registered, the user may still be able to
+   buy a profile for an eSIM adapter card from a provider abroad that
+   asks for no ID, and pay for it in a way that isn't tied to a name,
+   such as Monero (rule 10). As for rewriting IMEIs, these documents
+   don't say where that is legal. The route brings links of its own
+   (inferred):
+
+   - The provider's server learns the adapter card's EID when it
+     downloads the profile (rule 6), and it sees the IP address the
+     download comes from, as the seller sees the purchase's. Both go
+     through a VPN. The router could download the profile only during a
+     swap, with the old card out, over Wi-Fi or Ethernet, where its own
+     traffic goes past the VPN (section 10). An LPA on a Linux computer,
+     with the adapter card in a USB card reader, loads it before the
+     swap instead.
+   - An account or email address used for more than one purchase ties
+     the profiles bought with it to each other, and so their cards.
+   - An adapter card's seller may record which cards it sent to whom,
+     and which in one order. Paying for them in a way that isn't tied to
+     a name keeps that record from leading to the user, and separate
+     orders keep it from tying the cards to each other.
+
 10. Pay for your cards and the VPN in a way that isn't tied to your name.
 
     Why: whoever sells a card, or a top-up for it, can tie the card to the
