@@ -138,20 +138,12 @@ background ends. Like the debug log, the file is plain text, so that the
 apps that take the debug log take it too, with a line of Base64 each time,
 and it leaves out the time of day: the app drops the session info that
 JaCoCo adds, which holds when the counts began and when they were taken.
-To turn the files that a run shared into one report, put them into a
-folder, such as `~/coverage`, with their names, which begin with
-`churn-coverage-` and end in `.txt`. JaCoCo matches the counts to the
-classes by their checksums, so make the report from the same commit as
-the build:
-
-```sh
-./gradlew coverageReport -Pcoverage="$HOME/coverage"
-```
-
-The report is in `android/app/build/reports/jacoco/coverageReport/`.
-CI's Coverage build job builds the coverage build, checks that its APK
-has JaCoCo's counters, and makes a report of the unit tests, which count
-too with `-Pcoverage`.
+[docs/release-tests.md](docs/release-tests.md#coverage-pass) says how to
+turn the files that a run shared into reports. CI's Coverage build job
+builds the coverage build, checks that its APK has JaCoCo's counters, and
+makes both reports from the unit tests, which count too with `-Pcoverage`:
+the counts of `CoverageTest` alone stand in for a run's files, and the
+report with all unit tests has to reach more.
 
 ## Signing
 

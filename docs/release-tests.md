@@ -41,8 +41,35 @@ Each switch between builds still uninstalls the app and installs the
 coverage build again, since the steps after it expect the app's data to
 be gone. Before the uninstall, share the coverage file from Share
 coverage in the menu, along with the debug log, and share it once more at
-the end of the run. Turn the files into a report and attach it, zipped,
-to the run's issue.
+the end of the run.
+
+For the reports, put the files that the run shared into one folder, such as
+`~/coverage`, with their names, which begin with `churn-coverage-` and end
+in `.txt`. Then run this from `android/`, on the commit of the coverage
+build:
+
+```sh
+./gradlew coverageReport coverageReportWithUnitTests \
+  -Pcoverage="$HOME/coverage"
+```
+
+`coverageReport` shows the code that the run reached.
+`coverageReportWithUnitTests` adds the unit tests' counts, so that what it
+shows as missed is code that no test reaches, and the code that it alone
+shows as reached only ever runs against the unit tests' simulated router.
+Each report is a folder in `android/app/build/reports/jacoco/`, which opens
+at `html/index.html`. Zip both folders and attach them to the run's issue.
+
+JaCoCo matches the counts to the classes by their checksums, so the reports
+need the classes as the coverage build compiled them: from its commit, best
+with the same JDK. A class compiled differently shows as not run, and Gradle
+warns that the execution data doesn't match it. Gradle compiles with the JDK
+that its daemon runs on, which `org.gradle.java.home` in a
+`gradle.properties` can set apart from `JAVA_HOME`. On a Java runtime
+without `javac`, the build stops with "does not provide the required
+capabilities: [JAVA_COMPILER]". Then stop the daemon with `./gradlew --stop`
+and name a JDK, such as the `jbr` folder of Android Studio's install, with
+`-Dorg.gradle.java.home=/opt/android-studio/jbr`.
 
 ## What you need
 
