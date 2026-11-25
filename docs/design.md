@@ -489,11 +489,13 @@ goes when the swap ends or is canceled.
   GrapheneOS by default blocks new USB connections while the phone is
   locked, and in step 3 the router, just switched on, connects anew.
 - Between jobs the app keeps its connection to the router, and connects
-  anew if that connection has ended. Android ends the TCP connections of
-  an app it freezes in the background, as it may while the phone is
-  locked and no step runs. Step 1 failed when we let the phone lock
-  before starting it. Back on the Connect screen, the app drops its
-  connection, since every way on from there connects anew.
+  anew if that connection has ended. The connection ends while the phone
+  is locked and no step runs: a few seconds after the screen goes off,
+  Android takes network access away from the app on screen unless it
+  runs a foreground service, and Churn's runs only during a step
+  (inferred). Step 1 failed when we let the phone lock before starting
+  it. Back on the Connect screen, the app drops its connection, since
+  every way on from there connects anew.
 - While it is on screen, the app watches for the router's network on the
   cable. The Connect screen says whether the router is there and, once the
   user has connected with the password and trusted the router's key,
