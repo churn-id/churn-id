@@ -451,10 +451,14 @@ every boot:
    the router's, and the step asks again when it runs again. It records the
    card with its pair, writes the pair, saves and verifies it, clears the
    router's record of earlier cards (below), records its own version and
-   shuts the router down. If it finds no usable card, it stops. Whenever the
-   step stops before the pair is saved, it switches slot 2 back to the
-   built-in eSIM as far as the connection allows, so that the card stays off
-   at the next power-on, and it clears nothing.
+   shuts the router down. If it finds no usable card, it stops and shuts the
+   router down too, since a card goes in or comes out only with the router
+   off. That includes an eSIM adapter card without an enabled profile, as
+   GL's eSIM manager can't enable one on such a card, and that card gets its
+   own message. Whenever the step stops before the pair is saved, it
+   switches slot 2 back to the built-in eSIM as far as the connection
+   allows, so that the card stays off at the next power-on, and it clears
+   nothing.
 4. The user switches the router on later, at another place and time, and
    turns airplane mode off there. The new card registers at that power-on,
    whatever airplane mode says (section 6). A place card is switched on at
@@ -614,12 +618,13 @@ goes when the swap ends or is canceled.
   card and link the two, and nothing else in the app would notice it, since
   the app otherwise reads only the active slot. The check comes too late for
   step 2's power-on, where that card has already registered. Slot 2 is on
-  the built-in eSIM by then, so the step runs again once the user has
-  switched the router off and taken the card out. The check also catches a
-  new card put into the wrong tray, with a clearer message than the one for
-  an empty SIM 2 tray. Such a card has registered where and when the old
-  one went quiet, which links the two, so the message also says to use
-  another new card in that case.
+  the built-in eSIM by then, and the card can come out only with the router
+  off, so the step shuts the router down as it stops, and runs again once
+  the user has taken the card out and switched the router on. The check also
+  catches a new card put into the wrong tray, with a clearer message than
+  the one for an empty SIM 2 tray. Such a card has registered where and when
+  the old one went quiet, which links the two, so the message also says to
+  use another new card in that case.
 - Step 3 is the last step before the router goes online, so that is where
   the app makes sure the Enhanced Kill Switch is on, Churn's firewall
   rules are in place and GL's connection check is off for the SIM (rule

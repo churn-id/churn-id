@@ -326,13 +326,15 @@ open class Swap(
         if (router.activeSlot() != "2") activate(slot = 2, Slot2.SIM2)
         if (!again) report(Progress.SLOT2_ACTIVE)
         // The card answers a moment after the switch.
-        var raw: String? = null
+        var last: Slot2Card? = null
         poll(CARD_TIMEOUT_SECONDS) {
-            raw = (router.slot2Card() as? Slot2Card.Subscription)?.iccid
-            raw != null
+            last = router.slot2Card()
+            last is Slot2Card.Subscription
         }
-        val cardIccid = raw ?: throw RouterException(Problem.NO_CARD)
-        return Imei.iccidDigits(cardIccid) ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+ICCID")
+        // By the last read: an eSIM adapter card without an enabled profile answers, an empty tray doesn't.
+        val card = last as? Slot2Card.Subscription
+            ?: throw RouterException(if (last == Slot2Card.NoProfile) Problem.NO_PROFILE_ON_CARD else Problem.NO_CARD)
+        return Imei.iccidDigits(card.iccid) ?: throw RouterException(Problem.UNEXPECTED_ANSWER, "AT+ICCID")
     }
 
     /**
@@ -343,9 +345,9 @@ open class Swap(
         val iccid = try {
             cardInTray()
         } catch (e: RouterException) {
-            if (e.problem != Problem.NO_CARD) throw e
-            // Or an eSIM adapter card without an enabled profile, which step 3 counts as no card. The built-in eSIM's
-            // placeholder is the dry run's check of E4.
+            if (e.problem != Problem.NO_CARD && e.problem != Problem.NO_PROFILE_ON_CARD) throw e
+            // An eSIM adapter card without an enabled profile is a card all the same. The built-in eSIM's placeholder
+            // is the dry run's check of E4.
             router.slot2Iccid()?.takeIf { it != Router.PLACEHOLDER_ICCID }
         }
         if (iccid != null) throw RouterException(Problem.CARD_IN_TRAY)
