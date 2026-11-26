@@ -283,8 +283,8 @@ At the first swap of a run, also:
 
 1. Swap the SIM card. At step 2, take the adapter card out, leave the tray
    empty and switch the router on: step 3 stops with slot 2 back on the
-   built-in eSIM, and clears nothing (W8).
-2. Switch the router off, put the normal SIM card into the SIM 1 tray and
+   built-in eSIM, clears nothing and shuts the router down (W8).
+2. Once the router is off, put the normal SIM card into the SIM 1 tray and
    switch the router on, which makes the card register (B14). Tap Try
    again: step 3 stops at the card before it changes anything (B15), and
    shuts the router down.
@@ -328,13 +328,14 @@ At the first swap of a run, also:
    2 minutes of the power-on, they say that D2, S1 and E5 don't apply (B20).
 2. Within those 2 minutes, swap the SIM card, leaving the card in the tray
    at step 2: step 1 waits until the router has finished starting before its
-   checks (B20), and step 3 stops at the card as at an empty tray (E13).
-3. Switch the router off, take the card out, enable its profile, put it
+   checks (B20), and step 3 stops at the card, saying that its profile
+   isn't enabled, and shuts the router down (E13).
+3. Once the router is off, take the card out, enable its profile, put it
    back and switch the router on. Tap Try again: step 3 says in amber that
    the card is the one from before this swap, and its question names the
-   place card (W10). Cancel. Once the router is off, switch it on again
-   with the same card: step 3 asks again, and Continue gives the card its
-   IMEIs again.
+   place card (W10). Cancel. Once the router
+   is off, switch it on again with the same card: step 3 asks again, and
+   Continue gives the card its IMEIs again.
 4. Step 4 says that the router keeps the card with its IMEIs, and asks to
    destroy no card, since the card is still in SIM 2 (W4, W10).
 

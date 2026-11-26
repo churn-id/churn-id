@@ -660,7 +660,7 @@ class SwapTest {
         prepareAndRestart()
         fake.trayCard = FakeRouter.Card("89000123456789000001", "001010000000001")
         val before = ImeiPair(fake.imei1, fake.imei2)
-        assertStops(Problem.NO_CARD) { giveNewImeis() }
+        assertStops(Problem.NO_PROFILE_ON_CARD) { giveNewImeis() }
         assertEquals(before, ImeiPair(fake.imei1, fake.imei2))
         assertEquals(Slot2.ESIM, fake.slot2)
     }
@@ -670,7 +670,7 @@ class SwapTest {
         prepareAndRestart()
         // As ours showed itself.
         fake.trayCard = FakeRouter.Card("89111111111111111111", "111111111111111")
-        assertStops(Problem.NO_CARD) { giveNewImeis() }
+        assertStops(Problem.NO_PROFILE_ON_CARD) { giveNewImeis() }
         assertNull(record())
         assertEquals(Slot2.ESIM, fake.slot2)
     }

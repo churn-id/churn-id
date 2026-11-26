@@ -353,9 +353,9 @@ class Controller(private val context: Context) {
                         BuildConfig.VERSION_CODE,
                     )
                 } catch (e: RouterException) {
-                    if (e.problem != Problem.SIM1_CARD) throw e
-                    // The card has to come out with the router off, and slot 2 is on the built-in eSIM with the radio
-                    // off, so nothing is left to do on the running router.
+                    if (e.problem !in CARD_STOPS || swap.cardMayBeOn) throw e
+                    // A card has to go in or come out with the router off, and slot 2 is on the built-in eSIM with the
+                    // radio off, so nothing is left to do on the running router.
                     val error = stopped(e)
                     val stop = shutDown(swap, next = Step.NEW_IMEIS)
                     return@runStep stop.copy(error = listOfNotNull(error, stop.error).joinToString("\n\n"))
@@ -504,8 +504,7 @@ class Controller(private val context: Context) {
     }
 
     /**
-     * Ends step 1 or 3, or step 3's stop at a card in the SIM 1 tray: saves [next] as the step reached, shuts the
-     * router down and waits for it to leave the cable. Returns [next]'s screen, which warns if the router is still on
+     * Ends step 1 or 3, or step 3's stops at [CARD_STOPS]: saves [next] as the step reached, shuts the router down and waits for it to leave the cable. Returns [next]'s screen, which warns if the router is still on
      * the cable.
      */
     private fun shutDown(swap: Swap, next: Step): Screen.Swapping {
@@ -1145,6 +1144,7 @@ class Controller(private val context: Context) {
             Problem.SLOT_NOT_SWITCHED -> R.string.problem_slot_not_switched
             Problem.PROFILE_STILL_ENABLED -> R.string.problem_profile_still_enabled
             Problem.NO_CARD -> R.string.problem_no_card
+            Problem.NO_PROFILE_ON_CARD -> R.string.problem_no_profile_on_card
             Problem.SIM1_CARD -> R.string.problem_sim1_card
             Problem.CARD_CHANGED -> R.string.problem_card_changed
             Problem.NOT_ANSWERED -> R.string.problem_not_answered
@@ -1184,6 +1184,9 @@ class Controller(private val context: Context) {
          * measurement.
          */
         const val SHUTDOWN_WAIT_SECONDS = 120
+
+        /** Step 3's stops at a card to put in or take out, which takes the router off, so the step shuts it down. */
+        private val CARD_STOPS = setOf(Problem.NO_CARD, Problem.NO_PROFILE_ON_CARD, Problem.SIM1_CARD)
         const val RETRY_MILLISECONDS = 3_000L
 
         /** How long step 3 waits for the user's answer to its question, as problem_not_answered says. */
