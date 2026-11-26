@@ -236,6 +236,12 @@ class ChecksTest {
     }
 
     @Test
+    fun airplaneModeCheckPassesWithoutTheSetting() {
+        fake.uciAnswers[Router.AIRPLANE_MODE] = null
+        assertEquals(CheckResult.Passed, run("U1"))
+    }
+
+    @Test
     fun airplaneModeCheckFailsAtAnotherValue() {
         fake.uciAnswers[Router.AIRPLANE_MODE] = "2"
         assertEquals(CheckResult.Failed("The setting is \"2\"."), run("U1"))
@@ -358,6 +364,15 @@ class ChecksTest {
         fake.killSwitchSet = false
         fake.killSwitchInUse = false
         assertEquals(CheckResult.Passed, run("K5"))
+    }
+
+    @Test
+    fun killSwitchCheckDoesNotApplyWithoutAVpn() {
+        // As GL left it after the VPN was deleted.
+        fake.vpnTunnel = null
+        fake.killSwitchSet = false
+        fake.uciAnswers["network.vpn_to_main"] = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_vpn), run("K5"))
     }
 
     @Test
@@ -558,6 +573,13 @@ class ChecksTest {
 
     @Test
     fun ownTrafficTargetCheckPassesWithTheTargetsWeWatched() {
+        assertEquals(CheckResult.Passed, run("D6"))
+    }
+
+    @Test
+    fun ownTrafficTargetCheckPassesWithTheFirmwareDefault() {
+        fake.answers["uci -q show chrony"] =
+            "chrony.@pool[0]=pool\n" + "chrony.@pool[0].hostname='2.openwrt.pool.ntp.org'\n"
         assertEquals(CheckResult.Passed, run("D6"))
     }
 

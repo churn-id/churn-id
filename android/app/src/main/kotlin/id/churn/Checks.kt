@@ -220,7 +220,9 @@ private fun modemSettingsSearched(router: Router): CheckResult {
 private fun airplaneModeKept(router: Router): CheckResult {
     val setting = router.setting(Router.AIRPLANE_MODE)
     return when {
-        setting == "0" -> CheckResult.Passed
+        // After a factory reset the setting was missing until airplane mode was first turned on (seen once). Like
+        // Router.airplaneMode, the check reads it as off, and step 1 then sets it.
+        setting == null || setting == "0" -> CheckResult.Passed
         setting != "1" -> settingFailed(setting)
         router.uptimeSeconds() < Swap.SETTLED_UPTIME_SECONDS -> CheckResult.NotApplicable(R.string.reason_starting)
         else -> when (val radio = router.radio()) {
@@ -273,6 +275,9 @@ private fun vpnPolicy(router: Router) = when {
  * on, as [Router.enhancedKillSwitch] reads them: turning the switch on or off in GL's web interface changes all three.
  */
 private fun killSwitchAgrees(router: Router): CheckResult {
+    // Without a WireGuard VPN, GL had neither network.vpn_to_main nor the rule, with the switch off in its settings:
+    // after the VPN was deleted, and after a factory reset.
+    if (!router.vpnSetUp()) return CheckResult.NotApplicable(R.string.reason_no_vpn)
     val policy = router.setting(Router.DEFAULT_POLICY)
     val vpnToMain = router.setting(Router.VPN_TO_MAIN) != null
     val rule = router.ipRules().any { it.startsWith("9000:") }
@@ -404,10 +409,22 @@ private fun ownTrafficRoutes(router: Router): CheckResult {
     return CheckResult.NotApplicable(R.string.reason_other_uplink)
 }
 
-/** The time servers chrony was set up with on our Mudi 7, which it reaches over the SIM without Churn's rules. */
+/**
+ * The time servers chrony was set up with on our Mudi 7, which it reaches over the SIM without Churn's rules: the
+ * firmware's default, and the servers that GL's hotplug script `/etc/hotplug.d/kmwan/time_sync` puts in its place once
+ * kmwan reports an uplink online before the clock has synced, outside China (development.md, "GL's connection check").
+ */
 // cspell:disable
-private val WATCHED_TIME_SERVERS = setOf(
-    "time.cloudflare.com", "ntppool1.time.nl", "nts.netnod.se", "ptbtime1.ptb.de", "time.dfm.dk", "time.cifelli.xyz",
+private val KNOWN_TIME_SERVERS = setOf(
+    setOf("2.openwrt.pool.ntp.org"),
+    setOf(
+        "time.cloudflare.com",
+        "ntppool1.time.nl",
+        "nts.netnod.se",
+        "ptbtime1.ptb.de",
+        "time.dfm.dk",
+        "time.cifelli.xyz",
+    ),
 )
 // cspell:enable
 
@@ -423,7 +440,7 @@ private fun ownTrafficTargets(router: Router): CheckResult {
     val pings = router.setting("kmwan.modem_cpu.tracks")
     val problems = listOfNotNull(
         "Chrony's time servers are ${timeServers.sorted().joinToString(", ").take(200)}."
-            .takeIf { timeServers != WATCHED_TIME_SERVERS },
+            .takeIf { timeServers !in KNOWN_TIME_SERVERS },
         "GL's connection check over the SIM pings ${pings?.take(200) ?: "nothing"}."
             .takeIf { pings != WATCHED_CONNECTION_CHECK },
     )

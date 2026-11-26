@@ -128,7 +128,7 @@ to the user, as at step 4, the leak watch included.
 
 | Setting | Value seen | Meaning | Status |
 | --- | --- | --- | --- |
-| `glconfig.general.airplane_mode` | `'0'` off, `'1'` on | GL's airplane mode. Writing it turns airplane mode on and off, though after `'0'` the router went online more slowly than after airplane mode off on GL's screen (above). Only `cellular_manager` and `gl_screen` read it | verified; after a boot with `'1'` the modem answers `+CFUN: 4` |
+| `glconfig.general.airplane_mode` | `'0'` off, `'1'` on | GL's airplane mode. Writing it turns airplane mode on and off, though after `'0'` the router went online more slowly than after airplane mode off on GL's screen (above). Only `cellular_manager` and `gl_screen` read it. After a factory reset it was missing until airplane mode was first turned on, and Churn reads it missing as off | verified; after a boot with `'1'` the modem answers `+CFUN: 4`; missing after a reset seen once |
 | `lpm.global.auto_shutdown_time` | `'30'`, set by us | Delay in seconds before GL's auto power-off. It fires only on battery with no cable or Wi-Fi client connected, and shutdown starts more than 20 s after the set delay, counted from when the display goes dark | verified |
 | `gl_timer.reboot.enable` | `'0'` | GL's scheduled reboot, off | verified |
 | `network.modem_cpu.dds_id` | `'1'` or `'2'` | The active SIM slot. GL rewrites it at every slot change, so it only reports the slot: writing it, even with a commit, switches nothing | verified |
@@ -162,6 +162,12 @@ longer loaded (verified). Ahead of all these, at priority 1, `ip rule show`
 sends what the router sends itself to table 16800, which was empty, and
 the main table's default route goes over the cellular interface
 `rmnet_data0` (verified).
+
+Without a WireGuard VPN, GL keeps neither `network.vpn_to_main` nor the
+rule at priority 9000, while `route_policy.@default[0].enabled` is `'1'`,
+the switch's off value. We saw this after deleting the VPN and after a
+factory reset (verified), so the check of these three (router-tests.md,
+K5) applies only with a WireGuard VPN set up.
 
 GL runs two dnsmasq instances. The main one listens on port 53 and asks
 the cellular interface's servers, 8.8.8.8 and 8.8.4.4. The tunnel's own
@@ -311,6 +317,22 @@ turns the radio on (router-tests.md, D23).
 deletes it for an empty line, and commits it. It doesn't restart kmwan:
 airplane mode keeps the SIM's interface down, and GL's scripts add the
 member again once the interface comes up (inferred).
+
+kmwan's events also set chrony's time servers. The firmware's default, in
+`/rom/etc/config/chrony`, is the pool `2.openwrt.pool.ntp.org`. GL's hotplug
+script `/etc/hotplug.d/kmwan/time_sync` runs when kmwan reports an uplink
+online, and if the clock hasn't synced since power-on
+(`/var/state/ntp-valid` is missing), it replaces that pool with
+`time.cloudflare.com` and adds five more NTS servers, unless the router's
+country code is CN, then commits and restarts chronyd (from the script). Our
+Mudi 7 had those servers until a factory reset, then the pool, and those
+servers again once it had been online (verified). Whether the script still
+runs while Churn has the check off for the SIM is unknown. The clock synced
+through the tunnel with those servers (D16), and with the pool it presumably
+does too (inferred). router-tests.md's D6 accepts both sets. Another of GL's
+components also writes `/var/state/ntp-valid`: after a sync with the check
+off for the SIM, it held `chronyc sync`, while the script writes `kmwan set
+success` (verified once).
 
 ## Switching SIM slots
 
