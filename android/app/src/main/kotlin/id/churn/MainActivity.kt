@@ -231,6 +231,7 @@ class MainActivity : Activity() {
             }
         }
         if (!status.flashLogOff) warning(getString(R.string.note_flash_log))
+        if (status.wifiOn) warning(getString(R.string.note_wifi_on))
         if (screen.checks?.failed == true) warning(getString(R.string.checks_failed))
         // Off while step 1 would refuse to start, as the notes above say. Step 1 checks again, since this screen may be
         // minutes old.

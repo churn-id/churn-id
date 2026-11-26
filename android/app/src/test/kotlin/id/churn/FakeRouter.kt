@@ -332,6 +332,15 @@ class FakeRouter : Shell {
     var tray1Card: Card? = null
     var scheduledReboot = false
 
+    /** Which of GL's Wi-Fi networks are on in its settings, such as `wifi2g`. All are off, as rule 4 asks. */
+    var wifiNetworksOn = emptySet<String>()
+
+    /** Which of GL's radios are off in its settings, such as `wifi0`. All are on, as on our Mudi 7. */
+    var wifiRadiosOff = emptySet<String>()
+
+    /** Whether the wireless interface `wlan0` is up, as while a network on its radio is on. */
+    var wlanUp = false
+
     /** GL's Enhanced Kill Switch in GL's settings, and in the routing rules in use, which follow at a reload. */
     var killSwitchSet = true
     var killSwitchInUse = true
@@ -737,6 +746,11 @@ class FakeRouter : Shell {
                 .map { fields -> fields.zipWithNext().lastOrNull { it.first == "dev" }?.second ?: "-" }
             return Output(0, devices.joinToString("") { "$it\n" }.toByteArray(), routes.stderr)
         }
+        WIFI_SETTINGS.matchEntire(command)?.let {
+            val kept = Regex(it.groupValues[1])
+            return ok(wirelessSettings().lines().filter(kept::matches).joinToString("") { line -> "$line\n" })
+        }
+        if (command == Router.WIRELESS_INTERFACES) return ok("wlan0 ${if (wlanUp) "up" else "down"}\n")
         if (command == "wg show all fwmark") {
             return ok(vpnTunnel?.takeIf { tunnelUp }?.let { "$it\t$wireguardMark\n" } ?: "")
         }
@@ -1338,6 +1352,29 @@ class FakeRouter : Shell {
     }
 
     /**
+     * GL's Wi-Fi settings as `uci show wireless` listed them on our Mudi 7, with other names and keys, and without
+     * the options that the app doesn't read. A guest network's name looks like a setting that the app reads.
+     */
+    private fun wirelessSettings() = buildString {
+        fun network(name: String, radio: String) {
+            appendLine("wireless.$name=wifi-iface")
+            appendLine("wireless.$name.device='$radio'")
+            appendLine("wireless.$name.mode='ap'")
+            appendLine("wireless.$name.ssid='${if (name.startsWith("guest")) WIFI_GUEST_NAME else WIFI_NAME}'")
+            appendLine("wireless.$name.key='$WIFI_KEY'")
+            appendLine("wireless.$name.disabled='${if (name in wifiNetworksOn) 0 else 1}'")
+        }
+        for ((radio, name) in listOf("wifi0" to "wifi2g", "wifi1" to "wifi5g", "wifi2" to "wifi6g")) {
+            appendLine("wireless.$radio=wifi-device")
+            appendLine("wireless.$radio.disabled='${if (radio in wifiRadiosOff) 1 else 0}'")
+            network(name, radio)
+        }
+        for ((radio, name) in listOf("wifi0" to "guest2g", "wifi1" to "guest5g", "wifi2" to "guest6g")) {
+            network(name, radio)
+        }
+    }
+
+    /**
      * The main routing table as our Mudi 7 listed it while online over the SIM, with other addresses. In airplane
      * mode the cellular interface is down, and its routes are gone (inferred).
      */
@@ -1576,6 +1613,12 @@ class FakeRouter : Shell {
         /** How [Router.defaultRouteDevices] reads the main table's default routes. */
         private const val DEFAULT_ROUTE_DEVICES = "ip route show table main | awk '\$1 == \"default\" { d = \"-\"; " +
             "for (i = 2; i < NF; i++) if (\$i == \"dev\") d = \$(i + 1); print d }'"
+        /** How [Router.wifiOn] reads GL's Wi-Fi settings, with the pattern of the lines that grep keeps. */
+        private val WIFI_SETTINGS = Regex("""uci -q show wireless \| grep -E '(.*)'\n\[ \$\? -le 1 \]""")
+        /** The names and the key of the fake router's Wi-Fi networks, which the debug log must not get. */
+        const val WIFI_NAME = "GL-E5800-c3d"
+        const val WIFI_GUEST_NAME = "Guest.disabled=0"
+        const val WIFI_KEY = "fake-key-2468"
         /** How [Router.interfaceStatus] reads whether an interface is up and its device. */
         private val INTERFACE_STATUS =
             Regex("""s=\$\(ifstatus (\w+)\) \|\| exit 3; echo "\${'$'}s" \| jsonfilter -e '@\.up' -e '@\.l3_device'""")

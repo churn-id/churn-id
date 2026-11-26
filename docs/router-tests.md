@@ -432,6 +432,8 @@ From development.md, "uci settings".
 | U9 | Where GL keeps "Power On with Charger" | open | None until it's found; the user confirms the setting | – |
 | U10 | Turning airplane mode off on GL's screen writes and commits the setting within seconds. The screen does it with `ubus call cellular.modem set_airplane_mode '{"enable":false}'`, which from a shell answers `{"ok": true}` but changes nothing | verified | `ubus monitor` and `uci changes glconfig` while turning airplane mode off on the screen; the leak watch reads the setting while the user does | 4 |
 | U11 | `uci get` of an option, section or config that isn't there prints `uci: Entry not found` and exits with 1 | verified for an option and a config (#119) and for a section (#153) | `uci get` of `system.@system[0].nothing`, `network.nothing` and `nothing.nothing` | 1, blocks |
+| U12 | GL's Wi-Fi networks are `wireless` sections of type `wifi-iface` that name their radio, a `wifi-device` section, in `device`. A network's `disabled` is `1` while it is off and `0` while it is on, and GL's airplane mode changes neither | values verified; airplane mode left Wi-Fi on once | Turn Wi-Fi on and off in GL's web interface with airplane mode on, and read `uci show wireless` each time | 4 |
+| U13 | `iw dev` lists the wireless interface `wlan0` also while Wi-Fi is off, and its `operstate` in `/sys/class/net` is `down` while every network is off and `up` while the 2.4 GHz one is on | verified | Read both with Wi-Fi off and on | 4 |
 
 ## Kill switch and VPN
 

@@ -102,6 +102,8 @@ class RouterStatus(
     /** Whether GL's connection check is off for the SIM, as Churn's firewall rules need it. */
     val connectionCheckOff: Boolean,
     val flashLogOff: Boolean,
+    /** Whether the router's Wi-Fi is on, which GL's airplane mode leaves as it is. */
+    val wifiOn: Boolean,
 )
 
 /**
@@ -997,6 +999,8 @@ class Controller(private val context: Context) {
             // The same for GL's connection check.
             connectionCheckOff = runCatching { router.simConnectionCheckOff() }.getOrDefault(false),
             flashLogOff = router.flashLogOff(),
+            // A router whose Wi-Fi the app can't read shows the warning too, as for the firewall.
+            wifiOn = runCatching { router.wifiOn() }.getOrDefault(true),
         )
         return Screen.Home(status, notes, saved.placeCards.all)
     }
