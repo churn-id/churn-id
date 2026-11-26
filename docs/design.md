@@ -98,6 +98,14 @@ instead.
   the app needs the permission to use the network, which GrapheneOS calls
   Network and lets the user turn off. The app connects to nothing but the
   router.
+- **Nearby devices permission:** from Android 17 on, the router's address
+  on the cable counts as the local network, which needs a permission in
+  the Nearby devices group. An app that targets Android 16, as Churn
+  does, keeps that access as before, which GrapheneOS shows as "Allowed to
+  keep app working". If the user disables it, every connection to the
+  router times out, so the app keeps trying to connect.
+- **No sensors:** the app reads no sensor, so GrapheneOS's Sensors
+  permission, which it grants every app on install, can be turned off.
 - **SSH as root.** SSH is on by default on GL.iNet firmware and documented
   by GL.iNet. The app logs in with the router's admin password.
 - **Host key:** trusted on first use after showing its fingerprint. A new or

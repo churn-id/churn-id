@@ -30,8 +30,9 @@ release, a coverage pass comes before the full run, to show the code that
 no step reaches. It is a full run of its own with the coverage build
 ([CONTRIBUTING.md](../CONTRIBUTING.md#building)), which counts the code
 that runs, in place of both the release build and the debug build. It
-skips section 1, and in section 3, step 4's check that the menu has none
-of the debug build's tests.
+skips section 1, which from the second release on runs before the pass,
+and in section 3, step 4's check that the menu has none of the debug
+build's tests.
 
 The app keeps adding to its coverage file until its data is deleted, so the
 pass begins with the coverage build freshly installed: first uninstall the
@@ -111,7 +112,12 @@ build. After installing the release build, turn the debug log on.
 
 ## 1. Upgrade
 
-From the second release on, where the router may be on with its card:
+From the second release on, where the router may be on with its card.
+The phone starts the run with the previous release and its data, as the
+last run left it (Results). If the phone no longer has them, uninstall
+the app, install the previous release's APK from its GitHub release, and
+connect, so that it saves the router's key and the password. The router
+screen then lists no place cards, so step 2 can't check them.
 
 1. Install the release build over the previous release, which keeps the
    app's data.
@@ -128,9 +134,9 @@ was off, both trays empty and no profile enabled on the built-in eSIM, as
 tiers 2 and 3 require:
 
 1. Switch to the debug build, connect, and set the router up if it isn't.
-2. Run the dry run, the power cycle test, with the RF meter next to the
-   router (B8), and the removal and clearing tests, as router-tests.md
-   describes.
+2. Run the dry run, the removal and clearing tests and the power cycle
+   test, with the RF meter next to the router (B8), in the order of the
+   menu, as router-tests.md describes.
 3. Over SSH from the computer, run `sh /etc/churn/restore.sh`, as
    `README.txt` in Churn's folder says to do without the app. It ends with
    the line that the factory IMEIs are back (F12).
@@ -143,7 +149,9 @@ meets the router as a new one:
 1. The intro shows the legal notice and the rules. Rules, on the Connect
    and router screens, shows them again later.
 2. With Churn's Network permission off, Connect fails with a message that
-   asks for the permission (C4). Turn it on again.
+   asks for the permission (C4). Turn it on again. Leave Churn's Nearby
+   devices permission as it was installed, "Allowed to keep app working":
+   disabled, connecting never succeeds (design.md, section 3).
 3. The router's key shows with a fingerprint that
    `ssh-keyscan 192.168.8.1 | ssh-keygen -lf -` on the computer also
    prints.
@@ -156,7 +164,8 @@ meets the router as a new one:
    again, delete the VPN and tap Refresh: the same for the VPN. Set the
    VPN up again from its configuration file.
 6. Forget this router: the next connection shows the key again and asks
-   for the password.
+   for the password. Type a wrong one first: the app says that the router
+   refused it. Then type the right one.
 7. With the password saved, plugging the cable in on the Connect screen
    connects by itself, once each time (C6).
 
@@ -262,7 +271,9 @@ At the first swap of a run, also:
    mentions home and work (W5).
 2. At step 2, take the normal SIM card out and put the adapter card in.
    Stop the app in Android's settings and open it again: it shows step 2
-   (C10). Switch the router on.
+   (C10). Tap Continue with the cable out: step 3 lists that it is waiting
+   for the router on the cable. Switch the router on and plug the cable in
+   within 5 minutes: the step goes on.
 3. While step 3 waits for the router to finish starting, pull down the
    notification shade and tap Churn's notification: the step's lines keep
    coming (C12). Answer step 3's question with Place card. Step 3 lists
@@ -308,9 +319,12 @@ At the first swap of a run, also:
 
 ### Swap 4: the place card back, with the VPN gone
 
-1. Swap the SIM card. At step 2, take the normal SIM card out and put the
-   adapter card in, then restart the phone and open the app: it shows
-   step 2 (C10).
+1. Swap the SIM card, leave the normal SIM card in the tray at step 2 and
+   switch the router on: step 3 says that the card, by the last four
+   digits of its ICCID, is still the one the router had before this swap
+   (W10). Cancel. Once the router is off, take the normal SIM card out and
+   put the adapter card in, then restart the phone and open the app: it
+   shows step 2 (C10).
 2. Switch the router on without the phone's cable, and delete the VPN in
    GL's web interface. Then plug the cable in: step 3 stops while the card
    is still off (W9). Set the VPN up again from its configuration file.
@@ -378,3 +392,6 @@ linked there, and after a fix, the steps it affects run again. The release
 waits until the run has passed, or until the run's issue says why a failure
 doesn't hold it up. Claims that the run confirmed for the first time become
 *verified* in router-tests.md, and their status names the run's issue.
+
+Leave the release build installed with its data, so that the next run's
+upgrade starts from it.
