@@ -275,6 +275,9 @@ private fun vpnPolicy(router: Router) = when {
  * on, as [Router.enhancedKillSwitch] reads them: turning the switch on or off in GL's web interface changes all three.
  */
 private fun killSwitchAgrees(router: Router): CheckResult {
+    // Without a WireGuard VPN, GL had neither network.vpn_to_main nor the rule, with the switch off in its settings:
+    // after the VPN was deleted, and after a factory reset.
+    if (!router.vpnSetUp()) return CheckResult.NotApplicable(R.string.reason_no_vpn)
     val policy = router.setting(Router.DEFAULT_POLICY)
     val vpnToMain = router.setting(Router.VPN_TO_MAIN) != null
     val rule = router.ipRules().any { it.startsWith("9000:") }

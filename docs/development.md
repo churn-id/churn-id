@@ -163,6 +163,12 @@ sends what the router sends itself to table 16800, which was empty, and
 the main table's default route goes over the cellular interface
 `rmnet_data0` (verified).
 
+Without a WireGuard VPN, GL keeps neither `network.vpn_to_main` nor the
+rule at priority 9000, while `route_policy.@default[0].enabled` is `'1'`,
+the switch's off value. We saw this after deleting the VPN and after a
+factory reset (verified), so the check of these three (router-tests.md,
+K5) applies only with a WireGuard VPN set up.
+
 GL runs two dnsmasq instances. The main one listens on port 53 and asks
 the cellular interface's servers, 8.8.8.8 and 8.8.4.4. The tunnel's own
 one, user `dnsmasq_vpn`, listens on port 2153 and asks the VPN's DNS

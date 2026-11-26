@@ -443,7 +443,7 @@ From development.md, "uci settings", and design.md, sections 7 and 10.
 | K2 | GL's `rule_process` sections are GL's policies for its own processes, not tunnels | inferred | None known | – |
 | K3 | The VPN check also works on a router without a tunnel | open | Set up such a router | 4 |
 | K4 | GL sets up an OpenVPN tunnel with routing and DNS rules like a WireGuard one's, so the app could accept it too | open | Set up an OpenVPN tunnel and compare its settings, rules and lookups | 4 |
-| K5 | The Enhanced Kill Switch is on when `route_policy.@default[0].enabled` is `0`, `network.vpn_to_main` is absent and `ip rule show` lists no rule at priority 9000 | values verified, meaning inferred | Read both settings and the rules | 1 |
+| K5 | The Enhanced Kill Switch is on when `route_policy.@default[0].enabled` is `0`, `network.vpn_to_main` is absent and `ip rule show` lists no rule at priority 9000 | values verified, meaning inferred | Read both settings and the rules, with a WireGuard VPN set up: without one, GL keeps neither `network.vpn_to_main` nor the rule | 1 |
 | K6 | With the switch on and a tunnel up, `ip rule show` lists the rules to table 1001 and to the main table, and the blackhole rules at priorities 9910 and 9920 | verified | Compare the rules with this list | 1, blocks |
 | K7 | The USB-C port `ecm0` is in `br-lan`, so the blackhole at priority 9920 covers a device on it | port verified, coverage inferred | The bridge that `ip -o link show ecm0` names after `master` | 1 |
 | K8 | Turning the switch on takes `/etc/init.d/network reload`, which neither drops the cable nor turns the radio on | open | The connection and `+CFUN: 4` across a reload (tier 2); the RF meter (tier 4) | 2, 4 |

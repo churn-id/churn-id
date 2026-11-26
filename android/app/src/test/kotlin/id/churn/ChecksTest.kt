@@ -367,6 +367,15 @@ class ChecksTest {
     }
 
     @Test
+    fun killSwitchCheckDoesNotApplyWithoutAVpn() {
+        // As GL left it after the VPN was deleted.
+        fake.vpnTunnel = null
+        fake.killSwitchSet = false
+        fake.uciAnswers["network.vpn_to_main"] = null
+        assertEquals(CheckResult.NotApplicable(R.string.reason_no_vpn), run("K5"))
+    }
+
+    @Test
     fun killSwitchCheckFailsWhileTheRulesDoNotFollowTheSettings() {
         fake.killSwitchInUse = false
         assertEquals(
