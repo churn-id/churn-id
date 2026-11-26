@@ -205,7 +205,8 @@ class Saved(context: Context) {
 
     /** Whether the user has the app keep its debug log. */
     var debugLog: Boolean
-        get() = preferences.getBoolean(DEBUG_LOG, false)
+        // Debug builds, the coverage build included, are for testing, so their log is on from the start.
+        get() = preferences.getBoolean(DEBUG_LOG, BuildConfig.DEBUG)
         set(value) = save { putBoolean(DEBUG_LOG, value) }
 
     /** The place cards, with their pairs and the names the user gave them. */

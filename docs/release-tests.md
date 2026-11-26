@@ -100,12 +100,14 @@ on a phone whose place cards you don't rely on.
 
 Note the app's version and commit, the phone's model and GrapheneOS
 version, and the versions of the GL firmware and the modem. Keep the debug
-log on throughout: turn it on in the app's menu right after each install.
+log on throughout: debug builds, the coverage build included, start with
+it on, and in the release build, turn it on in the app's menu right after
+each install.
 
 The two builds are signed with different keys, so either replaces the
 other only after an uninstall, which deletes the app's data. To switch
-builds, share the debug log, uninstall the app, install the other build
-and turn the debug log on.
+builds, share the debug log, uninstall the app and install the other
+build. After installing the release build, turn the debug log on.
 
 ## 1. Upgrade
 
