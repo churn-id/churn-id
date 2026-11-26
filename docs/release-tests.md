@@ -204,10 +204,12 @@ At the first swap of a run, also:
    both in GL's web interface. Tap Refresh: the router screen warns about
    the profile.
 2. Swap the SIM card. Step 1 says that steps 1 to 3 may run at home or at
-   work, as the router has its factory IMEIs (W5). Let the phone lock on
-   step 1's screen for 10 minutes. Then unlock it, tick that "Power On
-   with Charger" is off and tap Start: the step runs (C9), disables the
-   profile (E6) and shuts the router down.
+   work, as the router has its factory IMEIs (W5). Lock the phone on step
+   1's screen and unlock it a minute later. Tick that "Power On with
+   Charger" is off and tap Start: the step lists that it is waiting for
+   the router on the cable, as Android ended the app's connection during
+   the lock, then connects anew (C9), disables the profile (E6) and shuts
+   the router down.
 3. Put the normal SIM card into the empty SIM 2 tray (W6), switch the
    router on and plug the cable in with the app open: it goes on to step 3
    by itself.
