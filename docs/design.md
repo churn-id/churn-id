@@ -576,7 +576,9 @@ goes when the swap ends or is canceled.
   router (inferred), the contents of files, which can hold a SIM's PIN, GL's
   VPN settings, which can name devices or websites (inferred), and the time
   of day: its times count in seconds from the start of each job or step. It
-  keeps the last three swaps.
+  keeps the last three swaps, or in debug builds, which are for testing
+  only, every swap up to about 20 MB, so that a whole test run fits into one
+  log.
 - Whenever it connects, the app checks the claims about the router that
   its commands rely on, as far as reading the router can tell (tier 1 in
   [router-tests.md](router-tests.md)), so that a firmware upgrade that

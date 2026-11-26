@@ -226,6 +226,36 @@ class DebugLogTest {
     }
 
     @Test
+    fun keepsEverySwapInDebugBuilds() {
+        val log = DebugLog(file, on = { on }, now = { fake.clock }, limits = DebugLog.Limits.DEBUG)
+        log.start("Setting up")
+        log.add("set up")
+        for (swap in 1..4) {
+            log.beginSwap()
+            log.start("Step 1")
+            log.add("swap $swap")
+        }
+        val text = file.readText()
+        assertTrue(text, text.startsWith("\n== Setting up\n"))
+        val swaps = Regex("swap \\d").findAll(text).map { it.value }.toList()
+        assertEquals(listOf("swap 1", "swap 2", "swap 3", "swap 4"), swaps)
+    }
+
+    @Test
+    fun dropsTheOldestSectionsBeyondItsCharacters() {
+        val log = DebugLog(file, on = { on }, now = { fake.clock }, limits = DebugLog.Limits(swaps = null, chars = 100))
+        for (section in 1..5) {
+            log.start("Section $section")
+            log.add("x".repeat(20))
+        }
+        // Each section has 43 characters, so before the fourth and the fifth, the log drops its oldest one.
+        val text = file.readText()
+        assertTrue(text, text.startsWith("== Section 3\n"))
+        val sections = Regex("Section \\d").findAll(text).map { it.value }.toList()
+        assertEquals(listOf("Section 3", "Section 4", "Section 5"), sections)
+    }
+
+    @Test
     fun addsWhyAStepStoppedAndWhereInTheApp() {
         log.start("Step 1")
         log.error("No WireGuard VPN is set up on the router.", RouterException(Problem.NO_VPN))

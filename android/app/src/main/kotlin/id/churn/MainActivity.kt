@@ -564,9 +564,14 @@ class MainActivity : Activity() {
             isChecked = controller.debugLogOn
             setOnCheckedChangeListener { _, checked -> controller.debugLogOn = checked }
         }
+        val keeps = if (controller.debugLog.limits.swaps == null) {
+            R.string.debug_log_keeps_all
+        } else {
+            R.string.debug_log_keeps_swaps
+        }
         val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.debug_log)
-            .setMessage(R.string.debug_log_text)
+            .setMessage(getString(R.string.debug_log_text, getString(keeps)))
             .setView(
                 FrameLayout(this).apply {
                     val padding = dp(20)

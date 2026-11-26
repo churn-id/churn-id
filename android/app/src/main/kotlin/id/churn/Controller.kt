@@ -186,7 +186,11 @@ class Controller(private val context: Context) {
     val cardToDestroy get() = saved.cardToDestroy
 
     /** The debug log, which the app keeps while [debugLogOn]. */
-    val debugLog = DebugLog(File(context.filesDir, DebugLog.FILE_NAME), on = { saved.debugLog })
+    val debugLog = DebugLog(
+        File(context.filesDir, DebugLog.FILE_NAME),
+        on = { saved.debugLog },
+        limits = if (BuildConfig.DEBUG) DebugLog.Limits.DEBUG else DebugLog.Limits.RELEASE,
+    )
 
     var debugLogOn: Boolean
         get() = saved.debugLog
