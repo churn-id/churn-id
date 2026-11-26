@@ -318,6 +318,22 @@ deletes it for an empty line, and commits it. It doesn't restart kmwan:
 airplane mode keeps the SIM's interface down, and GL's scripts add the
 member again once the interface comes up (inferred).
 
+kmwan's events also set chrony's time servers. The firmware's default, in
+`/rom/etc/config/chrony`, is the pool `2.openwrt.pool.ntp.org`. GL's hotplug
+script `/etc/hotplug.d/kmwan/time_sync` runs when kmwan reports an uplink
+online, and if the clock hasn't synced since power-on
+(`/var/state/ntp-valid` is missing), it replaces that pool with
+`time.cloudflare.com` and adds five more NTS servers, unless the router's
+country code is CN, then commits and restarts chronyd (from the script). Our
+Mudi 7 had those servers until a factory reset, then the pool, and those
+servers again once it had been online (verified). Whether the script still
+runs while Churn has the check off for the SIM is unknown. The clock synced
+through the tunnel with those servers (D16), and with the pool it presumably
+does too (inferred). router-tests.md's D6 accepts both sets. Another of GL's
+components also writes `/var/state/ntp-valid`: after a sync with the check
+off for the SIM, it held `chronyc sync`, while the script writes `kmwan set
+success` (verified once).
+
 ## Switching SIM slots
 
 Both switches go through GL's cellular manager, with the call GL's web

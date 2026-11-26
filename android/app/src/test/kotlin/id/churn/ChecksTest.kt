@@ -577,6 +577,13 @@ class ChecksTest {
     }
 
     @Test
+    fun ownTrafficTargetCheckPassesWithTheFirmwareDefault() {
+        fake.answers["uci -q show chrony"] =
+            "chrony.@pool[0]=pool\n" + "chrony.@pool[0].hostname='2.openwrt.pool.ntp.org'\n"
+        assertEquals(CheckResult.Passed, run("D6"))
+    }
+
+    @Test
     fun ownTrafficTargetCheckFailsWithAnotherTimeServer() {
         fake.answers["uci -q show chrony"] = "chrony.@pool[0]=pool\n" + "chrony.@pool[0].hostname='pool.ntp.org'\n"
         assertEquals(CheckResult.Failed("Chrony's time servers are pool.ntp.org."), run("D6"))
