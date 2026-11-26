@@ -149,7 +149,9 @@ meets the router as a new one:
 1. The intro shows the legal notice and the rules. Rules, on the Connect
    and router screens, shows them again later.
 2. With Churn's Network permission off, Connect fails with a message that
-   asks for the permission (C4). Turn it on again.
+   asks for the permission (C4). Turn it on again. Leave Churn's Nearby
+   devices permission as it was installed, "Allowed to keep app working":
+   disabled, connecting never succeeds (design.md, section 3).
 3. The router's key shows with a fingerprint that
    `ssh-keyscan 192.168.8.1 | ssh-keygen -lf -` on the computer also
    prints.

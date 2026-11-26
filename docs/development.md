@@ -28,6 +28,15 @@ these claims with the test, built or planned, for each on a real router.
   GrapheneOS lets the user turn it off per app (the Network permission), and
   then opening a socket fails with `EPERM` (verified on a Pixel 8). The app
   checks for this before it connects and asks the user to allow it.
+- From Android 17 on, the router's address is on the local network, which
+  needs `ACCESS_LOCAL_NETWORK`, in the Nearby devices permission group.
+  Apps that target SDK 36 or lower, as Churn does, get it with `INTERNET`
+  (developer.android.com, "Local network permission"). GrapheneOS shows
+  that grant as "Allowed to keep app working" under Nearby devices, and
+  lets the user disable it. A blocked TCP connection doesn't fail with
+  `EPERM` but times out, so the app can't tell it from a router that
+  doesn't answer. Targeting SDK 37 means asking for the permission at
+  runtime.
 - SSH as `root` with the router's admin password, using sshj. Show the host
   key fingerprint on first use and refuse a changed key unless the user
   accepts it again. Keep the password in the Android Keystore.
