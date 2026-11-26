@@ -134,9 +134,9 @@ was off, both trays empty and no profile enabled on the built-in eSIM, as
 tiers 2 and 3 require:
 
 1. Switch to the debug build, connect, and set the router up if it isn't.
-2. Run the dry run, the power cycle test, with the RF meter next to the
-   router (B8), and the removal and clearing tests, as router-tests.md
-   describes.
+2. Run the dry run, the removal and clearing tests and the power cycle
+   test, with the RF meter next to the router (B8), in the order of the
+   menu, as router-tests.md describes.
 3. Over SSH from the computer, run `sh /etc/churn/restore.sh`, as
    `README.txt` in Churn's folder says to do without the app. It ends with
    the line that the factory IMEIs are back (F12).
