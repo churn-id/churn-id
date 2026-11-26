@@ -115,6 +115,41 @@ class SwapTest {
     }
 
     @Test
+    fun shutdownWaitsForTheRouterToLeaveTheCableAndTimesIt() {
+        val measured = mutableListOf<Pair<Progress, Int>>()
+        val shutDown = Swap(
+            Router(shell),
+            { progress += it },
+            ask = { error("Not asked") },
+            now = { fake.clock },
+            measured = { line, seconds -> measured += line to seconds },
+            awaitCableLost = {
+                fake.clock += 14_500
+                true
+            },
+        )
+        assertTrue(shutDown.shutDown())
+        assertTrue(fake.poweredOff)
+        assertEquals(Progress.SHUTTING_DOWN, progress.last())
+        assertEquals(listOf(Progress.LEFT_CABLE to 14), measured)
+    }
+
+    @Test
+    fun shutdownSaysWhenTheRouterStaysOnTheCable() {
+        val measured = mutableListOf<Pair<Progress, Int>>()
+        val shutDown = Swap(
+            Router(shell),
+            { progress += it },
+            ask = { error("Not asked") },
+            measured = { line, seconds -> measured += line to seconds },
+            awaitCableLost = { false },
+        )
+        assertFalse(shutDown.shutDown())
+        assertEquals(Progress.SHUTTING_DOWN, progress.last())
+        assertTrue(measured.isEmpty())
+    }
+
+    @Test
     fun step1BegunSoonAfterPowerOnWaitsUntilTheRouterHasStarted() {
         fake.boot()
         // 73 s after a power-on, GL's cellular manager, which the slot switch uses, wasn't there yet on our Mudi 7

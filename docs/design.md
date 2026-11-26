@@ -518,8 +518,12 @@ goes when the swap ends or is canceled.
 - After the shutdown that ends steps 1 and 3, the app waits for the router
   to leave the cable, and warns if it is still there after two minutes.
   Leaving the cable only means that the router's network went: the router
-  shut down, or the cable came out, which the app can't tell apart. When
-  the phone loses the network during a shutdown is still to be measured.
+  shut down, or the cable came out, which the app can't tell apart. The step
+  lists how many seconds after the shutdown command the router left, and the
+  next step's text still says to wait until the router is off before
+  unplugging the cable, as it may still be on for a while after leaving it.
+  Whether the phone loses the network only once the router is off is still
+  to be measured (B5).
 - If the cable comes out while the app works on the router, the app ends
   its connection at once and says so. Otherwise a command would wait for
   an answer until its timeout, minutes for some.
