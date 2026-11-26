@@ -503,8 +503,7 @@ class Controller(private val context: Context) {
         // Saved before the router goes down, which may end the connection before it answers.
         saved.step = next
         debugLog.stopWatchingEsim()
-        swap.shutDown()
-        val left = connection?.awaitCableLost(SHUTDOWN_WAIT_SECONDS * 1_000L) != false
+        val left = swap.shutDown()
         disconnect()
         return Screen.Swapping(next, error = if (left) null else context.getString(R.string.warning_still_on_cable))
     }
@@ -607,6 +606,8 @@ class Controller(private val context: Context) {
                     },
                     check = { runChecks(router, folder, CHECKS.filter { it.blocks }).failures },
                     cardMayBeOn = carried,
+                    measured = { progress, seconds -> report(text(progress, seconds)) },
+                    awaitCableLost = { connection?.awaitCableLost(SHUTDOWN_WAIT_SECONDS * 1_000L) != false },
                 )
                 mayBeOn = { swap.cardMayBeOn }
                 // The next step's screen keeps the step's lines, so that the user can still read them.
@@ -1089,6 +1090,7 @@ class Controller(private val context: Context) {
             Progress.REMOVAL_PASSED -> R.string.progress_removal_passed
             Progress.PUT_BACK -> R.string.progress_put_back
             Progress.DRY_RUN_PASSED -> R.string.progress_dry_run_passed
+            Progress.LEFT_CABLE -> R.string.progress_left_cable
             Progress.NETWORK_LOST -> R.string.progress_network_lost
             Progress.NEW_BOOT_ID -> R.string.progress_new_boot_id
             Progress.TEST_PAIR_SAVED -> R.string.progress_test_pair_saved

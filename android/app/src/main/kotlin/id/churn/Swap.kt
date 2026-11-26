@@ -26,7 +26,7 @@ enum class Progress {
     DRY_RUN_PASSED, RESTORED, FACTORY_IMEIS, FOLDER_GONE, LOG_SETTING_BACK, LOG_WRITTEN, ZERO_FILES_GONE, FIREWALL_GONE,
     SET_UP_AGAIN, CARD_FILE_MODES_KEPT, NO_CARD_FILES, CONNECTION_KEPT, RESERVE_BACK, CARD_FILES_PARSE,
     ZEROS_KEEP_SPACE, READING_PARTITION, IMSIS_GONE, NO_IMSIS, ICCIDS_GONE, NO_ICCIDS, PARTITION_UNCHECKED,
-    FREE_SPACE_FILLED, CLEARED_QUICKLY, READING_PROBE, NAMES_GONE, OLD_CONTENT_GONE, REMOVAL_PASSED,
+    FREE_SPACE_FILLED, CLEARED_QUICKLY, READING_PROBE, NAMES_GONE, OLD_CONTENT_GONE, REMOVAL_PASSED, LEFT_CABLE,
     NETWORK_LOST, NEW_BOOT_ID, TEST_PAIR_SAVED, SETTINGS_KEPT, RULES_AT_START, CHAINS_AT_START, MODEM_ANSWERED,
     MODEM_AT_ONCE, RADIO_ON_UNTIL, RADIO_OFF_AT_FIRST, RADIO_OFF_FROM, IMEIS_KEPT, EARLIER_IMEIS_SAVED,
     POWER_CYCLES_PASSED, CARD_READY, GOING_ONLINE, SIM_PACKETS,
@@ -87,6 +87,8 @@ data class PowerCycleStart(
  * runs the router checks that a swap relies on, those that block in router-tests.md, and returns the lines of those
  * that failed. Both steps run them once the router has started and before they change slot 2. The tests of tiers 2
  * and 3 in router-tests.md build on the steps' parts. [cardMayBeOn] starts as the last run of step 3 left it.
+ * [awaitCableLost] waits for the phone to lose the router's network, as long as the app waits after a shutdown, and
+ * says whether it did.
  */
 open class Swap(
     protected val router: Router,
@@ -96,6 +98,9 @@ open class Swap(
     private val sleep: (Long) -> Unit = Thread::sleep,
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
     cardMayBeOn: Boolean = false,
+    /** Reports a [Progress] whose line names a number of seconds. */
+    private val measured: (Progress, Int) -> Unit = { _, _ -> },
+    private val awaitCableLost: () -> Boolean = { true },
 ) {
 
     /**
@@ -135,10 +140,14 @@ open class Swap(
         checkRadioOff()
     }
 
-    /** Ends steps 1 and 3. */
-    fun shutDown() {
+    /** Ends steps 1 and 3, and says whether the router left the cable. */
+    fun shutDown(): Boolean {
+        val sent = now()
         router.powerOff()
         report(Progress.SHUTTING_DOWN)
+        if (!awaitCableLost()) return false
+        measured(Progress.LEFT_CABLE, ((now() - sent) / 1000).toInt())
+        return true
     }
 
     /** The ID of the router's current run, from power-on to shutdown, for [restartedSince]. */

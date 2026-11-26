@@ -211,7 +211,8 @@ At the first swap of a run, also:
    Charger" is off and tap Start: the step lists that it is waiting for
    the router on the cable, as Android ended the app's connection during
    the lock, then connects anew (C9), disables the profile (E6) and shuts
-   the router down.
+   the router down. Step 2 shows only once the router has left the cable,
+   and step 1's lines say how many seconds after the shutdown it did.
 3. Put the normal SIM card into the empty SIM 2 tray (W6), switch the
    router on and plug the cable in with the app open: it goes on to step 3
    by itself.
