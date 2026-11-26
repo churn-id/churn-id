@@ -421,7 +421,7 @@ From development.md, "uci settings".
 
 | ID | Claim | Status | Check | Tier |
 | --- | --- | --- | --- | --- |
-| U1 | `glconfig.general.airplane_mode` is `0` or `1`, and with `1` the modem answers `+CFUN: 4` once the router has started | verified | Read both once uptime is past 120 s | 1, blocks |
+| U1 | `glconfig.general.airplane_mode` is `0` or `1`, or missing, as after a factory reset, which reads as off, and with `1` the modem answers `+CFUN: 4` once the router has started | verified; missing seen once | Read both once uptime is past 120 s | 1, blocks |
 | U2 | Setting `glconfig.general.airplane_mode` turns airplane mode on or off at once, before the commit | verified with a card in; with both trays empty, the modem still answered `+CFUN: 4` 31 s after the setting went to `0` (#105) | With a card in, set airplane mode off without the commit and time how long the modem takes to answer `+CFUN: 1`, then on again until it answers `+CFUN: 4` | 4 |
 | U3 | `uci commit` makes a change survive a reboot | inferred | Read airplane mode, the kill switch settings and GL's connection check setting after a reboot | 3 |
 | U4 | `gl_timer.reboot.enable` is GL's scheduled reboot | verified | The setting exists and is `0` or `1` | 1, blocks |

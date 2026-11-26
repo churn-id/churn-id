@@ -220,7 +220,9 @@ private fun modemSettingsSearched(router: Router): CheckResult {
 private fun airplaneModeKept(router: Router): CheckResult {
     val setting = router.setting(Router.AIRPLANE_MODE)
     return when {
-        setting == "0" -> CheckResult.Passed
+        // After a factory reset the setting was missing until airplane mode was first turned on (seen once). Like
+        // Router.airplaneMode, the check reads it as off, and step 1 then sets it.
+        setting == null || setting == "0" -> CheckResult.Passed
         setting != "1" -> settingFailed(setting)
         router.uptimeSeconds() < Swap.SETTLED_UPTIME_SECONDS -> CheckResult.NotApplicable(R.string.reason_starting)
         else -> when (val radio = router.radio()) {

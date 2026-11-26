@@ -128,7 +128,7 @@ to the user, as at step 4, the leak watch included.
 
 | Setting | Value seen | Meaning | Status |
 | --- | --- | --- | --- |
-| `glconfig.general.airplane_mode` | `'0'` off, `'1'` on | GL's airplane mode. Writing it turns airplane mode on and off, though after `'0'` the router went online more slowly than after airplane mode off on GL's screen (above). Only `cellular_manager` and `gl_screen` read it | verified; after a boot with `'1'` the modem answers `+CFUN: 4` |
+| `glconfig.general.airplane_mode` | `'0'` off, `'1'` on | GL's airplane mode. Writing it turns airplane mode on and off, though after `'0'` the router went online more slowly than after airplane mode off on GL's screen (above). Only `cellular_manager` and `gl_screen` read it. After a factory reset it was missing until airplane mode was first turned on, and Churn reads it missing as off | verified; after a boot with `'1'` the modem answers `+CFUN: 4`; missing after a reset seen once |
 | `lpm.global.auto_shutdown_time` | `'30'`, set by us | Delay in seconds before GL's auto power-off. It fires only on battery with no cable or Wi-Fi client connected, and shutdown starts more than 20 s after the set delay, counted from when the display goes dark | verified |
 | `gl_timer.reboot.enable` | `'0'` | GL's scheduled reboot, off | verified |
 | `network.modem_cpu.dds_id` | `'1'` or `'2'` | The active SIM slot. GL rewrites it at every slot change, so it only reports the slot: writing it, even with a commit, switches nothing | verified |

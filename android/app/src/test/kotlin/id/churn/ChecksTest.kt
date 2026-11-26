@@ -236,6 +236,12 @@ class ChecksTest {
     }
 
     @Test
+    fun airplaneModeCheckPassesWithoutTheSetting() {
+        fake.uciAnswers[Router.AIRPLANE_MODE] = null
+        assertEquals(CheckResult.Passed, run("U1"))
+    }
+
+    @Test
     fun airplaneModeCheckFailsAtAnotherValue() {
         fake.uciAnswers[Router.AIRPLANE_MODE] = "2"
         assertEquals(CheckResult.Failed("The setting is \"2\"."), run("U1"))
