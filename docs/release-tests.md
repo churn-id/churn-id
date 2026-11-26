@@ -164,7 +164,8 @@ meets the router as a new one:
    again, delete the VPN and tap Refresh: the same for the VPN. Set the
    VPN up again from its configuration file.
 6. Forget this router: the next connection shows the key again and asks
-   for the password.
+   for the password. Type a wrong one first: the app says that the router
+   refused it. Then type the right one.
 7. With the password saved, plugging the cable in on the Connect screen
    connects by itself, once each time (C6).
 
@@ -270,7 +271,9 @@ At the first swap of a run, also:
    mentions home and work (W5).
 2. At step 2, take the normal SIM card out and put the adapter card in.
    Stop the app in Android's settings and open it again: it shows step 2
-   (C10). Switch the router on.
+   (C10). Tap Continue with the cable out: step 3 lists that it is waiting
+   for the router on the cable. Switch the router on and plug the cable in
+   within 5 minutes: the step goes on.
 3. While step 3 waits for the router to finish starting, pull down the
    notification shade and tap Churn's notification: the step's lines keep
    coming (C12). Answer step 3's question with Place card. Step 3 lists
@@ -316,9 +319,12 @@ At the first swap of a run, also:
 
 ### Swap 4: the place card back, with the VPN gone
 
-1. Swap the SIM card. At step 2, take the normal SIM card out and put the
-   adapter card in, then restart the phone and open the app: it shows
-   step 2 (C10).
+1. Swap the SIM card, leave the normal SIM card in the tray at step 2 and
+   switch the router on: step 3 says that the card, by the last four
+   digits of its ICCID, is still the one the router had before this swap
+   (W10). Cancel. Once the router is off, take the normal SIM card out and
+   put the adapter card in, then restart the phone and open the app: it
+   shows step 2 (C10).
 2. Switch the router on without the phone's cable, and delete the VPN in
    GL's web interface. Then plug the cable in: step 3 stops while the card
    is still off (W9). Set the VPN up again from its configuration file.
