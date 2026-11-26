@@ -548,19 +548,19 @@ goes when the swap ends or is canceled.
   keeps the list: the screen changes as soon as the router has shut down,
   too soon to read it.
 - The user can have the app keep a debug log, so that a problem can be
-  looked into afterwards. It is off by default and stays on the phone
-  until the user shares it. It holds every command the app sends to the
-  router with the router's answer, what each step reports, why a job or
-  step stopped, and what GL's eSIM manager logged during steps 1 and 3,
-  which step 3's clearing deletes on the router (below). So that the log
-  doesn't become another record of the user's cards, it leaves out
+  looked into afterwards. It is off by default, on in debug builds, and
+  stays on the phone until the user shares it. It holds every command the
+  app sends to the router with the router's answer, what each step reports,
+  why a job or step stopped, and what GL's eSIM manager logged during steps
+  1 and 3, which step 3's clearing deletes on the router (below). So that
+  the log doesn't become another record of the user's cards, it leaves out
   numbers of 12 digits or more, such as ICCIDs, IMSIs and IMEIs, IP
-  addresses, which can point the carrier to the card that had an address
-  and the VPN provider to the user's account, MAC addresses, which can
-  name the router (inferred), the contents of files, which can hold a
-  SIM's PIN, GL's VPN settings, which can name devices or websites
-  (inferred), and the time of day: its times count in seconds from the
-  start of each job or step. It keeps the last three swaps.
+  addresses, which can point the carrier to the card that had an address and
+  the VPN provider to the user's account, MAC addresses, which can name the
+  router (inferred), the contents of files, which can hold a SIM's PIN, GL's
+  VPN settings, which can name devices or websites (inferred), and the time
+  of day: its times count in seconds from the start of each job or step. It
+  keeps the last three swaps.
 - Whenever it connects, the app checks the claims about the router that
   its commands rely on, as far as reading the router can tell (tier 1 in
   [router-tests.md](router-tests.md)), so that a firmware upgrade that
