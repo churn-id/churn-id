@@ -587,7 +587,7 @@ class MainActivity : Activity() {
     private fun shareDebugLog() {
         val send = Intent(Intent.ACTION_SEND)
             .setType("text/plain")
-            .putExtra(Intent.EXTRA_STREAM, DebugLogProvider.URI)
+            .putExtra(Intent.EXTRA_STREAM, DebugLogProvider.uri())
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         startActivity(Intent.createChooser(send, getString(R.string.debug_log)))
     }
