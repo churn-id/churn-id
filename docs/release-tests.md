@@ -30,8 +30,9 @@ release, a coverage pass comes before the full run, to show the code that
 no step reaches. It is a full run of its own with the coverage build
 ([CONTRIBUTING.md](../CONTRIBUTING.md#building)), which counts the code
 that runs, in place of both the release build and the debug build. It
-skips section 1, and in section 3, step 4's check that the menu has none
-of the debug build's tests.
+skips section 1, which from the second release on runs before the pass,
+and in section 3, step 4's check that the menu has none of the debug
+build's tests.
 
 The app keeps adding to its coverage file until its data is deleted, so the
 pass begins with the coverage build freshly installed: first uninstall the
@@ -111,7 +112,12 @@ build. After installing the release build, turn the debug log on.
 
 ## 1. Upgrade
 
-From the second release on, where the router may be on with its card:
+From the second release on, where the router may be on with its card.
+The phone starts the run with the previous release and its data, as the
+last run left it (Results). If the phone no longer has them, uninstall
+the app, install the previous release's APK from its GitHub release, and
+connect, so that it saves the router's key and the password. The router
+screen then lists no place cards, so step 2 can't check them.
 
 1. Install the release build over the previous release, which keeps the
    app's data.
@@ -378,3 +384,6 @@ linked there, and after a fix, the steps it affects run again. The release
 waits until the run has passed, or until the run's issue says why a failure
 doesn't hold it up. Claims that the run confirmed for the first time become
 *verified* in router-tests.md, and their status names the run's issue.
+
+Leave the release build installed with its data, so that the next run's
+upgrade starts from it.
