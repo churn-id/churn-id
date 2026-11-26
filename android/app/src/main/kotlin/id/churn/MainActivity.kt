@@ -234,7 +234,7 @@ class MainActivity : Activity() {
         if (screen.checks?.failed == true) warning(getString(R.string.checks_failed))
         // Off while step 1 would refuse to start, as the notes above say. Step 1 checks again, since this screen may be
         // minutes old.
-        button(R.string.swap) { controller.beginSwap(status) }.isEnabled = status.vpnSetUp && !status.scheduledReboot
+        button(R.string.swap) { controller.beginSwap(status) }.isEnabled = status.vpnOn && !status.scheduledReboot
         button(R.string.refresh) { controller.refresh() }
         gap()
         if (screen.places.isNotEmpty()) {

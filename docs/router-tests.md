@@ -449,6 +449,7 @@ From development.md, "uci settings", and design.md, sections 7 and 10.
 | K8 | Turning the switch on takes `/etc/init.d/network reload`, which neither drops the cable nor turns the radio on | open | The connection and `+CFUN: 4` across a reload (tier 2); the RF meter (tier 4) | 2, 4 |
 | K9 | With the switch on and the tunnel disconnected, nothing gets through, also with the tunnel's own Kill Switch off | verified | Disconnect the tunnel and load a website on a device | 4 |
 | K10 | The switch also blocks traffic while the router boots and when a tunnel fails on its own | open | The blocking rules are in place after a boot, and when the app first saw them (tier 3); traffic during a boot and through a failing tunnel (tier 4) | 3, 4 |
+| K11 | A tunnel's rule has `enabled` `1` while the tunnel is switched on in GL's VPN dashboard and `0` while it is switched off | verified for one tunnel | Switch the tunnel off and on again, and read the setting each time | 4 |
 
 ## DNS and the router's own traffic
 
@@ -612,6 +613,7 @@ From design.md, sections 4 and 7.
 | W9 | Step 3 stops when the VPN is gone, while the new card is still off, and runs again once a VPN is set up, without another step 1 | inferred | Delete the VPN at step 2, before step 3 starts, and set it up again from its configuration file | 4 |
 | W10 | If the SIM 2 tray still holds the card from before the swap, step 3 says so and asks whether to keep it, with slot 2 on the built-in eSIM until the answer. Continue keeps the card's IMEIs, and step 4 says that the router keeps the card | inferred | Swap with the card left in the tray at step 2, cancel at the question, switch the router on again at step 2 and continue | 4 |
 | W11 | A step 3 that loses the cable while slot 2 is on the SIM 2 tray, before the card's pair is saved, says not to switch the router off. Its next run sets slot 2 back to the built-in eSIM once the radio is off, before the SIM 1 check and the reloads | verified (#153) | Pull the cable as soon as "Slot 2 is back on the SIM 2 tray." shows after step 3's question, plug it in again and tap Try again | 4 |
+| W12 | Steps 1 and 3 stop while the VPN is switched off, step 3 while the new card is still off, and run again once it is on, without another step 1 | inferred | Switch the VPN off at step 2, before step 3 starts, and on again | 4 |
 
 ## Beyond the router
 

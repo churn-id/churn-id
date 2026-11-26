@@ -121,7 +121,7 @@ open class Swap(
         // A reboot is a power-on, so with a SIM inside it registers wherever it happens.
         if (router.scheduledReboot()) throw RouterException(Problem.SCHEDULED_REBOOT)
         // Rule 5. Checked before anything changes, while the old card can still reach the internet to set one up.
-        if (!router.vpnSetUp()) throw RouterException(Problem.NO_VPN)
+        checkVpn(gone = Problem.NO_VPN)
         // GL's cellular manager and eSIM manager, which the checks, the slot switch and the profile's disabling use,
         // can come up more than a minute after power-on (B20), so a step begun in the first 2 minutes waits, as step 3
         // does.
@@ -208,10 +208,10 @@ open class Swap(
     protected fun startNewImeis(reload: Boolean) {
         // Before the wait, in case the user turned it off, so that the radio goes off after its burst at power-on.
         turnAirplaneModeOn()
-        // Rule 5, checked again in case the VPN was deleted since step 1. Slot 2 is on the eSIM, as step 1 left it, or
-        // goes back there as the step stops, so the step can stop here and run again once one is set up, and the user
-        // learns it before the wait.
-        if (!router.vpnSetUp()) throw RouterException(Problem.VPN_GONE)
+        // Rule 5, checked again in case the VPN was deleted or switched off since step 1. Slot 2 is on the eSIM, as
+        // step 1 left it, or goes back there as the step stops, so the step can stop here and run again once one is set
+        // up and on, and the user learns it before the wait.
+        checkVpn(gone = Problem.VPN_GONE)
         waitForStart()
         runChecks()
         waitForRadioOff()
@@ -417,6 +417,18 @@ open class Swap(
             checkRadioOff()
         }
         report(if (reload) Progress.CONNECTION_CHECK_RESTARTED else Progress.CONNECTION_CHECK_OFF)
+    }
+
+    /**
+     * Stops the step with [gone] if the router has no WireGuard tunnel, and if none is switched on, as that leaves the
+     * router just as offline once Churn's rules and the Enhanced Kill Switch are in place (rule 5).
+     */
+    protected fun checkVpn(gone: Problem) {
+        when (router.vpn()) {
+            Vpn.NONE -> throw RouterException(gone)
+            Vpn.OFF -> throw RouterException(Problem.VPN_OFF)
+            Vpn.ON -> Unit
+        }
     }
 
     protected fun checkRadioOff() {

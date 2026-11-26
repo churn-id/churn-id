@@ -317,7 +317,7 @@ At the first swap of a run, also:
    (H9), and the router screen names it as a travel card, with other IMEIs
    than in swap 1.
 
-### Swap 4: the place card back, with the VPN gone
+### Swap 4: the place card back, with the VPN off and gone
 
 1. Swap the SIM card, leave the normal SIM card in the tray at step 2 and
    switch the router on: step 3 says that the card, by the last four
@@ -325,9 +325,11 @@ At the first swap of a run, also:
    (W10). Cancel. Once the router is off, take the normal SIM card out and
    put the adapter card in, then restart the phone and open the app: it
    shows step 2 (C10).
-2. Switch the router on without the phone's cable, and delete the VPN in
-   GL's web interface. Then plug the cable in: step 3 stops while the card
-   is still off (W9). Set the VPN up again from its configuration file.
+2. Switch the router on without the phone's cable, and switch the VPN off
+   in GL's web interface. Then plug the cable in: step 3 stops while the
+   card is still off, saying that the VPN is switched off (W12). Delete the
+   VPN and tap Try again: step 3 stops again (W9). Set the VPN up again
+   from its configuration file.
 3. Tap Try again and lock the phone, and unlock it a minute later: the
    step has gone on to its question (C8).
 4. The question names the place card, and Continue gives it the IMEIs it

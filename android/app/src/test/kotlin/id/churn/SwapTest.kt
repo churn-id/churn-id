@@ -354,6 +354,15 @@ class SwapTest {
     }
 
     @Test
+    fun step1ChangesNothingWhileTheVpnIsSwitchedOff() {
+        fake.tunnelOn = false
+        fake.tunnelUp = false
+        assertStops(Problem.VPN_OFF) { swap.prepare() }
+        assertEquals(emptyList<String>(), fake.changes)
+        assertFalse(fake.airplaneMode)
+    }
+
+    @Test
     fun step1ChangesNothingWhileTheRadioStaysOn() {
         fake.radioStuckOn = true
         assertStops(Problem.RADIO_ON) { swap.prepare() }
@@ -877,6 +886,27 @@ class SwapTest {
         assertStops(Problem.RADIO_ON) { giveNewImeis() }
         assertEquals(changes, fake.changes.size)
         assertEquals(Slot2.ESIM, fake.slot2)
+    }
+
+    @Test
+    fun step3StopsWhileTheCardIsOffIfTheVpnIsSwitchedOff() {
+        val oldImeis = prepareAndRestart()
+        fake.tunnelOn = false
+        fake.tunnelUp = false
+        progress.clear()
+        val changes = fake.changes.size
+        assertStops(Problem.VPN_OFF) { giveNewImeis() }
+        assertEquals(listOf(Progress.AIRPLANE_MODE_ON), progress)
+        assertFalse(swap.cardMayBeOn)
+        assertEquals(changes, fake.changes.size)
+        assertEquals(oldImeis, ImeiPair(fake.imei1, fake.imei2))
+        assertEquals(Slot2.ESIM, fake.slot2)
+        // Run again once it is switched on.
+        fake.tunnelOn = true
+        fake.tunnelUp = true
+        val card = giveNewImeis()!!
+        assertEquals(card.imeis, ImeiPair(fake.imei1, fake.imei2))
+        assertSafe()
     }
 
     @Test

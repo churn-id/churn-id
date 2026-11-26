@@ -144,6 +144,7 @@ to the user, as at step 4, the leak watch included.
 | `network.modem_cpu.iccid` | The card's ICCID, a 19-digit one with a trailing `F` | The card GL uses | verified |
 | `system.@system[0].log_file` | `'/etc/sys_log'` | The file that GL's `logread -f -F` writes the system log to, rotated to `/etc/sys_log.old` at `log_size` (`'128000'`, in KB). Without it, the log stays in `logd`'s buffer in RAM, `log_buffer_size` (`'64'`, in KB) | verified |
 | `route_policy.@rule[<n>]` | `rule`, one section per tunnel, with `name='Tunnel 1'`, `via_type='wireguard'`, `enabled`, `killswitch` | A tunnel in GL's VPN dashboard | verified for one WireGuard tunnel |
+| `route_policy.@rule[<n>].enabled` | `'1'` switched on, `'0'` off | Whether the tunnel is switched on in GL's VPN dashboard | verified for one WireGuard tunnel |
 | `route_policy.@rule[<n>].via` | `'wgclient1'` | The tunnel's network interface, `network.wgclient1` with `proto='wgclient'` | verified |
 | `route_policy.@rule[0].killswitch` | `'1'` | Kill switch of the first VPN rule. Writing it turns it on and off | verified |
 | `route_policy.@default[0].enabled` | `'0'` with Enhanced Kill Switch on, `'1'` off | GL's fallback policy, which sends traffic that matches no VPN rule past the VPN (`via='novpn'`, mark `0x8000`) | values verified, meaning inferred |
@@ -201,8 +202,9 @@ type `rule_process` (`gl_process` and `gl_process_vpn`) name the same
 interface but seem to be GL's policies for its own processes, so they
 don't count (inferred). The app ignores other tunnel types until we have
 seen how GL stores an OpenVPN tunnel and what its DNS and routing rules
-look like. Untested: a router without a tunnel, and whether turning a
-tunnel off in GL's VPN dashboard changes its `enabled`.
+look like. For a swap, one such tunnel must also be switched on:
+switching it off in GL's VPN dashboard sets its `enabled` from `'1'` to
+`'0'` (verified). Untested: a router without a tunnel.
 
 Two settings the app needs are not in `uci` (verified by searching
 `uci show`):
