@@ -286,8 +286,9 @@ At the first swap of a run, also:
    built-in eSIM, and clears nothing (W8).
 2. Switch the router off, put the normal SIM card into the SIM 1 tray and
    switch the router on, which makes the card register (B14). Tap Try
-   again: step 3 stops at the card before it changes anything (B15).
-3. Switch the router off, move the card into the SIM 2 tray, switch the
+   again: step 3 stops at the card before it changes anything (B15), and
+   shuts the router down.
+3. Once the router is off, move the card into the SIM 2 tray, switch the
    router on and tap Try again. While step 3 waits for the router to
    finish starting, pull the cable out: the app says at once that the
    router left the cable (C5). Plug it in again and tap Try again.

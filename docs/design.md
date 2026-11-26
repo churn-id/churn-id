@@ -614,12 +614,13 @@ goes when the swap ends or is canceled.
   card and link the two, and nothing else in the app would notice it, since
   the app otherwise reads only the active slot. The check comes too late for
   step 2's power-on, where that card has already registered. Slot 2 is on
-  the built-in eSIM by then, so the step runs again once the user has
-  switched the router off and taken the card out. The check also catches a
-  new card put into the wrong tray, with a clearer message than the one for
-  an empty SIM 2 tray. Such a card has registered where and when the old
-  one went quiet, which links the two, so the message also says to use
-  another new card in that case.
+  the built-in eSIM by then, and the card can come out only with the router
+  off, so the step shuts the router down as it stops, and runs again once
+  the user has taken the card out and switched the router on. The check also
+  catches a new card put into the wrong tray, with a clearer message than
+  the one for an empty SIM 2 tray. Such a card has registered where and when
+  the old one went quiet, which links the two, so the message also says to
+  use another new card in that case.
 - Step 3 is the last step before the router goes online, so that is where
   the app makes sure the Enhanced Kill Switch is on, Churn's firewall
   rules are in place and GL's connection check is off for the SIM (rule
