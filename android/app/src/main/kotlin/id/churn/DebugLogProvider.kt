@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import java.io.File
+import kotlin.random.Random
 
 /**
  * Lets the app that the user shares the debug log with read it. The provider isn't exported, so only an app that
@@ -36,7 +37,7 @@ class DebugLogProvider : ContentProvider() {
         addRow(
             columnNames.map {
                 when (it) {
-                    OpenableColumns.DISPLAY_NAME -> NAME
+                    OpenableColumns.DISPLAY_NAME -> name(uri)
                     OpenableColumns.SIZE -> file.length()
                     else -> null
                 }
@@ -51,7 +52,15 @@ class DebugLogProvider : ContentProvider() {
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?) = 0
 
     companion object {
-        private const val NAME = "churn-debug-log.txt"
-        val URI: Uri = Uri.parse("content://id.churn.log/$NAME")
+        private val NAME = Regex("""churn-debug-log-\p{XDigit}{8}\.txt""")
+
+        /**
+         * Where the app that the user shares the log with reads it, under a name of its own for each share, so that the
+         * logs of a run, saved to one folder, don't take each other's place.
+         */
+        fun uri(): Uri = Uri.parse("content://id.churn.log/churn-debug-log-%08x.txt".format(Random.nextInt()))
+
+        /** The name that [uri] gave the share, or a fixed one for a URI that it didn't make. */
+        internal fun name(uri: Uri) = uri.lastPathSegment?.takeIf { NAME.matches(it) } ?: "churn-debug-log.txt"
     }
 }
