@@ -351,6 +351,9 @@ class FakeRouter : Shell {
     /** Whether the tunnel's interface is up, as while GL's VPN client has the tunnel connected. */
     var tunnelUp = true
 
+    /** Whether the tunnel is switched on in GL's VPN dashboard. */
+    var tunnelOn = true
+
     /** The mark the tunnel's WireGuard interface sends with, as `wg show` gives it. */
     var wireguardMark = "0x8000"
 
@@ -1307,6 +1310,7 @@ class FakeRouter : Shell {
         appendLine("route_policy.@default[0].enabled='${if (killSwitchSet) 0 else 1}'")
         vpnTunnel?.let {
             appendLine("route_policy.@rule[0]=rule")
+            appendLine("route_policy.@rule[0].enabled='${if (tunnelOn) 1 else 0}'")
             appendLine("route_policy.@rule[0].name='Tunnel 1'")
             appendLine("route_policy.@rule[0].via_type='$vpnType'")
             appendLine("route_policy.@rule[0].via='$it'")

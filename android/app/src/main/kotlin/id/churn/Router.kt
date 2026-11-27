@@ -30,9 +30,9 @@ class EsimLog(val clock: Long, val size: Long, val head: String, val start: Long
 /** Why a step stopped. Nothing it did after the last confirmed answer is assumed done. */
 enum class Problem {
     UNEXPECTED_ANSWER, RADIO_ON, SCHEDULED_REBOOT, IMEIS_NOT_KEPT, SLOT_NOT_SWITCHED, PROFILE_STILL_ENABLED,
-    NO_CARD, NO_PROFILE_ON_CARD, SIM1_CARD, CARD_CHANGED, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN, VPN_GONE, FIREWALL_NOT_LOADED,
-    CHECK_FAILED, PROFILE_ENABLED, CARD_IN_TRAY, NOT_READY, LEAK, AIRPLANE_MODE_LEFT_ON, CONNECTION_CHECK_ON,
-    NEWER_VERSION, LOCK_FAILED, NOT_ANSWERED,
+    NO_CARD, NO_PROFILE_ON_CARD, SIM1_CARD, CARD_CHANGED, NOT_SET_UP, NOT_STARTED, KILL_SWITCH_OFF, NO_VPN, VPN_GONE,
+    VPN_OFF, FIREWALL_NOT_LOADED, CHECK_FAILED, PROFILE_ENABLED, CARD_IN_TRAY, NOT_READY, LEAK, AIRPLANE_MODE_LEFT_ON,
+    CONNECTION_CHECK_ON, NEWER_VERSION, LOCK_FAILED, NOT_ANSWERED,
 }
 
 /** [detail] is what the router said, for the log; it never holds a password. */
@@ -62,6 +62,9 @@ class AtAnswer(val lines: List<String>) {
 
 /** A setting that slot 2 can take: its card is in the SIM 2 tray or the built-in eSIM. */
 enum class Slot2(val type: Int) { SIM2(0), ESIM(1) }
+
+/** Whether the router has a WireGuard tunnel that [Router.vpnSetUp] counts, and if so, whether one is switched on. */
+enum class Vpn { NONE, OFF, ON }
 
 /** A card that answers in slot 2. */
 sealed interface Slot2Card {
@@ -399,19 +402,40 @@ class Router(private val shell: Shell) {
     /**
      * Whether GL's VPN client has a WireGuard tunnel set up, as development.md describes it: a rule in GL's route
      * policy that sends traffic through an existing WireGuard interface. Other tunnel types are untested, so they
-     * don't count. Whether the tunnel is on or up doesn't count either.
+     * don't count. Whether the tunnel is switched on or up doesn't count either.
      */
     fun vpnSetUp() = vpnInterfaces().isNotEmpty()
 
+    /**
+     * Whether a tunnel that [vpnSetUp] counts is switched on in GL's VPN dashboard, which sets its rule's `enabled` to
+     * `1`, and to `0` when it is switched off. Whether it is up doesn't count.
+     */
+    fun vpn(): Vpn {
+        val tunnels = vpnTunnels()
+        return when {
+            tunnels.isEmpty() -> Vpn.NONE
+            tunnels.any { it.on } -> Vpn.ON
+            else -> Vpn.OFF
+        }
+    }
+
     /** The network interfaces of the WireGuard tunnels that [vpnSetUp] counts, such as `wgclient1`. */
-    fun vpnInterfaces(): List<String> {
+    fun vpnInterfaces() = vpnTunnels().map { it.via }
+
+    /** A WireGuard tunnel that [vpnSetUp] counts: its network interface, and whether its rule is switched on. */
+    private data class Tunnel(val via: String, val on: Boolean)
+
+    private fun vpnTunnels(): List<Tunnel> {
         // The debug log leaves the settings out: GL's policies can name the user's devices or the sites they visit.
         val settings = runPrivately("uci -q show route_policy").text.lines()
             .associate { it.substringBefore('=') to it.substringAfter('=').removeSurrounding("'") }
         return settings.filterValues { it == "rule" }.keys
             .filter { settings["$it.via_type"] == "wireguard" }
-            .mapNotNull { settings["$it.via"]?.takeIf { via -> via.matches(Regex("[A-Za-z0-9_]+")) } }
-            .filter { uci("network.$it") == "interface" }
+            .mapNotNull { rule ->
+                settings["$rule.via"]?.takeIf { it.matches(Regex("[A-Za-z0-9_]+")) }
+                    ?.let { Tunnel(it, on = settings["$rule.enabled"] == "1") }
+            }
+            .filter { uci("network.${it.via}") == "interface" }
     }
 
     /**

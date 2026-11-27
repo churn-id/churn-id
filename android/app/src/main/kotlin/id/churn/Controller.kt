@@ -95,7 +95,8 @@ class RouterStatus(
     /** The card the record names, by its ICCID's digits. */
     val recorded: String?,
     val scheduledReboot: Boolean,
-    val vpnSetUp: Boolean,
+    /** Whether the router has a WireGuard tunnel set up and switched on. */
+    val vpnOn: Boolean,
     val enhancedKillSwitch: Boolean,
     val firewall: Boolean,
     /** Whether GL's connection check is off for the SIM, as Churn's firewall rules need it. */
@@ -972,8 +973,9 @@ class Controller(private val context: Context) {
         }
         val scheduledReboot = router.scheduledReboot()
         if (scheduledReboot) notes += context.getString(R.string.note_scheduled_reboot)
-        val vpnSetUp = router.vpnSetUp()
-        if (!vpnSetUp) notes += context.getString(R.string.note_no_vpn)
+        val vpn = router.vpn()
+        if (vpn == Vpn.NONE) notes += context.getString(R.string.note_no_vpn)
+        if (vpn == Vpn.OFF) notes += context.getString(R.string.note_vpn_off)
         val status = RouterStatus(
             imeis = imeis,
             factory = factory,
@@ -985,7 +987,7 @@ class Controller(private val context: Context) {
             noProfile = slot2Card == Slot2Card.NoProfile,
             recorded = folder.card?.iccid,
             scheduledReboot = scheduledReboot,
-            vpnSetUp = vpnSetUp,
+            vpnOn = vpn == Vpn.ON,
             enhancedKillSwitch = router.enhancedKillSwitch(),
             // A router whose firewall the app can't read shows the warning. An earlier version's rules stay until the
             // next swap's step 3 replaces them.
@@ -1157,6 +1159,7 @@ class Controller(private val context: Context) {
             Problem.KILL_SWITCH_OFF -> R.string.problem_kill_switch_off
             Problem.NO_VPN -> R.string.problem_no_vpn
             Problem.VPN_GONE -> R.string.problem_vpn_gone
+            Problem.VPN_OFF -> R.string.problem_vpn_off
             Problem.FIREWALL_NOT_LOADED -> R.string.problem_firewall_not_loaded
             Problem.CHECK_FAILED -> R.string.problem_check_failed
             Problem.PROFILE_ENABLED -> R.string.problem_profile_enabled

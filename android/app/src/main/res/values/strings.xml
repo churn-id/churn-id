@@ -95,6 +95,7 @@
     <string name="note_not_cards_imeis">These aren\'t IMEIs Churn gave the card in slot 2. The card registers with them at every power-on, probably at this one too, so the network can link it to whatever used them before: an earlier card, or the router itself if they\'re the factory IMEIs. Giving this card its own IMEIs now wouldn\'t undo that link, and the network would see its IMEI change, so swap it for a new card.</string>
     <string name="note_scheduled_reboot">A swap needs GL\'s scheduled reboot off, and it is on. Turn it off in GL\'s web interface, then tap Refresh. A reboot is a power-on, so with a SIM inside it registers wherever it happens.</string>
     <string name="note_no_vpn">A swap needs a WireGuard VPN on the router, and none is set up. Set one up in GL\'s web interface (rule 5), then tap Refresh. Churn doesn\'t support other VPN types yet.</string>
+    <string name="note_vpn_off">A swap needs the router\'s WireGuard VPN switched on, and it is off. Switch it on in GL\'s web interface (rule 5), then tap Refresh.</string>
     <string name="note_kill_switch">The Enhanced Kill Switch is off, so traffic can bypass the VPN (rule 5).</string>
     <string name="note_restored">The factory IMEIs are back, Churn\'s firewall rules, zero files and folder are removed, GL\'s settings for saving the system log and for its connection check over the SIM are as before, and airplane mode is on. To use Churn on this router again, set it up.</string>
     <string name="note_firewall">Churn\'s firewall rules aren\'t on the router, so the router\'s own traffic can bypass the VPN (rule 5).</string>
@@ -386,6 +387,7 @@
     <string name="problem_kill_switch_off">The Enhanced Kill Switch didn\'t come on.</string>
     <string name="problem_no_vpn">No WireGuard VPN is set up on the router. Set one up in GL\'s web interface first (rule 5).</string>
     <string name="problem_vpn_gone">No WireGuard VPN is set up on the router any more, so Churn stopped while the new card is off. The router has no internet over a SIM now, so set one up in GL\'s web interface from a WireGuard configuration file (rule 5), then tap Try again.</string>
+    <string name="problem_vpn_off">The router\'s WireGuard VPN is switched off, so Churn stopped, at step 1 before changing anything and at step 3 while the new card is off. With Churn\'s rules the router would have no internet. Switch the VPN on in GL\'s web interface (rule 5), then tap Try again.</string>
     <string name="problem_check_failed">A router check that swaps rely on failed, so Churn stopped before changing slot 2: the router doesn\'t work the way Churn\'s commands expect, as after a firmware upgrade. Churn can swap on this router again once the check passes. Router checks, on the router screen, shows every check\'s result.</string>
     <string name="problem_firewall_not_loaded">The router\'s firewall didn\'t load Churn\'s rules, so Churn removed them again and stopped.</string>
     <string name="problem_connection_check_on">GL\'s connection check didn\'t turn off for the SIM.</string>

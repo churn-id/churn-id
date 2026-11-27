@@ -441,9 +441,10 @@ every boot:
    identity and likely without the IMEIs. If they carry the IMEIs, those are
    the old card's, which show nothing new where that card was in use until
    step 1 (section 4).
-3. The app checks that a VPN is still set up (below). Once the radio is off
-   after the boot (section 6), it sets slot 2 back to the built-in eSIM if
-   an earlier run of the step left it on the tray (below), checks that the
+3. The app checks that a VPN is still set up and switched on (below). Once
+   the radio is off after the boot (section 6), it sets slot 2 back to the
+   built-in eSIM if an earlier run of the step left it on the tray (below),
+   checks that the
    SIM 1 tray is empty (below), turns GL's Enhanced Kill Switch on if it is
    off, puts Churn's firewall rules in place if they are missing or differ
    and turns GL's connection check off for the SIM if it is on, then
@@ -603,25 +604,27 @@ goes when the swap ends or is canceled.
   is a power-on, so wherever it happens, the SIM registers there. Step 1
   asks the user about "Power On with Charger" in every swap: the app can't
   read the setting, and an earlier answer says nothing about it now. It also
-  checks that a VPN is set up (rule 5): with the Enhanced Kill Switch on, a
-  router without one has no internet at all, which invites turning the
-  switch off. Step 1 is where this check stops a swap, since the old card
-  is still there to reach the internet while the user sets one up. While
-  none is set up, or while the scheduled reboot is on, the router screen
-  says that a swap needs it fixed and turns its swap button off, so the
-  user learns it right after setup rather than at step 1. Step 1 still
-  checks both before it changes anything, since the screen may be minutes
-  old. The app accepts only WireGuard tunnels, the only type we have
+  checks that a VPN is set up and switched on (rule 5): with the Enhanced
+  Kill Switch on, a router without one has no internet at all, which invites
+  turning the switch off, and a tunnel switched off in GL's web interface
+  leaves it just as offline. Step 1 is where this check stops a swap, since
+  the old card is still there to reach the internet while the user sets one
+  up. While none is set up or on, or while the scheduled reboot is on, the
+  router screen says that a swap needs it fixed and turns its swap button
+  off, so the user learns it right after setup rather than at step 1. Step 1
+  still checks both before it changes anything, since the screen may be
+  minutes old. The app accepts only WireGuard tunnels, the only type we have
   tested.
-- Step 3 checks the VPN again, in case it was deleted since step 1, right
-  after it turns airplane mode on. Slot 2 is on the built-in eSIM then, or
-  goes back there as the step stops, so the step can stop and run again once
-  a VPN is set up, without another step 1. With the old card out and the new
-  one off, the router has no internet over a SIM, so that VPN has to come
-  from a WireGuard configuration file. Step 3 is the swap's last look at the
-  router. A VPN deleted after it leaves the router without internet, not
-  with traffic past the VPN (inferred): Churn's firewall rules let only
-  WireGuard's packets out over the SIM and name no tunnel (below).
+- Step 3 checks the VPN again, in case it was deleted or switched off since
+  step 1, right after it turns airplane mode on. Slot 2 is on the built-in
+  eSIM then, or goes back there as the step stops, so the step can stop and
+  run again once a VPN is set up and on, without another step 1. With the
+  old card out and the new one off, the router has no internet over a SIM,
+  so a deleted VPN has to come back from a WireGuard configuration file.
+  Step 3 is the swap's last look at the router. A VPN deleted or switched
+  off after it leaves the router without internet, not with traffic past the
+  VPN (inferred): Churn's firewall rules let only WireGuard's packets out
+  over the SIM and name no tunnel (below).
 - Step 3 also stops if a card is in the SIM 1 tray, once the router has
   finished starting and before it changes anything. A card there registers
   at every power-on (section 6), so at step 4 it would go out with the new

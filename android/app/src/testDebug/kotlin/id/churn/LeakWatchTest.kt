@@ -496,6 +496,13 @@ class LeakWatchTest {
     }
 
     @Test
+    fun aSwitchedOffVpnStopsTheWatchBeforeItGoesOnline() {
+        fake.tunnelOn = false
+        fake.tunnelUp = false
+        assertStoppedOffline(Problem.VPN_OFF)
+    }
+
+    @Test
     fun aFailedCheckStopsTheWatchBeforeItGoesOnline() {
         checks = { listOf("✗ A check (D7)\nFailed: one thing") }
         assertEquals("✗ A check (D7)\nFailed: one thing", assertStoppedOffline(Problem.CHECK_FAILED))

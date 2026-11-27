@@ -353,6 +353,17 @@ class RouterTest {
     }
 
     @Test
+    fun seesWhetherTheTunnelIsSwitchedOn() {
+        assertEquals(Vpn.ON, router.vpn())
+        fake.tunnelOn = false
+        fake.tunnelUp = false
+        assertEquals(Vpn.OFF, router.vpn())
+        assertTrue(router.vpnSetUp())
+        fake.vpnTunnel = null
+        assertEquals(Vpn.NONE, router.vpn())
+    }
+
+    @Test
     fun ignoresATunnelThatIsNotWireGuard() {
         fake.vpnTunnel = "ovpnclient1"
         fake.vpnType = "openvpn"
