@@ -73,7 +73,7 @@ dependencies {
     implementation("com.hierynomus:sshj:0.41.2")
     // sshj also brings Bouncy Castle's bcpkix and bcutil, which must match
     // bcprov's version. Bouncy Castle's BOM puts all three on one version.
-    implementation(platform("org.bouncycastle:bc-jdk18on-bom:1.84"))
+    implementation(platform("org.bouncycastle:bc-jdk18on-bom:1.87"))
     // Comes with sshj; ChurnApp registers its provider.
     implementation("org.bouncycastle:bcprov-jdk18on")
 
