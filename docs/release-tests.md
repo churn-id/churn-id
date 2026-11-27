@@ -110,6 +110,11 @@ other only after an uninstall, which deletes the app's data. To switch
 builds, share the debug log, uninstall the app and install the other
 build. After installing the release build, turn the debug log on.
 
+A router switched on with the cable already in doesn't show up on the
+phone (C6). After each power-on, plug the cable in once the router's
+screen no longer shows its start-up progress bar, and if the app hasn't
+connected 10 s later, pull the cable and plug it in again.
+
 ## 1. Upgrade
 
 From the second release on, where the router may be on with its card.
@@ -344,7 +349,7 @@ At the first swap of a run, also:
 
 1. With the router off, take the adapter card out, disable its profile
    and put it back. Switch the router on and, on the Connect screen, plug
-   the cable in as soon as the router's screen has started: the app
+   the cable in as soon as the start-up progress bar is gone: the app
    connects by itself (C6), and the router screen names the card as an
    adapter card with no profile enabled (E13). If the connection came
    within 2 minutes of the power-on, Router checks say that D2, S1 and E5
