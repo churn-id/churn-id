@@ -341,14 +341,21 @@ At the first swap of a run, also:
 
 ### Swap 5: the place card kept, and an adapter card without a profile
 
-1. With the router off, take the adapter card out, disable its profile,
-   put it back and switch the router on: the router screen names it as an
-   adapter card with no profile enabled (E13). If Router checks ran within
-   2 minutes of the power-on, they say that D2, S1 and E5 don't apply (B20).
-2. Within those 2 minutes, swap the SIM card, leaving the card in the tray
-   at step 2: step 1 waits until the router has finished starting before its
-   checks (B20), and step 3 stops at the card, saying that its profile
-   isn't enabled, and shuts the router down (E13).
+1. With the router off, take the adapter card out, disable its profile
+   and put it back. Switch the router on and, on the Connect screen, plug
+   the cable in as soon as the router's screen has started: the app
+   connects by itself (C6), and the router screen names the card as an
+   adapter card with no profile enabled (E13). If the connection came
+   within 2 minutes of the power-on, Router checks say that D2, S1 and E5
+   don't apply (B20).
+2. Right away, swap the SIM card, leaving the card in the tray at step 2.
+   If step 1 starts within 2 minutes of the power-on, it waits until the
+   router has finished starting before its checks (B20). Step 3 stops at
+   the card, saying that its profile isn't enabled, and shuts the router
+   down (E13). The phone has reached the router 73 to 263 s after a
+   power-on, so the 2 minutes may be over first. The debug log shows the
+   router's uptime in seconds after step 1's `cat /proc/uptime`; if
+   neither B20 case showed, the run's issue says so.
 3. Once the router is off, take the card out, enable its profile, put it
    back and switch the router on. Tap Try again: step 3 says in amber that
    the card is the one from before this swap, and its question names the
@@ -363,13 +370,16 @@ At the first swap of a run, also:
 In a full run, at the same place, once the router is off after swap 5:
 
 1. Take the card out, so that no card registers from here on.
-2. Before the first release only, reset the router to its factory
-   settings in GL's web interface and set its admin password again. Over
-   SSH, `/etc/churn/`, `/etc/nftables.d/churn.nft` and
-   `/overlay/churn-zeros/` are gone (F13). Connect, trusting the router's
-   new key if the reset made one, and set the router up: the setup screen
-   takes the factory IMEIs from the phone's copy (F5, F14), and the router
-   screen then warns until the next swap.
+2. In every full run and coverage pass until the first release is out,
+   even if an earlier run did it, reset the router to its factory settings
+   in GL's web interface, set its admin password again and keep its Wi-Fi
+   off (rule 4). From the second release on, skip this step: the reset
+   also resets GL's settings. Over SSH, `/etc/churn/`,
+   `/etc/nftables.d/churn.nft` and `/overlay/churn-zeros/` are gone
+   (F13). Connect, trusting the router's new key if the reset made one,
+   and set the router up: the setup screen takes the factory IMEIs from
+   the phone's copy (F5, F14), and the router screen then warns until the
+   next swap.
 3. With the router on and connected, forget the place card: the router
    screen no longer lists it. Tap Remove Churn from this router, and
    switch the router off and on: the setup screen shows the factory IMEIs
