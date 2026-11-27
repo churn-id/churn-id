@@ -695,6 +695,28 @@ class Router(private val shell: Shell) {
     fun flashLogOff() = uci(LOG_FILE) == null
 
     /**
+     * Whether the router's Wi-Fi is on, as development.md describes it: one of GL's Wi-Fi networks is on in its
+     * settings, on a radio that is on, or a wireless interface isn't down. GL's airplane mode leaves Wi-Fi as it is.
+     * It reads both, so that the debug log shows each.
+     */
+    fun wifiOn(): Boolean {
+        val output = run(WIFI_SETTINGS)
+        output.check("uci show wireless")
+        val settings = output.text.lines().filter { '=' in it }
+            .associate { it.substringBefore('=') to it.substringAfter('=').removeSurrounding("'") }
+        val radiosOff = settings.filterValues { it == "wifi-device" }.keys
+            .filter { settings["$it.disabled"] == "1" }.map { it.removePrefix("wireless.") }
+        val networkOn = settings.filterValues { it == "wifi-iface" }.keys
+            .any { settings["$it.disabled"] != "1" && settings["$it.device"] !in radiosOff }
+        val interfaces = run(WIRELESS_INTERFACES)
+        interfaces.check("iw dev")
+        // Only down was seen while Wi-Fi was off, so any other state counts as on.
+        val interfaceUp = interfaces.text.lines().map(String::trim).filter(String::isNotEmpty)
+            .any { it.substringAfter(' ', missingDelimiterValue = "") != "down" }
+        return networkOn || interfaceUp
+    }
+
+    /**
      * GL's setting for its system log's file as Churn saved it before turning the log off, which restore.sh puts back;
      * null without a copy.
      */
@@ -1251,6 +1273,28 @@ class Router(private val shell: Shell) {
          */
         internal const val DEFAULT_ROUTE_DEVICES = "ip route show table main | awk '\$1 == \"default\" { d = \"-\"; " +
             "for (i = 2; i < NF; i++) if (\$i == \"dev\") d = \$(i + 1); print d }'"
+
+        /**
+         * GL's Wi-Fi settings without the networks' names and keys: each section of `wireless` that is a radio or a
+         * network, with its type, and each one's `device` and `disabled` settings. grep exits with 1 when nothing
+         * matches, as on a router without Wi-Fi settings.
+         */
+        internal val WIFI_SETTINGS = """
+            uci -q show wireless | grep -E '^wireless\.[^.=]+(=wifi-(device|iface)|\.(device|disabled)=.*)${'$'}'
+            [ ${'$'}? -le 1 ]
+        """.trimIndent()
+
+        /**
+         * Each wireless interface that `iw dev` lists, which it does also while Wi-Fi is off, and its state from
+         * `/sys/class/net`, such as `up` or `down`, separated by a space. Only the names come back, not the networks'
+         * names and hardware addresses that `iw dev` lists with them.
+         */
+        internal val WIRELESS_INTERFACES = """
+            w=${'$'}(iw dev) || exit 1
+            for i in ${'$'}(echo "${'$'}w" | awk '${'$'}1 == "Interface" { print ${'$'}2 }'); do
+            	echo "${'$'}i ${'$'}(cat "/sys/class/net/${'$'}i/operstate")"
+            done
+        """.trimIndent()
 
         /**
          * For each socket listening on UDP port 53 or 2153, its port, its program, the program's user ID, and for

@@ -52,6 +52,7 @@ class RouterTest {
         assertEquals("228010000000001", router.slot2Imsi())
         assertEquals("8941000000000000015F", router.currentCardIccid())
         assertFalse(router.flashLogOff())
+        assertFalse(router.wifiOn())
         assertEquals(fake.bootId, router.bootId())
     }
 
@@ -106,6 +107,38 @@ class RouterTest {
         // A card locked with a PIN is in the tray all the same.
         fake.tray1Card = FakeRouter.Card("8949000077777777777F", "228010000000002", pinLocked = true)
         assertTrue(router.cardInSim1Tray())
+    }
+
+    @Test
+    fun seesWhetherWifiIsOn() {
+        // As on our Mudi 7 with Wi-Fi turned on for every band: the 6 GHz network stayed off.
+        fake.wifiNetworksOn = setOf("wifi2g", "wifi5g")
+        fake.wlanUp = true
+        assertTrue(router.wifiOn())
+        // A network on in GL's settings counts while its interface isn't up yet.
+        fake.wlanUp = false
+        assertTrue(router.wifiOn())
+        fake.wifiNetworksOn = setOf("guest6g")
+        assertTrue(router.wifiOn())
+        // Unless its radio is off.
+        fake.wifiRadiosOff = setOf("wifi2")
+        assertFalse(router.wifiOn())
+        // An interface that is up sends, whatever the settings say.
+        fake.wifiNetworksOn = emptySet()
+        fake.wlanUp = true
+        assertTrue(router.wifiOn())
+    }
+
+    @Test
+    fun keepsTheWifiNetworksNamesAndKeysFromTheDebugLog() {
+        fake.wifiNetworksOn = setOf("guest2g")
+        val log = mutableListOf<String>()
+        val logged = Router { command, input, timeout -> fake.run(command, input, timeout).also { log += it.text } }
+        assertTrue(logged.wifiOn())
+        assertEquals(2, log.size)
+        for (secret in listOf(FakeRouter.WIFI_NAME, FakeRouter.WIFI_GUEST_NAME, FakeRouter.WIFI_KEY)) {
+            assertTrue(log.none { secret in it })
+        }
     }
 
     @Test

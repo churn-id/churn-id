@@ -162,7 +162,10 @@ meets the router as a new one:
 5. Turn GL's scheduled reboot on and tap Refresh: the router screen says
    that a swap needs it off, and its swap button is off. Turn it off
    again, delete the VPN and tap Refresh: the same for the VPN. Set the
-   VPN up again from its configuration file.
+   VPN up again from its configuration file. Then turn the router's Wi-Fi
+   on in GL's web interface and tap Refresh: the router screen warns that
+   it is on, and its swap button stays on (U12, U13). Turn Wi-Fi off again
+   and tap Refresh: the warning is gone.
 6. Forget this router: the next connection shows the key again and asks
    for the password. Type a wrong one first: the app says that the router
    refused it. Then type the right one.

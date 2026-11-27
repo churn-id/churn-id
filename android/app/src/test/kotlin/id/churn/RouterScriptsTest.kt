@@ -13,6 +13,8 @@ class RouterScriptsTest {
     fun writesTheRouterScriptsForCi() {
         val scripts = mapOf(
             "default-route-devices.sh" to Router.DEFAULT_ROUTE_DEVICES,
+            "wifi-settings.sh" to Router.WIFI_SETTINGS,
+            "wireless-interfaces.sh" to Router.WIRELESS_INTERFACES,
             "dns-servers.sh" to Router.DNS_SERVERS,
             "zeros-link.sh" to Router.ZEROS_LINK,
             "zero-files.sh" to Router.ZERO_FILES,

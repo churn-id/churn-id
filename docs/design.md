@@ -677,6 +677,15 @@ goes when the swap ends or is canceled.
   get the warning. A router without a recorded version counts as version 1:
   before its first swap there is nothing to warn about, and only unreleased
   versions swapped without recording one.
+- GL's airplane mode cuts only the cellular radio, not the router's Wi-Fi
+  (verified), so a Wi-Fi turned on, even by accident, broadcasts the
+  router's network name and hardware address wherever the router goes,
+  with every card (rule 4). The router screen warns while Wi-Fi is on in
+  GL's settings or a wireless interface is up, and while the app can't
+  read either. Unlike a missing VPN, Wi-Fi doesn't stop a swap: whether it
+  does harm depends on who is in range, which only the user knows, as in a
+  remote place with no one else around. Nor does the app turn Wi-Fi off,
+  since devices may be using it.
 - The phone, not the router, keeps the place list (section 4), since whoever
   holds the router can read its files (inferred). Android keeps the app's
   data encrypted with a key tied to the screen lock, and GrapheneOS's duress

@@ -152,6 +152,8 @@ to the user, as at step 4, the leak watch included.
 | `network.wgclient1.config` | `'peer_2010'` | The tunnel's WireGuard peer, a section of `/etc/config/wireguard` | value verified, meaning inferred |
 | `wireguard.<peer>.masq` | `'1'` | The tunnel's IP Masquerading, on | value verified, meaning inferred from its name |
 | `kmwan.modem_cpu.disabled` | `'0'`; `'1'` set by Churn | Whether GL's connection check leaves out the SIM's interface `modem_cpu`. With `'0'`, it pings past Churn's firewall rules ("GL's connection check") | verified |
+| `wireless.<network>.disabled` | `'1'` off, `'0'` on | Whether one of GL's Wi-Fi networks is on, a section of type `wifi-iface` with `mode='ap'`: `wifi2g`, `wifi5g`, `wifi6g` and the guest networks `guest2g`, `guest5g`, `guest6g`. GL's airplane mode leaves them as they are | verified |
+| `wireless.<network>.device` | `'wifi0'`, `'wifi1'` or `'wifi2'` | The network's radio, a section of type `wifi-device`, whose own `disabled` stayed `'0'` with every network off | verified |
 
 The app needs the Enhanced Kill Switch on. To turn it on, it sets
 `route_policy.@default[0].enabled='0'`, deletes `network.vpn_to_main`,
@@ -214,6 +216,19 @@ Two settings the app needs are not in `uci` (verified by searching
   `/etc/config/cellular/slot_map.json`, and the modem reports it with
   `AT+QSIMTYPE="slot2"` (verified). The next section shows how to change
   it.
+
+GL's airplane mode cuts only the cellular radio and leaves the router's
+Wi-Fi as it was (verified once, after a factory reset). Turning Wi-Fi on
+for all bands set `disabled` to `'0'` for `wifi2g` and `wifi5g`, while
+`wifi6g` stayed `'1'` (verified). `iw dev` listed the wireless interface
+`wlan0` with Wi-Fi off too, so the app goes by its state in
+`/sys/class/net/wlan0/operstate`, which was `down` with Wi-Fi off and
+`up` with it on (verified). `ubus call network.wireless status` printed
+nothing. The router screen warns while a network is on in the settings,
+on a radio that isn't off, or a wireless interface isn't down. The app
+reads only the sections' types, radios and `disabled` settings and the
+interfaces' names and states, so that the debug log gets no network
+names, keys or hardware addresses.
 
 ## Churn's firewall rules
 

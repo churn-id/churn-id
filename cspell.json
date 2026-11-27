@@ -52,6 +52,7 @@
     "ICCID",
     "iccids",
     "ICCIDS",
+    "iface",
     "ifindex",
     "ifstatus",
     "imei",
@@ -98,6 +99,7 @@
     "openvpn",
     "OpenWrt",
     "openwrt",
+    "operstate",
     "oplmn",
     "Osmocom",
     "ovpnclient",
@@ -131,6 +133,7 @@
     "skuid",
     "snmp",
     "sshj",
+    "ssid",
     "sysfs",
     "sysupgrade",
     "tacs",
@@ -139,6 +142,7 @@
     "urandom",
     "userauth",
     "wgclient",
+    "wifi",
     "wlan",
     "xdev"
   ]
