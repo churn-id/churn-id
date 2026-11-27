@@ -169,8 +169,9 @@ meets the router as a new one:
 6. Forget this router: the next connection shows the key again and asks
    for the password. Type a wrong one first: the app says that the router
    refused it. Then type the right one.
-7. With the password saved, plugging the cable in on the Connect screen
-   connects by itself, once each time (C6).
+7. With the password saved, plug the cable in on the Connect screen: the
+   app connects by itself, once (C6). Swap 5 plugs it in there a second
+   time, soon after a power-on.
 
 ## 4. Swaps
 
@@ -359,9 +360,7 @@ At the first swap of a run, also:
 3. Once the router is off, take the card out, enable its profile, put it
    back and switch the router on. Tap Try again: step 3 says in amber that
    the card is the one from before this swap, and its question names the
-   place card (W10). Cancel. Once the router
-   is off, switch it on again with the same card: step 3 asks again, and
-   Continue gives the card its IMEIs again.
+   place card (W10). Continue gives the card its IMEIs again.
 4. Step 4 says that the router keeps the card with its IMEIs, and asks to
    destroy no card, since the card is still in SIM 2 (W4, W10).
 
