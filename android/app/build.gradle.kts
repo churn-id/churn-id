@@ -63,8 +63,9 @@ android {
     }
 
     packaging {
-        // Each Bouncy Castle jar carries this file.
+        // Each Bouncy Castle jar carries these files. Its license is the same in each, and the APK keeps one copy.
         resources.excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+        resources.pickFirsts += "META-INF/LICENSE.md"
     }
 }
 
