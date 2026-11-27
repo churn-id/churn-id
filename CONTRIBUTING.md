@@ -143,7 +143,8 @@ turn the files that a run shared into reports. CI's Coverage build job
 builds the coverage build, checks that its APK has JaCoCo's counters, and
 makes both reports from the unit tests, which count too with `-Pcoverage`:
 the counts of `CoverageTest` alone stand in for a run's files, and the
-report with all unit tests has to reach more.
+report with all unit tests has to reach more. Its summary shows the
+SHA-256 that a coverage pass checks its own coverage build against.
 
 ## Signing
 
