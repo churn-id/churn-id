@@ -517,10 +517,14 @@ goes when the swap ends or is canceled.
   the router shows up, and only while the app is on screen: GrapheneOS
   lets no new USB connection through while the phone is locked, and
   Android lets an app in the background start no foreground service,
-  which a step needs. Any USB Ethernet device looks the same to Android,
-  but the app checks the router's key before it sends the password. The
-  app doesn't open by itself when the router is plugged in, since every
-  swap is a procedure the user goes through in the app (section 2).
+  which a step needs. The router shows up when the cable goes in:
+  switched on or restarted with the cable already in, it has shown up only
+  once the cable was plugged in again (C6), so step 2 says to connect the
+  cable after switching the router on. Any USB Ethernet device looks the
+  same to Android, but the app checks the router's key before it sends the
+  password. The app doesn't open by itself when the router is plugged in,
+  since every swap is a procedure the user goes through in the app
+  (section 2).
 - Step 3 starts only on a router that has been switched off and on since
   the shutdown before it. Before each shutdown the app notes the boot ID,
   which Linux makes new at every power-on. Right after step 1 the router

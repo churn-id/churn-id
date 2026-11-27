@@ -110,6 +110,11 @@ other only after an uninstall, which deletes the app's data. To switch
 builds, share the debug log, uninstall the app and install the other
 build. After installing the release build, turn the debug log on.
 
+A router switched on with the cable already in doesn't show up on the
+phone (C6). After each power-on, plug the cable in once the router's
+screen no longer shows its start-up progress bar, and if the app hasn't
+connected 10 s later, pull the cable and plug it in again.
+
 ## 1. Upgrade
 
 From the second release on, where the router may be on with its card.
@@ -169,8 +174,9 @@ meets the router as a new one:
 6. Forget this router: the next connection shows the key again and asks
    for the password. Type a wrong one first: the app says that the router
    refused it. Then type the right one.
-7. With the password saved, plugging the cable in on the Connect screen
-   connects by itself, once each time (C6).
+7. With the password saved, plug the cable in on the Connect screen: the
+   app connects by itself, once (C6). Swap 5 plugs it in there a second
+   time, soon after a power-on.
 
 ## 4. Swaps
 
@@ -341,20 +347,25 @@ At the first swap of a run, also:
 
 ### Swap 5: the place card kept, and an adapter card without a profile
 
-1. With the router off, take the adapter card out, disable its profile,
-   put it back and switch the router on: the router screen names it as an
-   adapter card with no profile enabled (E13). If Router checks ran within
-   2 minutes of the power-on, they say that D2, S1 and E5 don't apply (B20).
-2. Within those 2 minutes, swap the SIM card, leaving the card in the tray
-   at step 2: step 1 waits until the router has finished starting before its
-   checks (B20), and step 3 stops at the card, saying that its profile
-   isn't enabled, and shuts the router down (E13).
+1. With the router off, take the adapter card out, disable its profile
+   and put it back. Switch the router on and, on the Connect screen, plug
+   the cable in as soon as the start-up progress bar is gone: the app
+   connects by itself (C6), and the router screen names the card as an
+   adapter card with no profile enabled (E13). If the connection came
+   within 2 minutes of the power-on, Router checks say that D2, S1 and E5
+   don't apply (B20).
+2. Right away, swap the SIM card, leaving the card in the tray at step 2.
+   If step 1 starts within 2 minutes of the power-on, it waits until the
+   router has finished starting before its checks (B20). Step 3 stops at
+   the card, saying that its profile isn't enabled, and shuts the router
+   down (E13). The phone has reached the router 73 to 263 s after a
+   power-on, so the 2 minutes may be over first. The debug log shows the
+   router's uptime in seconds after step 1's `cat /proc/uptime`; if
+   neither B20 case showed, the run's issue says so.
 3. Once the router is off, take the card out, enable its profile, put it
    back and switch the router on. Tap Try again: step 3 says in amber that
    the card is the one from before this swap, and its question names the
-   place card (W10). Cancel. Once the router
-   is off, switch it on again with the same card: step 3 asks again, and
-   Continue gives the card its IMEIs again.
+   place card (W10). Continue gives the card its IMEIs again.
 4. Step 4 says that the router keeps the card with its IMEIs, and asks to
    destroy no card, since the card is still in SIM 2 (W4, W10).
 
@@ -363,13 +374,16 @@ At the first swap of a run, also:
 In a full run, at the same place, once the router is off after swap 5:
 
 1. Take the card out, so that no card registers from here on.
-2. Before the first release only, reset the router to its factory
-   settings in GL's web interface and set its admin password again. Over
-   SSH, `/etc/churn/`, `/etc/nftables.d/churn.nft` and
-   `/overlay/churn-zeros/` are gone (F13). Connect, trusting the router's
-   new key if the reset made one, and set the router up: the setup screen
-   takes the factory IMEIs from the phone's copy (F5, F14), and the router
-   screen then warns until the next swap.
+2. In every full run and coverage pass until the first release is out,
+   even if an earlier run did it, reset the router to its factory settings
+   in GL's web interface, set its admin password again and keep its Wi-Fi
+   off (rule 4). From the second release on, skip this step: the reset
+   also resets GL's settings. Over SSH, `/etc/churn/`,
+   `/etc/nftables.d/churn.nft` and `/overlay/churn-zeros/` are gone
+   (F13). Connect, trusting the router's new key if the reset made one,
+   and set the router up: the setup screen takes the factory IMEIs from
+   the phone's copy (F5, F14), and the router screen then warns until the
+   next swap.
 3. With the router on and connected, forget the place card: the router
    screen no longer lists it. Tap Remove Churn from this router, and
    switch the router off and on: the setup screen shows the factory IMEIs

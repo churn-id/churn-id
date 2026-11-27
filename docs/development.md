@@ -23,7 +23,12 @@ these claims with the test, built or planned, for each on a real router.
   the connection over it and releases the request. A later connection
   makes a new request. While the app is on screen, a request without a
   timeout watches for the router. Android reports the network as a new
-  `Network` each time the cable goes in or the router starts (inferred).
+  `Network` each time the cable goes in (inferred). A router switched on
+  or restarted with the cable already in has shown up only once the cable
+  was plugged in again, for a cause we haven't found (C6). Once the router
+  has started, a plug-in has brought the network within 10 s about half
+  the time, and during the start-up progress bar on the router's screen,
+  from 75% on, only rarely (estimated).
 - Every socket needs Android's network permission, the cable's included.
   GrapheneOS lets the user turn it off per app (the Network permission), and
   then opening a socket fails with `EPERM` (verified on a Pixel 8). The app
