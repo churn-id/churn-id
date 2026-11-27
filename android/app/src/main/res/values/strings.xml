@@ -402,7 +402,9 @@
 
     <!-- The debug log -->
     <string name="debug_log">Debug log</string>
-    <string name="debug_log_text">Churn can keep a log of what it does on the router, so that a problem can be looked into afterwards: each command it sends and the router\'s answer, what each step did and why it stopped, and what GL\'s eSIM manager logged during steps 1 and 3. The log leaves out ICCIDs, IMSIs and IMEIs, IP and MAC addresses, the contents of files, your VPN settings and the time of day, and keeps the last three swaps. It stays on this phone until you share it, and turning it off keeps it until you delete it.</string>
+    <string name="debug_log_text">Churn can keep a log of what it does on the router, so that a problem can be looked into afterwards: each command it sends and the router\'s answer, what each step did and why it stopped, and what GL\'s eSIM manager logged during steps 1 and 3. The log leaves out ICCIDs, IMSIs and IMEIs, IP and MAC addresses, the contents of files, your VPN settings and the time of day. %1$s It stays on this phone until you share it, and turning it off keeps it until you delete it.</string>
+    <string name="debug_log_keeps_swaps">It keeps the last three swaps.</string>
+    <string name="debug_log_keeps_all">This debug build is for testing only, so it keeps every swap, up to about 20 MB.</string>
     <string name="debug_log_keep">Keep a debug log</string>
     <string name="debug_log_share">Share</string>
     <string name="debug_log_delete">Delete</string>

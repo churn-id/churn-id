@@ -760,7 +760,9 @@ card, so they show as `[built-in eSIM placeholder ICCID]` and
 `[built-in eSIM test IMSI]`. Every other card's numbers show as `…`, an
 adapter card's placeholders included. Before each section the app drops
 the oldest sections, keeping the last three swaps and at most 1,000,000
-characters.
+characters, and in debug builds every swap and at most 20,000,000
+characters. Without a swap limit, it reads the log for this only once the
+file has more bytes than that.
 
 GL's eSIM manager writes its log to `/root/esim/log.txt`, not to the
 system log, and the clearing empties it (above). Once step 1 or 3 has

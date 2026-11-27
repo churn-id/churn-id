@@ -379,7 +379,9 @@ In a full run, at the same place, once the router is off after swap 5:
   and of every IMEI that the router screen showed: none appears (P6). In a
   full run, the release build's log, shared at the end, holds the last
   three swaps it began, from swap 3's second start on, and nothing from
-  before them (design.md, section 7).
+  before them. In a coverage pass, the log shared at the end holds every
+  swap from swap 2 on, since debug builds keep every swap (design.md,
+  section 7).
 - README.md's status line and its firmware version, which
   `TESTED_PLATFORMS` lists, and the status line of design.md fit the
   release.

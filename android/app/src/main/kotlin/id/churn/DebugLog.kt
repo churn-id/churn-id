@@ -33,7 +33,7 @@ object EsimTime {
  * or step starts a section, and times count in seconds from its start. Numbers of 12 digits or more, such as ICCIDs,
  * IMSIs and IMEIs, stay out, and so do IP and MAC addresses, which can point to a card, the user's VPN account or the
  * router, and the answers to [Shell.runPrivately], such as files' contents and the time of day, so that the log ties
- * no cards to each other or to times. It keeps the last [SWAPS] swaps.
+ * no cards to each other or to times. It keeps as much as its [limits] allow.
  *
  * [watchEsim], [copyEsim] and [stopWatchingEsim] run on the thread that runs the router's jobs.
  */
@@ -41,7 +41,21 @@ class DebugLog(
     private val file: File,
     private val on: () -> Boolean,
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
+    val limits: Limits = Limits.RELEASE,
 ) {
+
+    /**
+     * How much the log keeps: the last [swaps] swaps and what came after them, or with null every swap, and at most
+     * [chars] characters.
+     */
+    data class Limits(val swaps: Int?, val chars: Int) {
+        companion object {
+            val RELEASE = Limits(swaps = 3, chars = 1_000_000)
+
+            /** For debug builds, which are for testing only, so that a whole test run fits into one log. */
+            val DEBUG = Limits(swaps = null, chars = 20_000_000)
+        }
+    }
 
     /** When the current section started, in milliseconds of [now]. */
     private var started = now()
@@ -198,14 +212,18 @@ class DebugLog(
 
     private fun seconds() = (now() - started) / 1000.0
 
-    /** Drops the oldest sections, keeping the last [SWAPS] swaps and what came after them, at most [MAX_CHARS]. */
+    /** Drops the oldest sections, keeping what [limits] allow. */
     private fun trim() {
-        if (!file.exists()) return
+        // Without a swap limit, a file of no more bytes than the characters allowed needs no reading: it has no more
+        // characters than bytes.
+        if (!file.exists() || (limits.swaps == null && file.length() <= limits.chars)) return
         val text = file.readText()
         val sections = Regex("^== ", RegexOption.MULTILINE).findAll(text).map { it.range.first }.toList()
         val swaps = sections.filter { text.startsWith("$SWAP\n", it) }
-        var from = swaps.getOrElse(swaps.size - SWAPS) { 0 }
-        if (text.length - from > MAX_CHARS) from = sections.firstOrNull { it >= text.length - MAX_CHARS } ?: text.length
+        var from = limits.swaps?.let { swaps.getOrElse(swaps.size - it) { 0 } } ?: 0
+        if (text.length - from > limits.chars) {
+            from = sections.firstOrNull { it >= text.length - limits.chars } ?: text.length
+        }
         if (from > 0) {
             val kept = File(file.path + ".new")
             kept.writeText(text.substring(from))
@@ -216,11 +234,7 @@ class DebugLog(
     companion object {
         const val FILE_NAME = "debug-log.txt"
 
-        /** The swaps the log keeps. */
-        const val SWAPS = 3
-
         private const val SWAP = "== New swap"
-        private const val MAX_CHARS = 1_000_000
         private const val MAX_COMMAND = 300
         private const val MAX_ANSWER = 2_000
 
