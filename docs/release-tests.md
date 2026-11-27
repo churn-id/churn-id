@@ -79,8 +79,10 @@ in `.txt`. Then run this from the worktree's `android/`:
 shows as missed is code that no test reaches, and the code that it alone
 shows as reached only ever runs against the unit tests' simulated router.
 Each report is a folder in `android/app/build/reports/jacoco/`, which opens
-at `html/index.html`. Zip both folders and attach them to the run's issue.
-Then `git worktree remove ~/churn-pass` deletes the worktree.
+at `html/index.html`. Zip both folders along with the files that the run
+shared, and attach the zip to the run's issue. The files hold nothing but
+JaCoCo's counts, and with them anyone can make the reports of the commit
+again. Then `git worktree remove ~/churn-pass` deletes the worktree.
 
 JaCoCo matches the counts to the classes by their checksums, so the reports
 need the classes as the coverage build compiled them: from its commit, best
