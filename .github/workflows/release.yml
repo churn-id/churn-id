@@ -34,6 +34,9 @@ jobs:
           APK_SHA256: ${{ needs.build.outputs.apk-sha256 }}
         run: echo "$APK_SHA256  apk/app-release.apk" | sha256sum --strict -c
 
+      # The notes begin with the SHA-256 that About shows, of the APK's files
+      # apart from META-INF, as the Coverage build job (build.yml) hashes the
+      # coverage build, so that users can check their install against it.
       - name: Draft a release with the signed APK
         env:
           GH_TOKEN: ${{ github.token }}
@@ -46,6 +49,11 @@ jobs:
             exit 1
           fi
           mv apk/app-release.apk "apk/churn-$version.apk"
+          dir=$(mktemp -d)
+          unzip -q -d "$dir" "apk/churn-$version.apk" -x 'META-INF/*'
+          sha256=$( (cd "$dir" && find . -type f | LC_ALL=C sort | xargs -d '\n' sha256sum) | sha256sum)
+          sha256=$(echo "${sha256%% *}" | sed 's/.\{8\}/& /g; s/ $//')
           # The tag comes into being when the draft is published.
           gh release create "v$version" --draft --target "$GITHUB_SHA" --title "Churn $version" \
+            --notes "About, in Churn's menu, shows the SHA-256 of the files in its APK apart from META-INF. For this release, it is \`$sha256\`." \
             --generate-notes "apk/churn-$version.apk"

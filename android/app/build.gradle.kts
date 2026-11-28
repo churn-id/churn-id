@@ -91,6 +91,12 @@ tasks.withType<Test>().configureEach {
     inputs.file("src/main/res/values/strings.xml")
 }
 
+// With -PapkSha256, ApkSha256Test checks that the debug build's APK has that SHA-256, as CI's Coverage build job got it
+// in the shell.
+providers.gradleProperty("apkSha256").orNull?.let { sha256 ->
+    tasks.withType<Test>().configureEach { systemProperty("apkSha256", sha256) }
+}
+
 /**
  * Gradle's JaCoCo report, of the debug build's classes from the Android Gradle plugin. It leaves out the classes that
  * the plugin generates for the resources' IDs and the build's settings, which the code only reads constants from.

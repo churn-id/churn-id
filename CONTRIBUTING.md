@@ -152,13 +152,15 @@ background ends. Like the debug log, the file is plain text, so that the
 apps that take the debug log take it too, with a line of Base64 each time,
 and it leaves out the time of day: the app drops the session info that
 JaCoCo adds, which holds when the counts began and when they were taken.
+Like every build, it shows the SHA-256 of its APK in About.
 [docs/release-tests.md](docs/release-tests.md#coverage-pass) says how to
 turn the files that a run shared into reports. CI's Coverage build job
 builds the coverage build, checks that its APK has JaCoCo's counters, and
 makes both reports from the unit tests, which count too with `-Pcoverage`:
 the counts of `CoverageTest` alone stand in for a run's files, and the
 report with all unit tests has to reach more. Its summary shows the
-SHA-256 that a coverage pass checks its own coverage build against.
+SHA-256 that a coverage pass checks its own coverage build against, and
+`ApkSha256Test` checks that the app gets the same for CI's APK.
 
 ## Signing
 
@@ -206,8 +208,9 @@ APK that the sign job signed.
    repository's Actions tab. It runs the Build workflow, whose sign job
    signs the APK, and once all of its jobs have passed, F-Droid's build
    among them, drafts a GitHub release `v<versionName>` with that APK as
-   `churn-<versionName>.apk`. For anyone but the repository's owner, the
-   workflow skips its jobs.
+   `churn-<versionName>.apk`, whose notes begin with the SHA-256 that About
+   shows for it. For anyone but the repository's owner, the workflow skips
+   its jobs.
 3. Run the release tests in [docs/release-tests.md](docs/release-tests.md)
    with that APK.
 4. Publish the draft, which creates the tag. F-Droid builds each version

@@ -188,11 +188,21 @@ class Controller(private val context: Context) {
     val cardKept get() = saved.cardKept
     val cardToDestroy get() = saved.cardToDestroy
 
+    /** The SHA-256 of the app's own APK, which names its build, or why the APK couldn't be read. */
+    val buildSha256 by lazy {
+        try {
+            apkSha256(File(context.applicationInfo.sourceDir))
+        } catch (e: IOException) {
+            "unknown, $e"
+        }
+    }
+
     /** The debug log, which the app keeps while [debugLogOn]. */
     val debugLog = DebugLog(
         File(context.filesDir, DebugLog.FILE_NAME),
         on = { saved.debugLog },
         limits = if (BuildConfig.DEBUG) DebugLog.Limits.DEBUG else DebugLog.Limits.RELEASE,
+        build = { "This build's SHA-256: $buildSha256" },
     )
 
     var debugLogOn: Boolean

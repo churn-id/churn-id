@@ -33,7 +33,8 @@ object EsimTime {
  * or step starts a section, and times count in seconds from its start. Numbers of 12 digits or more, such as ICCIDs,
  * IMSIs and IMEIs, stay out, and so do IP and MAC addresses, which can point to a card, the user's VPN account or the
  * router, and the answers to [Shell.runPrivately], such as files' contents and the time of day, so that the log ties
- * no cards to each other or to times. It keeps as much as its [limits] allow.
+ * no cards to each other or to times. It keeps as much as its [limits] allow. With [build], the first section after
+ * the app started names the build, so that the log tells which build wrote what follows.
  *
  * [watchEsim], [copyEsim] and [stopWatchingEsim] run on the thread that runs the router's jobs.
  */
@@ -42,7 +43,11 @@ class DebugLog(
     private val on: () -> Boolean,
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
     val limits: Limits = Limits.RELEASE,
+    private val build: (() -> String)? = null,
 ) {
+
+    /** Whether a section has named the build since the app started. */
+    private var buildNamed = false
 
     /**
      * How much the log keeps: the last [swaps] swaps and what came after them, or with null every swap, and at most
@@ -118,6 +123,10 @@ class DebugLog(
         if (!on()) return
         trim()
         file.appendText("\n== $title\n")
+        if (build != null && !buildNamed) {
+            buildNamed = true
+            add(build())
+        }
     }
 
     /** Adds [text] at [at] seconds into the section, by default now. */

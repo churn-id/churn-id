@@ -218,16 +218,19 @@ jobs:
               sys.exit("The report with the unit tests reaches no more than the run's counts.")
           EOF
 
-      # A coverage pass checks its coverage build against this one with the
-      # same commands (release-tests.md). They leave out META-INF, where
-      # signing can put files that differ from computer to computer.
+      # A coverage pass checks the SHA-256 that its coverage build shows in
+      # About against this one (release-tests.md), so the app's own hash of
+      # this APK has to match it. It leaves out META-INF, where signing can
+      # put files that differ from computer to computer.
       - name: Show the SHA-256 of the coverage build
         run: |
           dir=$(mktemp -d)
           unzip -q -d "$dir" app/build/outputs/apk/debug/app-debug.apk -x 'META-INF/*'
           sha256=$( (cd "$dir" && find . -type f | LC_ALL=C sort | xargs -d '\n' sha256sum) | sha256sum)
-          echo "The coverage build's SHA-256: ${sha256%% *}"
-          echo "The coverage build's SHA-256: \`${sha256%% *}\`" >> "$GITHUB_STEP_SUMMARY"
+          sha256=$(echo "${sha256%% *}" | sed 's/.\{8\}/& /g; s/ $//')
+          echo "The coverage build's SHA-256: $sha256"
+          echo "The coverage build's SHA-256: \`$sha256\`" >> "$GITHUB_STEP_SUMMARY"
+          ./gradlew --no-daemon testDebugUnitTest --tests id.churn.ApkSha256Test -Pcoverage -PapkSha256="$sha256"
 
   sign:
     name: Sign release bundle and APK

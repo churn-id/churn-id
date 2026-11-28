@@ -51,6 +51,19 @@ class DebugLogTest {
     }
 
     @Test
+    fun namesTheBuildInTheFirstSectionWhileOn() {
+        val sha256 = "6ff14120 1fb6e21a 3e12eee1 d890d750 55129c1b 7b141e6f 3aac1b3e b261f0ab"
+        val log = DebugLog(file, on = { on }, now = { fake.clock }, build = { "This build's SHA-256: $sha256" })
+        on = false
+        log.start("Router checks")
+        on = true
+        log.start("Step 1")
+        log.start("Step 2")
+
+        assertEquals("\n== Step 1\n    0.0 This build's SHA-256: $sha256\n\n== Step 2\n", file.readText())
+    }
+
+    @Test
     fun namesTheBuiltInEsimPlaceholderNumbers() {
         assertEquals(
             "+ICCID: [built-in eSIM placeholder ICCID], +CIMI: [built-in eSIM test IMSI], …, …, …, …",
