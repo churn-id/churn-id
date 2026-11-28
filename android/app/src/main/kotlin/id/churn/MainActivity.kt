@@ -10,6 +10,7 @@ import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
+import android.text.util.Linkify
 import android.view.Menu
 import android.view.Window
 import android.view.WindowManager
@@ -94,6 +95,7 @@ class MainActivity : Activity() {
             if (PowerCycleTest.AVAILABLE) menu.item(R.string.power_cycles) { controller.openPowerCycles() }
             if (LeakWatch.AVAILABLE) menu.item(R.string.leak_watch) { controller.openLeakWatch() }
         }
+        menu.item(R.string.about) { showAbout() }
         return true
     }
 
@@ -596,6 +598,16 @@ class MainActivity : Activity() {
             .putExtra(Intent.EXTRA_STREAM, DebugLogProvider.uri())
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         startActivity(Intent.createChooser(send, getString(R.string.debug_log)))
+    }
+
+    /** The app's version, links and license. A tap on a link opens it in the browser. */
+    private fun showAbout() {
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.about_title)
+            .setMessage(getString(R.string.about_text, BuildConfig.VERSION_NAME))
+            .setPositiveButton(R.string.close, null)
+            .showSecurely()
+        Linkify.addLinks(dialog.findViewById<TextView>(android.R.id.message), Linkify.WEB_URLS)
     }
 
     /** Lets the user pick an app to send the coverage file to, once the counts so far are in it. */

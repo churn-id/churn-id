@@ -404,6 +404,8 @@ In a full run, at the same place, once the router is off after swap 5:
 - README.md's status line and its firmware version, which
   `TESTED_PLATFORMS` lists, and the status line of design.md fit the
   release.
+- About, in the app's menu, shows the release's version, and its links
+  open in the browser.
 
 ## Results
 
