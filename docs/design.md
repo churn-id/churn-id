@@ -583,7 +583,10 @@ goes when the swap ends or is canceled.
   of day: its times count in seconds from the start of each job or step. It
   keeps the last three swaps, or in debug builds, which are for testing
   only, every swap up to about 20 MB, so that a whole test run fits into one
-  log.
+  log. Its first section after each start of the app names the build by
+  the SHA-256 that About shows, so that the log tells which build wrote
+  it. Every copy of a release has the same, so it says nothing about the
+  user.
 - Whenever it connects, the app checks the claims about the router that
   its commands rely on, as far as reading the router can tell (tier 1 in
   [router-tests.md](router-tests.md)), so that a firmware upgrade that

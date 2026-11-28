@@ -600,11 +600,11 @@ class MainActivity : Activity() {
         startActivity(Intent.createChooser(send, getString(R.string.debug_log)))
     }
 
-    /** The app's version, links and license. A tap on a link opens it in the browser. */
+    /** The app's version, links and license, and its build's SHA-256. A tap on a link opens it in the browser. */
     private fun showAbout() {
         val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.about_title)
-            .setMessage(getString(R.string.about_text, BuildConfig.VERSION_NAME))
+            .setMessage(getString(R.string.about_text, BuildConfig.VERSION_NAME, controller.buildSha256))
             .setPositiveButton(R.string.close, null)
             .showSecurely()
         Linkify.addLinks(dialog.findViewById<TextView>(android.R.id.message), Linkify.WEB_URLS)

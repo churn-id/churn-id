@@ -35,30 +35,24 @@ and in section 3, step 4's check that the menu has none of the debug
 build's tests.
 
 Build the coverage build in a fresh worktree of the commit, so that no
-change or leftover in your own checkout gets into it, and check it against
-CI's build of the commit. From your checkout, with the JDK set as
-[CONTRIBUTING.md](../CONTRIBUTING.md#building) says:
+change or leftover in your own checkout gets into it. From your checkout,
+with the JDK set as [CONTRIBUTING.md](../CONTRIBUTING.md#building) says:
 
 ```sh
 git worktree add ~/churn-pass <commit>
 cp android/local.properties ~/churn-pass/android/  # if you have one
 cd ~/churn-pass/android
 ./gradlew assembleDebug -Pcoverage
-dir=$(mktemp -d)
-unzip -q -d "$dir" app/build/outputs/apk/debug/app-debug.apk -x 'META-INF/*'
-(cd "$dir" && find . -type f | LC_ALL=C sort | xargs -d '\n' sha256sum) |
-  sha256sum
 ```
-
-The last command prints the SHA-256 of the APK's files apart from
-`META-INF`, where signing can put files that differ from computer to
-computer. The Build workflow's run for the commit on `main` shows the
-SHA-256 of its coverage build in its summary, under Coverage build. If the
-two differ, find out why before the pass.
 
 The app keeps adding to its coverage file until its data is deleted, so the
 pass begins with the coverage build freshly installed: first uninstall the
-app if the phone has it, without keeping its data.
+app if the phone has it, without keeping its data. Then check that the app
+is CI's build of the commit: About, in its menu, shows the SHA-256 of its
+APK's files apart from `META-INF`, where signing can put files that differ
+from computer to computer. The Build workflow's run for the commit on
+`main` shows the SHA-256 of CI's coverage build in its summary, under
+Coverage build. If the two differ, find out why before the pass.
 
 Each switch between builds still uninstalls the app and installs the
 coverage build again, since the steps after it expect the app's data to
@@ -424,8 +418,8 @@ In a full run, at the same place, once the router is off after swap 5:
 - README.md's status line and its firmware version, which
   `TESTED_PLATFORMS` lists, and the status line of design.md fit the
   release.
-- About, in the app's menu, shows the release's version, and its links
-  open in the browser.
+- About, in the app's menu, shows the release's version and the SHA-256
+  that the draft release's notes give, and its links open in the browser.
 
 ## Results
 

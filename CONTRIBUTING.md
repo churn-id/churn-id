@@ -152,6 +152,7 @@ background ends. Like the debug log, the file is plain text, so that the
 apps that take the debug log take it too, with a line of Base64 each time,
 and it leaves out the time of day: the app drops the session info that
 JaCoCo adds, which holds when the counts began and when they were taken.
+Like every build, it shows the SHA-256 of its APK in About.
 [docs/release-tests.md](docs/release-tests.md#coverage-pass) says how to
 turn the files that a run shared into reports. CI's Coverage build job
 builds the coverage build, checks that its APK has JaCoCo's counters, and
