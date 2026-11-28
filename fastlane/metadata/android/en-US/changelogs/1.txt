@@ -1,0 +1,1 @@
+First release, tested on a Mudi 7 with GL firmware 4.10.0.

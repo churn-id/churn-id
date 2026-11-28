@@ -7,10 +7,10 @@ numbers the mobile network sees). Together with the rules below, this keeps
 your mobile carrier from building a location history that leads back to
 you. Churn's website is [churn.id](https://churn.id).
 
-**Status:** in development. The app has run swaps on our Mudi 7, but parts
-of what it relies on are still untested
-([router-tests.md](docs/router-tests.md) lists them), and there is no
-release yet, so don't rely on it.
+**Status:** released, see [Installing](#installing). Before each release we
+run the tests in [release-tests.md](docs/release-tests.md) on our Mudi 7,
+but parts of what Churn relies on are still untested
+([router-tests.md](docs/router-tests.md) lists them).
 
 ## Why change SIM and IMEI?
 
@@ -113,6 +113,20 @@ work on its own.
   - a normal SIM card, or
   - an eSIM adapter card, such as [JMP's](https://jmp.chat/esim-adapter),
     containing one eSIM profile.
+
+## Installing
+
+Download the APK from the
+[latest release](https://github.com/churn-id/churn-id/releases/latest) and,
+before you install it, check that we signed it. The SHA-256 of its
+certificate must be
+
+`666acf4ae496bf6e6f69333773ccf2b1e4e9bcd6811ce9ec53e0976b0b14009b`
+
+On Linux, `apksigner verify --print-certs churn-<version>.apk` prints it as
+the certificate's SHA-256 digest; `apksigner` is a package in Debian and
+Ubuntu. Updates need no such check, since Android installs an update only
+if it has the same certificate.
 
 ## Rules
 
