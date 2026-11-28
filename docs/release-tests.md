@@ -36,7 +36,8 @@ build's tests.
 
 Build the coverage build in a fresh worktree of the commit, so that no
 change or leftover in your own checkout gets into it, and check it against
-CI's build of the commit. From your checkout:
+CI's build of the commit. From your checkout, with the JDK set as
+[CONTRIBUTING.md](../CONTRIBUTING.md#building) says:
 
 ```sh
 git worktree add ~/churn-pass <commit>
@@ -85,15 +86,11 @@ JaCoCo's counts, and with them anyone can make the reports of the commit
 again. Then `git worktree remove ~/churn-pass` deletes the worktree.
 
 JaCoCo matches the counts to the classes by their checksums, so the reports
-need the classes as the coverage build compiled them: from its commit, best
-with the same JDK. A class compiled differently shows as not run, and Gradle
-warns that the execution data doesn't match it. Gradle compiles with the JDK
-that its daemon runs on, which `org.gradle.java.home` in a
-`gradle.properties` can set apart from `JAVA_HOME`. On a Java runtime
-without `javac`, the build stops with "does not provide the required
-capabilities: [JAVA_COMPILER]". Then stop the daemon with `./gradlew --stop`
-and name a JDK, such as the `jbr` folder of Android Studio's install, with
-`-Dorg.gradle.java.home=/opt/android-studio/jbr`.
+need the classes as the coverage build compiled them: from its worktree,
+with the same JDK. A class compiled differently shows as not run, and
+Gradle warns that the execution data doesn't match it. With the JDK set in
+Gradle's own `gradle.properties`, the build and the reports use the same
+one.
 
 ## What you need
 
