@@ -5,6 +5,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -41,6 +42,15 @@ class ApkSha256Test {
     @Test
     fun changesWithAFile() {
         assertNotEquals(apkSha256(apk(files)), apkSha256(apk(files + ("classes2.dex" to "dex2, changed"))))
+    }
+
+    /** With the Gradle property `apkSha256` (build.gradle.kts), which CI's Coverage build job sets to the shell's. */
+    @Test
+    fun hashesTheDebugBuildAsTheShellDid() {
+        val sha256 = System.getProperty("apkSha256")
+        assumeTrue(sha256 != null)
+
+        assertEquals(sha256, apkSha256(File("build/outputs/apk/debug/app-debug.apk")))
     }
 
     private fun apk(files: Map<String, String>, directories: List<String> = emptyList()): File =
