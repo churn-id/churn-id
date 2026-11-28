@@ -1179,7 +1179,10 @@ without losing the app's data, including the phone's copy of the factory
 IMEIs, since Android updates an app only with an APK signed with the same
 key. A version whose build doesn't match never reaches F-Droid's users, so
 CI also builds every commit with F-Droid's tools (CONTRIBUTING.md,
-"Building").
+"Building"). About shows the SHA-256 of the files in the app's APK apart
+from `META-INF`, where the signature can go, and each GitHub release's notes
+give it, so that users can check from the phone that the app they run is
+the build of the release's commit.
 
 Because of its reach, Google Play is an obvious further choice. However,
 since Churn helps the user do something that is illegal in some

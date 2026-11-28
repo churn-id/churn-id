@@ -208,8 +208,9 @@ APK that the sign job signed.
    repository's Actions tab. It runs the Build workflow, whose sign job
    signs the APK, and once all of its jobs have passed, F-Droid's build
    among them, drafts a GitHub release `v<versionName>` with that APK as
-   `churn-<versionName>.apk`. For anyone but the repository's owner, the
-   workflow skips its jobs.
+   `churn-<versionName>.apk`, whose notes begin with the SHA-256 that About
+   shows for it. For anyone but the repository's owner, the workflow skips
+   its jobs.
 3. Run the release tests in [docs/release-tests.md](docs/release-tests.md)
    with that APK.
 4. Publish the draft, which creates the tag. F-Droid builds each version
