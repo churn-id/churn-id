@@ -5,7 +5,7 @@ router. The app guides you through the process of swapping the router SIM
 card in a privacy-preserving way, by changing the router's IMEIs (the device
 numbers the mobile network sees). Together with the rules below, this keeps
 your mobile carrier from building a location history that leads back to
-you.
+you. Churn's website is [churn.id](https://churn.id).
 
 **Status:** in development. The app has run swaps on our Mudi 7, but parts
 of what it relies on are still untested

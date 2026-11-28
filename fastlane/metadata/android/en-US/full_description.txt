@@ -1,4 +1,4 @@
-Churn is an app for the GL.iNet Mudi 7 (GL-E5800) travel router. It guides you through the process of swapping the router SIM card in a privacy-preserving way, by changing the router's IMEIs (the device numbers the mobile network sees). Together with its rules, this keeps your mobile carrier from building a location history that leads back to you.
+Churn is an Android phone app for the GL.iNet Mudi 7 (GL-E5800) travel router. It guides you through the process of swapping the router SIM card in a privacy-preserving way, by changing the router's IMEIs (the device numbers the mobile network sees). Together with its rules, this keeps your mobile carrier from building a location history that leads back to you.
 
 Whenever your phone is on, the mobile network knows roughly where it is, and your carrier records that together with your SIM and the phone's IMEI. Changing the SIM regularly cuts this history into short pieces, but they only stay apart if the IMEI changes too and no piece includes your home, your work or other places you return to. Ordinary phones can't change their IMEI, but the Mudi 7 can.
 
