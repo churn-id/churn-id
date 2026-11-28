@@ -414,4 +414,9 @@
     <string name="coverage_share">Share coverage</string>
     <string name="coverage_failed">Churn couldn\'t add the counts so far to the coverage file.\n\n%1$s</string>
     <string name="close">Close</string>
+
+    <!-- About -->
+    <string name="about">About</string>
+    <string name="about_title">About Churn</string>
+    <string name="about_text">Version %1$s\n\nChurn gives a GL.iNet Mudi 7 travel router new IMEIs with every SIM swap.\n\nWebsite:\nhttps://churn.id\n\nSource code:\nhttps://github.com/churn-id/churn-id\n\nReport a problem:\nhttps://github.com/churn-id/churn-id/issues\n\nChurn is free software under the GNU General Public License, version 3 or later, and comes without any warranty. The license:\nhttps://github.com/churn-id/churn-id/blob/main/LICENSE</string>
 </resources>
