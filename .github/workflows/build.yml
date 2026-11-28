@@ -27,6 +27,7 @@ jobs:
             **/*.md
             android/app/src/**
             fastlane/**
+            website/**
           incremental_files_only: false
 
       - uses: DavidAnson/markdownlint-cli2-action@696eb3f2509270d7b882d2aa68347bc676e7af34 # v25.0.0
@@ -37,6 +38,10 @@ jobs:
       - name: Lint the shell scripts
         if: ${{ !cancelled() }}
         run: shellcheck -S warning android/app/src/main/assets/restore.sh android/app/src/test/sh/*.sh
+
+      - name: Check that the website matches the store listing and the icon
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check-website.py
 
   bundle:
     name: Release bundle

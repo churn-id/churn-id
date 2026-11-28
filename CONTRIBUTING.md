@@ -227,6 +227,12 @@ CSS that we write by hand, with no scripts, cookies or resources from other
 servers. GitHub Pages serves it, and the Website workflow publishes it
 whenever a change to it reaches `main`.
 
+Its description is F-Droid's, word for word, and its logo is the app icon.
+The Lint job checks both, so a change to the store listing in `fastlane/`
+or to the icon goes into the website in the same pull request. The privacy
+statement in `website/privacy.html` says what the website and the app
+collect, so it changes along with either.
+
 ## History
 
 On 2026-10-01 the repository was recreated and its history rewritten. Early
