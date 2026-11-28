@@ -34,6 +34,27 @@ skips section 1, which from the second release on runs before the pass,
 and in section 3, step 4's check that the menu has none of the debug
 build's tests.
 
+Build the coverage build in a fresh worktree of the commit, so that no
+change or leftover in your own checkout gets into it, and check it against
+CI's build of the commit. From your checkout:
+
+```sh
+git worktree add ~/churn-pass <commit>
+cp android/local.properties ~/churn-pass/android/  # if you have one
+cd ~/churn-pass/android
+./gradlew assembleDebug -Pcoverage
+dir=$(mktemp -d)
+unzip -q -d "$dir" app/build/outputs/apk/debug/app-debug.apk -x 'META-INF/*'
+(cd "$dir" && find . -type f | LC_ALL=C sort | xargs -d '\n' sha256sum) |
+  sha256sum
+```
+
+The last command prints the SHA-256 of the APK's files apart from
+`META-INF`, where signing can put files that differ from computer to
+computer. The Build workflow's run for the commit on `main` shows the
+SHA-256 of its coverage build in its summary, under Coverage build. If the
+two differ, find out why before the pass.
+
 The app keeps adding to its coverage file until its data is deleted, so the
 pass begins with the coverage build freshly installed: first uninstall the
 app if the phone has it, without keeping its data.
@@ -46,8 +67,7 @@ the end of the run.
 
 For the reports, put the files that the run shared into one folder, such as
 `~/coverage`, with their names, which begin with `churn-coverage-` and end
-in `.txt`. Then run this from `android/`, on the commit of the coverage
-build:
+in `.txt`. Then run this from the worktree's `android/`:
 
 ```sh
 ./gradlew coverageReport coverageReportWithUnitTests \
@@ -59,7 +79,10 @@ build:
 shows as missed is code that no test reaches, and the code that it alone
 shows as reached only ever runs against the unit tests' simulated router.
 Each report is a folder in `android/app/build/reports/jacoco/`, which opens
-at `html/index.html`. Zip both folders and attach them to the run's issue.
+at `html/index.html`. Zip both folders along with the files that the run
+shared, and attach the zip to the run's issue. The files hold nothing but
+JaCoCo's counts, and with them anyone can make the reports of the commit
+again. Then `git worktree remove ~/churn-pass` deletes the worktree.
 
 JaCoCo matches the counts to the classes by their checksums, so the reports
 need the classes as the coverage build compiled them: from its commit, best
@@ -78,8 +101,8 @@ and name a JDK, such as the `jbr` folder of Android Studio's install, with
   the draft release that the Release workflow made
   ([CONTRIBUTING.md](../CONTRIBUTING.md#releases)). For a full run, also
   the debug build of the same commit, from `./gradlew assembleDebug`. A
-  coverage pass needs only the coverage build, from
-  `./gradlew assembleDebug -Pcoverage`.
+  coverage pass needs only the coverage build, from a worktree of the
+  commit ([Coverage pass](#coverage-pass)).
 - For the upgrade, the phone with the previous release, installed from an
   APK signed with the same key, and its data.
 - A Mudi 7 with a firmware that `TESTED_PLATFORMS` lists, with GL's
