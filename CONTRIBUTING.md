@@ -220,6 +220,13 @@ exiftool -all= -overwrite_original *.png
 on `main` is never rewritten, so we look at each file once more before the
 commit: a number left in a screenshot would stay public.
 
+## Website
+
+The website at <https://churn.id> is the folder `website/`, plain HTML and
+CSS that we write by hand, with no scripts, cookies or resources from other
+servers. GitHub Pages serves it, and the Website workflow publishes it
+whenever a change to it reaches `main`.
+
 ## History
 
 On 2026-10-01 the repository was recreated and its history rewritten. Early
