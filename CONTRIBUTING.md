@@ -71,6 +71,20 @@ cd android
 ./gradlew test bundleRelease assembleRelease
 ```
 
+Gradle compiles with the JDK that its daemon runs on, which
+`org.gradle.java.home` in a `gradle.properties` can set apart from
+`JAVA_HOME`. On a Java runtime without `javac`, the build stops with "does
+not provide the required capabilities: [JAVA_COMPILER]". To build with
+Android Studio's JDK, the `jbr` folder of its install, in every checkout
+and worktree, set it in Gradle's own `gradle.properties`. Then
+`./gradlew --stop` ends the daemons that still run on the old JDK:
+
+```sh
+echo 'org.gradle.java.home=/opt/android-studio/jbr' \
+  >> ~/.gradle/gradle.properties
+./gradlew --stop
+```
+
 CI does the same for every pull request and every push to `main`; download
 the bundle and the APK from the workflow run's artifacts
 (`churn-release-aab-unsigned` and `churn-release-apk-unsigned`, and for
